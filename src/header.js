@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./header.css";
 
 const StickyHeader = () => {
   const [showChat, setShowChat] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleSendMessage = () => {
     if (inputMessage.trim()) {
@@ -23,7 +25,7 @@ const StickyHeader = () => {
       <span className="logo-text">LakbAI</span>
     </div>
     <nav className="header-nav">
-      <a href="#" className="active">Dashboard</a>
+      <span className="active" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>Dashboard</span>
       <a href="#">Destinations</a>
       <a href="#">Bookmarks</a>
       <a href="#">My Trips</a>
@@ -34,7 +36,13 @@ const StickyHeader = () => {
       <button className="ai-assistant-btn" onClick={() => setShowChat(!showChat)}>
         <span className="dot"></span> AI Assistant
       </button>
-      <img src="/user.png" alt="User" className="user-icon" />
+      <img 
+        src="/user.png" 
+        alt="User" 
+        className="user-icon" 
+        onClick={() => navigate('/profile')}
+        style={{ cursor: 'pointer' }}
+      />
     </div>
     {showChat && (
       <div className="chatbox" style={{

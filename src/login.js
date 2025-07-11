@@ -3,13 +3,16 @@ import Header2 from "./header_2";
 import "./login.css";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "./firebase";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithRedirect, GoogleAuthProvider, FacebookAuthProvider, sendPasswordResetEmail } from "firebase/auth";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(localStorage.getItem('rememberedEmail') || "");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(!!localStorage.getItem('rememberedEmail'));
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
+  const [forgotPopup, setForgotPopup] = useState({ show: false });
+  const [resetEmail, setResetEmail] = useState("");
   const navigate = useNavigate();
 
   const handleSignupClick = () => {
@@ -20,6 +23,14 @@ const Login = () => {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      
+      // Handle remember me
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+      
       navigate("/dashboard"); // Redirect to dashboard or home page
     } catch (err) {
       let errorMessage = "Login failed. Please try again.";
@@ -37,8 +48,7 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      navigate("/dashboard");
+      await signInWithRedirect(auth, provider);
     } catch (err) {
       setPopup({ show: true, type: "error", message: "Google login failed. Please try again." });
     }
@@ -47,8 +57,7 @@ const Login = () => {
   const handleFacebookLogin = async () => {
     try {
       const provider = new FacebookAuthProvider();
-      await signInWithPopup(auth, provider);
-      navigate("/dashboard");
+      await signInWithRedirect(auth, provider);
     } catch (err) {
       setPopup({ show: true, type: "error", message: "Facebook login failed. Please try again." });
     }
@@ -56,6 +65,37 @@ const Login = () => {
 
   const handleClosePopup = () => {
     setPopup({ show: false, type: "", message: "" });
+  };
+
+  const handleForgotPassword = () => {
+    setForgotPopup({ show: true });
+    setResetEmail("");
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setForgotPopup({ show: false });
+      setPopup({ 
+        show: true, 
+        type: "success", 
+        message: "Password reset email sent! Check your inbox and follow the instructions." 
+      });
+    } catch (err) {
+      let errorMessage = "Failed to send reset email. Please try again.";
+      if (err.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email address.";
+      } else if (err.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address.";
+      }
+      setPopup({ show: true, type: "error", message: errorMessage });
+    }
+  };
+
+  const handleCloseForgotPopup = () => {
+    setForgotPopup({ show: false });
+    setResetEmail("");
   };
 
   return (
@@ -106,9 +146,13 @@ const Login = () => {
             </label>
             <div className="login-options">
               <label className="login-remember">
-                <input type="checkbox" /> Remember me
+                <input 
+                  type="checkbox" 
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                /> Remember me
               </label>
-              <a href="#" className="login-forgot">Forgot password?</a>
+              <span className="login-forgot" onClick={handleForgotPassword} style={{ cursor: "pointer" }}>Forgot password?</span>
             </div>
             <button className="login-btn" type="submit">
               Sign In to LakbAI
@@ -139,6 +183,70 @@ const Login = () => {
           </div>
         </div>
       </div>
+      {forgotPopup.show && (
+        <div className="login-popup-overlay" style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          animation: "fadeInOverlay 0.3s ease-out"
+        }}>
+          <div className="login-popup" style={{
+            backgroundColor: "white",
+            padding: "30px",
+            borderRadius: "12px",
+            textAlign: "center",
+            maxWidth: "400px",
+            width: "90%",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)",
+            animation: "fadeInPopup 0.3s ease-out"
+          }}>
+            <img
+              src="/coconut-tree.png"
+              alt="Reset Password"
+              style={{ width: 48, marginBottom: 12 }}
+            />
+            <h3 style={{ margin: 0, color: "#3b5fff" }}>
+              Reset Password
+            </h3>
+            <p style={{ margin: "8px 0 16px 0" }}>Enter your email address and we'll send you a link to reset your password.</p>
+            <form onSubmit={handlePasswordReset}>
+              <input
+                type="email"
+                className="login-input"
+                placeholder="Enter your email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                style={{ marginBottom: 16, width: "100%", boxSizing: "border-box" }}
+                required
+              />
+              <div style={{ display: "flex", gap: 8, width: "100%" }}>
+                <button 
+                  type="button"
+                  className="login-btn" 
+                  onClick={handleCloseForgotPopup} 
+                  style={{ flex: 1, backgroundColor: "#ccc", color: "#333" }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="login-btn" 
+                  style={{ flex: 1 }}
+                >
+                  Send Reset Link
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {popup.show && (
         <div className="login-popup-overlay" style={{
           position: "fixed",
@@ -162,12 +270,12 @@ const Login = () => {
             boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)"
           }}>
             <img
-              src="/warning(1).png"
-              alt="Error"
+              src={popup.type === "success" ? "/coconut-tree.png" : "/warning(1).png"}
+              alt={popup.type === "success" ? "Success" : "Error"}
               style={{ width: 48, marginBottom: 12 }}
             />
-            <h3 style={{ margin: 0, color: "#b97b7b" }}>
-              Error
+            <h3 style={{ margin: 0, color: popup.type === "success" ? "#3b5fff" : "#b97b7b" }}>
+              {popup.type === "success" ? "Success!" : "Error"}
             </h3>
             <p style={{ margin: "8px 0 16px 0" }}>{popup.message}</p>
             <button 
