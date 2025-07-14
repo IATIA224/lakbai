@@ -1,12 +1,31 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./header.css";
+
+const navTabs = [
+  { label: "Dashboard", path: "/dashboard" },
+  { label: "Destinations", path: "/destinations" },
+  { label: "Bookmarks", path: "/bookmark" },
+  { label: "My Trips", path: "/mytrips" },
+  { label: "Community", path: "/community" },
+  { label: "Admin", path: "/admin" }
+];
 
 const StickyHeader = () => {
   const [showChat, setShowChat] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("Dashboard");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Sync activeTab with current route
+  useEffect(() => {
+    const currentTab = navTabs.find(tab => tab.path === location.pathname);
+    if (currentTab) {
+      setActiveTab(currentTab.label);
+    }
+  }, [location.pathname]);
 
   const handleSendMessage = () => {
     if (inputMessage.trim()) {
@@ -18,6 +37,11 @@ const StickyHeader = () => {
     }
   };
 
+  const handleTabClick = (tab) => {
+    navigate(tab.path);
+    // activeTab will update automatically via useEffect
+  };
+
   return (
   <header className="sticky-header">
     <div className="header-left">
@@ -25,12 +49,22 @@ const StickyHeader = () => {
       <span className="logo-text">LakbAI</span>
     </div>
     <nav className="header-nav">
-      <span className="active" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>Dashboard</span>
-      <a href="#">Destinations</a>
-      <a href="#">Bookmarks</a>
-      <a href="#">My Trips</a>
-      <a href="#">Community</a>
-      <a href="#">Admin</a>
+      {navTabs.map(tab => (
+        <span
+          key={tab.label}
+          onClick={() => handleTabClick(tab)}
+          style={{
+            cursor: 'pointer',
+            borderBottom: activeTab === tab.label ? '3px solid #2962ff' : 'none',
+            color: activeTab === tab.label ? '#2962ff' : 'inherit',
+            paddingBottom: '4px',
+            marginRight: '18px',
+            fontWeight: activeTab === tab.label ? 'bold' : 'normal'
+          }}
+        >
+          {tab.label}
+        </span>
+      ))}
     </nav>
     <div className="header-right">
       <button className="ai-assistant-btn" onClick={() => setShowChat(!showChat)}>
