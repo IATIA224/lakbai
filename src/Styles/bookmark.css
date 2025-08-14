@@ -1,0 +1,45 @@
+.App {
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: left;
+  padding: 40px;
+  background-color: #fff;
+}
+
+.bookmark-section {
+  text-align: center;
+  width: 400px;
+}
+
+.bookmark-title {
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+.bookmark-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+  padding: 30px 20px;
+}
+
+.pin-icon {
+  font-size: 40px;
+  margin-bottom: 10px;
+}
+
+.explore-btn {
+  margin-top: 15px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.explore-btn:hover {
+  background-color: #004d99;
+}
