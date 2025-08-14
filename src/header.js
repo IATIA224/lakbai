@@ -4,7 +4,7 @@ import "./header.css";
 
 const navTabs = [
   { label: "Dashboard", path: "/dashboard" },
-  { label: "Destinations", path: "/destinations" },
+  { label: "Destinations", path: "/bookmarks2" }, // <-- Redirect Destinations to /bookmarks2
   { label: "Bookmarks", path: "/bookmark" },
   { label: "My Trips", path: "/mytrips" },
   { label: "Community", path: "/community" },
