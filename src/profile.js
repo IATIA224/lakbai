@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import StickyHeader from './header';
+import EditProfile from './EditProfile';
+import { doc, getDoc } from "firebase/firestore";
+import { db, auth } from "./firebase";
 import './profile.css';
 
 const activities = [
@@ -26,30 +29,84 @@ const gallery = [
 ];
 
 const Profile = () => {
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profile, setProfile] = useState({
+    name: "",
+    bio: "",
+    profilePicture: "/user.png",
+    likes: [],
+    dislikes: [],
+    joined: "",
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      // Get Firestore profile
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      let data = docSnap.exists() ? docSnap.data() : {};
+      // Get joined date from Auth
+      const joined = user.metadata?.creationTime
+        ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+        : "";
+      setProfile({
+        name: data.name || user.displayName || "",
+        bio: data.bio || "",
+        profilePicture: data.profilePicture || "/user.png",
+        likes: Array.isArray(data.likes) ? data.likes : [],
+        dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
+        joined,
+      });
+    };
+    fetchProfile();
+  }, [showEditProfile]);
+
   return (
     <>
       <StickyHeader />
       <div className="profile-main">
         {/* Profile Header */}
         <div className="profile-header">
-          <div className="profile-avatar">JD</div>
+          <div className="profile-avatar">
+            <img
+              src={profile.profilePicture || "/user.png"}
+              alt="Profile"
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: "50%",
+                objectFit: "cover",
+                background: "#f3f4f6",
+                border: "3px solid #e5e7eb"
+              }}
+            />
+          </div>
           <div className="profile-info">
             <div className="profile-title-row">
-              <h2>Juan Dela Cruz</h2>
-              <button className="profile-edit-btn">Edit Profile</button>
+              <h2>{profile.name || "Your Name"}</h2>
+              <button
+                className="profile-edit-btn"
+                onClick={() => setShowEditProfile(true)}
+              >
+                Edit Profile
+              </button>
             </div>
             <div className="profile-meta">
               <span>🌟 Explorer</span>
-              <span>• 📍 Manila, Philippines</span>
-              <span>• 🎂 Joined March 2023</span>
+              <span>• 🎂 Joined {profile.joined}</span>
             </div>
             <div className="profile-badges">
-              <span className="badge badge-yellow">🏝️ Island Hopper</span>
-              <span className="badge badge-blue">📸 Photo Master</span>
-              <span className="badge badge-purple">🗺️ Route Planner</span>
+              {profile.likes.map(like => (
+                <span className="badge badge-green" key={like}>👍 {like}</span>
+              ))}
+              {profile.dislikes.map(dislike => (
+                <span className="badge badge-red" key={dislike}>👎 {dislike}</span>
+              ))}
             </div>
             <div className="profile-bio">
-              "Passionate about exploring the hidden gems of the Philippines. Love sharing travel tips and discovering new adventures with fellow travelers!"
+              {profile.bio || "No bio yet."}
             </div>
           </div>
         </div>
@@ -135,6 +192,24 @@ const Profile = () => {
           </div>
         </div>
       </div>
+      {showEditProfile && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(44, 44, 84, 0.25)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          <EditProfile onClose={() => setShowEditProfile(false)} />
+        </div>
+      )}
     </>
   );
 };
