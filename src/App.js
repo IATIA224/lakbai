@@ -7,7 +7,6 @@ import Profile from './profile';
 import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2'; // Import your bookmarks2 component
 import StickyHeader from './header';
-import logo from './logo.svg';
 import './App.css';
 
 function App() {
@@ -27,3 +26,14 @@ function App() {
 }
 
 export default App;
+
+// In your Profile component file, make the following change
+// Replace
+// <a href="#" className="profile-gallery-link">View All (156)</a>
+// With
+// <button className="profile-gallery-link" onClick={() => {/* your handler */}}>View All (156)</button>
+
+// Also, replace
+// <a href="#">Some text</a>
+// With
+// <button type="button">Some text</button>
