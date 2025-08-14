@@ -1,9 +1,43 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header2 from "./header_2";
 import "./login.css";
 import { Link, useNavigate } from "react-router-dom";
-import { auth } from "./firebase";
-import { signInWithEmailAndPassword, signInWithRedirect, GoogleAuthProvider, FacebookAuthProvider, sendPasswordResetEmail } from "firebase/auth";
+import { auth, db } from "./firebase";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, sendPasswordResetEmail, getRedirectResult } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+// Function to save user data to Firestore
+const saveUserToFirestore = async (user) => {
+  if (!user) return;
+  
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    
+    // Always create or update user data
+    const userData = {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || '',
+      photoURL: user.photoURL || '',
+      phoneNumber: user.phoneNumber || '',
+      providerId: user.providerData[0]?.providerId || 'email',
+      lastLogin: new Date()
+    };
+    
+    // Check if user document already exists
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      // Add creation date for new users
+      userData.createdAt = new Date();
+    }
+    
+    // Set the document with merge option to ensure it's created if it doesn't exist
+    await setDoc(userRef, userData, { merge: true });
+    console.log("User data saved successfully:", user.uid);
+  } catch (error) {
+    console.error("Error saving user data:", error);
+  }
+};
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,7 +47,40 @@ const Login = () => {
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [forgotPopup, setForgotPopup] = useState({ show: false });
   const [resetEmail, setResetEmail] = useState("");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
+  // Handle redirect result from social logins
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        setLoading(true);
+        const result = await getRedirectResult(auth);
+        
+        if (result) {
+          // User successfully authenticated with a provider
+          const user = result.user;
+          console.log("Social login successful:", user.email);
+          
+          // Save user data to Firestore and wait for it to finish
+          await saveUserToFirestore(user);
+          
+          // Use SPA navigation
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error("Authentication error:", error);
+        setPopup({ 
+          show: true, 
+          type: "error", 
+          message: "Authentication failed. Please try again." 
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    handleRedirectResult();
+  }, [navigate]);
 
   const handleSignupClick = () => {
     navigate("/register");
@@ -22,7 +89,10 @@ const Login = () => {
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Save user data to Firestore
+      await saveUserToFirestore(userCredential.user);
       
       // Handle remember me
       if (rememberMe) {
@@ -31,7 +101,10 @@ const Login = () => {
         localStorage.removeItem('rememberedEmail');
       }
       
-      navigate("/dashboard"); // Redirect to dashboard or home page
+      // Use window.location.href for consistent navigation behavior
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
     } catch (err) {
       let errorMessage = "Login failed. Please try again.";
       if (err.code === "auth/user-not-found") {
@@ -48,7 +121,13 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
+      provider.addScope('profile');
+      provider.addScope('email');
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      await saveUserToFirestore(user);
+      navigate("/dashboard");
     } catch (err) {
       setPopup({ show: true, type: "error", message: "Google login failed. Please try again." });
     }
@@ -57,7 +136,13 @@ const Login = () => {
   const handleFacebookLogin = async () => {
     try {
       const provider = new FacebookAuthProvider();
-      await signInWithRedirect(auth, provider);
+      provider.addScope('email');
+      provider.addScope('public_profile');
+      provider.setCustomParameters({ display: 'popup' });
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      await saveUserToFirestore(user);
+      navigate("/dashboard");
     } catch (err) {
       setPopup({ show: true, type: "error", message: "Facebook login failed. Please try again." });
     }
@@ -101,6 +186,14 @@ const Login = () => {
   return (
     <>
       <Header2 />
+      {loading ? (
+        <div className="login-bg" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <img src="/coconut-tree.png" alt="Loading" className="login-logo" style={{ width: 60, height: 60 }} />
+            <p>Loading...</p>
+          </div>
+        </div>
+      ) : (
       <div className="login-bg">
         <div className="login-container">
           <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
@@ -183,6 +276,7 @@ const Login = () => {
           </div>
         </div>
       </div>
+      )}
       {forgotPopup.show && (
         <div className="login-popup-overlay" style={{
           position: "fixed",

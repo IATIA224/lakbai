@@ -1,0 +1,224 @@
+
+.info-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100;
+}
+
+.info-modal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(44, 62, 80, 0.18);
+  max-width: 420px;
+  width: 95vw;
+  padding: 0 0 24px 0;
+  animation: fadeInPopup 0.3s ease;
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+.info-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, #7c3aed 60%, #5b21b6 100%);
+  color: #fff;
+  border-radius: 14px 14px 0 0;
+  padding: 18px 24px 14px 24px;
+}
+
+.info-modal-title {
+  font-size: 1.18rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.info-modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  font-weight: 700;
+  margin-left: 12px;
+  transition: color 0.2s;
+}
+.info-modal-close:hover {
+  color: #e0e0e0;
+}
+
+.info-modal-content {
+  padding: 24px 28px 0 28px;
+}
+
+.info-alert {
+  display: flex;
+  align-items: center;
+  background: #f1f5fb;
+  color: #3b5fff;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 0.98rem;
+  gap: 8px;
+}
+.info-alert-icon {
+  font-size: 1.2rem;
+  margin-right: 4px;
+}
+
+.info-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.info-label {
+  font-size: 0.97rem;
+  color: #222;
+  margin-bottom: 2px;
+}
+.info-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 1rem;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  background: #fafbfc;
+  transition: border 0.2s;
+}
+.info-input:focus {
+  border: 1.5px solid #7c3aed;
+  outline: none;
+}
+
+.info-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.info-remember {
+  font-size: 0.96rem;
+  color: #444;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.info-forgot {
+  font-size: 0.96rem;
+  color: #3b5fff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.info-btn {
+  background: #3b5fff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  transition: background 0.2s;
+}
+.info-btn:disabled {
+  background: #bfcfff;
+  cursor: not-allowed;
+}
+.info-btn:hover:not(:disabled) {
+  background: #5b21b6;
+}
+
+.info-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #888;
+  font-size: 0.97rem;
+  margin: 18px 0 10px 0;
+}
+.info-divider span {
+  flex: 1;
+  border-bottom: 1px solid #e5e7eb;
+  margin: 0 8px;
+  line-height: 0.1em;
+}
+
+.info-socials {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.info-social-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  color: #222;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: border 0.2s, background 0.2s;
+}
+.info-social-btn.info-fb {
+  border-color: #3b5998;
+}
+.info-social-btn.info-google {
+  border-color: #ea4335;
+}
+.info-social-btn:hover {
+  background: #f5f5ff;
+}
+.info-social-icon-wrapper {
+  display: flex;
+  align-items: center;
+}
+.info-social-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.info-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2200;
+}
+.info-popup {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: fadeInPopup 0.3s ease-out;
+}
+
+@keyframes fadeInPopup {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}

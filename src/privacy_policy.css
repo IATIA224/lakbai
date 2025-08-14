@@ -1,0 +1,128 @@
+
+.privacy-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.privacy-modal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(44, 62, 80, 0.18);
+  max-width: 700px;
+  width: 98vw;
+  min-width: 340px;
+  padding: 0 0 18px 0;
+  animation: fadeInPopup 0.3s ease;
+  font-family: 'Inter', Arial, sans-serif;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.privacy-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #7c3aed;
+  color: #fff;
+  border-radius: 14px 14px 0 0;
+  padding: 18px 24px 14px 24px;
+}
+
+.privacy-modal-title {
+  font-size: 1.18rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.privacy-modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  font-weight: 700;
+  margin-left: 12px;
+  transition: color 0.2s;
+}
+.privacy-modal-close:hover {
+  color: #e0e0e0;
+}
+
+.privacy-modal-content {
+  padding: 24px 28px 0 28px;
+}
+
+.privacy-section {
+  margin-bottom: 18px;
+}
+.privacy-section b {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1.05rem;
+  color: #222;
+}
+.privacy-section p {
+  margin: 0 0 0 0;
+  color: #444;
+  font-size: 0.97rem;
+  line-height: 1.5;
+}
+
+.privacy-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 18px 0 18px 0;
+}
+
+.privacy-preferences-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.privacy-checkbox {
+  display: flex;
+  align-items: center;
+  font-size: 0.98rem;
+  color: #333;
+  gap: 8px;
+  cursor: pointer;
+}
+.privacy-checkbox input[type="checkbox"] {
+  accent-color: #7c3aed;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+}
+
+.privacy-save-btn {
+  margin-top: 18px;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
+}
+.privacy-save-btn:hover {
+  background: #5b21b6;
+}
+
+@keyframes fadeInPopup {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}

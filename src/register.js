@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PrivacyPolicy from "./privacy_policy";
 import "./register.css";
 import Header2 from "./header_2";
 import { Link, useNavigate } from "react-router-dom";
@@ -51,6 +52,7 @@ const Register = () => {
   const [phone, setPhone] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [otpPopup, setOtpPopup] = useState({ show: false, otp: "", userCredential: null });
   const [enteredOtp, setEnteredOtp] = useState("");
   const navigate = useNavigate();
@@ -156,6 +158,7 @@ const Register = () => {
   return (
     <>
       <Header2 />
+      {showPrivacy && <PrivacyPolicy onClose={() => setShowPrivacy(false)} />}
       <div className="register-bg">
         <div className="register-container minimized">
           <img src="/star.png" alt="Join LakbAI" className="register-logo" />
@@ -284,8 +287,8 @@ const Register = () => {
                 />
                 <span>
                   I agree to the{" "}
-                  <a href="#" className="register-link">Terms of Service</a> and{" "}
-                  <a href="#" className="register-link">Privacy Policy</a>
+                  <a href="#" className="register-link" onClick={e => { e.preventDefault(); window.tempInfoDelete = window.tempInfoDelete || (() => { const root = document.createElement('div'); document.body.appendChild(root); import('./info_delete').then(({ default: InfoDelete }) => { const close = () => { root.remove(); window.tempInfoDelete = null; }; import('react-dom').then(ReactDOM => { ReactDOM.createRoot(root).render(<InfoDelete onClose={close} />); }); }); }); window.tempInfoDelete(); }}>Terms of Service</a> and{" "}
+                  <a href="#" className="register-link" onClick={e => { e.preventDefault(); setShowPrivacy(true); }}>Privacy Policy</a>
                 </span>
               </label>
             </div>
