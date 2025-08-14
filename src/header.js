@@ -44,6 +44,7 @@ const StickyHeader = () => {
   };
 
   return (
+<<<<<<< HEAD
     <>
       <header className="sticky-header">
         <div className="header-left">
@@ -51,22 +52,12 @@ const StickyHeader = () => {
           <span className="logo-text">LakbAI</span>
         </div>
         <nav className="header-nav">
-          {navTabs.map(tab => (
-            <span
-              key={tab.label}
-              onClick={() => handleTabClick(tab)}
-              style={{
-                cursor: 'pointer',
-                borderBottom: activeTab === tab.label ? '3px solid #2962ff' : 'none',
-                color: activeTab === tab.label ? '#2962ff' : 'inherit',
-                paddingBottom: '4px',
-                marginRight: '18px',
-                fontWeight: activeTab === tab.label ? 'bold' : 'normal'
-              }}
-            >
-              {tab.label}
-            </span>
-          ))}
+          <span className="active" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>Dashboard</span>
+          <a href="#">Destinations</a>
+          <a href="#">Bookmarks</a>
+          <a href="#">My Trips</a>
+          <a href="#">Community</a>
+          <a href="#">Admin</a>
         </nav>
         <div className="header-right">
           <button className="ai-assistant-btn" onClick={() => setShowChat(!showChat)}>
@@ -100,6 +91,71 @@ const StickyHeader = () => {
           }}
         >
           <div
+=======
+  <header className="sticky-header">
+    <div className="header-left">
+      <img src="/coconut-tree.png" alt="LakbAI Logo" className="logo-icon" />
+      <span className="logo-text">LakbAI</span>
+    </div>
+    <nav className="header-nav">
+      {navTabs.map(tab => (
+        <span
+          key={tab.label}
+          onClick={() => handleTabClick(tab)}
+          style={{
+            cursor: 'pointer',
+            borderBottom: activeTab === tab.label ? '3px solid #2962ff' : 'none',
+            color: activeTab === tab.label ? '#2962ff' : 'inherit',
+            paddingBottom: '4px',
+            marginRight: '18px',
+            fontWeight: activeTab === tab.label ? 'bold' : 'normal'
+          }}
+        >
+          {tab.label}
+        </span>
+      ))}
+    </nav>
+    <div className="header-right">
+      <button className="ai-assistant-btn" onClick={() => setShowChat(!showChat)}>
+        <span className="dot"></span> AI Assistant
+      </button>
+      <img 
+        src="/user.png" 
+        alt="User" 
+        className="user-icon" 
+        onClick={() => navigate('/profile')}
+        style={{ cursor: 'pointer' }}
+      />
+    </div>
+    {showChat && (
+      <div className="chatbox" style={{
+        position: 'fixed',
+        bottom: '20px',
+        left: '20px',
+        width: '300px',
+        height: '400px',
+        backgroundColor: 'white',
+        border: '1px solid #ddd',
+        borderRadius: '12px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <div style={{
+          padding: '15px',
+          borderBottom: '1px solid #eee',
+          backgroundColor: '#6c63ff',
+          color: 'white',
+          borderRadius: '12px 12px 0 0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontWeight: 'bold' }}>AI Assistant</span>
+          <button 
+            onClick={() => setShowChat(false)}
+>>>>>>> origin/banog
             style={{
               padding: "15px",
               borderBottom: "1px solid #eee",
