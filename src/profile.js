@@ -99,10 +99,14 @@ const Profile = () => {
             </div>
             <div className="profile-badges">
               {profile.likes.map(like => (
-                <span className="badge badge-green" key={like}>👍 {like}</span>
+                <div className="profile-interest profile-interest-like" key={like}>
+                  <span className="profile-interest-label">{like}</span>
+                </div>
               ))}
               {profile.dislikes.map(dislike => (
-                <span className="badge badge-red" key={dislike}>👎 {dislike}</span>
+                <div className="profile-interest profile-interest-dislike" key={dislike}>
+                  <span className="profile-interest-label">{dislike}</span>
+                </div>
               ))}
             </div>
             <div className="profile-bio">
