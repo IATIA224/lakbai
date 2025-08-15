@@ -25,20 +25,12 @@ function getPasswordStrength(password) {
 
 // Email format checker
 function isValidEmail(email) {
-  // Simple RFC 5322 compliant regex
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 // Generate 6-digit OTP
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Send OTP email (mock function - replace with actual email service)
-function sendOTPEmail(email, otp) {
-  console.log(`Sending OTP ${otp} to ${email}`);
-  // In production, integrate with email service like SendGrid, AWS SES, etc.
-  return Promise.resolve();
 }
 
 const Register = () => {
@@ -53,13 +45,10 @@ const Register = () => {
   const [agreed, setAgreed] = useState(false);
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [showPrivacy, setShowPrivacy] = useState(false);
-  const [otpPopup, setOtpPopup] = useState({ show: false, otp: "", userCredential: null });
-  const [enteredOtp, setEnteredOtp] = useState("");
   const navigate = useNavigate();
 
   const strength = getPasswordStrength(password);
 
-  // Only allow numbers and "+" in phone
   const handlePhoneChange = (e) => {
     const value = e.target.value.replace(/[^\d+]/g, "");
     setPhone(value);
@@ -67,6 +56,7 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     // Validation
     if (!agreed) {
       setPopup({ show: true, type: "error", message: "You must agree to the Terms of Service and Privacy Policy." });
@@ -92,16 +82,28 @@ const Register = () => {
       setPopup({ show: true, type: "error", message: "Please enter a valid phone number." });
       return;
     }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Generate and send OTP
-      const otp = generateOTP();
-      await sendOTPEmail(email, otp);
-      
-      // Show OTP verification popup
-      setOtpPopup({ show: true, otp, userCredential });
-      
+
+      // Save extra data to Firestore
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        firstName,
+        lastName,
+        phone,
+        email
+      });
+
+      // Send email verification
+      await sendEmailVerification(userCredential.user);
+
+      // Show success popup immediately
+      setPopup({
+        show: true,
+        type: "success",
+        message: "Registration successful! Please check your email and verify your account before logging in."
+      });
+
     } catch (err) {
       let errorMessage = err.message;
       if (err.code === "auth/email-already-in-use") {
@@ -112,47 +114,11 @@ const Register = () => {
   };
 
   const handleClosePopup = () => {
+    const wasSuccess = popup.type === "success";
     setPopup({ show: false, type: "", message: "" });
-    if (popup.type === "success") {
-      navigate("/"); // Redirect to login after successful registration
+    if (wasSuccess) {
+      navigate("/"); // Redirect to login page after success
     }
-  };
-
-  const handleOtpVerification = async () => {
-    if (enteredOtp === otpPopup.otp) {
-      try {
-        // Try to save extra data to Firestore (ignore permission errors)
-        try {
-          await setDoc(doc(db, "users", otpPopup.userCredential.user.uid), {
-            firstName,
-            lastName,
-            phone,
-            email
-          });
-        } catch (firestoreErr) {
-          console.warn("Could not save user data to Firestore:", firestoreErr.message);
-        }
-        
-        // Send email verification
-        await sendEmailVerification(otpPopup.userCredential.user);
-        
-        setOtpPopup({ show: false, otp: "", userCredential: null });
-        setPopup({
-          show: true,
-          type: "success",
-          message: "Registration successful! Please check your email and verify your account before logging in."
-        });
-      } catch (err) {
-        setPopup({ show: true, type: "error", message: "Registration failed. Please try again." });
-      }
-    } else {
-      setPopup({ show: true, type: "error", message: "Invalid OTP. Please try again." });
-    }
-  };
-
-  const handleCloseOtpPopup = () => {
-    setOtpPopup({ show: false, otp: "", userCredential: null });
-    setEnteredOtp("");
   };
 
   return (
@@ -309,49 +275,6 @@ const Register = () => {
           </div>
         </div>
       </div>
-      {otpPopup.show && (
-        <div className="register-popup-overlay">
-          <div className="register-popup">
-            <img
-              src="/star.png"
-              alt="OTP Verification"
-              style={{ width: 48, marginBottom: 12 }}
-            />
-            <h3 style={{ margin: 0, color: "#3b5fff" }}>
-              Verify Your Email
-            </h3>
-            <p style={{ margin: "8px 0 16px 0", textAlign: "center" }}>
-              We've sent a 6-digit code to {email}. Please enter it below to complete your registration.
-            </p>
-            <input
-              type="text"
-              className="register-input"
-              placeholder="Enter 6-digit code"
-              value={enteredOtp}
-              onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              style={{ marginBottom: 16, textAlign: "center", fontSize: 18, letterSpacing: 2 }}
-              maxLength={6}
-            />
-            <div style={{ display: "flex", gap: 8, width: "100%" }}>
-              <button 
-                className="register-btn" 
-                onClick={handleCloseOtpPopup} 
-                style={{ flex: 1, backgroundColor: "#ccc", color: "#333" }}
-              >
-                Cancel
-              </button>
-              <button 
-                className="register-btn" 
-                onClick={handleOtpVerification} 
-                style={{ flex: 1 }}
-                disabled={enteredOtp.length !== 6}
-              >
-                Verify
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {popup.show && (
         <div className="register-popup-overlay">
           <div className="register-popup">

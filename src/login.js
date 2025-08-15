@@ -8,30 +8,34 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 // Function to save user data to Firestore
 const saveUserToFirestore = async (user) => {
   if (!user) return;
-  
+
   try {
     const userRef = doc(db, 'users', user.uid);
-    
+
     // Always create or update user data
     const userData = {
       uid: user.uid,
       email: user.email,
-      displayName: user.displayName || '',
+      displayName: user.displayName || '', // <-- user's name from Google/Facebook
       photoURL: user.photoURL || '',
       phoneNumber: user.phoneNumber || '',
       providerId: user.providerData[0]?.providerId || 'email',
       lastLogin: new Date()
     };
-    
+
+    // Save only name and email for Google/Facebook
+    if (user.providerData[0]?.providerId === "google.com" || user.providerData[0]?.providerId === "facebook.com") {
+      userData.name = user.displayName || '';
+      userData.email = user.email || '';
+    }
+
     // Check if user document already exists
     const userSnap = await getDoc(userRef);
-    
+
     if (!userSnap.exists()) {
-      // Add creation date for new users
       userData.createdAt = new Date();
     }
-    
-    // Set the document with merge option to ensure it's created if it doesn't exist
+
     await setDoc(userRef, userData, { merge: true });
     console.log("User data saved successfully:", user.uid);
   } catch (error) {

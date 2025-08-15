@@ -2,6 +2,9 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from "firebase/auth";
 import { getStorage } from "firebase/storage";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getDatabase } from "firebase/database"; // Add this import
 
 const firebaseConfig = {
   apiKey: "AIzaSyAHYtSKJ6KntJNaZhh8JJKQF4Viu50Egns",
@@ -88,3 +91,7 @@ const getCurrentUser = (timeout = 10000) => {
 };
 
 export { db, auth, storage, getCurrentUser };
+
+const rtdb = getDatabase(app); // Add this line
+
+export { db, auth, storage, getCurrentUser, rtdb };
