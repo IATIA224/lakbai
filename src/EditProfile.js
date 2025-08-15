@@ -28,7 +28,7 @@ const interestsList = [
 
 const MAX_BIO = 300;
 
-const EditProfile = ({ onClose, initialData = {} }) => {
+const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   const [photo, setPhoto] = useState(null);
   const [photoFile, setPhotoFile] = useState(null); // <-- store file
   const [name, setName] = useState(initialData.name || "");
@@ -120,6 +120,9 @@ const EditProfile = ({ onClose, initialData = {} }) => {
 
       await updateDoc(doc(db, "users", user.uid), updateData);
 
+      // Call the profile update callback to trigger achievement
+      if (onProfileUpdate) onProfileUpdate();
+
       if (onClose) onClose();
     } catch (err) {
       alert("Failed to save profile: " + err.message);
@@ -198,7 +201,7 @@ const EditProfile = ({ onClose, initialData = {} }) => {
               Click each interest to like (green) or dislike (red)
             </div>
           </div>
-          <div className="edit-profile-interests-list" style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px"}}>
+          <div className="edit-profile-interests-list" style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", overflowX: "hidden"}}>
             {interests.map((interest, idx) => {
               let bgColor = interest.color;
               if (interest.status === "like") bgColor = "#d1fae5"; // green
