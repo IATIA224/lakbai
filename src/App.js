@@ -9,6 +9,7 @@ import Bookmarks2 from './bookmarks2'; // Import your bookmarks2 component
 import StickyHeader from './header';
 import logo from './logo.svg';
 import './App.css';
+import DestinationManager from './DestinationManager';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/bookmark" element={<Bookmark />} />
         <Route path="/bookmarks2" element={<Bookmarks2 />} /> {/* Fixed */}
         <Route path="/header" element={<StickyHeader />} />
+        <Route path="/admin/destinations" element={<DestinationManager />} />
       </Routes>
     </BrowserRouter>
   );
