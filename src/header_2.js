@@ -9,7 +9,7 @@ const Header2 = () => {
   <header className="header2-sticky">
     <div className="header2-left">
       <img src="/coconut-tree.png" alt="LakbAI Logo" className="header2-logo" />
-      <span className="header2-title">LakbAI</span>
+      <span className="header2-title">LakbAi</span>
       <span className="header2-subtitle">Your Philippine Travel Companion</span>
     </div>
     <div className="header2-right">
