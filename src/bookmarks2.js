@@ -57,6 +57,7 @@ function Bookmarks2() {
   const [isLoading, setIsLoading] = useState(true);
   const [bookmarkedDestinations, setBookmarkedDestinations] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false); // Add this near the top of your component
 
   // Function to store initial data in Firebase
   const storeInitialData = async () => {
@@ -98,41 +99,58 @@ function Bookmarks2() {
     }
   };
 
-  // Add useEffect for auth state
+  // Replace the existing auth useEffect
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      console.log('Auth state changed:', user?.uid || 'No user');
       setCurrentUser(user);
       if (user) {
-        fetchUserBookmarks(user.uid);
+        try {
+          await fetchUserBookmarks(user.uid);
+        } catch (error) {
+          console.error('Error fetching bookmarks:', error);
+        }
+      } else {
+        setBookmarkedDestinations([]);
       }
+      setAuthChecked(true);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Add function to fetch user's bookmarks
+  // Update fetchUserBookmarks function
   const fetchUserBookmarks = async (userId) => {
     if (!userId) {
       console.log('No user ID provided');
-      setBookmarkedDestinations([]);
       return;
     }
 
+    console.log('Fetching bookmarks for user:', userId);
     try {
-      console.log('Fetching bookmarks for user:', userId);
       const bookmarksRef = doc(db, 'userBookmarks', userId);
-      const bookmarksDoc = await getDoc(bookmarksRef);
+      const bookmarksSnap = await getDoc(bookmarksRef);
       
-      if (bookmarksDoc.exists()) {
-        const bookmarks = bookmarksDoc.data().bookmarks || [];
-        console.log('Bookmarks found:', bookmarks);
+      if (bookmarksSnap.exists()) {
+        const bookmarks = bookmarksSnap.data().bookmarks || [];
+        console.log('Found bookmarks:', bookmarks);
         setBookmarkedDestinations(bookmarks);
       } else {
-        console.log('No bookmarks document found');
+        console.log('No bookmarks found, creating new document');
+        await setDoc(bookmarksRef, {
+          userId,
+          bookmarks: [],
+          createdAt: serverTimestamp()
+        });
         setBookmarkedDestinations([]);
       }
     } catch (error) {
       console.error('Error fetching bookmarks:', error);
+      if (error.code === 'permission-denied') {
+        console.log('Permission denied, user may need to re-authenticate');
+        // Optional: Sign out user to force re-authentication
+        // await auth.signOut();
+      }
       setBookmarkedDestinations([]);
     }
   };
@@ -140,58 +158,59 @@ function Bookmarks2() {
   // Add bookmark handler function
   const handleBookmark = async (destination) => {
     try {
-      if (!currentUser) {
+      const user = auth.currentUser;
+      if (!user) {
         alert('Please login to bookmark destinations');
         return;
       }
 
-      const userBookmarksRef = doc(db, 'userBookmarks', currentUser.uid);
+      const userBookmarksRef = doc(db, 'userBookmarks', user.uid);
+      const userProfile = {
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+        providerId: user.providerData[0]?.providerId || 'unknown',
+        lastUpdated: serverTimestamp()
+      };
 
-      try {
-        const bookmarkDoc = await getDoc(userBookmarksRef);
-        const newBookmarks = bookmarkDoc.exists()
-          ? bookmarkDoc.data().bookmarks || []
-          : [];
+      // Get current bookmarks
+      const bookmarkDoc = await getDoc(userBookmarksRef);
 
-        const isBookmarked = newBookmarks.includes(destination.id);
+      if (!bookmarkDoc.exists()) {
+        // Create new document with user profile and bookmarks
+        await setDoc(userBookmarksRef, {
+          userId: user.uid,
+          userProfile: userProfile,
+          bookmarks: [destination.id],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        setBookmarkedDestinations([destination.id]);
+      } else {
+        // Update existing document
+        const currentBookmarks = bookmarkDoc.data().bookmarks || [];
+        const isBookmarked = currentBookmarks.includes(destination.id);
+        
+        const updatedBookmarks = isBookmarked
+          ? currentBookmarks.filter(id => id !== destination.id)
+          : [...currentBookmarks, destination.id];
 
-        if (isBookmarked) {
-          // Remove bookmark
-          await updateDoc(userBookmarksRef, {
-            bookmarks: arrayRemove(destination.id),
-            updatedAt: serverTimestamp()
-          });
-          setBookmarkedDestinations(prev => prev.filter(id => id !== destination.id));
-        } else {
-          // Add bookmark
-          if (!bookmarkDoc.exists()) {
-            // Create new document
-            await setDoc(userBookmarksRef, {
-              userId: currentUser.uid,
-              bookmarks: [destination.id],
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-          } else {
-            // Update existing document
-            await updateDoc(userBookmarksRef, {
-              bookmarks: arrayUnion(destination.id),
-              updatedAt: serverTimestamp()
-            });
-          }
-          setBookmarkedDestinations(prev => [...prev, destination.id]);
-        }
-
-        // Show success message
-        alert(isBookmarked ? 'Removed from bookmarks' : 'Added to bookmarks');
-
-      } catch (error) {
-        console.error('Firestore operation failed:', error);
-        throw error;
+        await updateDoc(userBookmarksRef, {
+          userProfile: userProfile,
+          bookmarks: updatedBookmarks,
+          updatedAt: serverTimestamp()
+        });
+        setBookmarkedDestinations(updatedBookmarks);
       }
 
+      // Show success message
+      const message = bookmarkedDestinations.includes(destination.id)
+        ? 'Removed from bookmarks'
+        : 'Added to bookmarks';
+      alert(message);
+
     } catch (error) {
-      console.error('Bookmark operation failed:', error);
+      console.error('Error handling bookmark:', error);
       alert('Failed to update bookmark. Please try again.');
     }
   };
@@ -251,8 +270,9 @@ function Bookmarks2() {
     setSelectedDestination(null);
   };
 
-  if (isLoading) {
-    return <div>Loading destinations...</div>;
+  // Update the loading check in your render
+  if (!authChecked || isLoading) {
+    return <div>Loading...</div>;
   }
 
   return (
@@ -268,31 +288,35 @@ function Bookmarks2() {
           </div>
         </div>
         <div className="grid-container">
-          {destinations.map((dest, index) => (
+          {destinations.map((destination, index) => (
             <div className="grid-card" key={index}>
               <div className="image-container">
                 <img 
-                  src={dest.image}
-                  alt={dest.name} 
-                  style={{ width: "100%", borderRadius: "8px", marginBottom: "12px", objectFit: "cover", height: "140px" }} 
+                  src={destination.image}
+                  alt={destination.name} 
+                  className="destination-image"
                 />
+              </div>
+              <div className="card-header">
+                <h2>{destination.name}</h2>
                 <button 
-                  className={`bookmark-btn ${bookmarkedDestinations.includes(dest.id) ? 'bookmarked' : ''}`}
+                  className="heart-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleBookmark(dest);
+                    handleBookmark(destination);
                   }}
                 >
-                  {bookmarkedDestinations.includes(dest.id) ? '★' : '☆'}
+                  {bookmarkedDestinations.includes(destination.id) ? '❤️' : '🤍'}
                 </button>
               </div>
-              <h2>{dest.name}</h2>
-              <p className="description">{dest.description}</p>
-              <div className="rating">⭐ {dest.rating}</div>
-              <div className="price">{dest.price}</div>
+              <p className="description">{destination.description}</p>
+              <div className="card-footer">
+                <div className="rating">⭐ {destination.rating}</div>
+                <div className="price">{destination.price}</div>
+              </div>
               <button 
                 className="details-btn"
-                onClick={() => handleViewDetails(dest)}
+                onClick={() => handleViewDetails(destination)}
               >
                 View Details
               </button>

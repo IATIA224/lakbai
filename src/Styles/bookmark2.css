@@ -59,8 +59,11 @@
 .grid-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 24px;
-  margin-left: 145px;
+  gap: 90px;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+  width: 90%;
 }
 
 .grid-card {
@@ -73,6 +76,10 @@
   flex-direction: column;
   height: 100%;
   position: relative;
+  min-width: 340px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .grid-card:hover {
@@ -128,20 +135,25 @@
   font-size: 14px;
   color: #666;
   margin-bottom: 16px;
+  text-align: left;
+  margin-left: 20px;
+  margin-right: 20px;
 }
 
 .rating {
-  font-weight: 500;
-  margin-bottom: 5px;
+  color: #666;
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-right: 20px;
+  margin-left: 20px;
+
 }
 
 .price {
   color: #2563eb;
-  font-weight: 500;
-  margin-bottom: 16px;
+  text-align: right;
+  margin-right: 20px;
 }
 
 .details-btn {
@@ -237,10 +249,9 @@
 
 .destination-image {
   width: 100%;
-  border-radius: 8px;
-  margin-bottom: 12px;
+  height: 180px;
   object-fit: cover;
-  height: 140px;
+  border-radius: 12px 12px 0 0;
 }
 
 .destination-info {
@@ -315,70 +326,53 @@
 }
 
 .card-header {
-  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 8px 20px;
+  margin: 0;
 }
 
+.card-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  flex: 1;
+  text-align: left;
+}
+
+.heart-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1.5rem;
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 0 12px; /* Left margin to separate from title */
+  min-width: 32px; /* Ensure consistent width */
+
+}
+
+.heart-btn:hover {
+  transform: scale(1.1);
+}
+
+.heart-btn:focus {
+  outline: none;
+}
+
+/* Update image-container to remove relative positioning if it exists */
 .image-container {
-  position: relative;
   width: 100%;
+  margin-bottom: 0; /* Remove bottom margin since card-header has padding */
 }
 
-.bookmark-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
+.card-footer {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 20px;
-  color: #ffd700;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  z-index: 2;
-}
-
-.bookmark-btn:hover {
-  transform: scale(1.1);
-  background: white;
-}
-
-.bookmark-btn.bookmarked {
-  background: #ffd700;
-  color: white;
-}
-
-.loading, .login-prompt, .no-bookmarks {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
-}
-
-.remove-bookmark-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: #ffd700;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 20px;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.remove-bookmark-btn:hover {
-  transform: scale(1.1);
-  background: #ffc200;
+  margin: 8px 0;
+  font-size: 0.9rem;
 }

@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAHYtSKJ6KntJNaZhh8JJKQF4Viu50Egns",
@@ -13,27 +14,77 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-// Enable offline persistence
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === 'failed-precondition') {
-    console.error('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-  } else if (err.code === 'unimplemented') {
-    console.error('The current browser does not support persistence.');
+// Improve error handling for auth persistence
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log('Auth persistence set to LOCAL');
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('User authenticated:', user.uid);
+      } else {
+        console.log('User signed out');
+      }
+    });
+
+    // Cleanup listener on error
+    return () => unsubscribe();
+  })
+  .catch((error) => {
+    console.error('Auth persistence error:', error.code, error.message);
+  });
+
+// Enhanced Firestore persistence with retry logic
+const enablePersistence = async (retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await enableIndexedDbPersistence(db);
+      console.log('Firestore persistence enabled');
+      return;
+    } catch (err) {
+      if (err.code === 'failed-precondition') {
+        console.warn('Multiple tabs open, persistence enabled in first tab only');
+        break;
+      } else if (err.code === 'unimplemented') {
+        console.warn('Browser doesn\'t support persistence');
+        break;
+      } else if (i === retries - 1) {
+        console.error('Persistence failed after retries:', err);
+      } else {
+        console.log(`Retrying persistence enable... (${i + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
   }
-});
+};
 
-// Add error handling for auth state changes
-auth.onAuthStateChanged((user) => {
-  if (user) {
-    console.log('User is signed in:', user.uid);
-  } else {
-    console.log('User is signed out');
-  }
-}, (error) => {
-  console.error('Auth state change error:', error);
-});
+enablePersistence();
 
-export { db, auth };
+// Enhanced getCurrentUser with timeout
+const getCurrentUser = (timeout = 10000) => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error('Auth state check timed out'));
+    }, timeout);
+
+    const unsubscribe = onAuthStateChanged(auth, 
+      user => {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve(user);
+      },
+      error => {
+        clearTimeout(timer);
+        unsubscribe();
+        reject(error);
+      }
+    );
+  });
+};
+
+export { db, auth, storage, getCurrentUser };

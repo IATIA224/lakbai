@@ -19,14 +19,67 @@ function DestinationManager() {
     imagePreview: null
   });
 
+  // Update the uploadImage function with better error handling and logging
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'lakbai_preset'); // Make sure this matches your Cloudinary preset name
+    formData.append('cloud_name', 'dxvewejox');
+
+    try {
+      console.log('Starting image upload to Cloudinary...');
+      const response = await fetch(
+        'https://api.cloudinary.com/v1_1/dxvewejox/image/upload',
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Cloudinary upload failed:', data);
+        throw new Error(data.error?.message || 'Failed to upload image');
+      }
+
+      if (!data.secure_url) {
+        console.error('No secure URL in Cloudinary response:', data);
+        throw new Error('Invalid response from image upload');
+      }
+
+      console.log('Image uploaded successfully:', data.secure_url);
+      return data.secure_url;
+
+    } catch (error) {
+      console.error('Upload error details:', error);
+      throw new Error(`Failed to upload image: ${error.message}`);
+    }
+  };
+
   // Define handleSubmit first
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       let imageUrl = '';
+      
       if (formData.image) {
-        imageUrl = await uploadImage(formData.image);
+        try {
+          imageUrl = await uploadImage(formData.image);
+          console.log('Image uploaded successfully, URL:', imageUrl);
+        } catch (imageError) {
+          console.error('Image upload failed:', imageError);
+          alert('Failed to upload image. Please try again.');
+          return;
+        }
       }
+
+      // Convert tags to array safely
+      const tagsArray = typeof formData.tags === 'string' 
+        ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '')
+        : Array.isArray(formData.tags) 
+          ? formData.tags 
+          : [];
 
       const destinationData = {
         name: formData.name.trim(),
@@ -35,7 +88,7 @@ function DestinationManager() {
         price: formData.price.trim(),
         location: formData.location.trim(),
         bestTime: formData.bestTime.trim(),
-        tags: formData.tags.split(',').map(tag => tag.trim()),
+        tags: tagsArray,
         image: imageUrl,
         createdAt: new Date().toISOString()
       };
@@ -71,52 +124,46 @@ function DestinationManager() {
     }));
   };
 
+  // Update the handleImageChange function to better handle previews
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      // Validate file size (e.g., max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      
       setFormData(prev => ({
         ...prev,
         image: file,
-        imagePreview: URL.createObjectURL(file)
+        imagePreview: previewUrl
       }));
+
+      // Clean up the preview URL when component unmounts
+      return () => URL.revokeObjectURL(previewUrl);
     }
   };
 
   const handleTagsChange = (e) => {
-    const tags = e.target.value.split(',').map(tag => tag.trim());
+    const tagsValue = e.target.value;
     setFormData(prev => ({
       ...prev,
-      tags
+      tags: tagsValue // Store as string in form state
     }));
   };
 
-  const uploadImage = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', 'lakbai_preset');
-    formData.append('cloud_name', 'dxvewejox');
-
-    try {
-      const response = await fetch(
-        'https://api.cloudinary.com/v1_1/dxvewejox/image/upload',
-        {
-          method: 'POST',
-          body: formData
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data.secure_url;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
-    }
-  };
-
+  // Fetch destinations
   const fetchDestinations = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, 'destinations'));
@@ -131,6 +178,7 @@ function DestinationManager() {
     }
   };
 
+  // Load destinations on component mount
   useEffect(() => {
     fetchDestinations();
   }, []);
@@ -154,9 +202,26 @@ function DestinationManager() {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this destination?')) {
       try {
+        // First, get the destination data to access the image URL
+        const destinationToDelete = destinations.find(dest => dest.id === id);
+        
+        if (destinationToDelete && destinationToDelete.image) {
+          // Delete the image from Cloudinary
+          try {
+            await deleteImageFromCloudinary(destinationToDelete.image);
+            console.log('Image deleted from Cloudinary successfully');
+          } catch (imageError) {
+            console.error('Error deleting image:', imageError);
+            // Continue with destination deletion even if image deletion fails
+          }
+        }
+
+        // Delete the destination from Firestore
         await deleteDoc(doc(db, 'destinations', id));
+        
+        // Refresh the destinations list
         await fetchDestinations();
-        alert('Destination deleted successfully');
+        alert('Destination and associated image deleted successfully');
       } catch (error) {
         console.error('Error deleting destination:', error);
         alert('Error deleting destination');
@@ -190,6 +255,7 @@ function DestinationManager() {
       setEditingId(null);
       await fetchDestinations();
       
+      // Reset form
       setFormData({
         name: '',
         description: '',
@@ -206,6 +272,40 @@ function DestinationManager() {
     } catch (error) {
       console.error('Error updating destination:', error);
       alert(error.message || 'Error updating destination');
+    }
+  };
+
+  const deleteImageFromCloudinary = async (imageUrl) => {
+    try {
+      // Extract public_id from the Cloudinary URL
+      const urlParts = imageUrl.split('/');
+      const filenameWithExtension = urlParts[urlParts.length - 1];
+      const public_id = filenameWithExtension.split('.')[0];
+
+      const timestamp = new Date().getTime();
+      const data = new FormData();
+      data.append('public_id', public_id);
+      data.append('api_key', 'your_cloudinary_api_key');
+      data.append('timestamp', timestamp);
+      // Generate signature - you'll need to implement this securely
+      // data.append('signature', generateSignature(public_id, timestamp));
+
+      const response = await fetch(
+        'https://api.cloudinary.com/v1_1/dxvewejox/image/destroy',
+        {
+          method: 'POST',
+          body: data,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete image: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting image from Cloudinary:', error);
+      throw error;
     }
   };
 
@@ -350,6 +450,11 @@ function DestinationManager() {
               src={destination.image} 
               alt={destination.name} 
               className="destination-thumbnail"
+              onError={(e) => {
+                console.error(`Failed to load image for ${destination.name}`);
+                e.target.src = '/placeholder-image.jpg'; // Add a placeholder image
+                e.target.onerror = null; // Prevent infinite loop
+              }}
             />
             <div className="destination-info">
               <h4>{destination.name}</h4>
