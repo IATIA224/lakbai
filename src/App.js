@@ -7,6 +7,7 @@ import Profile from './profile';
 import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2'; // Import your bookmarks2 component
 import StickyHeader from './header';
+import ChatbaseAI from './Ai'; // Add this import
 import './App.css';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
         <Route path="/bookmark" element={<Bookmark />} />
         <Route path="/bookmarks2" element={<Bookmarks2 />} /> {/* Fixed */}
         <Route path="/header" element={<StickyHeader />} />
+        <Route path="/ai" element={<ChatbaseAI />} /> {/* Add this line */}
       </Routes>
     </BrowserRouter>
   );
