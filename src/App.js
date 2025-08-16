@@ -1,27 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './login';
 import Register from './register';
-import Dashboard from './dashboard';
+import Dashboard, { ChatContext } from './dashboard'; // Import ChatContext
 import Profile from './profile';
 import Bookmark from './bookmark';
-import Bookmarks2 from './bookmarks2'; // Import your bookmarks2 component
+import Bookmarks2 from './bookmarks2';
 import StickyHeader from './header';
 import './App.css';
 
 function App() {
+  const [showChat, setShowChat] = useState(false);
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/bookmark" element={<Bookmark />} />
-        <Route path="/bookmarks2" element={<Bookmarks2 />} /> {/* Fixed */}
-        <Route path="/header" element={<StickyHeader />} />
-      </Routes>
-    </BrowserRouter>
+    <ChatContext.Provider value={{ showChat, setShowChat }}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/bookmark" element={<Bookmark />} />
+          <Route path="/bookmarks2" element={<Bookmarks2 />} />
+          <Route path="/header" element={<StickyHeader />} />
+        </Routes>
+      </BrowserRouter>
+    </ChatContext.Provider>
   );
 }
 
