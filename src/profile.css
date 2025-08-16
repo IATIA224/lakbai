@@ -352,6 +352,12 @@
 .profile-action-btn.export:hover { background: #6c63ff; }
 .profile-action-btn.settings { background: #444c56; }
 .profile-action-btn.settings:hover { background: #22272e; }
+.profile-action-btn.logout {
+  background: #3b5fff;
+}
+.profile-action-btn.logout:hover {
+  background: #2563eb;
+}
 
 /* Achievement preview styles */
 .achievements-preview .achievement-item {

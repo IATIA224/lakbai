@@ -6,6 +6,8 @@ import StickyHeader from './header';
 import EditProfile from './EditProfile';
 import Achievements from './achievements';
 import InfoDelete from './info_delete';
+import { signOut } from 'firebase/auth'; // Add this import
+import { useNavigate } from 'react-router-dom'; // Add this import
 
 import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { db, auth } from "./firebase";
@@ -54,6 +56,7 @@ const Profile = () => {
     dislikes: [],
     joined: "",
   });
+  const navigate = useNavigate(); // Add this line
 
   // Define achievements data
   const achievementsData = [
@@ -311,6 +314,15 @@ const Profile = () => {
       } catch (error) {
         console.error('Search error:', error);
       }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/');
+    } catch (err) {
+      console.error('Logout failed:', err);
     }
   };
 
@@ -731,6 +743,13 @@ const Profile = () => {
               <button className="profile-action-btn share">🗂️ Share Profile</button>
               <button className="profile-action-btn export">💾 Export My Data</button>
               <button className="profile-action-btn settings" onClick={() => setShowInfoDelete(true)}>⚙️ Account Settings</button>
+              <button
+                className="profile-action-btn logout"
+                style={{ background: '#3b5fff', marginTop: '8px' }}
+                onClick={handleLogout}
+              >
+                🚪 Logout
+              </button>
             </div>
           </div>
         </div>

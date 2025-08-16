@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./header.css";
+import { ChatContext } from './dashboard'; // Import ChatContext
 
 const navTabs = [
   { label: "Dashboard", path: "/dashboard" },
@@ -12,7 +13,7 @@ const navTabs = [
 ];
 
 const StickyHeader = () => {
-  const [showChat, setShowChat] = useState(false);
+  const { showChat, setShowChat } = useContext(ChatContext); // Use context
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [activeTab, setActiveTab] = useState("Dashboard");
@@ -87,7 +88,7 @@ const StickyHeader = () => {
           style={{
             position: "fixed",
             bottom: "20px",
-            left: "20px",
+            right: "20px", // <-- Change 'left' to 'right'
             width: "300px",
             height: "400px",
             backgroundColor: "white",
@@ -109,9 +110,23 @@ const StickyHeader = () => {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: "12px"
             }}
           >
-            <span style={{ fontWeight: "bold" }}>AI Assistant</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <img
+                src="/lakbai-logo.png" // Place your logo image in public folder as lakbai-logo.png
+                alt="LakbAI Logo"
+                style={{
+                  width: "38px",
+                  height: "38px",
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  background: "#fff"
+                }}
+              />
+              <span style={{ fontWeight: "bold" }}>AI Assistant</span>
+            </div>
             <button
               onClick={() => setShowChat(false)}
               style={{
@@ -187,16 +202,17 @@ const StickyHeader = () => {
                 backgroundColor: "#6c63ff",
                 color: "white",
                 border: "none",
-                borderRadius: "50%",
-                width: "36px",
+                borderRadius: "6px", // Changed from "50%" to "6px" for rectangle shape
+                width: "70px",       // Wider for rectangle
                 height: "36px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                fontWeight: "bold"
               }}
             >
-              →
+              Send
             </button>
           </div>
         </div>
