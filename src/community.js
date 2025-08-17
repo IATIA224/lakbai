@@ -297,7 +297,7 @@ const Community = () => {
 
   return (
     <>
-      <StickyHeader />
+      
       <div className="community-bg">
         <div className="community-container">
           <div className="community-header">

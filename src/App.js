@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './login';
 import Register from './register';
 import Dashboard from './dashboard';
 import Profile from './profile';
 import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2';
-import AI from './Ai';
-import Community from './community';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
 import StickyHeader from './header';
+import ChatbaseAI from './Ai';
 import './App.css';
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
+import Community from './community'; // Add this at the top with other imports
+import ChatbaseAIModal from './Ai'; // Import from Ai.js
+
+// filepath: d:\ReactProj\lakbai\src\App.js
 
 // RequireAuth definition (add this to protect routes)
 function RequireAuth({ children }) {
@@ -26,24 +29,32 @@ function RequireAuth({ children }) {
 }
 
 function App() {
+  const [showAIModal, setShowAIModal] = useState(false);
+  const location = useLocation();
+
+  // Only show header if not on login page
+  const hideHeader = location.pathname === "/" || location.pathname === "/login";
+
   return (
-    <BrowserRouter>
+    <>
+      {!hideHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
         <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
         <Route path="/bookmark" element={<RequireAuth><Bookmark /></RequireAuth>} />
         <Route path="/bookmarks2" element={<RequireAuth><Bookmarks2 /></RequireAuth>} />
-        <Route path="/ai" element={<RequireAuth><AI /></RequireAuth>} />
         <Route path="/community" element={<RequireAuth><Community /></RequireAuth>} />
-        <Route path="/header" element={<StickyHeader />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </BrowserRouter>
+      {showAIModal && (
+        <ChatbaseAIModal onClose={() => setShowAIModal(false)} />
+      )}
+    </>
   );
 }
 
-export default App;
 
+
+export default App;

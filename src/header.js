@@ -10,7 +10,7 @@ const navTabs = [
   { label: "Community", path: "/community" },
 ];
 
-const StickyHeader = () => {
+const StickyHeader = ({ setShowAIModal }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [activeTab, setActiveTab] = useState("Dashboard");
@@ -70,7 +70,7 @@ const StickyHeader = () => {
         <div className="header-right">
           <button
             className="ai-assistant-btn"
-            onClick={() => navigate("/ai")}
+            onClick={() => setShowAIModal(true)}
           >
             <span className="dot"></span> AI Assistant
           </button>

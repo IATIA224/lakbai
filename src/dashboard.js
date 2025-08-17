@@ -5,7 +5,7 @@ import { signOut } from 'firebase/auth';
 import StickyHeader from './header';
 import './dashboardBanner.css';
 
-function Dashboard() {
+function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -19,13 +19,16 @@ function Dashboard() {
 
   return (
     <>
-      <StickyHeader />
+      
       <div className="dashboard-banner">
         <h2>Discover the Philippines with AI-Powered Travel Planning</h2>
         <p>
           Get personalized recommendations, smart packing tips, and connect with fellow travelers to explore the beautiful islands of the Philippines.
         </p>
-        <button className="dashboard-banner-btn">
+        <button
+          className="dashboard-banner-btn"
+          onClick={() => setShowAIModal(true)} // <-- Make this open the modal
+        >
           Start Planning with AI
         </button>
       </div>

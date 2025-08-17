@@ -93,7 +93,7 @@ function Bookmark() {
   if (loading) {
     return (
       <>
-        <StickyHeader />
+        
         <div className="App">
           <div className="loading">Loading...</div>
         </div>
@@ -103,7 +103,7 @@ function Bookmark() {
 
   return (
     <>
-      <StickyHeader />
+      
       <div className="App">
         <div className="bookmark-section">
           <h2 className="bookmark-title">
