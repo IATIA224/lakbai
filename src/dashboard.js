@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
-import StickyHeader from './header';
+import StickyHeader from './header'; // Add header.js
 
 const Dashboard = () => {
   const navigate = useNavigate();

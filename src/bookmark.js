@@ -1,7 +1,7 @@
 import React from 'react';
 import './Styles/bookmark.css';
-import StickyHeader from './header';
 import { useNavigate } from 'react-router-dom';
+import StickyHeader from './header'; // Add header.js
 
 function Bookmark() {
   const navigate = useNavigate();
