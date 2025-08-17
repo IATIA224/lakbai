@@ -134,7 +134,6 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     <div className="edit-profile-modal">
       <div className="edit-profile-header">
         <span>Edit Travel Profile</span>
-        <button className="edit-profile-close" onClick={onClose}>×</button>
         <div className="edit-profile-sub">Customize your adventure identity</div>
       </div>
       <div className="edit-profile-content">

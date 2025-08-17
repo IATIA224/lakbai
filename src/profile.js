@@ -6,12 +6,11 @@ import StickyHeader from './header';
 import EditProfile from './EditProfile';
 import Achievements from './achievements';
 import InfoDelete from './info_delete';
-
+import { signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import './profile.css';
-
-
 
 const LABELS = {
   ALL_PHOTOS: 'All Photos'
@@ -186,6 +185,7 @@ const Profile = () => {
       fetchProfile();
     }
   }, [showEditProfile]);
+  const navigate = useNavigate(); // Add this line
 
   // Define achievements data
   const achievementsData = [
@@ -443,6 +443,15 @@ const Profile = () => {
       } catch (error) {
         console.error('Search error:', error);
       }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/');
+    } catch (err) {
+      console.error('Logout failed:', err);
     }
   };
 
@@ -765,6 +774,13 @@ const Profile = () => {
               <button className="profile-action-btn share">🗂️ Share Profile</button>
               <button className="profile-action-btn export">💾 Export My Data</button>
               <button className="profile-action-btn settings" onClick={() => setShowInfoDelete(true)}>⚙️ Account Settings</button>
+              <button
+                className="profile-action-btn logout"
+                style={{ background: '#3b5fff', marginTop: '8px' }}
+                onClick={handleLogout}
+              >
+                🚪 Logout
+              </button>
             </div>
           </div>
         </div>
@@ -983,3 +999,8 @@ const Profile = () => {
 };
 
 export default Profile;
+
+export const CLOUDINARY_CONFIG = {
+  cloudName: "dxvewejox",
+  uploadPreset: "dxvewejox"
+};

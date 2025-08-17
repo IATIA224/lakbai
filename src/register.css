@@ -1,98 +1,162 @@
+/* Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Design tokens */
+:root {
+  --bg-start: #7b8fff;
+  --bg-end: #7b5fff;
+  --card-bg: #ffffff;
+  --text-900: #111827;
+  --text-700: #374151;
+  --text-500: #6b7280;
+  --border: #e5e7eb;
+  --input-bg: #ffffff;
+  --ring: #6c63ff;
+  --ring-soft: rgba(108, 99, 255, 0.25);
+  --shadow-strong: 0 12px 40px rgba(17, 24, 39, 0.18);
+  --shadow-soft: 0 6px 20px rgba(17, 24, 39, 0.12);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+}
+
+/* Page background */
 .register-bg {
   min-height: 100vh;
-  background: linear-gradient(135deg, #7b8fff 0%, #7b5fff 100%);
+  background:
+    radial-gradient(1200px 600px at 0% 0%, rgba(255,255,255,0.08), transparent 60%),
+    radial-gradient(800px 500px at 100% 100%, rgba(255,255,255,0.08), transparent 55%),
+    linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text-900);
 }
 
+/* Card */
 .register-container {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.35); /* Darker, more prominent shadow */
-  padding: 40px 36px 32px 36px;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-strong);
+  padding: 36px clamp(20px, 4vw, 36px);
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  animation: fadeIn 0.5s ease-in-out;
+  gap: 18px;
+  animation: fadeIn 0.45s ease-out;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .register-container.minimized {
-  max-width: 475px;
-  padding: 22px 10px 18px 10px;
+  max-width: 500px;
+  padding: 22px 18px;
 }
 
+/* Header */
 .register-logo {
-  width: 48px;
-  margin-bottom: 12px;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
 }
 
 .register-title {
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  color: #222;
+  font-size: clamp(1.6rem, 2.4vw, 2.05rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--text-900);
   text-align: center;
 }
 
 .register-subtitle {
-  color: #666;
+  color: var(--text-500);
   font-size: 1rem;
-  margin-bottom: 24px;
+  margin: -4px 0 8px 0;
   text-align: center;
 }
 
+/* Form layout */
 .register-form {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  gap: 14px;
 }
 
 .register-row {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
+@media (max-width: 520px) {
+  .register-row { grid-template-columns: 1fr; }
+}
+
+/* Two-column layout for Password + Confirm Password */
+.register-row--password {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 520px) {
+  .register-row--password { grid-template-columns: 1fr; }
+}
+
+/* Labels and inputs */
 .register-label {
-  font-size: 0.95rem;
-  color: #222;
-  font-weight: 500;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
+  font-size: 0.92rem;
+  color: var(--text-700);
+  font-weight: 600;
+  display: grid;
+  gap: 6px;
 }
 
 .register-input {
-  padding: 9px 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 0.97rem;
-  background: #fafbfc;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  background: var(--input-bg);
   outline: none;
-  transition: border 0.2s;
-  width: 100%;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  color: var(--text-900);
   box-sizing: border-box;
 }
 
-.register-input:focus {
-  border-color: #7b5fff;
+.register-input::placeholder {
+  color: #9ca3af;
 }
 
+.register-input:focus {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 4px var(--ring-soft);
+  background: #fff;
+}
+
+/* Make the wrapper not shrink the input */
+.register-password-wrapper {
+  position: relative;
+  display: block;      /* avoid flex shrinking */
+  width: 100%;
+}
+
+/* Ensure input fills the row and leaves space for the eye */
+.register-password-wrapper .register-input {
+  width: 100%;
+  min-height: 44px;    /* consistent height */
+  padding-right: 44px; /* room for eye button */
+  box-sizing: border-box;
+}
+
+/* Password field */
 .register-password-wrapper {
   position: relative;
   display: flex;
@@ -102,99 +166,147 @@
 
 .register-eye {
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  cursor: pointer;
-  display: flex;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
-  padding: 0;
+  color: var(--text-500);
+  border-radius: 8px;
+}
+
+.register-eye:hover {
+  background: #f3f4f6;
+  color: var(--text-700);
+}
+
+.register-eye svg,
+.register-eye img {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
 }
 
 .register-password-strength {
-  font-size: 0.92rem;
-  margin-top: 2px;
-  margin-left: 2px;
+  font-size: 0.9rem;
+  margin-top: 4px;
   min-height: 18px;
-  transition: color 0.2s;
+  color: var(--text-500);
 }
 
+/* Options */
 .register-options {
-  margin: 8px 0 0 0;
+  margin-top: 2px;
   font-size: 0.93rem;
-  color: #444;
+  color: var(--text-700);
   display: flex;
   align-items: flex-start;
+  gap: 8px;
 }
 
 .register-checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   line-height: 1.4;
 }
 
+.register-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ring);
+  cursor: pointer;
+}
+
+/* Links */
 .register-link {
   color: #4f6ef7;
-  text-decoration: underline;
-  font-weight: 500;
-  transition: color 0.2s;
+  text-decoration: none;
+  font-weight: 600;
 }
 
 .register-link:hover {
-  color: #7b5fff;
+  color: var(--ring);
+  text-decoration: underline;
 }
 
+/* Button */
 .register-btn {
   width: 100%;
-  background: linear-gradient(90deg, #7b8fff 0%, #7b5fff 100%);
+  background: linear-gradient(90deg, #7b8fff 0%, #6c63ff 100%);
   color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 11px 0;
+  border-radius: 12px;
+  padding: 12px 0;
   font-size: 1.05rem;
-  font-weight: 700;
-  margin-top: 10px;
+  font-weight: 800;
+  margin-top: 6px;
   cursor: pointer;
-  transition: background 0.2s;
+  box-shadow: var(--shadow-soft);
+  transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
 }
 
 .register-btn:hover {
-  background: linear-gradient(90deg, #6c63ff 0%, #7b5fff 100%);
+  filter: brightness(1.02);
+  box-shadow: 0 10px 24px rgba(108, 99, 255, 0.28);
 }
 
+.register-btn:active {
+  transform: translateY(1px);
+}
+
+.register-btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* Sign-in hint */
 .register-signin {
   text-align: center;
-  color: #888;
-  font-size: 0.97rem;
-  margin-top: 14px;
+  color: var(--text-500);
+  font-size: 0.98rem;
+  margin-top: 6px;
 }
 
 .register-signin a {
   color: #4f6ef7;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* Add at the end of register.css */
+.register-signin a:hover {
+  color: var(--ring);
+  text-decoration: underline;
+}
+
+/* Popup */
 .register-popup-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.35);
+  display: grid;
+  place-items: center;
   z-index: 9999;
+  backdrop-filter: blur(2px);
 }
 
 .register-popup {
-  background: rgba(255,255,255,0.95);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-  padding: 32px 24px 24px 24px;
+  background: rgba(255,255,255,0.98);
+  border-radius: 18px;
+  box-shadow: var(--shadow-strong);
+  padding: 28px 24px 22px 24px;
   text-align: center;
   min-width: 320px;
-  max-width: 90vw;
+  max-width: min(520px, 92vw);
+}
+
+/* Utility spacing for tighter vertical rhythm */
+.register-form .register-label + .register-label {
+  margin-top: 2px;
 }
