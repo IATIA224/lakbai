@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './login';
 import Register from './register';
@@ -10,6 +10,7 @@ import AI from './Ai';
 import Community from './community';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
+import StickyHeader from './header';
 import './App.css';
 
 // Guard: require auth for protected pages
@@ -27,61 +28,17 @@ function RequireAuth({ children }) {
 function App() {
   return (
     <BrowserRouter>
-      {/* Removed StickyHeader here so Login shows alone */}
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
-        <Route
-          path="/dashboard"
-          element={
-            <RequireAuth>
-              <Dashboard />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <RequireAuth>
-              <Profile />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/bookmark"
-          element={
-            <RequireAuth>
-              <Bookmark />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/bookmarks2"
-          element={
-            <RequireAuth>
-              <Bookmarks2 />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/ai"
-          element={
-            <RequireAuth>
-              <AI />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/community"
-          element={
-            <RequireAuth>
-              <Community />
-            </RequireAuth>
-          }
-        />
-
+        <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+        <Route path="/bookmark" element={<RequireAuth><Bookmark /></RequireAuth>} />
+        <Route path="/bookmarks2" element={<RequireAuth><Bookmarks2 /></RequireAuth>} />
+        <Route path="/ai" element={<RequireAuth><AI /></RequireAuth>} />
+        <Route path="/community" element={<RequireAuth><Community /></RequireAuth>} />
+        <Route path="/header" element={<StickyHeader />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
