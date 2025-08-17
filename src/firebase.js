@@ -17,8 +17,74 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
+
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log('Auth persistence set to LOCAL');
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('User authenticated:', user.uid);
+      } else {
+        console.log('User signed out');
+      }
+    });
+    return () => unsubscribe();
+  })
+  .catch((error) => {
+    console.error('Auth persistence error:', error.code, error.message);
+  });
+
+const enablePersistence = async (retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await enableIndexedDbPersistence(db);
+      console.log('Firestore persistence enabled');
+      return;
+    } catch (err) {
+      if (err.code === 'failed-precondition') {
+        console.warn('Multiple tabs open, persistence enabled in first tab only');
+        break;
+      } else if (err.code === 'unimplemented') {
+        console.warn('Browser doesn\'t support persistence');
+        break;
+      } else if (i === retries - 1) {
+        console.error('Persistence failed after retries:', err);
+      } else {
+        console.log(`Retrying persistence enable... (${i + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  }
+};
+
+enablePersistence();
+
+const getCurrentUser = (timeout = 10000) => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error('Auth state check timed out'));
+    }, timeout);
+
+    const unsubscribe = onAuthStateChanged(auth, 
+      user => {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve(user);
+      },
+      error => {
+        clearTimeout(timer);
+        unsubscribe();
+        reject(error);
+      }
+    );
+  });
+};
+
 const rtdb = getDatabase(app); // Add this line
 
-console.log("Firebase project:", getApp().options.projectId); // Debug line
+console.log("Firebase project:", getApp().options.projectId);
 
 export { db, auth, storage, getCurrentUser, rtdb };
