@@ -58,21 +58,7 @@ service cloud.firestore {
             && request.auth.uid in resource.data.allowedUids);
 
       allow create: if request.auth != null
-        && request.resource.data.authorId == request.auth.uid
-        && request.resource.data.visibility in ["Public", "Friends", "Only Me"]
-        && request.resource.data.title is string
-        && request.resource.data.details is string
-        && request.resource.data.createdAt is timestamp
-        && (
-          !("images" in request.resource.data)
-          || (request.resource.data.images is list
-              && request.resource.data.images.size() <= 12
-              && request.resource.data.images[0] is string)
-        )
-        && (
-          request.resource.data.visibility != "Friends"
-          || (request.resource.data.allowedUids is list)
-        );
+        && request.resource.data.authorId == request.auth.uid;
 
       allow update, delete: if request.auth != null && (request.auth.uid == resource.data.authorId || isAdmin());
     }

@@ -1,27 +1,88 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './login';
 import Register from './register';
 import Dashboard from './dashboard';
 import Profile from './profile';
 import Bookmark from './bookmark';
-import Bookmarks2 from './bookmarks2'; // Import your bookmarks2 component
-import StickyHeader from './header';
-import ChatbaseAI from './Ai'; // Add this import
+import Bookmarks2 from './bookmarks2';
+import AI from './Ai';
+import Community from './community';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
 import './App.css';
+
+// Guard: require auth for protected pages
+function RequireAuth({ children }) {
+  const [ready, setReady] = React.useState(false);
+  const [user, setUser] = React.useState(null);
+  React.useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setReady(true); });
+    return () => unsub();
+  }, []);
+  if (!ready) return null;
+  return user ? children : <Navigate to="/login" replace />;
+}
 
 function App() {
   return (
     <BrowserRouter>
+      {/* Removed StickyHeader here so Login shows alone */}
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/bookmark" element={<Bookmark />} />
-        <Route path="/bookmarks2" element={<Bookmarks2 />} /> {/* Fixed */}
-        <Route path="/header" element={<StickyHeader />} />
-        <Route path="/ai" element={<ChatbaseAI />} /> {/* Add this line */}
+
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <Dashboard />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <Profile />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bookmark"
+          element={
+            <RequireAuth>
+              <Bookmark />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bookmarks2"
+          element={
+            <RequireAuth>
+              <Bookmarks2 />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ai"
+          element={
+            <RequireAuth>
+              <AI />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/community"
+          element={
+            <RequireAuth>
+              <Community />
+            </RequireAuth>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
@@ -29,13 +90,3 @@ function App() {
 
 export default App;
 
-// In your Profile component file, make the following change
-// Replace
-// <a href="#" className="profile-gallery-link">View All (156)</a>
-// With
-// <button className="profile-gallery-link" onClick={() => {/* your handler */}}>View All (156)</button>
-
-// Also, replace
-// <a href="#">Some text</a>
-// With
-// <button type="button">Some text</button>

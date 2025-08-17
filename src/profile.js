@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import StickyHeader from './header';
+import StickyHeader from './header'; // Add header.js
 import EditProfile from './EditProfile';
 import Achievements from './achievements';
 import InfoDelete from './info_delete';
@@ -949,3 +949,8 @@ const Profile = () => {
 };
 
 export default Profile;
+
+export const CLOUDINARY_CONFIG = {
+  cloudName: "dxvewejox",
+  uploadPreset: "dxvewejox"
+};

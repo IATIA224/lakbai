@@ -1,6 +1,6 @@
 import React from 'react';
+import StickyHeader from './header'; // Add header.js
 import './Styles/bookmark2.css';
-import StickyHeader from './header';
 
 const destinations = [
   {
