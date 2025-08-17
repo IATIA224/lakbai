@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './Styles/bookmark.css';
-import StickyHeader from './header';
 import { useNavigate } from 'react-router-dom';
 import { db, auth } from './firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import StickyHeader from './header';
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -136,7 +136,7 @@ function Bookmark() {
                       <span className="price">{destination.price}</span>
                     </div>
                     <div className="tag-container">
-                      {destination.tags.map((tag, index) => (
+                      {destination.tags && destination.tags.map((tag, index) => (
                         <span key={index} className="tag">{tag}</span>
                       ))}
                     </div>
