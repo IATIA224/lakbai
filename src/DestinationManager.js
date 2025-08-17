@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import './Styles/destinationManager.css';
+import './Styles/adminNav.css';
+import { icon } from 'leaflet';
 
 function DestinationManager() {
+  const navigate = useNavigate();
   const [destinations, setDestinations] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -18,6 +25,51 @@ function DestinationManager() {
     image: null,
     imagePreview: null
   });
+
+    useEffect(() => {
+        document.title = 'Destination Management';
+        return () => {
+            document.title = 'LakbAI'; // Reset to default title when component unmounts
+        };
+    }, []);
+
+  // Check auth status
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        console.log('No user logged in');
+        navigate('/');
+        return;
+      }
+
+      try {
+        console.log('Checking admin status for:', user.uid);
+        const adminRef = doc(db, 'Admin', user.uid);
+        const adminSnap = await getDoc(adminRef);
+        console.log('Admin document exists:', adminSnap.exists());
+        const adminData = adminSnap.data();
+        console.log('Admin data:', adminData);
+        
+        if (!adminSnap.exists() || !adminData || adminData.role !== 'admin') {
+          console.log('User is not admin or missing admin role');
+          navigate('/dashboard');
+          return;
+        }
+
+        console.log('User is confirmed admin');
+        setIsAdmin(true);
+        setIsAdmin(true);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        navigate('/dashboard');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   // Update the uploadImage function with better error handling and logging
   const uploadImage = async (file) => {
@@ -309,8 +361,25 @@ function DestinationManager() {
     }
   };
 
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+
+  if (!isAdmin) {
+    return <div className="loading">Access denied. Admin privileges required.</div>;
+  }
+
   return (
     <div className="destination-manager">
+      <button 
+        className="admin-nav-button"
+        onClick={() => {
+          console.log('Navigating to user management...');
+          navigate('/admin/users', { replace: true });
+        }}
+      >
+        👥 Go to User Management
+      </button>
       <h2>{isEditing ? 'Edit Destination' : 'Add New Destination'}</h2>
       
       <form onSubmit={isEditing ? handleUpdate : handleSubmit} className="destination-form">

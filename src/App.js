@@ -8,6 +8,7 @@ import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2'; // Import your bookmarks2 component
 import StickyHeader from './header';
 import ChatbaseAI from './Ai'; // Add this import
+import UserManagement from './components/UserManagement';
 import './App.css';
 import DestinationManager from './DestinationManager';
 
@@ -23,6 +24,8 @@ function App() {
         <Route path="/bookmarks2" element={<Bookmarks2 />} /> {/* Fixed */}
         <Route path="/header" element={<StickyHeader />} />
         <Route path="/ai" element={<ChatbaseAI />} /> {/* Add this line */}
+        <Route path="/admin/destinations" element={<DestinationManager />} /> {/* Add this line */}
+        <Route path="/admin/users" element={<UserManagement />} /> {/* User management route */}
       </Routes>
     </BrowserRouter>
   );

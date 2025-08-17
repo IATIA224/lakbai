@@ -7,7 +7,7 @@ import EditProfile from './EditProfile';
 import Achievements from './achievements';
 import InfoDelete from './info_delete';
 
-import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import './profile.css';
 
@@ -25,6 +25,8 @@ const Profile = () => {
     iconAnchor: [16, 32],
     popupAnchor: [0, -32]
   });
+
+  // (Removed duplicate fetchProfile declaration)
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
@@ -54,6 +56,136 @@ const Profile = () => {
     dislikes: [],
     joined: "",
   });
+
+  // Function to fetch profile data
+  const fetchProfile = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Get Firestore profile
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      let data = docSnap.exists() ? docSnap.data() : {};
+    
+      // Get joined date from Auth
+      const joined = user.metadata?.creationTime
+        ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+        : "";
+        
+      // Get stats from Firestore
+      const statsData = data.stats || {};
+      
+      // Get photos from Firestore
+      let photosData = [];
+      try {
+        const photosQuery = query(collection(db, "photos"), where("userId", "==", user.uid));
+        const photosSnapshot = await getDocs(photosQuery);
+        photosData = photosSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (error) {
+        console.error("Error fetching photos: ", error);
+        photosData = [];
+      }
+      
+      // Get visited locations from Firestore
+      let locationsData = [];
+      try {
+        const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", user.uid));
+        const locationsSnapshot = await getDocs(locationsQuery);
+        locationsData = locationsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (error) {
+        console.error("Error fetching locations: ", error);
+        locationsData = [];
+      }
+      
+      setProfile({
+        name: data.name || user.displayName || "",
+        bio: data.bio || "",
+        profilePicture: data.profilePicture || "/user.png",
+        likes: Array.isArray(data.likes) ? data.likes : [],
+        dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
+        joined,
+      });
+      
+      setStats({
+        placesVisited: statsData.placesVisited || 0,
+        photosShared: statsData.photosShared || 0,
+        reviewsWritten: statsData.reviewsWritten || 0,
+        friends: statsData.friends || 0
+      });
+      
+      // Load achievements from Firebase
+      const achievements = data.achievements || {};
+      const unlockedIds = Object.keys(achievements).filter(id => achievements[id]).map(id => parseInt(id));
+      setUnlockedAchievements(new Set(unlockedIds));
+      
+      // Get activities from Firestore
+      let activitiesData = [];
+      try {
+        const activitiesQuery = query(
+          collection(db, "activities"), 
+          where("userId", "==", user.uid)
+        );
+        const activitiesSnapshot = await getDocs(activitiesQuery);
+        activitiesData = activitiesSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, 10);
+      } catch (error) {
+        console.error("Error fetching activities:", error);
+        activitiesData = [];
+      }
+      
+      setPhotos(photosData);
+      setVisitedLocations(locationsData);
+      setActivities(activitiesData);
+    } catch (error) {
+      console.error("Error fetching profile data:", error);
+    }
+  };
+
+  // Set up Firebase real-time listener for profile changes
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    // Set up real-time listener for user document
+    const userRef = doc(db, "users", user.uid);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        fetchProfile();
+      }
+    });
+
+    // Also listen for the userDataChanged event from UserManagement
+    const handleUserDataChange = (event) => {
+      if (user && event.detail.userId === user.uid) {
+        fetchProfile();
+      }
+    };
+
+    window.addEventListener('userDataChanged', handleUserDataChange);
+    
+    // Cleanup both listeners
+    return () => {
+      unsubscribe();
+      window.removeEventListener('userDataChanged', handleUserDataChange);
+    };
+  }, [auth.currentUser?.uid]); // Only re-run if the user ID changes
+
+  // Effect for initial profile fetch and when showEditProfile changes
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      fetchProfile();
+    }
+  }, [showEditProfile]);
 
   // Define achievements data
   const achievementsData = [
@@ -314,105 +446,7 @@ const Profile = () => {
     }
   };
 
-  useEffect(() => {
-    
-    const fetchProfile = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-        
-
-        
-        // Get Firestore profile
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-        let data = docSnap.exists() ? docSnap.data() : {};
-        
-        if (!data) data = {};
-      
-      // Get joined date from Auth
-      const joined = user.metadata?.creationTime
-        ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
-        : "";
-        
-      // Get stats from Firestore
-      const statsData = data.stats || {};
-      
-      // Get photos from Firestore
-      let photosData = [];
-      try {
-        const photosQuery = query(collection(db, "photos"), where("userId", "==", user.uid));
-        const photosSnapshot = await getDocs(photosQuery);
-        photosData = photosSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-      } catch (error) {
-        console.error("Error fetching photos: ", error);
-        photosData = [];
-      }
-      
-      // Get visited locations from Firestore
-      let locationsData = [];
-      try {
-        const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", user.uid));
-        const locationsSnapshot = await getDocs(locationsQuery);
-        locationsData = locationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-      } catch (error) {
-        console.error("Error fetching locations: ", error);
-        locationsData = [];
-      }
-      
-      setProfile({
-        name: data.name || user.displayName || "",
-        bio: data.bio || "",
-        profilePicture: data.profilePicture || "/user.png",
-        likes: Array.isArray(data.likes) ? data.likes : [],
-        dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
-        joined,
-      });
-      
-      setStats({
-        placesVisited: statsData.placesVisited || 0,
-        photosShared: statsData.photosShared || 0,
-        reviewsWritten: statsData.reviewsWritten || 0,
-        friends: statsData.friends || 0
-      });
-      
-      // Load achievements from Firebase
-      const achievements = data.achievements || {};
-      const unlockedIds = Object.keys(achievements).filter(id => achievements[id]).map(id => parseInt(id));
-      setUnlockedAchievements(new Set(unlockedIds));
-      
-        // Get activities from Firestore
-        let activitiesData = [];
-        try {
-          const activitiesQuery = query(
-            collection(db, "activities"), 
-            where("userId", "==", user.uid)
-          );
-          const activitiesSnapshot = await getDocs(activitiesQuery);
-          activitiesData = activitiesSnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-            .slice(0, 10);
-        } catch (error) {
-          console.error("Error fetching activities:", error);
-          activitiesData = [];
-        }
-        
-        setPhotos(photosData);
-        setVisitedLocations(locationsData);
-        setActivities(activitiesData);
-      } catch (error) {
-        console.error("Error fetching profile data:", error);
-      }
-    };
-    fetchProfile();
-  }, [showEditProfile]);
+  // Define fetchProfile outside useEffect so it can be used by both effects
 
   return (
     <>
