@@ -9,7 +9,11 @@ service cloud.firestore {
     
     // User profiles collection (includes achievements)
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.uid == userId ||
+        (request.auth.uid == 'aX7w1iHTdjQwIsLBHQ2IZ5UA8bD2' && resource == null) // Allow initial admin setup
+      );
     }
     
     // User bookmarks rules
