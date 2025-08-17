@@ -12,9 +12,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import StickyHeader from './header';
 import './App.css';
-import DestinationManager from './DestinationManager';
 
-// Guard: require auth for protected pages
+// RequireAuth definition (add this to protect routes)
 function RequireAuth({ children }) {
   const [ready, setReady] = React.useState(false);
   const [user, setUser] = React.useState(null);
@@ -45,5 +44,6 @@ function App() {
     </BrowserRouter>
   );
 }
+
 export default App;
 

@@ -27,6 +27,7 @@ function Bookmark() {
 
   const fetchBookmarkedDestinations = async (userId) => {
     try {
+      // First get the bookmarked IDs
       const bookmarksRef = doc(db, 'userBookmarks', userId);
       const bookmarksDoc = await getDoc(bookmarksRef);
 
@@ -36,6 +37,8 @@ function Bookmark() {
       }
 
       const bookmarkIds = bookmarksDoc.data().bookmarks || [];
+
+      // Then fetch the actual destination data for each ID
       const destinationPromises = bookmarkIds.map(async (id) => {
         const destRef = doc(db, 'destinations', id);
         const destDoc = await getDoc(destRef);
@@ -76,6 +79,7 @@ function Bookmark() {
           updatedAt: new Date().toISOString()
         });
 
+        // Update local state
         setBookmarkedDestinations(prev => 
           prev.filter(dest => dest.id !== destinationId)
         );
@@ -105,13 +109,12 @@ function Bookmark() {
           <h2 className="bookmark-title">
             <span role="img" aria-label="pin">📌</span> My Bookmarks
           </h2>
-          
           {bookmarkedDestinations.length > 0 ? (
             <div className="bookmarks-grid">
               {bookmarkedDestinations.map((destination) => (
                 <div key={destination.id} className="bookmark-card">
                   <img 
-                    src={destination.image} 
+                    src={destination.image || '/default-image.png'} 
                     alt={destination.name}
                     className="bookmark-image"
                   />
@@ -126,13 +129,13 @@ function Bookmark() {
                     >
                       ❤️
                     </button>
-                    <p className="description">{destination.description}</p>
+                    <p className="description">{destination.description || 'No description available.'}</p>
                     <div className="bookmark-details">
-                      <span className="rating">⭐ {destination.rating}</span>
-                      <span className="price">{destination.price}</span>
+                      <span className="rating">⭐ {destination.rating || 'N/A'}</span>
+                      <span className="price">{destination.price || ''}</span>
                     </div>
                     <div className="tag-container">
-                      {destination.tags.map((tag, index) => (
+                      {(destination.tags || []).map((tag, index) => (
                         <span key={index} className="tag">{tag}</span>
                       ))}
                     </div>

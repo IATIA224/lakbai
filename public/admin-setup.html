@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Setup</title>
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Admin Setup</h2>
+        <button id="setupAdmin">Set Up Admin Access</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAHYtSKJ6KntJNaZhh8JJKQF4Viu50Egns",
+            authDomain: "lakbai-ca149.firebaseapp.com",
+            projectId: "lakbai-ca149",
+            storageBucket: "lakbai-ca149.firebasestorage.app",
+            messagingSenderId: "271853458373",
+            appId: "1:271853458373:web:fbfec5fdd62d9fe80271ac",
+            measurementId: "G-TXEE2C3HJW"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        document.getElementById('setupAdmin').addEventListener('click', async () => {
+            const statusDiv = document.getElementById('status');
+            try {
+                const user = firebase.auth().currentUser;
+                
+                if (!user) {
+                    statusDiv.innerHTML = '<p class="error">Please sign in to your account first</p>';
+                    return;
+                }
+
+                await firebase.firestore()
+                    .collection('admins')
+                    .doc(user.uid)
+                    .set({
+                        role: 'admin',
+                        createdAt: new Date(),
+                        email: user.email
+                    });
+
+                statusDiv.innerHTML = '<p class="success">Admin access granted successfully!</p>';
+            } catch (error) {
+                statusDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
