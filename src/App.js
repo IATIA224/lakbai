@@ -12,6 +12,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import StickyHeader from './header';
 import './App.css';
+import DestinationManager from './DestinationManager';
 
 // Guard: require auth for protected pages
 function RequireAuth({ children }) {
@@ -44,6 +45,5 @@ function App() {
     </BrowserRouter>
   );
 }
-
 export default App;
 
