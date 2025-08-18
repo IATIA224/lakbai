@@ -30,24 +30,22 @@ function App() {
   const [showAIModal, setShowAIModal] = useState(false);
 
   return (
-    <BrowserRouter>
-      <>
-        <StickyHeader setShowAIModal={setShowAIModal} />
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<RequireAuth><Dashboard setShowAIModal={setShowAIModal} /></RequireAuth>} />
-          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-          <Route path="/bookmark" element={<RequireAuth><Bookmark /></RequireAuth>} />
-          <Route path="/bookmarks2" element={<RequireAuth><Bookmarks2 /></RequireAuth>} />
-          <Route path="/community" element={<RequireAuth><Community /></RequireAuth>} />
-        </Routes>
-        {showAIModal && (
-          <ChatbaseAIModal onClose={() => setShowAIModal(false)} />
-        )}
-      </>
-    </BrowserRouter>
+    <>
+      <StickyHeader setShowAIModal={setShowAIModal} />
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
+        <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+        <Route path="/bookmark" element={<RequireAuth><Bookmark /></RequireAuth>} />
+        <Route path="/bookmarks2" element={<RequireAuth><Bookmarks2 /></RequireAuth>} />
+        <Route path="/community" element={<RequireAuth><Community /></RequireAuth>} />
+      </Routes>
+      {showAIModal && (
+        <ChatbaseAIModal onClose={() => setShowAIModal(false)} />
+      )}
+    </>
   );
 }
 
