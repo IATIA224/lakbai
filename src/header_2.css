@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.header2-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  background: linear-gradient(90deg, #7b8fff 0%, #7b5fff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 32px;
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.header2-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header2-logo {
+  width: 32px;
+  height: 32px;
+  margin-right: 6px;
+}
+
+.header2-title {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin-right: 8px;
+}
+
+.header2-subtitle {
+  color: #e6e6fa;
+  font-size: 0.98rem;
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+.header2-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header2-signin {
+  color: #fff;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.header2-signin:hover {
+  opacity: 1;
+}
+
+.header2-getstarted {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 20px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.header2-getstarted:hover {
+  background: rgba(255,255,255,0.25);
+}

@@ -1,0 +1,312 @@
+/* Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Design tokens */
+:root {
+  --bg-start: #7b8fff;
+  --bg-end: #7b5fff;
+  --card-bg: #ffffff;
+  --text-900: #111827;
+  --text-700: #374151;
+  --text-500: #6b7280;
+  --border: #e5e7eb;
+  --input-bg: #ffffff;
+  --ring: #6c63ff;
+  --ring-soft: rgba(108, 99, 255, 0.25);
+  --shadow-strong: 0 12px 40px rgba(17, 24, 39, 0.18);
+  --shadow-soft: 0 6px 20px rgba(17, 24, 39, 0.12);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+}
+
+/* Page background */
+.register-bg {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 0% 0%, rgba(255,255,255,0.08), transparent 60%),
+    radial-gradient(800px 500px at 100% 100%, rgba(255,255,255,0.08), transparent 55%),
+    linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text-900);
+}
+
+/* Card */
+.register-container {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-strong);
+  padding: 36px clamp(20px, 4vw, 36px);
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  animation: fadeIn 0.45s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.register-container.minimized {
+  max-width: 500px;
+  padding: 22px 18px;
+}
+
+/* Header */
+.register-logo {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+}
+
+.register-title {
+  font-size: clamp(1.6rem, 2.4vw, 2.05rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--text-900);
+  text-align: center;
+}
+
+.register-subtitle {
+  color: var(--text-500);
+  font-size: 1rem;
+  margin: -4px 0 8px 0;
+  text-align: center;
+}
+
+/* Form layout */
+.register-form {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.register-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .register-row { grid-template-columns: 1fr; }
+}
+
+/* Two-column layout for Password + Confirm Password */
+.register-row--password {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 520px) {
+  .register-row--password { grid-template-columns: 1fr; }
+}
+
+/* Labels and inputs */
+.register-label {
+  font-size: 0.92rem;
+  color: var(--text-700);
+  font-weight: 600;
+  display: grid;
+  gap: 6px;
+}
+
+.register-input {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  background: var(--input-bg);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  color: var(--text-900);
+  box-sizing: border-box;
+}
+
+.register-input::placeholder {
+  color: #9ca3af;
+}
+
+.register-input:focus {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 4px var(--ring-soft);
+  background: #fff;
+}
+
+/* Make the wrapper not shrink the input */
+.register-password-wrapper {
+  position: relative;
+  display: block;      /* avoid flex shrinking */
+  width: 100%;
+}
+
+/* Ensure input fills the row and leaves space for the eye */
+.register-password-wrapper .register-input {
+  width: 100%;
+  min-height: 44px;    /* consistent height */
+  padding-right: 44px; /* room for eye button */
+  box-sizing: border-box;
+}
+
+/* Password field */
+.register-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.register-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-500);
+  border-radius: 8px;
+}
+
+.register-eye:hover {
+  background: #f3f4f6;
+  color: var(--text-700);
+}
+
+.register-eye svg,
+.register-eye img {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.register-password-strength {
+  font-size: 0.9rem;
+  margin-top: 4px;
+  min-height: 18px;
+  color: var(--text-500);
+}
+
+/* Options */
+.register-options {
+  margin-top: 2px;
+  font-size: 0.93rem;
+  color: var(--text-700);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.register-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.register-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ring);
+  cursor: pointer;
+}
+
+/* Links */
+.register-link {
+  color: #4f6ef7;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.register-link:hover {
+  color: var(--ring);
+  text-decoration: underline;
+}
+
+/* Button */
+.register-btn {
+  width: 100%;
+  background: linear-gradient(90deg, #7b8fff 0%, #6c63ff 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-top: 6px;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
+}
+
+.register-btn:hover {
+  filter: brightness(1.02);
+  box-shadow: 0 10px 24px rgba(108, 99, 255, 0.28);
+}
+
+.register-btn:active {
+  transform: translateY(1px);
+}
+
+.register-btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* Sign-in hint */
+.register-signin {
+  text-align: center;
+  color: var(--text-500);
+  font-size: 0.98rem;
+  margin-top: 6px;
+}
+
+.register-signin a {
+  color: #4f6ef7;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.register-signin a:hover {
+  color: var(--ring);
+  text-decoration: underline;
+}
+
+/* Popup */
+.register-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.35);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.register-popup {
+  background: rgba(255,255,255,0.98);
+  border-radius: 18px;
+  box-shadow: var(--shadow-strong);
+  padding: 28px 24px 22px 24px;
+  text-align: center;
+  min-width: 320px;
+  max-width: min(520px, 92vw);
+}
+
+/* Utility spacing for tighter vertical rhythm */
+.register-form .register-label + .register-label {
+  margin-top: 2px;
+}

@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read access to all destinations
+    match /destinations/{destinationId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // User profiles collection (includes achievements)
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.uid == userId ||
+        (request.auth.uid == 'aX7w1iHTdjQwIsLBHQ2IZ5UA8bD2' && resource == null) // Allow initial admin setup
+      );
+    }
+    
+    // User bookmarks rules
+    match /userBookmarks/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && 
+                   request.auth.uid == userId && 
+                   request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && 
+                   request.auth.uid == userId && 
+                   request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Photos collection rules
+    match /photos/{photoId} {
+      allow read: if request.auth != null && 
+                 (request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && 
+                   request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && 
+                   resource.data.userId == request.auth.uid;
+    }
+    
+    // Activities collection rules
+    match /activities/{activityId} {
+      allow read: if request.auth != null && 
+                 (request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && 
+                   request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Travel map collection rules
+    match /travel_map/{locationId} {
+      allow read: if request.auth != null && 
+                 (request.auth.uid == resource.data.userId);
+      allow create, update, delete: if request.auth != null && 
+                                   request.auth.uid == resource.data.userId;
+    }
+  }
+}
