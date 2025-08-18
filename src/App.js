@@ -1,53 +1,40 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import StickyHeader from './header';
 import Login from './login';
 import Register from './register';
 import Dashboard from './dashboard';
-import Profile from './profile';
 import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2';
-import { ChatbaseAI, ChatbaseAIModal } from './Ai';
 import Community from './community';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
-import StickyHeader from './header';
+import Profile from './profile';
+import { ChatbaseAIModal } from './Ai';
 import './App.css';
-
-// RequireAuth definition (add this to protect routes)
-function RequireAuth({ children }) {
-  const [ready, setReady] = React.useState(false);
-  const [user, setUser] = React.useState(null);
-  React.useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setReady(true); });
-    return () => unsub();
-  }, []);
-  if (!ready) return null;
-  return user ? children : <Navigate to="/login" replace />;
-}
 
 function App() {
   const [showAIModal, setShowAIModal] = useState(false);
+  const location = useLocation();
+
+  // Hide StickyHeader on login/register pages
+  const hideHeaderRoutes = ['/', '/register'];
+  const showHeader = !hideHeaderRoutes.includes(location.pathname);
 
   return (
-    <BrowserRouter>
-      <StickyHeader setShowAIModal={setShowAIModal} />
+    <>
+      {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
+
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<RequireAuth><Dashboard setShowAIModal={setShowAIModal} /></RequireAuth>} />
-        <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-        <Route path="/bookmark" element={<RequireAuth><Bookmark /></RequireAuth>} />
-        <Route path="/bookmarks2" element={<RequireAuth><Bookmarks2 /></RequireAuth>} />
-        <Route path="/ai" element={<RequireAuth><ChatbaseAI /></RequireAuth>} />
-        <Route path="/community" element={<RequireAuth><Community /></RequireAuth>} />
-        <Route path="/header" element={<StickyHeader />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
+        <Route path="/bookmark" element={<Bookmark />} />
+        <Route path="/bookmarks2" element={<Bookmarks2 />} />
+        <Route path="/community" element={<Community />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
-      {showAIModal && (
-        <ChatbaseAIModal onClose={() => setShowAIModal(false)} />
-      )}
-    </BrowserRouter>
+
+      {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
+    </>
   );
 }
 
