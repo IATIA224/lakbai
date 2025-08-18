@@ -19,7 +19,7 @@ function Dashboard() {
 
   return (
     <>
-      <StickyHeader />
+      
       <div className="dashboard-banner">
         <h2>Discover the Philippines with AI-Powered Travel Planning</h2>
         <p>

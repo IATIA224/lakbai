@@ -29,7 +29,7 @@ const destinations = [
 function Bookmarks2() {
   return (
     <>
-      <StickyHeader />
+      
       <div className="App">
         <h1 className="title">Philippine Destinations</h1>
         <div className="search-filter-wrapper">

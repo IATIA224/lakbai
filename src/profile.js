@@ -459,7 +459,7 @@ const Profile = () => {
 
   return (
     <>
-      <StickyHeader />
+      
       <div className="profile-main">
         {/* Profile Header */}
         <div className="profile-header">
