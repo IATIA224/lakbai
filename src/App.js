@@ -6,7 +6,7 @@ import Dashboard from './dashboard';
 import Profile from './profile';
 import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2';
-import AI from './Ai';
+import { ChatbaseAI, ChatbaseAIModal } from './Ai';
 import Community from './community';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
@@ -26,21 +26,27 @@ function RequireAuth({ children }) {
 }
 
 function App() {
+  const [showAIModal, setShowAIModal] = useState(false);
+
   return (
     <BrowserRouter>
+      <StickyHeader setShowAIModal={setShowAIModal} />
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        <Route path="/dashboard" element={<RequireAuth><Dashboard setShowAIModal={setShowAIModal} /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
         <Route path="/bookmark" element={<RequireAuth><Bookmark /></RequireAuth>} />
         <Route path="/bookmarks2" element={<RequireAuth><Bookmarks2 /></RequireAuth>} />
-        <Route path="/ai" element={<RequireAuth><AI /></RequireAuth>} />
+        <Route path="/ai" element={<RequireAuth><ChatbaseAI /></RequireAuth>} />
         <Route path="/community" element={<RequireAuth><Community /></RequireAuth>} />
         <Route path="/header" element={<StickyHeader />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      {showAIModal && (
+        <ChatbaseAIModal onClose={() => setShowAIModal(false)} />
+      )}
     </BrowserRouter>
   );
 }

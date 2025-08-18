@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import StickyHeader from './header';
+import { db, auth } from './firebase';
+import { collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import cloudinary from './cloudinary';
+import { Image } from 'cloudinary-react';
 import './Styles/bookmark2.css';
+import StickyHeader from './header';
 
-// Move destinations data to a separate function that will handle Firebase storage
+// Initial destinations data
 const initialDestinations = [
   {
     name: "Boracay Island",
@@ -46,25 +50,161 @@ const initialDestinations = [
   }
 ];
 
-// Add your Firebase imports here if needed:
-// import { db, auth } from './firebase';
-// import { collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-
 function Bookmarks2() {
-  const [destinations, setDestinations] = useState(initialDestinations);
+  const [destinations, setDestinations] = useState([]);
   const [selectedDestination, setSelectedDestination] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [bookmarkedDestinations, setBookmarkedDestinations] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Example: handle bookmark locally (replace with Firebase logic if needed)
-  const handleBookmark = (destination) => {
-    setBookmarkedDestinations((prev) =>
-      prev.includes(destination.name)
-        ? prev.filter((name) => name !== destination.name)
-        : [...prev, destination.name]
-    );
+  // Upload image to Cloudinary
+  const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'lakbai_preset'); // Replace with your preset name
+    formData.append('cloud_name', 'dxvewejox');
+    try {
+      const response = await fetch(
+        'https://api.cloudinary.com/v1_1/dxvewejox/image/upload',
+        { method: 'POST', body: formData }
+      );
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      return data.secure_url;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
   };
+
+  // Store initial data in Firebase if not present
+  const storeInitialData = async () => {
+    try {
+      const destinationsRef = collection(db, 'destinations');
+      for (const destination of initialDestinations) {
+        // Upload image to Cloudinary
+        const imageResponse = await fetch(process.env.PUBLIC_URL + destination.image);
+        const blob = await imageResponse.blob();
+        const imageUrl = await uploadImage(blob);
+        await addDoc(destinationsRef, {
+          ...destination,
+          image: imageUrl,
+          createdAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error("Error storing initial data: ", error);
+    }
+  };
+
+  // Fetch destinations from Firebase
+  const fetchDestinations = async () => {
+    try {
+      const destinationsRef = collection(db, 'destinations');
+      const snapshot = await getDocs(destinationsRef);
+      const destinationsList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setDestinations(destinationsList);
+    } catch (error) {
+      console.error("Error fetching destinations: ", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch user bookmarks from Firebase
+  const fetchUserBookmarks = async (userId) => {
+    if (!userId) return;
+    try {
+      const bookmarksRef = doc(db, 'userBookmarks', userId);
+      const bookmarksSnap = await getDoc(bookmarksRef);
+      if (bookmarksSnap.exists()) {
+        const bookmarks = bookmarksSnap.data().bookmarks || [];
+        setBookmarkedDestinations(bookmarks);
+      } else {
+        await setDoc(bookmarksRef, {
+          userId,
+          bookmarks: [],
+          createdAt: serverTimestamp()
+        });
+        setBookmarkedDestinations([]);
+      }
+    } catch (error) {
+      console.error('Error fetching bookmarks:', error);
+      setBookmarkedDestinations([]);
+    }
+  };
+
+  // Add/remove bookmark for current user
+  const handleBookmark = async (destination) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        alert('Please login to bookmark destinations');
+        return;
+      }
+      const userBookmarksRef = doc(db, 'userBookmarks', user.uid);
+      const bookmarkDoc = await getDoc(userBookmarksRef);
+      let updatedBookmarks = [];
+      if (!bookmarkDoc.exists()) {
+        updatedBookmarks = [destination.id];
+        await setDoc(userBookmarksRef, {
+          userId: user.uid,
+          bookmarks: updatedBookmarks,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        const currentBookmarks = bookmarkDoc.data().bookmarks || [];
+        const isBookmarked = currentBookmarks.includes(destination.id);
+        updatedBookmarks = isBookmarked
+          ? currentBookmarks.filter(id => id !== destination.id)
+          : [...currentBookmarks, destination.id];
+        await updateDoc(userBookmarksRef, {
+          bookmarks: updatedBookmarks,
+          updatedAt: serverTimestamp()
+        });
+      }
+      setBookmarkedDestinations(updatedBookmarks);
+      alert(updatedBookmarks.includes(destination.id)
+        ? 'Added to bookmarks'
+        : 'Removed from bookmarks');
+    } catch (error) {
+      console.error('Error handling bookmark:', error);
+      alert('Failed to update bookmark. Please try again.');
+    }
+  };
+
+  // Auth state and bookmarks
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        await fetchUserBookmarks(user.uid);
+      } else {
+        setBookmarkedDestinations([]);
+      }
+      setAuthChecked(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Initialize data and fetch destinations
+  useEffect(() => {
+    const initializeData = async () => {
+      const destinationsRef = collection(db, 'destinations');
+      const snapshot = await getDocs(destinationsRef);
+      if (snapshot.empty) {
+        await storeInitialData();
+      }
+      fetchDestinations();
+    };
+    initializeData();
+  }, []);
 
   const handleViewDetails = (destination) => {
     setSelectedDestination(destination);
@@ -76,7 +216,7 @@ function Bookmarks2() {
     setSelectedDestination(null);
   };
 
-  if (isLoading) {
+  if (!authChecked || isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -96,6 +236,7 @@ function Bookmarks2() {
           {destinations.map((destination, index) => (
             <div className="grid-card" key={index}>
               <div className="image-container">
+                {/* If you want to use Cloudinary's <Image> component, replace <img> below */}
                 <img
                   src={destination.image}
                   alt={destination.name}
@@ -111,7 +252,7 @@ function Bookmarks2() {
                     handleBookmark(destination);
                   }}
                 >
-                  {bookmarkedDestinations.includes(destination.name) ? '❤️' : '🤍'}
+                  {bookmarkedDestinations.includes(destination.id) ? '❤️' : '🤍'}
                 </button>
               </div>
               <p className="description">{destination.description}</p>

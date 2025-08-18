@@ -6,7 +6,6 @@ import { db, auth } from "./firebase";
 import { CLOUDINARY_CONFIG } from "./profile";
 import FriendPopup from "./friend";
 import "./community.css";
-import StickyHeader from './header'; // Add header.js
 
 // Helper to upload images to Cloudinary
 async function uploadToCloudinary(file) {
@@ -297,7 +296,6 @@ const Community = () => {
 
   return (
     <>
-      <StickyHeader />
       <div className="community-bg">
         <div className="community-container">
           <div className="community-header">
