@@ -4,7 +4,6 @@ import { collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, serverTime
 import cloudinary from './cloudinary';
 import { Image } from 'cloudinary-react';
 import './Styles/bookmark2.css';
-import StickyHeader from './header';
 
 // Initial destinations data
 const initialDestinations = [
@@ -222,7 +221,7 @@ function Bookmarks2() {
 
   return (
     <>
-      <StickyHeader />
+      {/* <StickyHeader /> */} {/* removed to avoid duplicate header */}
       <div className="App">
         <h1 className="title">Philippine Destinations</h1>
         <div className="search-filter-wrapper">
