@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './login';
 import Register from './register';
 import Dashboard from './dashboard';
@@ -12,6 +12,8 @@ import './App.css';
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import Community from './community'; // Add this at the top with other imports
+import ChatbaseAIModal from './Ai'; // Import from Ai.js
+
 // filepath: d:\ReactProj\lakbai\src\App.js
 
 // RequireAuth definition (add this to protect routes)
@@ -28,10 +30,14 @@ function RequireAuth({ children }) {
 
 function App() {
   const [showAIModal, setShowAIModal] = useState(false);
+  const location = useLocation();
+
+  // Only show header if not on login page
+  const hideHeader = location.pathname === "/" || location.pathname === "/login";
 
   return (
     <>
-      <StickyHeader setShowAIModal={setShowAIModal} />
+      {!hideHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
@@ -49,50 +55,6 @@ function App() {
   );
 }
 
-// Modal wrapper for AI
-function ChatbaseAIModal({ onClose }) {
-  return (
-    <div style={{
-      position: "fixed",
-      top: 0, left: 0, right: 0, bottom: 0,
-      background: "rgba(0,0,0,0.25)",
-      zIndex: 2000,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }}>
-      <div style={{
-        background: "#6c63ff",
-        borderRadius: "1px",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-        width: "60vw",
-        minWidth: "340px",
-        maxWidth: "700px",
-        minHeight: "500px",
-        position: "relative",
-        padding: "0"
-      }}>
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            background: "#6c63ff",
-            color: "#fff",
-            border: "none",
-            borderRadius: "50%",
-            width: "32px",
-            height: "32px",
-            fontSize: "1.2rem",
-            cursor: "pointer",
-            zIndex: 10
-          }}
-        >×</button>
-        <ChatbaseAI />
-      </div>
-    </div>
-  );
-}
+
 
 export default App;
