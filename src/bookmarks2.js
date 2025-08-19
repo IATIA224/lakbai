@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import StickyHeader from './header';
+// import StickyHeader from './header'; // remove this import
 import './Styles/bookmark2.css';
 
 // Local sample data
@@ -68,7 +68,7 @@ function Bookmarks2() {
 
   return (
     <>
-      <StickyHeader />
+      {/* <StickyHeader /> */} {/* remove this line */}
       <div className="App">
         <h1 className="title">Philippine Destinations</h1>
 
