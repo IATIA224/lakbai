@@ -7,7 +7,6 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 function Bookmark() {
   const navigate = useNavigate();
   const [bookmarkedDestinations, setBookmarkedDestinations] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
@@ -18,7 +17,6 @@ function Bookmark() {
       } else {
         setBookmarkedDestinations([]);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -84,14 +82,6 @@ function Bookmark() {
       alert('Failed to remove bookmark. Please try again.');
     }
   };
-
-  if (loading) {
-    return (
-      <div className="App">
-        <div className="loading">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="App">

@@ -451,3 +451,42 @@
     opacity: 0;
   }
 }
+
+.sharecode-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(2, 6, 23, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 60;
+}
+.sharecode-card {
+  width: 440px; max-width: 92vw;
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+  animation: sc-pop .2s ease-out;
+}
+@keyframes sc-pop { from { transform: scale(.98); opacity: .6 } to { transform: scale(1); opacity: 1 } }
+.sharecode-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; color: #fff;
+  background: linear-gradient(135deg, #3b5fff 0%, #7c3aed 100%);
+}
+.sharecode-title { font-weight: 700; }
+.sharecode-close {
+  background: rgba(255,255,255,.2); border: none; color: #fff;
+  font-size: 20px; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+}
+.sharecode-body { padding: 20px; }
+.sharecode-box {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 3px; font-size: 32px; font-weight: 800; text-align: center;
+  background: #f3f4f6; color: #3b5fff; border: 1px solid #e5e7eb;
+  border-radius: 12px; padding: 16px 12px; margin-bottom: 12px;
+}
+.sharecode-actions { display: flex; gap: 10px; justify-content: center; }
+.sharecode-btn {
+  padding: 10px 14px; border-radius: 10px; border: 1px solid transparent;
+  font-weight: 700; cursor: pointer; font-size: 14px;
+}
+.sharecode-btn.primary { background: #3b5fff; color: #fff; }
+.sharecode-btn.ghost { background: #fff; border-color: #e5e7eb; color: #0f172a; }
+.sharecode-hint { text-align: center; color: #64748b; font-size: 12px; margin-top: 10px; }

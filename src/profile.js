@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import './profile.css';
+import { v4 as uuidv4 } from 'uuid'; // Install with: npm install uuid
 
 export const CLOUDINARY_CONFIG = {
   cloudName: "dxvewejox",
@@ -34,6 +35,7 @@ const Profile = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showInfoDelete, setShowInfoDelete] = useState(false);
+  const [showShareCode, setShowShareCode] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [unlockedAchievements, setUnlockedAchievements] = useState(new Set());
   const [photos, setPhotos] = useState([]);
@@ -58,6 +60,7 @@ const Profile = () => {
     dislikes: [],
     joined: "",
   });
+  const [shareCode, setShareCode] = useState("");
 
   // Function to fetch profile data
   const fetchProfile = async () => {
@@ -114,6 +117,8 @@ const Profile = () => {
         dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
         joined,
       });
+// Add this so modal shows existing code if present
+      setShareCode(data.shareCode || "");
 
       setStats({
         placesVisited: statsData.placesVisited || 0,
@@ -374,6 +379,33 @@ const Profile = () => {
     }
   };
 
+  // Generate and save share code
+  const handleShareProfile = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const code = uuidv4().slice(0, 8).toUpperCase();
+      await updateDoc(doc(db, "users", user.uid), { shareCode: code });
+
+      setShareCode(code);
+      setShowShareCode(true);
+    } catch (error) {
+      alert("Failed to generate share code.");
+      console.error(error);
+    }
+  };
+
+  const copyShareCode = async () => {
+    try {
+      if (!shareCode) return;
+      await navigator.clipboard.writeText(shareCode);
+      alert("Code copied to clipboard");
+    } catch {
+      alert("Failed to copy");
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -610,7 +642,12 @@ const Profile = () => {
             <div className="profile-card profile-actions">
               <div className="profile-card-title">⚡ Quick Actions</div>
               <button className="profile-action-btn plan">📌 Plan New Trip</button>
-              <button className="profile-action-btn share">🗂️ Share Profile</button>
+              <button
+                className="profile-action-btn share"
+                onClick={handleShareProfile}
+              >
+                🗂️ Share Profile
+              </button>
               <button className="profile-action-btn export">💾 Export My Data</button>
               <button className="profile-action-btn settings" onClick={() => setShowInfoDelete(true)}>⚙️ Account Settings</button>
               <button className="profile-action-btn logout" style={{ background: '#3b5fff', marginTop: '8px' }} onClick={handleLogout}>🚪 Logout</button>
@@ -770,6 +807,29 @@ const Profile = () => {
                     </button>
                   </div>
                 ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Code Popup */}
+      {showShareCode && (
+        <div className="sharecode-backdrop" onClick={() => setShowShareCode(false)}>
+          <div className="sharecode-card" onClick={(e) => e.stopPropagation()}>
+            <div className="sharecode-header">
+              <div className="sharecode-title">Share Profile Code</div>
+              <button className="sharecode-close" onClick={() => setShowShareCode(false)}>×</button>
+            </div>
+
+            <div className="sharecode-body">
+              <div className="sharecode-box">{shareCode || "--------"}</div>
+              <div className="sharecode-actions">
+                <button className="sharecode-btn primary" onClick={copyShareCode}>Copy Code</button>
+                <button className="sharecode-btn ghost" onClick={handleShareProfile}>Regenerate</button>
+              </div>
+              <div className="sharecode-hint">
+                Friends can add you by entering this code in Community → Friends.
+              </div>
             </div>
           </div>
         </div>

@@ -216,128 +216,125 @@ function Bookmarks2() {
   };
 
   if (!authChecked || isLoading) {
-    return <div>Loading...</div>;
+    return null; // Don't render anything while loading
   }
 
   return (
-    <>
-      {/* <StickyHeader /> */} {/* removed to avoid duplicate header */}
-      <div className="App">
-        <h1 className="title">Philippine Destinations</h1>
-        <div className="search-filter-wrapper">
-          <input type="text" className="search-input" placeholder="Search destinations..." />
-          <div className="filters">
-            <select className="filter-select"><option>All Regions</option></select>
-            <select className="filter-select"><option>All Activities</option></select>
-          </div>
+    <div className="App">
+      <h1 className="title">Philippine Destinations</h1>
+      <div className="search-filter-wrapper">
+        <input type="text" className="search-input" placeholder="Search destinations..." />
+        <div className="filters">
+          <select className="filter-select"><option>All Regions</option></select>
+          <select className="filter-select"><option>All Activities</option></select>
         </div>
-        <div className="grid-container">
-          {destinations.map((destination, index) => (
-            <div className="grid-card" key={index}>
-              <div className="image-container">
-                {/* If you want to use Cloudinary's <Image> component, replace <img> below */}
-                <img
-                  src={destination.image}
-                  alt={destination.name}
-                  className="destination-image"
-                />
-              </div>
-              <div className="card-header">
-                <h2>{destination.name}</h2>
-                <button
-                  className="heart-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleBookmark(destination);
-                  }}
-                >
-                  {bookmarkedDestinations.includes(destination.id) ? '❤️' : '🤍'}
-                </button>
-              </div>
-              <p className="description">{destination.description}</p>
-              <div className="card-footer">
-                <div className="rating">⭐ {destination.rating}</div>
-                <div className="price">{destination.price}</div>
-              </div>
+      </div>
+      <div className="grid-container">
+        {destinations.map((destination, index) => (
+          <div className="grid-card" key={index}>
+            <div className="image-container">
+              {/* If you want to use Cloudinary's <Image> component, replace <img> below */}
+              <img
+                src={destination.image}
+                alt={destination.name}
+                className="destination-image"
+              />
+            </div>
+            <div className="card-header">
+              <h2>{destination.name}</h2>
               <button
-                className="details-btn"
-                onClick={() => handleViewDetails(destination)}
+                className="heart-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBookmark(destination);
+                }}
               >
-                View Details
+                {bookmarkedDestinations.includes(destination.id) ? '❤️' : '🤍'}
               </button>
             </div>
-          ))}
-        </div>
+            <p className="description">{destination.description}</p>
+            <div className="card-footer">
+              <div className="rating">⭐ {destination.rating}</div>
+              <div className="price">{destination.price}</div>
+            </div>
+            <button
+              className="details-btn"
+              onClick={() => handleViewDetails(destination)}
+            >
+              View Details
+            </button>
+          </div>
+        ))}
+      </div>
 
-        {/* Modal Markup */}
-        {isModalOpen && (
-          <div
-            className="modal-overlay active"
-            onClick={(e) => {
-              if (e.target.classList.contains('modal-overlay')) {
-                handleCloseModal();
-              }
-            }}
-          >
-            <div className="modal-content">
-              <div className="modal-header">
-                <h2>Destination Details</h2>
-                <button
-                  className="modal-close-btn"
-                  onClick={handleCloseModal}
-                >
-                  &times;
-                </button>
-              </div>
-              <div className="modal-body">
-                {selectedDestination && (
-                  <>
-                    <img
-                      src={selectedDestination.image}
-                      alt={selectedDestination.name}
-                      className="destination-image"
-                    />
-                    <div className="destination-info">
-                      <div className="destination-details">
-                        <h1>{selectedDestination.name}</h1>
-                        <p>{selectedDestination.description}</p>
-                        <div className="tag-container">
-                          {selectedDestination.tags && selectedDestination.tags.map((tag, idx) => (
-                            <span className="tag" key={idx}>{tag}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="sidebar">
-                        <div className="info-box">
-                          <h3>Quick Info</h3>
-                          <div className="info-item">
-                            <span>⭐️ Rating:</span>
-                            <span>{selectedDestination.rating}/5</span>
-                          </div>
-                          <div className="info-item">
-                            <span>💰 Price Range:</span>
-                            <span>{selectedDestination.price}</span>
-                          </div>
-                          <div className="info-item">
-                            <span>⏰ Best Time:</span>
-                            <span>{selectedDestination.bestTime}</span>
-                          </div>
-                        </div>
-                        <div className="info-box">
-                          <h3>Location</h3>
-                          <p>{selectedDestination.location}</p>
-                        </div>
-                        <button className="book-now-btn">Book Now</button>
+      {/* Modal Markup */}
+      {isModalOpen && (
+        <div
+          className="modal-overlay active"
+          onClick={(e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+              handleCloseModal();
+            }
+          }}
+        >
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Destination Details</h2>
+              <button
+                className="modal-close-btn"
+                onClick={handleCloseModal}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              {selectedDestination && (
+                <>
+                  <img
+                    src={selectedDestination.image}
+                    alt={selectedDestination.name}
+                    className="destination-image"
+                  />
+                  <div className="destination-info">
+                    <div className="destination-details">
+                      <h1>{selectedDestination.name}</h1>
+                      <p>{selectedDestination.description}</p>
+                      <div className="tag-container">
+                        {selectedDestination.tags && selectedDestination.tags.map((tag, idx) => (
+                          <span className="tag" key={idx}>{tag}</span>
+                        ))}
                       </div>
                     </div>
-                  </>
-                )}
-              </div>
+                    <div className="sidebar">
+                      <div className="info-box">
+                        <h3>Quick Info</h3>
+                        <div className="info-item">
+                          <span>⭐️ Rating:</span>
+                          <span>{selectedDestination.rating}/5</span>
+                        </div>
+                        <div className="info-item">
+                          <span>💰 Price Range:</span>
+                          <span>{selectedDestination.price}</span>
+                        </div>
+                        <div className="info-item">
+                          <span>⏰ Best Time:</span>
+                          <span>{selectedDestination.bestTime}</span>
+                        </div>
+                      </div>
+                      <div className="info-box">
+                        <h3>Location</h3>
+                        <p>{selectedDestination.location}</p>
+                      </div>
+                      <button className="book-now-btn">Book Now</button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 }
 
