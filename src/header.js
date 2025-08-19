@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { auth, db } from "./firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import "./header.css";
 
 const navTabs = [
 	{ label: "Dashboard", path: "/dashboard" },
 	{ label: "Destinations", path: "/bookmarks2" },
 	{ label: "Bookmarks", path: "/bookmark" },
-	{ label: "My Trips" }, // No path, so it's just text and not a link
+	{ label: "My Trips", path: "/itinerary" },
 	{ label: "Community", path: "/community" },
 ];
 
@@ -14,8 +17,27 @@ const StickyHeader = ({ setShowAIModal }) => {
 	const [messages, setMessages] = useState([]);
 	const [inputMessage, setInputMessage] = useState("");
 	const [activeTab, setActiveTab] = useState("Dashboard");
+	const [profilePic, setProfilePic] = useState("/user.png");
 	const navigate = useNavigate();
 	const location = useLocation();
+
+	useEffect(() => {
+		const unsubscribe = onAuthStateChanged(auth, async (user) => {
+			if (user) {
+				const snap = await getDoc(doc(db, "users", user.uid));
+				if (snap.exists() && snap.data().profilePicture) {
+					setProfilePic(snap.data().profilePicture);
+				} else if (user.photoURL) {
+					setProfilePic(user.photoURL);
+				} else {
+					setProfilePic("/user.png");
+				}
+			} else {
+				setProfilePic("/user.png");
+			}
+		});
+		return () => unsubscribe();
+	}, []);
 
 	useEffect(() => {
 		const currentTab = navTabs.find((tab) => tab.path === location.pathname);
@@ -54,9 +76,13 @@ const StickyHeader = ({ setShowAIModal }) => {
 						<span
 							key={tab.label}
 							onClick={() => handleTabClick(tab)}
+							className={`nav-tab${
+								location.pathname === tab.path ? " active" : ""
+							}`}
 							style={{
 								cursor: "pointer",
-								borderBottom: activeTab === tab.label ? "3px solid #2962ff" : "none",
+								borderBottom:
+									activeTab === tab.label ? "3px solid #2962ff" : "none",
 								color: activeTab === tab.label ? "#2962ff" : "inherit",
 								paddingBottom: "4px",
 								marginRight: "18px",
@@ -75,7 +101,7 @@ const StickyHeader = ({ setShowAIModal }) => {
 						<span className="dot"></span> AI Assistant
 					</button>
 					<img
-						src="/user.png"
+						src={profilePic}
 						alt="User"
 						className="user-icon"
 						onClick={() => navigate("/profile")}

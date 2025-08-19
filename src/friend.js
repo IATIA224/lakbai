@@ -11,7 +11,8 @@ import {
   query,
   where,
   getDocs,
-  onSnapshot
+  onSnapshot,
+  addDoc
 } from "firebase/firestore";
 
 const FriendPopup = ({ onClose }) => {
@@ -103,6 +104,21 @@ const FriendPopup = ({ onClose }) => {
     setLoading(false);
   };
 
+  // Add activity log
+  async function addActivity(userId, text, icon = "🔵") {
+    try {
+      const activityData = {
+        userId,
+        text,
+        icon,
+        timestamp: new Date().toISOString()
+      };
+      await addDoc(collection(db, "activities"), activityData);
+    } catch (error) {
+      console.error("Error adding activity:", error);
+    }
+  }
+
   const acceptRequest = async (requesterId) => {
     const me = auth.currentUser;
     if (!me) return;
@@ -116,6 +132,10 @@ const FriendPopup = ({ onClose }) => {
       await updateDoc(doc(db, "users", requesterId), {
         friends: arrayUnion(me.uid)
       });
+
+      // Log the friendship activity
+      await addActivity(me.uid, "You added a friend!", "👥");
+      await addActivity(requesterId, "You became friends!", "👥");
     } catch (err) {
       console.error(err);
       alert("Failed to accept request.");
