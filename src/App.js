@@ -10,6 +10,9 @@ import Community from './community';
 import Profile from './profile';
 import { ChatbaseAIModal } from './Ai';
 import './App.css';
+import { UserProvider } from "./UserContext";
+import AchievementToast from "./AchievementToast";
+import Itinerary from "./Itinerary";
 
 function App() {
   const [showAIModal, setShowAIModal] = useState(false);
@@ -20,7 +23,7 @@ function App() {
   const showHeader = !hideHeaderRoutes.includes(location.pathname);
 
   return (
-    <>
+    <UserProvider>
       {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
 
       <Routes>
@@ -31,10 +34,12 @@ function App() {
         <Route path="/bookmarks2" element={<Bookmarks2 />} />
         <Route path="/community" element={<Community />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/itinerary" element={<Itinerary />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
-    </>
+      <AchievementToast />
+    </UserProvider>
   );
 }
 

@@ -11,6 +11,8 @@ import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, dele
 import { db, auth } from "./firebase";
 import './profile.css';
 import { v4 as uuidv4 } from 'uuid'; // Install with: npm install uuid
+import { useUser } from "./UserContext";
+import { emitAchievement } from "./achievementsBus";
 
 export const CLOUDINARY_CONFIG = {
   cloudName: "dxvewejox",
@@ -22,6 +24,8 @@ const LABELS = {
 };
 
 const Profile = () => {
+  const { profile, setProfile } = useUser();
+
   // Custom marker icon
   const customIcon = new L.Icon({
     iconUrl: '/placeholder.png',
@@ -52,14 +56,6 @@ const Profile = () => {
     reviewsWritten: 0,
     friends: 0
   });
-  const [profile, setProfile] = useState({
-    name: "",
-    bio: "",
-    profilePicture: "/user.png",
-    likes: [],
-    dislikes: [],
-    joined: "",
-  });
   const [shareCode, setShareCode] = useState("");
 
   // Function to fetch profile data
@@ -78,80 +74,66 @@ const Profile = () => {
         ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
         : "";
 
-      // Get stats from Firestore
-      const statsData = data.stats || {};
-
-      // Get photos from Firestore
-      let photosData = [];
-      try {
-        const photosQuery = query(collection(db, "photos"), where("userId", "==", user.uid));
-        const photosSnapshot = await getDocs(photosQuery);
-        photosData = photosSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-      } catch (error) {
-        console.error("Error fetching photos: ", error);
-        photosData = [];
-      }
-
-      // Get visited locations from Firestore
-      let locationsData = [];
-      try {
-        const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", user.uid));
-        const locationsSnapshot = await getDocs(locationsQuery);
-        locationsData = locationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-      } catch (error) {
-        console.error("Error fetching locations: ", error);
-        locationsData = [];
-      }
-
-      setProfile({
+      setProfile(prev => ({
+        ...prev,
         name: data.name || user.displayName || "",
         bio: data.bio || "",
         profilePicture: data.profilePicture || "/user.png",
         likes: Array.isArray(data.likes) ? data.likes : [],
         dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
         joined,
-      });
-// Add this so modal shows existing code if present
+      }));
       setShareCode(data.shareCode || "");
 
+      // Fetch stats, achievements, etc. (lightweight)
       setStats({
-        placesVisited: statsData.placesVisited || 0,
-        photosShared: statsData.photosShared || 0,
-        reviewsWritten: statsData.reviewsWritten || 0,
-        friends: statsData.friends || 0
+        placesVisited: data.stats?.placesVisited || 0,
+        photosShared: data.stats?.photosShared || 0,
+        reviewsWritten: data.stats?.reviewsWritten || 0,
+        friends: data.stats?.friends || 0
       });
 
-      // Load achievements from Firebase
-      const achievements = data.achievements || {};
-      const unlockedIds = Object.keys(achievements).filter(id => achievements[id]).map(id => parseInt(id, 10));
-      setUnlockedAchievements(new Set(unlockedIds));
+      // Achievements
+      const achievementsObj = data.achievements || {};
+      const unlocked = new Set(
+        Object.entries(achievementsObj)
+          .filter(([_, v]) => v === true)
+          .map(([id]) => Number(id))
+      );
+      setUnlockedAchievements(unlocked);
 
-      // Get activities from Firestore
-      let activitiesData = [];
-      try {
-        const activitiesQuery = query(
-          collection(db, "activities"),
-          where("userId", "==", user.uid)
-        );
-        const activitiesSnapshot = await getDocs(activitiesQuery);
-        activitiesData = activitiesSnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-          .slice(0, 10);
-      } catch (error) {
-        console.error("Error fetching activities:", error);
-        activitiesData = [];
-      }
-
-      setPhotos(photosData);
-      setVisitedLocations(locationsData);
-      setActivities(activitiesData);
+      // Heavy data: fetch in parallel, update each section as ready
+      Promise.all([
+        // Photos
+        (async () => {
+          try {
+            const photosQuery = query(collection(db, "photos"), where("userId", "==", user.uid));
+            const photosSnapshot = await getDocs(photosQuery);
+            setPhotos(photosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          } catch { setPhotos([]); }
+        })(),
+        // Locations
+        (async () => {
+          try {
+            const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", user.uid));
+            const locationsSnapshot = await getDocs(locationsQuery);
+            setVisitedLocations(locationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          } catch { setVisitedLocations([]); }
+        })(),
+        // Activities
+        (async () => {
+          try {
+            const activitiesQuery = query(collection(db, "activities"), where("userId", "==", user.uid));
+            const activitiesSnapshot = await getDocs(activitiesQuery);
+            setActivities(
+              activitiesSnapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .slice(0, 10)
+            );
+          } catch { setActivities([]); }
+        })()
+      ]);
     } catch (error) {
       console.error("Error fetching profile data:", error);
     }
@@ -165,6 +147,13 @@ const Profile = () => {
     const userRef = doc(db, "users", user.uid);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
+        const data = docSnap.data();
+        // Update friends count from friends array length
+        const friendsCount = Array.isArray(data.friends) ? data.friends.length : 0;
+        setStats(prev => ({
+          ...prev,
+          friends: friendsCount
+        }));
         fetchProfile();
       }
     });
@@ -208,15 +197,10 @@ const Profile = () => {
 
   // Notification helper
   const showAchievementNotification = (message) => {
-    setNotificationMessage(message);
-    setShowNotification(true);
-    setTimeout(() => {
-      setShowNotification(false);
-      setNotificationMessage('');
-    }, 3000);
+    emitAchievement(message);
   };
 
-  // Unlock achievement
+  // Unlock achievement (generic)
   const unlockAchievement = async (achievementId, achievementName) => {
     if (!unlockedAchievements.has(achievementId)) {
       setUnlockedAchievements(prev => new Set(prev).add(achievementId));
@@ -232,6 +216,25 @@ const Profile = () => {
         console.error("Error saving achievement:", error);
       }
       await trackActivity.completeAchievement(achievementName);
+    }
+  };
+
+  // Ensure an achievement is unlocked (checks Firestore to prevent duplicate toast)
+  const ensureAchievementUnlocked = async (achievementId, achievementName) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const snap = await getDoc(doc(db, "users", user.uid));
+      const already =
+        snap.exists() &&
+        snap.data().achievements &&
+        snap.data().achievements[achievementId] === true;
+
+      if (!already) {
+        await unlockAchievement(achievementId, achievementName);
+      }
+    } catch (e) {
+      console.error("Error ensuring achievement:", e);
     }
   };
 
@@ -277,9 +280,8 @@ const Profile = () => {
           "stats.photosShared": updatedPhotos.length
         });
 
-        if (updatedPhotos.length === 1) {
-          unlockAchievement(3, 'Say Cheese!');
-        }
+        // Unlock "Say Cheese!" when uploading a photo (with toast)
+        await ensureAchievementUnlocked(3, "Say Cheese!");
 
         await trackActivity.uploadPhoto();
       } catch (err) {
@@ -676,14 +678,6 @@ const Profile = () => {
 
       {/* Info / Delete Modal */}
       {showInfoDelete && <InfoDelete onClose={() => setShowInfoDelete(false)} />}
-
-      {/* Achievement toast */}
-      {showNotification && (
-        <div className="achievement-notification">
-          <span className="achievement-icon">🏆</span>
-          <span>{notificationMessage}</span>
-        </div>
-      )}
 
       {/* Selected Photo Viewer */}
       {selectedPhoto && (

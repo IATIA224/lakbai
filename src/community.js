@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { addDoc, collection, serverTimestamp, getDocs, query, where } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, getDocs, query, where, doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "./firebase";
 import { CLOUDINARY_CONFIG } from "./profile";
 import FriendPopup from "./friend";
 import "./community.css";
+import { emitAchievement } from "./achievementsBus";
 
 // Helper to upload images to Cloudinary
 async function uploadToCloudinary(file) {
@@ -103,6 +104,9 @@ function ShareTripModal({ onClose, onCreate }) {
       });
 
       await addDoc(collection(db, "community"), postPayload);
+
+      // Unlock Hello World achievement and add activity
+      await unlockHelloWorldAchievement();
 
       onCreate();
       onClose();
@@ -265,22 +269,51 @@ const Community = () => {
   async function loadPostsForUser(user) {
     const col = collection(db, "community");
 
-    const pubSnap = await getDocs(query(col, where("visibility", "==", "Public")));
-    const ownSnap = user ? await getDocs(query(col, where("authorId", "==", user.uid))) : { docs: [] };
-    const friendsSnap = user ? await getDocs(query(col, where("visibility", "==", "Friends"), where("allowedUids", "array-contains", user.uid))) : { docs: [] };
+    // Fetch all posts in parallel
+    const [pubSnap, ownSnap, friendsSnap] = await Promise.all([
+      getDocs(query(col, where("visibility", "==", "Public"))),
+      user ? getDocs(query(col, where("authorId", "==", user.uid))) : Promise.resolve({ docs: [] }),
+      user ? getDocs(query(col, where("visibility", "==", "Friends"), where("allowedUids", "array-contains", user.uid))) : Promise.resolve({ docs: [] }),
+    ]);
 
+    // Combine and deduplicate posts
     const map = new Map();
-    for (const d of [...pubSnap.docs, ...ownSnap.docs, ...friendsSnap.docs]) {
+    [...pubSnap.docs, ...ownSnap.docs, ...friendsSnap.docs].forEach(d => {
       map.set(d.id, { id: d.id, ...d.data() });
+    });
+    const postsArr = Array.from(map.values());
+
+    // Collect all unique authorIds
+    const authorIds = [...new Set(postsArr.map(post => post.authorId).filter(Boolean))];
+
+    // Batch fetch all author profiles
+    const authorProfiles = {};
+    if (authorIds.length > 0) {
+      const userCol = collection(db, "users");
+      const authorSnaps = await Promise.all(
+        authorIds.map(uid => getDoc(doc(userCol, uid)))
+      );
+      authorSnaps.forEach((snap, i) => {
+        authorProfiles[authorIds[i]] = snap.exists() && snap.data().profilePicture
+          ? snap.data().profilePicture
+          : "/user.png";
+      });
     }
 
-    const combined = Array.from(map.values()).sort((a, b) => {
+    // Attach profilePicture to each post
+    const postsWithPics = postsArr.map(post => ({
+      ...post,
+      profilePicture: authorProfiles[post.authorId] || "/user.png"
+    }));
+
+    // Sort by date
+    postsWithPics.sort((a, b) => {
       const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
       const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
       return tb - ta;
     });
 
-    setPosts(combined);
+    setPosts(postsWithPics);
   }
 
   useEffect(() => {
@@ -325,7 +358,15 @@ const Community = () => {
               {posts.map(post => (
                 <article className="community-card" key={post.id}>
                   <header className="card-head">
-                    <div className="avatar">{post.author?.initials || "??"}</div>
+                    <div className="avatar" style={{
+                      width: 40, height: 40, borderRadius: "50%", overflow: "hidden", background: "#f3f4f6"
+                    }}>
+                      <img
+                        src={post.profilePicture || "/user.png"}
+                        alt={post.authorName || "User"}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    </div>
                     <div className="meta">
                       <div className="name">{post.author?.name || "Anonymous"}</div>
                       <div className="sub">
@@ -385,3 +426,34 @@ const Community = () => {
 };
 
 export default Community;
+
+// Achievement and activity functions
+async function unlockHelloWorldAchievement() {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    await updateDoc(doc(db, "users", user.uid), { ["achievements.4"]: true });
+    await addActivity(user.uid, "You posted in the community!", "💬");
+    emitAchievement("Hello, World! Achievement Unlocked! 🎉");
+  } catch (err) {
+    console.error("Failed to unlock Hello World achievement:", err);
+  }
+}
+
+// Helper to add activity for a user
+async function addActivity(userId, text, icon = "🔵") {
+  try {
+    const activityData = {
+      userId,
+      text,
+      icon,
+      timestamp: new Date().toISOString()
+    };
+    await addDoc(collection(db, "activities"), activityData);
+  } catch (error) {
+    console.error("Error adding activity:", error);
+  }
+}
+
+// anywhere in the app when an achievement is unlocked
+emitAchievement("Say Cheese! Achievement Unlocked! 🎉");
