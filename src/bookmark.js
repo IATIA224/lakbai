@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Styles/bookmark.css';
 import { useNavigate } from 'react-router-dom';
-import StickyHeader from './header';
 import { db, auth } from './firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
@@ -86,7 +85,6 @@ function Bookmark() {
 
   return (
     <>
-      <StickyHeader />
       <div className="App">
         <div className="bookmark-section">
           <h2 className="bookmark-title">
