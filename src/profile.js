@@ -86,11 +86,15 @@ const Profile = () => {
       setShareCode(data.shareCode || "");
 
       // Fetch stats, achievements, etc. (lightweight)
+      const friendsCount =
+        Array.isArray(data.friends) ? data.friends.length
+        : (typeof data.friendsCount === "number" ? data.friendsCount : 0);
+
       setStats({
         placesVisited: data.stats?.placesVisited || 0,
         photosShared: data.stats?.photosShared || 0,
         reviewsWritten: data.stats?.reviewsWritten || 0,
-        friends: data.stats?.friends || 0
+        friends: friendsCount,            // <- use array length
       });
 
       // Achievements
@@ -103,8 +107,7 @@ const Profile = () => {
       setUnlockedAchievements(unlocked);
 
       // Heavy data: fetch in parallel, update each section as ready
-      Promise.all([
-        // Photos
+      await Promise.all([
         (async () => {
           try {
             const photosQuery = query(collection(db, "photos"), where("userId", "==", user.uid));
@@ -112,7 +115,6 @@ const Profile = () => {
             setPhotos(photosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
           } catch { setPhotos([]); }
         })(),
-        // Locations
         (async () => {
           try {
             const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", user.uid));
@@ -120,7 +122,6 @@ const Profile = () => {
             setVisitedLocations(locationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
           } catch { setVisitedLocations([]); }
         })(),
-        // Activities
         (async () => {
           try {
             const activitiesQuery = query(collection(db, "activities"), where("userId", "==", user.uid));
@@ -139,6 +140,14 @@ const Profile = () => {
     }
   };
 
+  // Initial load (no overlay)
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+    fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Real-time listener for profile changes
   useEffect(() => {
     const user = auth.currentUser;
@@ -146,24 +155,33 @@ const Profile = () => {
 
     const userRef = doc(db, "users", user.uid);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        // Update friends count from friends array length
-        const friendsCount = Array.isArray(data.friends) ? data.friends.length : 0;
-        setStats(prev => ({
-          ...prev,
-          friends: friendsCount
-        }));
-        fetchProfile();
-      }
+      if (!docSnap.exists()) return;
+      const data = docSnap.data();
+
+      // Update only fields that can change often
+      setProfile(prev => ({
+        ...prev,
+        name: data.name ?? prev.name,
+        bio: data.bio ?? prev.bio,
+        profilePicture: data.profilePicture ?? prev.profilePicture,
+        likes: Array.isArray(data.likes) ? data.likes : prev.likes,
+        dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev.dislikes,
+      }));
+
+      const friendsCount =
+        Array.isArray(data.friends) ? data.friends.length
+        : (typeof data.friendsCount === "number" ? data.friendsCount
+        : (data.stats?.friends || 0));
+
+      setStats(prev => ({ ...prev, friends: friendsCount }));
     });
 
     const handleUserDataChange = (event) => {
       if (user && event.detail.userId === user.uid) {
+        // Optional: refresh heavy sections (photos/activities) without touching friends
         fetchProfile();
       }
     };
-
     window.addEventListener('userDataChanged', handleUserDataChange);
 
     return () => {

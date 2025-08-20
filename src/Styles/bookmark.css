@@ -7,38 +7,47 @@
 }
 
 .bookmark-section {
-  text-align: center;
-  width: 400px;
+  text-align: left;                 /* was center */
+  width: auto;                      /* was 400px */
+  max-width: 1200px;                /* center column width */
+  margin: 0 auto;                   /* center on page */
 }
 
 .bookmark-title {
   font-size: 28px;
-  margin-bottom: 20px;
+  margin: 0 0 16px;
 }
 
+/* Grid → Flex rows: 3 across, wrap */
 .bookmarks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  display: flex;                    /* was grid */
+  flex-wrap: wrap;
   gap: 20px;
-  padding: 20px;
+  align-items: stretch;
+  align-content: flex-start;        /* keep rows at the top */
+  padding: 20px 0;
+  min-height: 360px;                /* gives room so bottom placement is visible */
 }
 
+/* Card sizing to get ~3 per row on desktop */
 .bookmark-card {
-  background: white;
+  flex: 1 1 320px;                  /* grow/shrink with min 320px */
+  max-width: 360px;                 /* prevent super-wide cards */
+  background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
   overflow: hidden;
-  transition: transform 0.2s ease;
+  transition: transform .2s ease;
 }
 
-.bookmark-card:hover {
-  transform: translateY(-4px);
+/* Move the 4th card to the bottom (end of the flex order) */
+.bookmark-card:nth-child(4) {
+  order: 999;
 }
 
-.pin-icon {
-  font-size: 40px;
-  margin-bottom: 10px;
-}
+/* Optional: if you have a dedicated "Add" card, target it instead
+.bookmark-card.add-card { order: 999; }
+*/
 
 .bookmark-image {
   width: 100%;
@@ -47,25 +56,20 @@
 }
 
 .bookmark-content {
-  padding: 16px;
-  position: relative;  /* Add this */
+  padding: 14px;
+  position: relative;
 }
 
 .bookmark-content h3 {
-  margin: 0 0 8px 0;
-  font-size: 1.2rem;
-  color: #333;
-  display: inline-block;  /* Add this */
-  width: calc(100% - 44px);  /* Add this - leaves space for heart button */
+  margin: 0 0 6px;
+  font-size: 1.06rem;
+  color: #0f172a;
+  display: inline-block;
+  width: calc(100% - 44px);
   text-align: left;
 }
 
-.bookmark-details {
-  display: flex;
-  justify-content: space-between;
-  margin: 12px 0;
-  color: #666;
-}
+.bookmark-details { margin: 10px 0; color: #64748b; }
 
 .tag-container {
   display: flex;
@@ -148,4 +152,11 @@
 
 .heart-btn:active {
   transform: scale(0.95);
+}
+
+/* Responsive: stack on small screens; restore normal order for #4 */
+@media (max-width: 900px) {
+  .bookmarks-grid { justify-content: center; }
+  .bookmark-card { flex: 1 1 280px; max-width: 100%; }
+  .bookmark-card:nth-child(4) { order: 4; } /* keep natural flow on mobile */
 }
