@@ -265,55 +265,61 @@ const Community = () => {
   const [posts, setPosts] = useState(initialPosts);
   const [open, setOpen] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // NEW
 
   async function loadPostsForUser(user) {
-    const col = collection(db, "community");
+    setIsLoading(true); // NEW
+    try {
+      const col = collection(db, "community");
 
-    // Fetch all posts in parallel
-    const [pubSnap, ownSnap, friendsSnap] = await Promise.all([
-      getDocs(query(col, where("visibility", "==", "Public"))),
-      user ? getDocs(query(col, where("authorId", "==", user.uid))) : Promise.resolve({ docs: [] }),
-      user ? getDocs(query(col, where("visibility", "==", "Friends"), where("allowedUids", "array-contains", user.uid))) : Promise.resolve({ docs: [] }),
-    ]);
+      // Fetch all posts in parallel
+      const [pubSnap, ownSnap, friendsSnap] = await Promise.all([
+        getDocs(query(col, where("visibility", "==", "Public"))),
+        user ? getDocs(query(col, where("authorId", "==", user.uid))) : Promise.resolve({ docs: [] }),
+        user ? getDocs(query(col, where("visibility", "==", "Friends"), where("allowedUids", "array-contains", user.uid))) : Promise.resolve({ docs: [] }),
+      ]);
 
-    // Combine and deduplicate posts
-    const map = new Map();
-    [...pubSnap.docs, ...ownSnap.docs, ...friendsSnap.docs].forEach(d => {
-      map.set(d.id, { id: d.id, ...d.data() });
-    });
-    const postsArr = Array.from(map.values());
-
-    // Collect all unique authorIds
-    const authorIds = [...new Set(postsArr.map(post => post.authorId).filter(Boolean))];
-
-    // Batch fetch all author profiles
-    const authorProfiles = {};
-    if (authorIds.length > 0) {
-      const userCol = collection(db, "users");
-      const authorSnaps = await Promise.all(
-        authorIds.map(uid => getDoc(doc(userCol, uid)))
-      );
-      authorSnaps.forEach((snap, i) => {
-        authorProfiles[authorIds[i]] = snap.exists() && snap.data().profilePicture
-          ? snap.data().profilePicture
-          : "/user.png";
+      // Combine and deduplicate posts
+      const map = new Map();
+      [...pubSnap.docs, ...ownSnap.docs, ...friendsSnap.docs].forEach(d => {
+        map.set(d.id, { id: d.id, ...d.data() });
       });
+      const postsArr = Array.from(map.values());
+
+      // Collect all unique authorIds
+      const authorIds = [...new Set(postsArr.map(post => post.authorId).filter(Boolean))];
+
+      // Batch fetch all author profiles
+      const authorProfiles = {};
+      if (authorIds.length > 0) {
+        const userCol = collection(db, "users");
+        const authorSnaps = await Promise.all(
+          authorIds.map(uid => getDoc(doc(userCol, uid)))
+        );
+        authorSnaps.forEach((snap, i) => {
+          authorProfiles[authorIds[i]] = snap.exists() && snap.data().profilePicture
+            ? snap.data().profilePicture
+            : "/user.png";
+        });
+      }
+
+      // Attach profilePicture to each post
+      const postsWithPics = postsArr.map(post => ({
+        ...post,
+        profilePicture: authorProfiles[post.authorId] || "/user.png"
+      }));
+
+      // Sort by date
+      postsWithPics.sort((a, b) => {
+        const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return tb - ta;
+      });
+
+      setPosts(postsWithPics);
+    } finally {
+      setIsLoading(false); // NEW
     }
-
-    // Attach profilePicture to each post
-    const postsWithPics = postsArr.map(post => ({
-      ...post,
-      profilePicture: authorProfiles[post.authorId] || "/user.png"
-    }));
-
-    // Sort by date
-    postsWithPics.sort((a, b) => {
-      const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-      const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-      return tb - ta;
-    });
-
-    setPosts(postsWithPics);
   }
 
   useEffect(() => {
@@ -329,6 +335,21 @@ const Community = () => {
 
   return (
     <>
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="cm-loading-backdrop">
+          <div className="cm-loading-card">
+            <div className="cm-spinner" />
+            <div className="cm-loading-title">Loading community feed…</div>
+            <div className="cm-skeleton-row">
+              <div className="cm-skel-card" />
+              <div className="cm-skel-card" />
+              <div className="cm-skel-card" />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="community-bg">
         <div className="community-container">
           <div className="community-header">

@@ -8,8 +8,10 @@ function Bookmark() {
   const navigate = useNavigate();
   const [bookmarkedDestinations, setBookmarkedDestinations] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true); // NEW
 
   useEffect(() => {
+    setLoading(true); // NEW
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
       if (user) {
@@ -17,8 +19,8 @@ function Bookmark() {
       } else {
         setBookmarkedDestinations([]);
       }
+      setLoading(false); // NEW
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -73,7 +75,7 @@ function Bookmark() {
           updatedAt: new Date().toISOString()
         });
 
-        setBookmarkedDestinations(prev => 
+        setBookmarkedDestinations(prev =>
           prev.filter(dest => dest.id !== destinationId)
         );
       }
@@ -84,7 +86,22 @@ function Bookmark() {
   };
 
   return (
-    <div className="App">
+    <div className="App" aria-busy={loading}>
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="bm-loading-backdrop">
+          <div className="bm-loading-card">
+            <div className="bm-spinner" />
+            <div className="bm-loading-title">Loading your bookmarks…</div>
+            <div className="bm-skeleton-row">
+              <div className="bm-skel-card" />
+              <div className="bm-skel-card" />
+              <div className="bm-skel-card" />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bookmark-section">
         <h2 className="bookmark-title">
           <span role="img" aria-label="pin">📌</span> My Bookmarks
@@ -93,19 +110,20 @@ function Bookmark() {
           <div className="bookmarks-grid">
             {bookmarkedDestinations.map((destination) => (
               <div key={destination.id} className="bookmark-card">
-                <img 
-                  src={destination.image} 
+                <img
+                  src={destination.image}
                   alt={destination.name}
                   className="bookmark-image"
                 />
                 <div className="bookmark-content">
                   <h3>{destination.name}</h3>
-                  <button 
+                  <button
                     className="heart-btn"
                     onClick={(e) => {
                       e.stopPropagation();
                       removeBookmark(destination.id);
                     }}
+                    aria-label="Remove from bookmarks"
                   >
                     ❤️
                   </button>
@@ -124,14 +142,16 @@ function Bookmark() {
             ))}
           </div>
         ) : (
-          <div className="bookmark-card empty-state">
-            <div className="pin-icon">📍</div>
-            <h3>No bookmarks yet</h3>
-            <p>Start exploring destinations and bookmark your favorites!</p>
-            <button className="explore-btn" onClick={handleExploreClick}>
-              Explore Destinations
-            </button>
-          </div>
+          !loading && (
+            <div className="bookmark-card empty-state">
+              <div className="pin-icon">📍</div>
+              <h3>No bookmarks yet</h3>
+              <p>Start exploring destinations and bookmark your favorites!</p>
+              <button className="explore-btn" onClick={handleExploreClick}>
+                Explore Destinations
+              </button>
+            </div>
+          )
         )}
       </div>
     </div>

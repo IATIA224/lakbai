@@ -1,8 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* Add shared palette to match community */
+:root {
+  --bg-start: #6c63ff;   /* community brand primary */
+  --bg-end:   #a084ee;   /* community brand secondary */
+}
+
+/* Page background */
 .login-bg {
   min-height: 100vh;
-  background: linear-gradient(135deg, #7b8fff 0%, #7b5fff 100%);
+  background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -99,8 +106,9 @@
   transition: border 0.2s;
 }
 
+/* Inputs focus ring to brand */
 .login-input:focus {
-  border-color: #7b5fff;
+  border-color: var(--bg-start);
 }
 
 .login-password-wrapper {
@@ -148,9 +156,10 @@
   font-size: 0.95rem;
 }
 
+/* Primary button uses the same gradient */
 .login-btn {
   width: 100%;
-  background: linear-gradient(90deg, #7b8fff 0%, #7b5fff 100%);
+  background: linear-gradient(90deg, var(--bg-start) 0%, var(--bg-end) 100%);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -161,9 +170,8 @@
   cursor: pointer;
   transition: background 0.2s;
 }
-
 .login-btn:hover {
-  background: linear-gradient(90deg, #6c63ff 0%, #7b5fff 100%);
+  background: linear-gradient(90deg, var(--bg-start) 0%, var(--bg-end) 100%);
 }
 
 .login-divider {

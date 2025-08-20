@@ -96,46 +96,84 @@
 
 /* Modal */
 .itn-modal-backdrop {
-  position: fixed; inset: 0; background: rgba(2,6,23,.45);
-  display:flex; align-items:center; justify-content:center; z-index: 60;
+  position: fixed; inset: 0;
+  background: rgba(2,6,23,.45);
+  display:flex; align-items:center; justify-content:center;
+  z-index: 1500; /* was 60 – keep modal above Leaflet panes */
+  backdrop-filter: blur(2px);
 }
 .itn-modal {
-  width: 760px; max-width: 95vw; background:#fff; border-radius: 16px; overflow:hidden;
-  box-shadow: 0 10px 40px rgba(0,0,0,.2); animation: itn-pop .2s ease-out;
+  width: 1000px;
+  max-width: 96vw;
+  max-height: 68vh;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.2);
+  animation: itn-pop .2s ease-out;
+  background: #fff; /* ensure solid card surface */
 }
 @keyframes itn-pop { from { transform: scale(.98); opacity: .6 } to { transform: scale(1); opacity: 1 } }
 .itn-modal-header {
-  display:flex; align-items:center; justify-content:space-between; padding: 14px 18px;
-  color:#fff; background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 18px;
+  color:#fff;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+  border-bottom: 1px solid rgba(255,255,255,.25);
 }
 .itn-modal-title { font-weight:800; }
 .itn-close { background: rgba(255,255,255,.2); border:none; color:#fff; font-size:20px; width:32px; height:32px; border-radius: 8px; cursor:pointer; }
-.itn-modal-body { padding: 18px; }
-.itn-modal-footer { display:flex; justify-content:flex-end; padding: 10px 18px 18px; gap: 10px; }
-
-.itn-field { display:block; margin-bottom: 12px; }
-.itn-label { display:block; font-size: 12px; color:#64748b; margin-bottom: 6px; font-weight:700; }
-.itn-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.itn-grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 760px) { .itn-grid { grid-template-columns: 1fr; } .itn-grid-2 { grid-template-columns: 1fr; } }
-
-.itn-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-
-.itn-chip {
-  background:#eef2ff;
-  border:1px solid #e5e7eb;
-  border-radius: 999px;
-  padding: 6px 10px;
-  display:flex;
-  align-items:center;
-  gap:6px;
+.itn-modal-body {
+  padding: 18px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #fff; /* body was transparent */
 }
 
-.itn-chip button {
-  border:none;
-  background:transparent;
-  cursor:pointer;
-  font-weight:700;
-  line-height:1;
-  padding:0;
+/* Two-column form grid (auto-fit for nice wrapping) */
+.itn-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 18px;
+}
+.itn-form-col { display: grid; gap: 14px; }
+
+/* Inputs/rows spacing tuned */
+.itn-field { margin: 0; }
+.itn-label { margin-bottom: 6px; font-weight: 700; color: #475569; }
+.itn-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  outline: none;
+  font-size: 14px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.itn-row { gap: 10px; margin-top: 6px; }
+
+/* Generic grid rows inside columns */
+.itn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.itn-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.itn-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.itn-chip { background:#eef2ff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; display:flex; align-items:center; gap:6px; }
+.itn-chip button { border:none; background:transparent; cursor:pointer; font-weight:700; line-height:1; padding:0; }
+
+/* Keep page map behind everything */
+.itn-map-wrap { position: relative; z-index: 0; }
+.leaflet-container { z-index: 0; }
+
+/* Responsive stack on small screens */
+@media (max-width: 880px) {
+  .itn-modal { max-height: 80vh; }
+  .itn-form-grid { grid-template-columns: 1fr; }
 }

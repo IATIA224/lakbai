@@ -312,3 +312,34 @@ select.modal-input {
 .community-card .post-actions {
   color: var(--text-900);
 }
+
+/* Loading overlay (Community) */
+.cm-loading-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(2,6,23,.45);
+  display:flex; align-items:center; justify-content:center;
+  z-index: 1300; backdrop-filter: blur(2px);
+}
+.cm-loading-card {
+  width: min(820px, 92vw);
+  background:#fff; border-radius:16px; padding:22px;
+  box-shadow:0 12px 40px rgba(0,0,0,.25);
+  animation: cm-pop .18s ease-out both;
+}
+.cm-loading-title { font-weight:800; font-size:18px; color:#0f172a; margin:6px 0 14px; }
+.cm-spinner {
+  width:36px; height:36px; border-radius:50%;
+  border:3.5px solid #e5e7eb; border-top-color:#6c63ff;
+  animation: cm-spin .9s linear infinite; margin-bottom:12px;
+}
+.cm-skeleton-row {
+  display:grid; grid-template-columns: repeat(3, minmax(220px,1fr)); gap:14px;
+}
+.cm-skel-card {
+  height:140px; border-radius:12px;
+  background: linear-gradient(90deg, #f2f4f8 25%, #e9edf5 37%, #f2f4f8 63%);
+  background-size:400% 100%; animation: cm-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes cm-pop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes cm-spin { to { transform: rotate(360deg); } }
+@keyframes cm-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }

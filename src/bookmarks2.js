@@ -138,7 +138,33 @@ function Bookmarks2() {
     }
   };
 
-  // Add/remove bookmark for current user
+  // Auth state and bookmarks
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        await fetchUserBookmarks(user.uid);
+      } else {
+        setBookmarkedDestinations([]);
+      }
+      setAuthChecked(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Initialize data and fetch destinations
+  useEffect(() => {
+    const initializeData = async () => {
+      const destinationsRef = collection(db, 'destinations');
+      const snapshot = await getDocs(destinationsRef);
+      if (snapshot.empty) {
+        await storeInitialData();
+      }
+      fetchDestinations();
+    };
+    initializeData();
+  }, []);
+
   const handleBookmark = async (destination) => {
     try {
       const user = auth.currentUser;
@@ -178,33 +204,6 @@ function Bookmarks2() {
     }
   };
 
-  // Auth state and bookmarks
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      setCurrentUser(user);
-      if (user) {
-        await fetchUserBookmarks(user.uid);
-      } else {
-        setBookmarkedDestinations([]);
-      }
-      setAuthChecked(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Initialize data and fetch destinations
-  useEffect(() => {
-    const initializeData = async () => {
-      const destinationsRef = collection(db, 'destinations');
-      const snapshot = await getDocs(destinationsRef);
-      if (snapshot.empty) {
-        await storeInitialData();
-      }
-      fetchDestinations();
-    };
-    initializeData();
-  }, []);
-
   const handleViewDetails = (destination) => {
     setSelectedDestination(destination);
     setIsModalOpen(true);
@@ -215,12 +214,23 @@ function Bookmarks2() {
     setSelectedDestination(null);
   };
 
-  if (!authChecked || isLoading) {
-    return null; // Don't render anything while loading
-  }
-
   return (
-    <div className="App">
+    <div className="App" aria-busy={!authChecked || isLoading}>
+      {/* Loading Overlay */}
+      {(!authChecked || isLoading) && (
+        <div className="bm2-loading-backdrop">
+          <div className="bm2-loading-card">
+            <div className="bm2-spinner" />
+            <div className="bm2-loading-title">Loading destinations…</div>
+            <div className="bm2-skeleton-row">
+              <div className="bm2-skel-card" />
+              <div className="bm2-skel-card" />
+              <div className="bm2-skel-card" />
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 className="title">Philippine Destinations</h1>
       <div className="search-filter-wrapper">
         <input type="text" className="search-input" placeholder="Search destinations..." />
@@ -229,11 +239,11 @@ function Bookmarks2() {
           <select className="filter-select"><option>All Activities</option></select>
         </div>
       </div>
+
       <div className="grid-container">
         {destinations.map((destination, index) => (
           <div className="grid-card" key={index}>
             <div className="image-container">
-              {/* If you want to use Cloudinary's <Image> component, replace <img> below */}
               <img
                 src={destination.image}
                 alt={destination.name}
@@ -267,7 +277,6 @@ function Bookmarks2() {
         ))}
       </div>
 
-      {/* Modal Markup */}
       {isModalOpen && (
         <div
           className="modal-overlay active"
