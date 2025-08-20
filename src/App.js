@@ -13,13 +13,16 @@ import './App.css';
 import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
 import Itinerary from "./Itinerary";
+import DestinationManager from "./DestinationManager";
+import UserManagement from "./components/UserManagement";
+import ContentManagement from './ContentManagement';
 
 function App() {
   const [showAIModal, setShowAIModal] = useState(false);
   const location = useLocation();
 
   // Hide StickyHeader on login/register pages
-  const hideHeaderRoutes = ['/', '/register'];
+  const hideHeaderRoutes = ['/', '/register', '/admin/ContentManagement'];
   const showHeader = !hideHeaderRoutes.includes(location.pathname);
 
   return (
@@ -35,6 +38,12 @@ function App() {
         <Route path="/community" element={<Community />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/itinerary" element={<Itinerary />} />
+        <Route path="/DestinationManager" element={<DestinationManager />} />
+        <Route path="/UserManagement" element={<UserManagement />} />
+        {/* Admin aliases to match console navigation */}
+        <Route path="/admin/user" element={<UserManagement />} />
+        <Route path="/admin/destinations" element={<DestinationManager />} />
+        <Route path="/admin/ContentManagement" element={<ContentManagement />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
