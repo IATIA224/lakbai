@@ -47,12 +47,12 @@
   }
 }
 
-.personalized-section {
+.personalized-section-dashboard {
   background: #fafbfc;
   border-radius: 12px;
   margin: 32px auto 0 auto;
-  max-width: 1100px;
-  padding: 24px;
+  max-width: 1150px;
+  padding: 15px;
   box-shadow: 0 2px 8px rgba(60, 60, 120, 0.04);
 }
 
@@ -65,7 +65,7 @@
   gap: 8px;
 }
 
-.personalized-cards {
+.personalized-cards-dashboard {
   display: flex;
   gap: 35px;           /* Increase gap so outlines/borders don't touch */
   flex-wrap: wrap;

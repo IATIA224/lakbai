@@ -48,11 +48,11 @@ function Dashboard({ setShowAIModal }) {
           <span className="dashboard-stat-label">Avg Rating</span>
         </div>
       </div>
-      <div className="personalized-section">
+      <div className="personalized-section-dashboard">
         <div className="personalized-title">
           <span role="img" aria-label="target">🎯</span> Personalized for You
         </div>
-        <div className="personalized-cards">
+        <div className="personalized-cards-dashboard">
           <div className="personalized-card">
             <div className="personalized-img" style={{ background: '#5ec6fa' }}>
               <svg width="100%" height="80" viewBox="0 0 200 80">

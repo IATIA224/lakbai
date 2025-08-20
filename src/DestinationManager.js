@@ -7,7 +7,7 @@ import './Styles/destinationManager.css';
 import './Styles/adminNav.css';
 import { icon } from 'leaflet';
 
-function DestinationManager() {
+export default function DestinationManager() {
   const navigate = useNavigate();
   const [destinations, setDestinations] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -553,5 +553,3 @@ function DestinationManager() {
     </div>
   );
 }
-
-export default DestinationManager;
