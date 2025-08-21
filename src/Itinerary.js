@@ -4,15 +4,17 @@ import "leaflet/dist/leaflet.css";
 import "./itinerary.css";
 import { db, auth } from "./firebase";
 import {
-  collection,
-  doc,
   addDoc,
+  collection,
+  serverTimestamp,
   updateDoc,
   deleteDoc,
+  doc,
   onSnapshot,
-  query as fsQuery, // alias to avoid clash with state variable `query`
   orderBy,
-  serverTimestamp,
+  query as fsQuery,
+  getDocs,
+  setDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -465,14 +467,19 @@ export default function Itinerary() {
     });
   };
 
-  // Replace saveItem with sparse (partial) saving
+  // Replace saveItem with the parent-doc ensure before writing
   const saveItem = async (data) => {
     if (!user) {
       alert("Please sign in to save your itinerary.");
       return;
     }
 
-    // Build a payload with only filled fields (prevents wiping existing values)
+    // Ensure parent doc exists (some rules require this)
+    await setDoc(doc(db, "itinerary", user.uid), {
+      owner: user.uid,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
     const payload = {};
     const setIf = (k, v) => {
       const isNumberField = ["budget","accomBudget","activityBudget","transportCost"].includes(k);
@@ -514,15 +521,20 @@ export default function Itinerary() {
 
     const colRef = collection(db, "itinerary", user.uid, "items");
 
-    if (data.id && items.find((i) => i.id === data.id)) {
-      await updateDoc(doc(db, "itinerary", user.uid, "items", data.id), payload);
-    } else {
-      // Ensure at least a title before creating; otherwise store whatever is present
-      if (!payload.name && !payload.display_name) payload.name = "Untitled destination";
-      await addDoc(colRef, { ...payload, createdAt: serverTimestamp() });
+    try {
+      if (data.id && items.find((i) => i.id === data.id)) {
+        await updateDoc(doc(db, "itinerary", user.uid, "items", data.id), payload);
+        console.log("[Itinerary] Updated", data.id);
+      } else {
+        if (!payload.name && !payload.display_name) payload.name = "Untitled destination";
+        await addDoc(colRef, { ...payload, createdAt: serverTimestamp() });
+        console.log("[Itinerary] Created new item for", user.uid);
+      }
+      setEditing(null);
+    } catch (e) {
+      console.error("[Itinerary] saveItem write failed:", e);
+      alert(`Failed to save itinerary item: ${e?.code || e?.message || e}`);
     }
-
-    setEditing(null);
   };
 
   // NEW: delete from Firestore
@@ -546,6 +558,38 @@ export default function Itinerary() {
       status: next,
       updatedAt: serverTimestamp(),
     });
+  };
+
+  const markAllComplete = async () => {
+    if (!user || !items.length) return;
+    try {
+      await Promise.all(
+        items.map((it) =>
+          updateDoc(doc(db, "itinerary", user.uid, "items", it.id), {
+            status: "Completed",
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+      console.log("[Itinerary] Marked all complete for", user.uid);
+    } catch (e) {
+      console.error("Mark All Complete failed:", e);
+      alert("Failed to mark all complete. Please try again.");
+    }
+  };
+
+  const clearAll = async () => {
+    if (!user || !items.length) return;
+    if (!window.confirm("Remove all destinations from your itinerary?")) return;
+    try {
+      const colRef = collection(db, "itinerary", user.uid, "items");
+      const snap = await getDocs(colRef);
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+      console.log("[Itinerary] Cleared itinerary for", user.uid);
+    } catch (e) {
+      console.error("Clear All failed:", e);
+      alert("Failed to clear your itinerary. Please try again.");
+    }
   };
 
   return (
@@ -615,16 +659,14 @@ export default function Itinerary() {
             <div className="itn-head-actions">
               <button
                 className="itn-btn success"
-                onClick={() =>
-                  setItems((prev) => prev.map((p) => ({ ...p, status: "Completed" })))
-                }
+                onClick={markAllComplete}
                 disabled={!items.length}
               >
                 Mark All Complete
               </button>
               <button
                 className="itn-btn danger"
-                onClick={() => setItems([])}
+                onClick={clearAll}
                 disabled={!items.length}
               >
                 Clear All
@@ -665,3 +707,86 @@ export default function Itinerary() {
     </div>
   );
 }
+
+function Trips() {
+  const [user, setUser] = useState(null);
+  const [addingId, setAddingId] = useState(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u || null));
+    return () => unsub();
+  }, []);
+
+  // Call this when the “Add to Trip” button is clicked
+  const addToMyTrips = async (dest) => {
+    try {
+      await addTripForCurrentUser(dest);
+    } catch (e) {
+      if (e.message === "AUTH_REQUIRED") {
+        alert("Please sign in to add to My Trips.");
+      } else {
+        console.error("Add to My Trips failed:", e);
+        alert("Failed to add. Please try again.");
+      }
+    }
+  };
+
+  return (
+    <div>
+      {/* Example usage inside your card/list render:
+      <button
+        className="add-trip-btn"
+        onClick={() => addToMyTrips(destination)}
+        disabled={addingId === (destination.id || destination.name)}
+        aria-busy={addingId === (destination.id || destination.name)}
+      >
+        {addingId === (destination.id || destination.name) ? 'Adding…' : '+ Add to Trip'}
+      </button>
+      */}
+    </div>
+  );
+}
+
+// Add this named export near the bottom (outside components)
+export async function addTripForCurrentUser(dest) {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+
+  // Ensure parent doc exists
+  await setDoc(
+    doc(db, "itinerary", u.uid),
+    { owner: u.uid, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  const id = String(dest?.id || dest?.place_id || dest?.name || Date.now())
+    .replace(/[^\w-]/g, "_");
+
+  const ref = doc(db, "itinerary", u.uid, "items", id);
+  const now = serverTimestamp();
+
+  const payload = {
+    name: dest?.name || "Untitled destination",
+    region: dest?.region || "",
+    display_name:
+      dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
+    categories: dest?.categories || dest?.tags || [],
+    priceTier: dest?.priceTier || null,
+    bestTime: dest?.bestTime || "",
+    image: dest?.image || "",
+    status: dest?.status || "Upcoming",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  try {
+    await setDoc(ref, payload, { merge: true });
+    console.log("[Itinerary] Added trip:", { uid: u.uid, id });
+    return id;
+  } catch (e) {
+    console.error("[Itinerary] addTripForCurrentUser failed:", e);
+    throw e;
+  }
+}
+
+export { Trips };
