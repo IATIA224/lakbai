@@ -2,19 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from './firebase';
 import {
-  doc,
-  getDoc,
-  setDoc,
-  deleteDoc,
-  collection,
-  getDocs,
-  orderBy,
-  query as fsQuery,
-  onSnapshot,
-  addDoc,
-  serverTimestamp,
-  where,
-  limit,
+  doc, getDoc, setDoc, deleteDoc, collection, getDocs,
+  orderBy, query as fsQuery, onSnapshot, addDoc, serverTimestamp,
+  where, limit,
 } from 'firebase/firestore';
 import './Styles/bookmark.css';
 
@@ -35,6 +25,10 @@ function Bookmark() {
   const [selected, setSelected] = useState(null);
   const [userRating, setUserRating] = useState(0);
   const [savingRating, setSavingRating] = useState(false);
+
+  // NEW: average ratings loaded from destinations/{id}/ratings
+  const [ratingsByDest, setRatingsByDest] = useState({});
+
   // Confirm “unbookmark”
   const [confirmingUnbookmark, setConfirmingUnbookmark] = useState(false);
   const confirmTimerRef = useRef(null);
@@ -255,14 +249,32 @@ function Bookmark() {
   const openDetails = async (dest) => {
     setSelected(dest);
     setModalOpen(true);
-    // fetch user's rating for this destination (if logged in)
+
+    // Load user's rating for this destination from destinations/{id}/ratings/{uid}
     try {
       const u = auth.currentUser;
       if (!u) { setUserRating(0); return; }
-      const rDoc = await getDoc(doc(db, 'users', u.uid, 'ratings', String(dest.id)));
-      setUserRating(Number(rDoc.data()?.value || 0));
+      const rref = doc(db, 'destinations', dest.id, 'ratings', u.uid);
+      const rsnap = await getDoc(rref);
+      setUserRating(Number(rsnap.data()?.value || 0));
     } catch {
       setUserRating(0);
+    }
+
+    // Ensure we have average for the selected item
+    if (!ratingsByDest[dest.id]) {
+      try {
+        const rsnap = await getDocs(collection(db, 'destinations', dest.id, 'ratings'));
+        let sum = 0, count = 0;
+        rsnap.forEach((r) => {
+          const v = Number(r.data()?.value) || 0;
+          if (v > 0) { sum += v; count += 1; }
+        });
+        const avg = count ? sum / count : 0;
+        setRatingsByDest((m) => ({ ...m, [dest.id]: { avg, count } }));
+      } catch (e) {
+        console.error('Load selected avg failed', e);
+      }
     }
   };
 
@@ -282,12 +294,37 @@ function Bookmark() {
     if (!u || !selected) return;
     setSavingRating(true);
     try {
+      const v = Math.max(1, Math.min(5, Number(value) || 0));
+
+      // Save under the destination's ratings subcollection (canonical for averages)
       await setDoc(
-        doc(db, 'users', u.uid, 'ratings', String(selected.id)),
-        { value, updatedAt: serverTimestamp() },
+        doc(db, 'destinations', String(selected.id), 'ratings', u.uid),
+        { value: v, userId: u.uid, updatedAt: serverTimestamp() },
         { merge: true }
       );
-      setUserRating(value);
+
+      // Optional: also keep a user copy (not used for averages)
+      await setDoc(
+        doc(db, 'users', u.uid, 'ratings', String(selected.id)),
+        { value: v, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+
+      setUserRating(v);
+
+      // Recompute and update the average for this destination
+      const rsnap = await getDocs(collection(db, 'destinations', String(selected.id), 'ratings'));
+      let sum = 0, count = 0;
+      rsnap.forEach((r) => {
+        const val = Number(r.data()?.value) || 0;
+        if (val > 0) { sum += val; count += 1; }
+      });
+      const avg = count ? sum / count : 0;
+
+      setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
+    } catch (e) {
+      console.error('Save rating failed:', e);
+      alert('Failed to save rating.');
     } finally {
       setSavingRating(false);
     }
@@ -446,7 +483,7 @@ function Bookmark() {
                 <div className="bm-card-head">
                   <h3 className="bm-card-title">{d.name}</h3>
                   <div className="bm-card-rating" title="Average Rating">
-                    <span>⭐</span> {(Number(d.rating) || 0).toFixed(1)}
+                    <span>⭐</span> {ratingsByDest[d.id]?.avg?.toFixed(1) || '—'}
                   </div>
                 </div>
 
@@ -520,7 +557,9 @@ function Bookmark() {
                 <div className="bm-modal-ratings">
                   <div className="bm-avg-rating">
                     <span className="star">⭐</span>
-                    {(Number(selected.rating) || 0).toFixed(1)} <span className="muted">(Average Rating)</span>
+                    {(ratingsByDest[selected.id]?.count ?? 0) > 0
+                      ? ratingsByDest[selected.id].avg.toFixed(1)
+                      : '—'} <span className="muted">(Average Rating)</span>
                   </div>
                   <div className="bm-user-rating">
                     <span className="label">Your Rating:</span>
