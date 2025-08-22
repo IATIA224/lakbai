@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { CloudinaryContext, Image, Video } from './cloudinary';
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -433,31 +433,52 @@ return (
 };
 
 function ContentManagement() {
-const [analytics, setAnalytics] = useState({
+  const [analytics, setAnalytics] = useState({
     totalDestinations: 0,
     totalUsers: 0,
     totalArticles: 0,
     publishedContent: 0,
     recentActivity: [],
-});
-
-const [loading, setLoading] = useState(true);
-const [active, setActive] = useState('dashboard');
+  });
+  const [loading, setLoading] = useState(true);
+  const [active, setActive] = useState('dashboard');
 
   // DESTINATIONS state + fetch
-const [destinations, setDestinations] = useState([]);
-const [searchDest, setSearchDest] = useState('');
-const [statusFilter, setStatusFilter] = useState('');
-const [categoryFilter, setCategoryFilter] = useState('');
-const [loadingDest, setLoadingDest] = useState(false);
+  const [destinations, setDestinations] = useState([]);
+  const [searchDest, setSearchDest] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [loadingDest, setLoadingDest] = useState(false);
 
   // USERS state + fetch (added)
-const [users, setUsers] = useState([]);
-const [searchUser, setSearchUser] = useState('');
-const [loadingUsers, setLoadingUsers] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [searchUser, setSearchUser] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
+
+  // NEW: User Profile modal state
+  const [userProfileOpen, setUserProfileOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+  const [userProfileTab, setUserProfileTab] = useState('overview');
+
+  // Modal state (was missing -> caused no-undef ESLint errors)
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  // NEW: Edit User modal state
+  const [userEditOpen, setUserEditOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userEditTab, setUserEditTab] = useState('profile'); // active tab for Edit User modal
+
+  // Travel tab local state
+  const [editInterests, setEditInterests] = useState([]);
+  const [editPlaces, setEditPlaces] = useState([]);
+  const [placeInput, setPlaceInput] = useState('');
+  const [editStatus, setEditStatus] = useState('active'); // NEW: settings tab state
+  const [interestInput, setInterestInput] = useState('');  // NEW: inline input for Travel Interests
 
   // Settings state (persisted to localStorage)
-const [cmsSettings, setCmsSettings] = useState(() => {
+  const [cmsSettings, setCmsSettings] = useState(() => {
     const s = localStorage.getItem('cms-settings');
     return s
     ? JSON.parse(s)
@@ -480,59 +501,59 @@ const saveSettings = () => {
     alert('Settings saved');
 };
 
-  // Modal state (was missing -> caused no-undef ESLint errors)
-const [showForm, setShowForm] = useState(false);
-const [editing, setEditing] = useState(null);
-
-useEffect(() => {
+  useEffect(() => {
     (async () => {
-        try {
-            // Use Firestore from firebase.js
-            const [dSnap, uSnap, aSnap] = await Promise.all([
-                getDocs(collection(db, 'destinations')),
-                getDocs(collection(db, 'users')),
-                getDocs(collection(db, 'articles')),
-            ]);
-            const destinations = dSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const users = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const articles = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const published =
-                (destinations.filter((x) => x.status === 'published').length || 0) +
-                (articles.filter((x) => x.status === 'published').length || 0);
-            const recent = [
-                ...destinations.slice(-5).map((d) => ({ ...d, type: 'destination' })),
-                ...articles.slice(-5).map((a) => ({ ...a, type: 'article' })),
-            ]
-                .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
-                .slice(0, 10);
-            setAnalytics({
-                totalDestinations: destinations.length,
-                totalUsers: users.length,
-                totalArticles: articles.length,
-                publishedContent: published,
-                recentActivity: recent,
-            });
-            setDestinations(destinations);
-        } catch (e) {
-            // fallback to localStorage
-            const localDest = JSON.parse(localStorage.getItem('destinations') || '[]');
-            const localUsers = JSON.parse(localStorage.getItem('users') || '[]');
-            const localArticles = JSON.parse(localStorage.getItem('articles') || '[]');
-            setAnalytics({
-                totalDestinations: localDest.length,
-                totalUsers: localUsers.length,
-                totalArticles: localArticles.length,
-                publishedContent:
-                    (localDest.filter((d) => d.status === 'published').length || 0) +
-                    (localArticles.filter((a) => a.status === 'published').length || 0),
-                recentActivity: [...localDest.slice(-5), ...localArticles.slice(-5)].slice(0, 10),
-            });
-            setDestinations(localDest);
-        } finally {
-            setLoading(false);
-        }
+      try {
+        const [dSnap, uSnap, aSnap] = await Promise.all([
+          getDocs(collection(db, 'destinations')),
+          getDocs(collection(db, 'users')),
+          getDocs(collection(db, 'articles')),
+        ]);
+        const destinations = dSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const users = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const articles = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const published =
+          (destinations.filter((x) => x.status === 'published').length || 0) +
+          (articles.filter((x) => x.status === 'published').length || 0);
+        const recent = [
+          ...destinations.slice(-5).map((d) => ({ ...d, type: 'destination' })),
+          ...articles.slice(-5).map((a) => ({ ...a, type: 'article' })),
+        ]
+          .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+          .slice(0, 10);
+
+        // Do NOT set totalDestinations/totalUsers here; live counters below own them
+        setAnalytics((a) => ({
+          ...a,
+          totalArticles: articles.length,
+          publishedContent: published,
+          recentActivity: recent,
+        }));
+
+        setDestinations(destinations);
+        setUsers(users);
+      } catch (e) {
+        // fallback to localStorage
+        const localDest = JSON.parse(localStorage.getItem('destinations') || '[]');
+        const localUsers = JSON.parse(localStorage.getItem('users') || '[]');
+        const localArticles = JSON.parse(localStorage.getItem('articles') || '[]');
+
+        setAnalytics((a) => ({
+          ...a,
+          totalArticles: localArticles.length,
+          publishedContent:
+            (localDest.filter((d) => d.status === 'published').length || 0) +
+            (localArticles.filter((x) => x.status === 'published').length || 0),
+          recentActivity: [...localDest.slice(-5), ...localArticles.slice(-5)].slice(0, 10),
+        }));
+
+        setDestinations(localDest);
+        setUsers(localUsers);
+      } finally {
+        setLoading(false);
+      }
     })();
-}, []);
+  }, []);
 
 useEffect(() => {
     if (active !== 'destinations') return;
@@ -591,6 +612,23 @@ useEffect(() => {
     };
 }, [showForm]);
 
+// NEW: prevent body scroll for Edit User modal and close on ESC
+useEffect(() => {
+  const prev = document.body.style.overflow;
+  if (userEditOpen) document.body.style.overflow = 'hidden';
+  const onKey = (e) => {
+    if (e.key === 'Escape' && userEditOpen) {
+      setUserEditOpen(false);
+      setEditingUser(null);
+    }
+  };
+  window.addEventListener('keydown', onKey);
+  return () => {
+    window.removeEventListener('keydown', onKey);
+    document.body.style.overflow = prev || '';
+  };
+}, [userEditOpen]);
+
 // fallback removed — rely on the React portal (createPortal) to render the modal
 
 const handleSaveDestination = (saved) => {
@@ -616,50 +654,113 @@ const handleSaveDestination = (saved) => {
     } else {
         addDoc(collection(db, 'destinations'), clean).then((docRef) => {
             setDestinations((s) => [{ ...clean, id: docRef.id }, ...s]);
+            // keep dashboard count in sync after creating
+            setAnalytics((a) => ({ ...a, totalDestinations: (a.totalDestinations || 0) + 1 }));
         });
+        return;
     }
     setShowForm(false);
     setEditing(null);
-    setAnalytics((a) => ({ ...a, totalDestinations: (a.totalDestinations || 0) + (editing ? 0 : 1) }));
+    // keep published counter logic as-is
+    setAnalytics((a) => ({ ...a, totalDestinations: a.totalDestinations || 0 }));
 };
 
-// Helper to get Cloudinary publicId from URL
-function getCloudinaryPublicId(url) {
-    if (!url || typeof url !== 'string') return null;
-    const parts = url.split('/upload/');
-    if (parts.length < 2) return null;
-    let publicId = parts[1].split('?')[0];
-    // Remove file extension
-    publicId = publicId.replace(/\.[^/.]+$/, "");
-    return publicId;
-}
+  // Live total destinations counter for the Dashboard
+  useEffect(() => {
+    let unsub;
+    (async () => {
+      try {
+        const coll = collection(db, 'destinations');
+        const snapCount = await getCountFromServer(coll);
+        setAnalytics((a) => ({ ...a, totalDestinations: snapCount.data().count || 0 }));
+        unsub = onSnapshot(
+          coll,
+          (snap) => setAnalytics((a) => ({ ...a, totalDestinations: snap.size })),
+          (err) => console.warn('destinations snapshot error:', err)
+        );
+      } catch (e) {
+        console.error('Failed to load destinations count:', e);
+      }
+    })();
+    return () => unsub && unsub();
+  }, []);
 
-// Helper to delete image from Cloudinary
-async function deleteCloudinaryImage(publicId) {
-    if (!publicId) return;
-    const base = window.location.origin;
-    const endpoints = [
-        `${base}/admin/api/cloudinary/delete`,
-        `${base}/api/cloudinary/delete`,
-    ];
-    let lastErr;
-    for (const url of endpoints) {
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ publicId })
-            });
-            if (res.ok) return; // success on first working endpoint
-            lastErr = new Error((await res.text()) || `HTTP ${res.status}`);
-        } catch (e) {
-            lastErr = e;
-        }
-    }
-    // If we got here, none of the endpoints worked
-    alert('Cloudinary image delete failed: ' + (lastErr?.message || 'Unknown error'));
-    console.warn('Cloudinary image delete failed:', lastErr);
-}
+  // NEW: Live total users counter for the Dashboard
+  useEffect(() => {
+    let unsub;
+    (async () => {
+      try {
+        const coll = collection(db, 'users');
+        const snapCount = await getCountFromServer(coll);
+        setAnalytics((a) => ({ ...a, totalUsers: snapCount.data().count || 0 }));
+        unsub = onSnapshot(
+          coll,
+          (snap) => setAnalytics((a) => ({ ...a, totalUsers: snap.size })),
+          (err) => console.warn('users snapshot error:', err)
+        );
+      } catch (e) {
+        console.error('Failed to load users count:', e);
+      }
+    })();
+    return () => unsub && unsub();
+  }, []);
+
+  // NEW helpers for the user modal
+  const openUserProfile = (u) => {
+    setUserProfile(u);
+    setUserProfileTab('overview');
+    setUserProfileOpen(true);
+  };
+  const closeUserProfile = () => {
+    setUserProfileOpen(false);
+    setTimeout(() => setUserProfile(null), 200);
+  };
+  const fmtDate = (d) => {
+    if (!d) return '';
+    const dt = d?.toDate ? d.toDate() : (typeof d === 'number' ? new Date(d) : new Date(d));
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleDateString();
+  };
+  const fmtDateTime = (d) => {
+    if (!d) return '';
+    const dt = d?.toDate ? d.toDate() : (typeof d === 'number' ? new Date(d) : new Date(d));
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleString();
+  };
+
+  // lock scroll when profile modal is open
+  useEffect(() => {
+    if (userProfileOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    const onEsc = (e) => e.key === 'Escape' && userProfileOpen && closeUserProfile();
+    window.addEventListener('keydown', onEsc);
+    return () => {
+      window.removeEventListener('keydown', onEsc);
+      document.body.style.overflow = '';
+    };
+  }, [userProfileOpen]);
+
+  // Add this helper to open the Edit User modal with seeded data
+  const openEditUserModal = (u, tab = 'basic') => {
+    const defaultInterests = ['Adventure', 'Photography', 'Cultural Sites', 'Mountain Hiking', 'Local Cuisine'];
+    const defaultPlaces = ['Paris, France', 'Tokyo, Japan', 'Machu Picchu, Peru', 'Santorini, Greece', 'Bali, Indonesia', 'New York, USA'];
+
+    setEditingUser(u);
+    setUserEditTab(tab);
+
+    const interests = Array.isArray(u?.interests) && u.interests.length ? [...u.interests] : defaultInterests;
+    setEditInterests(interests);
+    setInterestInput(''); // reset interests input
+
+    const places = Array.isArray(u?.places) && u.places.length
+      ? u.places.map(p => (typeof p === 'string' ? p : (p?.name || p?.title || 'Unknown')))
+      : defaultPlaces;
+    setEditPlaces(places);
+
+    setEditStatus(String(u?.status || 'active').toLowerCase()); // NEW: seed status
+    setPlaceInput('');
+    setUserEditOpen(true);
+  };
 
 return (
     <div className="cms-root">
@@ -704,15 +805,19 @@ return (
 
             <div className="stats-grid" style={{ marginBottom: 20 }}>
                 <div className="stat-card content-card gradient-1" style={{ padding: 20 }}>
-                <div style={{ fontWeight: 700, color: '#fff' }}>Total Destinations</div>
-                <div className="stat-value" style={{ color: '#fff' }}>{analytics.totalDestinations}</div>
-                <div className="muted" style={{ opacity: 0.9 }}>Active travel destinations</div>
+                  <div style={{ fontWeight: 700, color: '#fff' }}>Total Destinations</div>
+                  <div className="stat-value" style={{ color: '#fff' }}>
+                    {Number(analytics.totalDestinations || 0).toLocaleString()}
+                  </div>
+                  <div className="muted" style={{ opacity: 0.9 }}>Active travel destinations</div>
                 </div>
 
                 <div className="stat-card content-card gradient-2" style={{ padding: 20 }}>
-                <div style={{ fontWeight: 700, color: '#fff' }}>Total Users</div>
-                <div className="stat-value" style={{ color: '#fff' }}>{analytics.totalUsers}</div>
-                <div className="muted" style={{ opacity: 0.9 }}>Registered travelers</div>
+                  <div style={{ fontWeight: 700, color: '#fff' }}>Total Users</div>
+                  <div className="stat-value" style={{ color: '#fff' }}>
+                    {Number(analytics.totalUsers || 0).toLocaleString()}
+                  </div>
+                  <div className="muted" style={{ opacity: 0.9 }}>Registered travelers</div>
                 </div>
 
                 <div className="stat-card content-card gradient-3" style={{ padding: 20 }}>
@@ -767,18 +872,40 @@ return (
                     </div>
                 </div>
 
-                {/* Inline DestinationForm (not modal) */}
+                {/* Destination modal */}
                 {showForm && (
-                    <div className="content-card" style={{ marginBottom: 24, padding: 32, borderRadius: 12 }}>
-                        <DestinationForm
-                            initial={editing}
-                            onCancel={closeForm}
-                            onSave={(saved) => {
-                                handleSaveDestination(saved);
-                                setShowForm(false);
-                            }}
-                        />
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    style={{
+                      position: 'fixed',
+                      inset: 0,
+                      background: 'rgba(0,0,0,0.55)',
+                      zIndex: 1000,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onClick={(e) => { if (e.target === e.currentTarget) closeForm(); }}
+                  >
+                    <div
+                      style={{
+                        width: 'min(980px, 98vw)',
+                        background: '#fff',
+                        borderRadius: 16,
+                        boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+                        maxHeight: '92vh',
+                        overflow: 'auto',
+                        padding: 20
+                      }}
+                    >
+                      <DestinationForm
+                        initial={editing}
+                        onCancel={closeForm}
+                        onSave={handleSaveDestination}
+                      />
                     </div>
+                  </div>
                 )}
 
                 <div className="filters content-card" style={{ display: 'flex', gap: 12, padding: 16, alignItems: 'center', marginBottom: 18 }}>
@@ -917,12 +1044,12 @@ return (
                                                 <button
                                                     className="btn-primary-cms"
                                                     style={{
-                                                        background: 'linear-gradient(90deg,#2563eb,#2563eb 80%)',
-                                                        color: '#fff',
+                                                        background: '#dcfce7',      // same as Users "Edit"
+                                                        color: '#166534',
                                                         border: 'none',
                                                         padding: '6px 18px',
                                                         borderRadius: 8,
-                                                        fontWeight: 600,
+                                                        fontWeight: 700,
                                                         marginRight: 8,
                                                         fontSize: 14,
                                                         boxShadow: 'none'
@@ -937,45 +1064,47 @@ return (
                                                 <button
                                                     className="btn-danger"
                                                     style={{
-                                                        background: 'linear-gradient(90deg,#ef4444,#ef4444 80%)',
-                                                        color: '#fff',
+                                                        background: '#fee2e2',     // same as Users "Delete"
+                                                        color: '#b91c1c',
                                                         border: 'none',
                                                         padding: '6px 18px',
                                                         borderRadius: 8,
-                                                        fontWeight: 600,
+                                                        fontWeight: 700,
                                                         fontSize: 14,
                                                         boxShadow: 'none'
                                                     }}
                                                     onClick={async () => {
-                                                        if (window.confirm('Delete this destination?')) {
-                                                            // Delete from Firestore
-                                                            try {
-                                                                await import('firebase/firestore').then(({ deleteDoc, doc }) =>
-                                                                    deleteDoc(doc(db, 'destinations', d.id))
-                                                                );
-                                                            } catch (err) {
-                                                                console.error('Firestore delete failed:', err);
-                                                            }
-                                                            // Delete featured image from Cloudinary
-                                                            const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
-                                                            if (featuredId) await deleteCloudinaryImage(featuredId);
-                                                            // Delete gallery images from Cloudinary
-                                                            if (Array.isArray(d.media?.gallery)) {
-                                                                for (const img of d.media.gallery) {
-                                                                    const imgId = getCloudinaryPublicId(img);
-                                                                    if (imgId) await deleteCloudinaryImage(imgId);
-                                                                }
-                                                            }
-                                                            // Remove from local state
-                                                            setDestinations((s) => s.filter((x) => x.id !== d.id));
-                                                            // Remove from localStorage fallback
-                                                            const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
-                                                            localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
-                                                        }
-                                                    }}
-                                                >
-                                                    Delete
-                                                </button>
+                                                         if (window.confirm('Delete this destination?')) {
+                                                             // Delete from Firestore
+                                                             try {
+                                                                 await import('firebase/firestore').then(({ deleteDoc, doc }) =>
+                                                                     deleteDoc(doc(db, 'destinations', d.id))
+                                                                 );
+                                                             } catch (err) {
+                                                                 console.error('Firestore delete failed:', err);
+                                                             }
+                                                             // Delete featured image from Cloudinary
+                                                             const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
+                                                             if (featuredId) await deleteCloudinaryImage(featuredId);
+                                                             // Delete gallery images from Cloudinary
+                                                             if (Array.isArray(d.media?.gallery)) {
+                                                                 for (const img of d.media.gallery) {
+                                                                     const imgId = getCloudinaryPublicId(img);
+                                                                     if (imgId) await deleteCloudinaryImage(imgId);
+                                                                 }
+                                                             }
+                                                             // Remove from local state
+                                                             setDestinations((s) => s.filter((x) => x.id !== d.id));
+                                                             // Remove from localStorage fallback
+                                                             const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
+                                                             localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
+                                                             // set analytics state
+                                                             setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
+                                                         }
+                                                     }}
+                                                 >
+                                                     Delete
+                                                 </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -989,168 +1118,920 @@ return (
         )}
         {active === 'articles' && <div className="content-section"><h2>Articles</h2></div>}
         {active === 'users' && (
-            <div className="content-section">
-            <div className="section-header" style={{ alignItems: 'flex-start' }}>
-                <div>
-                <h2 className="title">User Management</h2>
-                <p className="muted">Manage registered users and their profiles</p>
-                </div>
-                <div />
+          <div className="content-section">
+            <div className="section-header" style={{ alignItems: 'center' }}>
+              <div>
+                <h2 className="title" style={{ margin: 0 }}>User Management</h2>
+                <p className="muted" style={{ marginTop: 4 }}>Manage traveler accounts and profiles</p>
+              </div>
+              <button
+                className="btn-primary-cms"
+                style={{ padding: '10px 16px', borderRadius: 12, background: 'linear-gradient(90deg,#2563eb,#3b82f6)' }}
+                onClick={() => alert('Add New User (admin flow TBD)')}
+              >
+                + Add New User
+              </button>
             </div>
 
-            <div className="filters content-card" style={{ display: 'flex', gap: 12, padding: 16, alignItems: 'center', marginBottom: 18 }}>
-                <div className="search-bar" style={{ position: 'relative', flex: 1 }}>
-                <span className="search-icon">🔍</span>
+            {/* Search + Status filter row */}
+            <div className="content-card" style={{ padding: 16, borderRadius: 12, display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <span className="search-icon" style={{ position: 'absolute', left: 14, top: 22, opacity: 0.6 }}>🔎</span>
                 <input
-                    className="form-input"
-                    style={{ width: '100%', paddingLeft: 48 }}
-                    placeholder="Search users..."
-                    value={searchUser}
-                    onChange={(e) => setSearchUser(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', paddingLeft: 40 }}
+                  placeholder="Search users by name or email..."
+                  value={searchUser}
+                  onChange={(e) => setSearchUser(e.target.value)}
                 />
-                </div>
-
-                <button
-                className="btn-secondary"
-                onClick={async () => {
-                    setLoadingUsers(true);
-                    try {
-                    if (window.firebase && window.firebase.firestore) {
-                        const db = window.firebase.firestore();
-                        const snap = await db.collection('users').get();
-                        setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-                    } else {
-                        setUsers(JSON.parse(localStorage.getItem('users') || '[]'));
-                    }
-                    } catch {
-                    setUsers([]);
-                    } finally {
-                    setLoadingUsers(false);
-                    }
-                }}
-                style={{ background: 'linear-gradient(90deg,#10b981,#059669)', color: '#fff', borderRadius: 10, padding: '10px 18px' }}
-                >
-                🔄 Refresh
-                </button>
+              </div>
+              <select
+                className="form-input"
+                value={userStatusFilter}
+                onChange={(e) => setUserStatusFilter(e.target.value)}
+                style={{ width: 160 }}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="disabled">Disabled</option>
+                <option value="banned">Banned</option>
+              </select>
             </div>
 
-            <div className="content-card" style={{ padding: 24, borderRadius: 12, minHeight: 280 }}>
-                {loadingUsers ? (
-                <div className="centered"><div className="loading-spinner" /></div>
-                ) : (
+            <div className="content-card" style={{ padding: 0, borderRadius: 12, overflow: 'hidden' }}>
+              {/* Table header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 2fr 1.2fr 1.2fr 1.8fr 1.4fr 1.6fr', gap: 0, background: '#f6f8fa', color: '#6b7280', fontWeight: 700, fontSize: 14 }}>
+                {['User', 'Email', 'Provider', 'Status', 'Travel Stats', 'Join Date', 'Actions'].map((h, i) => (
+                  <div key={h} style={{ padding: '14px 16px', borderBottom: '1px solid #eef2f7' }}>{h}</div>
+                ))}
+              </div>
+
+              {loadingUsers ? (
+                <div className="centered" style={{ padding: 40 }}><div className="loading-spinner" /></div>
+              ) : (
                 (() => {
-                    const q = searchUser.trim().toLowerCase();
-                    const filtered = users.filter((u) => {
-                    if (!q) return true;
-                    return ((u.travelerName || u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q);
-                    });
-                    if (!filtered.length) {
-                    return (
-                        <div className="centered" style={{ flexDirection: 'column' }}>
-                        <div className="muted" style={{ marginBottom: 18 }}>No users found</div>
-                        </div>
-                    );
-                    }
-                    return (
-                    <div className="grid users-grid">
-                        {filtered.map((u) => (
-                        <div key={u.id} className="user-card">
-                            <div className="user-header">
-                            {u.profilePictureUrl ? (
-                                <img src={u.profilePictureUrl} alt="" className="avatar" />
-                            ) : (
-                                <div className="avatar-placeholder">{(u.travelerName || u.name || 'U').charAt(0)}</div>
-                            )}
-                            <div>
-                                <strong>{u.travelerName || u.name || 'Unnamed'}</strong>
-                                <div className="muted small">{u.email}</div>
+                  const q = searchUser.trim().toLowerCase();
+                  const filtered = users.filter((u) => {
+                    const okQ = !q || ((u.travelerName || u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q);
+                    const s = (u.status || 'active').toLowerCase();
+                    const okS = userStatusFilter === 'all' || s === userStatusFilter;
+                    return okQ && okS;
+                  });
+                  if (!filtered.length) {
+                    return <div className="muted" style={{ padding: 24 }}>No users found</div>;
+                  }
+                  const rowStyle = { display: 'grid', gridTemplateColumns: '2.4fr 2fr 1.2fr 1.2fr 1.8fr 1.4fr 1.6fr', alignItems: 'center' };
+                  return (
+                    <div>
+                      {filtered.map((u, i) => {
+                        const name = u.travelerName || u.name || 'Unnamed';
+                        const initial = name.charAt(0).toUpperCase();
+                        const provider = u.provider || u.providerId || 'Email';
+                        const status = (u.status || 'ACTIVE').toUpperCase();
+                        const places = u.placesCount ?? (Array.isArray(u.places) ? u.places.length : 0);
+                        const photos = u.photosShared || 0;
+                        const reviews = u.reviewsWritten || 0;
+                        const createdAt = u.createdAt?.toDate ? u.createdAt.toDate() : (u.createdAt ? new Date(u.createdAt) : null);
+                        const joinDate = createdAt ? createdAt.toLocaleDateString() : '';
+                        return (
+                          <div key={u.id || i} style={{ ...rowStyle, background: i % 2 ? '#fff' : '#fafbfc', borderBottom: '1px solid #eef2f7' }}>
+                            {/* User */}
+                            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                              {u.profilePictureUrl ? (
+                                <img src={u.profilePictureUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                              ) : (
+                                <div style={{
+                                  width: 36, height: 36, borderRadius: '50%', background: '#6366f1',
+                                  color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 500, fontSize: 24
+                                }}>
+                                  {(u.travelerName || u.name || 'U').charAt(0).toUpperCase()
+                                  }
+                                </div>
+                              )}
+                              <div>
+                                <div style={{ fontWeight: 700 }}>{name}</div>
+                                <div className="muted small">ID: {u.id}</div>
+                              </div>
                             </div>
+                            {/* Email */}
+                            <div style={{ padding: '14px 16px' }}>{u.email || '—'}</div>
+                            {/* Provider */}
+                            <div style={{ padding: '14px 16px' }}>{provider}</div>
+                            {/* Status */}
+                            <div style={{ padding: '14px 16px' }}>
+                              <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 999, padding: '4px 10px', fontWeight: 700, fontSize: 12 }}>{status}</span>
                             </div>
-                            <p className="muted small" style={{ minHeight: 36 }}>{u.travelerBio || u.bio || ''}</p>
-                            <div className="user-stats">
-                            <div>Photos: {u.photosShared || 0}</div>
-                            <div>Reviews: {u.reviewsWritten || 0}</div>
-                            <div>Status: <span className={`status-badge status-${u.status || 'active'}`}>{u.status || 'active'}</span></div>
+                            {/* Travel Stats */}
+                            <div style={{ padding: '14px 16px' }}>
+                              <div style={{ fontWeight: 700 }}>{places} places</div>
+                              <div className="muted small">{photos} photos, {reviews} reviews</div>
                             </div>
-                        </div>
-                        ))}
+                            {/* Join Date */}
+                            <div style={{ padding: '14px 16px' }}>{joinDate}</div>
+                            {/* Actions */}
+                            <div style={{ padding: '14px 16px', display: 'flex', gap: 8 }}>
+                              <button
+                                className="btn-view"
+                                style={{
+                                      background: '#e0e7ff',
+                                      color: '#2563eb',
+                                      border: 'none',
+                                      padding: '6px 18px',
+                                      borderRadius: 8,
+                                      fontWeight: 700,
+                                      marginRight: 8,
+                                      fontSize: 14,
+                                      boxShadow: 'none'
+                                }}
+                                onClick={() => openUserProfile(u)}
+                              >
+                                View
+                              </button>
+                              <button
+                                className="btn-primary-cms"
+                                style={{
+                                      background: '#dcfce7',      // same as Users "Edit"
+                                    color: '#166534',
+                                    border: 'none',
+                                    padding: '6px 18px',
+                                    borderRadius: 8,
+                                    fontWeight: 700,
+                                    marginRight: 8,
+                                    fontSize: 14,
+                                    boxShadow: 'none'
+                                }}
+                                onClick={() => {
+                                    openEditUserModal(u, 'basic');
+                                }}
+                            >
+                                Edit
+                            </button>
+                            <button
+                                className="btn-danger"
+                                style={{
+                                    background: '#fee2e2',     // same as Users "Delete"
+                                    color: '#b91c1c',
+                                    border: 'none',
+                                    padding: '6px 18px',
+                                    borderRadius: 8,
+                                    fontWeight: 700,
+                                    fontSize: 14,
+                                    boxShadow: 'none'
+                                }}
+                                onClick={async () => {
+                                    if (!u.id) return;
+                                    if (!window.confirm('Delete this user?')) return;
+                                    try {
+                                        await deleteDoc(doc(db, 'users', u.id));
+                                        setUsers((arr) => arr.filter((x) => x.id !== u.id));
+                                    } catch (err) {
+                                        console.error('Delete user failed', err);
+                                        alert('Failed to delete user.');
+                                    }
+                                }}
+                            >
+                                Delete
+                            </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    );
+                  );
                 })()
-                )}
-            </div>
-            </div>
-        )}
-        {active === 'settings' && (
-        <div className="content-section">
-            <div className="section-header" style={{ alignItems: 'flex-start' }}>
-                <div>
-                <h2 className="title">Settings</h2>
-                <p className="muted">Configure your CMS settings and preferences</p>
-                </div>
+              )}
             </div>
 
-            <div className="grid two-col" style={{ gap: 16 }}>
-                <div className="content-card p-4">
-                <h3 style={{ marginTop: 0 }}>General Settings</h3>
-                <label>Site Name</label>
-                <input className="form-input" value={cmsSettings.siteName} onChange={(e) => setCmsSettings({ ...cmsSettings, siteName: e.target.value })} />
-                <label>Site Description</label>
-                <textarea className="form-input" value={cmsSettings.siteDescription} onChange={(e) => setCmsSettings({ ...cmsSettings, siteDescription: e.target.value })} />
-                <label>Contact Email</label>
-                <input className="form-input" value={cmsSettings.contactEmail} onChange={(e) => setCmsSettings({ ...cmsSettings, contactEmail: e.target.value })} />
-                </div>
+            {/* User Profile Modal */}
+            {userProfileOpen && userProfile && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                style={{
+                  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}
+                onClick={(e) => { if (e.target === e.currentTarget) closeUserProfile(); }}
+              >
+                <div style={{
+                  width: 'min(980px, 96vw)', background: '#fff', borderRadius: 16,
+                  boxShadow: '0 20px 60px rgba(0,0,0,.25)', overflow: 'hidden'
+                }}>
+                  {/* Header */}
+                  <div style={{
+                    padding: '22px 28px 22px 28px', background: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                  }}>
+                    <div style={{ fontSize: 26, fontWeight: 600 }}>User Profile</div>
+                    <button onClick={closeUserProfile} style={{
+                      background: 'transparent', border: 'none', fontSize: 28, cursor: 'pointer', color: '#222'
+                    }}>×</button>
+                  </div>
+                  {/* Profile Section */}
+                  <div style={{
+                    background: 'linear-gradient(90deg,#4f46e5,#3b82f6)', padding: '24px 28px',
+                    display: 'flex', alignItems: 'center', gap: 22
+                  }}>
+                    {userProfile.profilePictureUrl ? (
+                      <img src={userProfile.profilePictureUrl} alt="" style={{
+                        width: 56, height: 56, borderRadius: '50%', objectFit: 'cover',
+                        background: '#fff', border: '3px solid rgba(255,255,255,.35)'
+                      }} />
+                    ) : (
+                      <div style={{
+                        width: 56, height: 56, borderRadius: '50%', background: '#6366f1',
+                        color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 500, fontSize: 24
+                      }}>
+                        {(userProfile.travelerName || userProfile.name || 'U').charAt(0).toUpperCase()
+                        }
+                      </div>
+                    )}
+                    <div style={{ color: '#fff', flex: 1 }}>
+                      <div style={{ fontSize: 22, fontWeight: 500 }}>{userProfile.travelerName || userProfile.name || 'Unnamed'}</div>
+                      <div style={{ opacity: .95, fontWeight: 400 }}>{userProfile.email || ''}</div>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 10, alignItems: 'center' }}>
+                        <span style={{
+                          background: '#34d399', color: '#fff', fontSize: 13, fontWeight: 500,
+                          borderRadius: 999, padding: '7px 18px'
+                        }}>ACTIVE</span>
+                        <span style={{ color: '#e0e7ff', fontWeight: 400 }}>Joined {fmtDate(userProfile.createdAt)}</span>
+                      </div>
+                    </div>
+                    <button
+                      style={{
+                        background: '#22c55e', color: '#fff', border: 'none', padding: '10px 22px',
+                        fontWeight: 500, borderRadius: 8, fontSize: 16, boxShadow: '0 2px 8px rgba(34,197,94,.15)'
+                      }}
+                      onClick={() => openEditUserModal(userProfile, 'basic')}
+                    >Edit Profile
+                    </button>
+                  </div>
+                  {/* Tabs */}
+                  <div style={{
+                    display: 'flex', gap: 40, padding: '0 28px', borderBottom: '1px solid #e5e7eb', marginBottom: 0, marginTop: 0
+                  }}>
+                    {['overview', 'activity', 'photos', 'achievements'].map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setUserProfileTab(t)}
+                        style={{
+                          background: 'transparent', border: 'none', cursor: 'pointer', padding: '24px 0 12px 0',
+                          color: userProfileTab === t ? '#2563eb' : '#6b7280', fontWeight: 500,
+                          fontSize: 15,
+                          borderBottom: userProfileTab === t ? '3px solid #2563eb' : '3px solid transparent'
+                        }}
+                      >
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Body */}
+                  {userProfileTab === 'overview' && (
+                    <div style={{ padding: '28px', background: '#f8fafc' }}>
+                      <div style={{
+                        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18
+                      }}>
+                        {/* Profile Information card */}
+                        <div style={{
+                          background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18
+                        }}>
+                          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Profile Information</div>
+                          <div style={{ color: '#6b7280', fontSize: 13, marginBottom: 4 }}>Bio:</div>
+                          <div style={{ marginBottom: 12, fontWeight: 400 }}>
+                            {userProfile.travelerBio || userProfile.bio || 'Adventure seeker and photography enthusiast.'}
+                          </div>
+                          <div style={{ color: '#6b7280', fontSize: 13 }}>Sign Provider:</div>
+                          <div style={{ marginBottom: 10, fontWeight: 400 }}>{userProfile.provider || userProfile.providerId || 'Email'}</div>
+                          <div style={{ color: '#6b7280', fontSize: 13 }}>Last Login:</div>
+                          <div style={{ fontWeight: 400 }}>{fmtDateTime(userProfile.lastLogin)}</div>
+                        </div>
 
-                <div className="content-card p-4">
-                <h3 style={{ marginTop: 0 }}>SEO Settings</h3>
-                <label>Default Meta Title</label>
-                <input className="form-input" value={cmsSettings.seo.defaultMetaTitle} onChange={(e) => setCmsSettings({ ...cmsSettings, seo: { ...cmsSettings.seo, defaultMetaTitle: e.target.value } })} />
-                <label>Default Meta Description</label>
-                <textarea className="form-input" value={cmsSettings.seo.defaultMetaDescription} onChange={(e) => setCmsSettings({ ...cmsSettings, seo: { ...cmsSettings.seo, defaultMetaDescription: e.target.value } })} />
-                <label>Google Analytics ID</label>
-                <input className="form-input" placeholder="GA-XXXXXXXXX-X" value={cmsSettings.seo.googleAnalytics} onChange={(e) => setCmsSettings({ ...cmsSettings, seo: { ...cmsSettings.seo, googleAnalytics: e.target.value } })} />
-                </div>
+                        {/* Travel Stats card */}
+                        <div style={{
+                          background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18
+                        }}>
+                          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Travel Stats</div>
+                          <div style={{
+                            display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 14, columnGap: 12
+                          }}>
+                            <div>
+                              <div style={{ color: '#2563eb', fontWeight: 500, fontSize: 22 }}>
+                                {userProfile.placesCount ?? (Array.isArray(userProfile.places) ? userProfile.places.length : 0)}
+                              </div>
+                              <div className="muted small" style={{ fontWeight: 400 }}>Places Visited</div>
+                            </div>
+                            <div>
+                              <div style={{ color: '#22c55e', fontWeight: 500, fontSize: 22 }}>
+                                {userProfile.photosShared || 0}
+                              </div>
+                              <div className="muted small" style={{ fontWeight: 400 }}>Photos Shared</div>
+                            </div>
+                            <div>
+                              <div style={{ color: '#6366f1', fontWeight: 500, fontSize: 22 }}>
+                                {userProfile.reviewsWritten || 0}
+                              </div>
+                              <div className="muted small" style={{ fontWeight: 400 }}>Reviews Written</div>
+                            </div>
+                            <div>
+                              <div style={{ color: '#f97316', fontWeight: 500, fontSize: 22 }}>
+                                {userProfile.friendsCount ?? (Array.isArray(userProfile.friends) ? userProfile.friends.length : 0)}
+                              </div>
+                              <div className="muted small" style={{ fontWeight: 400 }}>Friends</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{
+                        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18
+                      }}>
+                        {/* Travel Interests */}
+                        <div style={{
+                          background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18
+                        }}>
+                          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Travel Interests</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {(userProfile.interests && userProfile.interests.length ? userProfile.interests : ['Adventure', 'Photography', 'Cultural Sites', 'Mountain Hiking', 'Local Cuisine']).map((t, idx) => (
+                              <span key={idx} style={{
+                                background: '#e0e7ff',
+                                color: '#2563eb',
+                                borderRadius: 999,
+                                padding: '7px 16px',
+                                fontWeight: 500,
+                                fontSize: 14
+                              }}>{t}</span>
+                            ))}
+                          </div>
+                        </div>
 
-                <div className="content-card p-4">
-                <h3 style={{ marginTop: 0 }}>Social Media</h3>
-                <label>Facebook URL</label>
-                <input className="form-input" value={cmsSettings.socialMedia.facebook} onChange={(e) => setCmsSettings({ ...cmsSettings, socialMedia: { ...cmsSettings.socialMedia, facebook: e.target.value } })} />
-                <label>Twitter URL</label>
-                <input className="form-input" value={cmsSettings.socialMedia.twitter} onChange={(e) => setCmsSettings({ ...cmsSettings, socialMedia: { ...cmsSettings.socialMedia, twitter: e.target.value } })} />
-                <label>Instagram URL</label>
-                <input className="form-input" value={cmsSettings.socialMedia.instagram} onChange={(e) => setCmsSettings({ ...cmsSettings, socialMedia: { ...cmsSettings.socialMedia, instagram: e.target.value } })} />
-                </div>
+                        {/* Places Visited */}
+                        <div style={{
+                          background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18
+                        }}>
+                          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Places Visited</div>
+                          <ul style={{
+                            listStyle: 'none', padding: 0, margin: 0, display: 'grid', rowGap: 10
+                          }}>
+                            {((Array.isArray(userProfile.places) && userProfile.places.length ? userProfile.places : [
+                              'Paris, France', 'Tokyo, Japan', 'Machu Picchu, Peru', 'Santorini, Greece', 'Bali, Indonesia', 'New York, USA'
+                            ])).slice(0, 8).map((p, idx) => (
+                              <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ color: '#ec4899', fontSize: 18 }}>📍</span>
+                                <span style={{ fontSize: 15, fontWeight: 400 }}>{typeof p === 'string' ? p : (p.name || p.title || 'Unknown')}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                <div className="content-card p-4">
-                <h3 style={{ marginTop: 0 }}>Notifications</h3>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                    <input type="checkbox" checked={!!cmsSettings.notifications.emailNotifications} onChange={(e) => setCmsSettings({ ...cmsSettings, notifications: { ...cmsSettings.notifications, emailNotifications: e.target.checked } })} /> Email Notifications
-                </label>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                    <input type="checkbox" checked={!!cmsSettings.notifications.pushNotifications} onChange={(e) => setCmsSettings({ ...cmsSettings, notifications: { ...cmsSettings.notifications, pushNotifications: e.target.checked } })} /> Push Notifications
-                </label>
+                  {userProfileTab !== 'overview' && (
+                    <div style={{ padding: 40, background: '#f8fafc', color: '#6b7280', textAlign: 'center', fontSize: 17 }}>
+                      <em>“{userProfileTab.charAt(0).toUpperCase() + userProfileTab.slice(1)}” view is coming soon.</em>
+                    </div>
+                  )}
                 </div>
-            </div>
+              </div>
+            )}
 
-            <div className="flex-end" style={{ marginTop: 18 }}>
-                <button className="btn-primary" onClick={saveSettings} style={{ padding: '10px 18px', borderRadius: 8 }}>💾 Save Settings</button>
-            </div>
-            {active === 'settings' && (
-                <div className="content-card p-4">
-                    <h3 style={{ marginTop: 0 }}>Settings</h3>
-                    <label>Site Name</label>
-                    <input className="form-input" value={cmsSettings.siteName} onChange={(e) => setCmsSettings({ ...cmsSettings, siteName: e.target.value })} />
-                    <label>Site Description</label>
-                    <textarea className="form-input" value={cmsSettings.siteDescription} onChange={(e) => setCmsSettings({ ...cmsSettings, siteDescription: e.target.value })} />
-                    <label>Contact Email</label>
-                    <input className="form-input" value={cmsSettings.contactEmail} onChange={(e) => setCmsSettings({ ...cmsSettings, contactEmail: e.target.value })} />
+            {/* Edit User Modal */}
+            {userEditOpen && editingUser && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(0,0,0,0.55)',
+                  zIndex: 1000,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onClick={(e) => { if (e.target === e.currentTarget) { setUserEditOpen(false); setEditingUser(null); } }}
+              >
+                <div
+                  style={{
+                    width: 'min(980px, 98vw)',
+                    background: '#fff',
+                    borderRadius: 16,
+                    boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+                    padding: 0,
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}
+                >
+                  {/* Modal header with title */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '16px 24px',
+                    borderBottom: '1px solid #e5e7eb'
+                  }}>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: '#111827' }}>Edit User</div>
+                    <button
+                      onClick={() => { setUserEditOpen(false); setEditingUser(null); }}
+                      style={{ background: 'transparent', border: 'none', fontSize: 22, cursor: 'pointer', color: '#111' }}
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Tabs header (clickable) */}
+                  <div style={{
+                    display: 'flex',
+                    gap: 24,
+                    borderBottom: '1px solid #e5e7eb',
+                    background: '#fff',
+                    padding: '10px 24px 0 24px',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2
+                  }}>
+                    {['basic', 'profile', 'travel', 'settings'].map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setUserEditTab(tab)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '12px 0 10px 0',
+                          color: userEditTab === tab ? '#2563eb' : '#6b7280',
+                          fontWeight: 500,
+                          fontSize: 15,
+                          borderBottom: userEditTab === tab ? '3px solid #2563eb' : '3px solid transparent'
+                        }}
+                      >
+                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+
+                  <form
+                    style={{
+                      padding: '24px',
+                      background: '#fff',
+                      borderRadius: 16,
+                      fontSize: 15,
+                      color: '#222',
+                      flex: 1
+                    }}
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      // Hook up persistence here if needed
+                      setUserEditOpen(false);
+                      setEditingUser(null);
+                    }}
+                  >
+                    {/* BASIC tab (existing content) */}
+                    {userEditTab === 'basic' && (
+                      <>
+                        {/* Personal Information */}
+                        <div style={{ marginBottom: 24 }}>
+                          <div style={{ fontSize: 17, marginBottom: 18 }}>Personal Information</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Email Address *</label>
+                              <input className="form-input" type="email" value={editingUser.email || ''} disabled style={{ background: '#f3f4f6' }} />
+                            </div>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Password</label>
+                              <input className="form-input" type="password" value="**********" disabled style={{ background: '#f3f4f6' }} />
+                            </div>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Sign-in Provider</label>
+                              <input className="form-input" value={editingUser.provider || editingUser.providerId || 'Email'} disabled style={{ background: '#f3f4f6' }} />
+                            </div>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Traveler Name *</label>
+                              <input className="form-input" value={editingUser.travelerName || editingUser.name || ''} disabled style={{ background: '#f3f4f6' }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Travel Statistics */}
+                        <div style={{ marginBottom: 24 }}>
+                          <div style={{ fontSize: 17, marginBottom: 18 }}>Travel Statistics</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18 }}>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Places Visited</label>
+                              <input className="form-input" value={editingUser.placesCount ?? (Array.isArray(editingUser.places) ? editingUser.places.length : 0)} disabled style={{ background: '#f3f4f6', color: '#2563eb', fontWeight: 500 }} />
+                            </div>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Photos Shared</label>
+                              <input className="form-input" value={editingUser.photosShared || 0} disabled style={{ background: '#f3f4f6', color: '#22c55e', fontWeight: 500 }} />
+                            </div>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Reviews Written</label>
+                              <input className="form-input" value={editingUser.reviewsWritten || 0} disabled style={{ background: '#f3f4f6', color: '#6366f1', fontWeight: 500 }} />
+                            </div>
+                            <div>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Total Friends</label>
+                              <input className="form-input" value={editingUser.friendsCount ?? (Array.isArray(editingUser.friends) ? editingUser.friends.length : 0)} disabled style={{ background: '#f3f4f6', color: '#f97316', fontWeight: 500 }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Travel Interests (chips) */}
+                        <div style={{ marginBottom: 24 }}>
+                                                  
+                          <div style={{ fontSize: 17, marginBottom: 12 }}>Travel Interests</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {(editingUser.interests && editingUser.interests.length ? editingUser.interests : ['Adventure', 'Photography', 'Cultural Sites', 'Mountain Hiking', 'Local Cuisine']).map((t, idx) => (
+                              <span key={idx} style={{
+                                background: '#2563eb',
+                                color: '#fff',
+                                borderRadius: 999,
+                                padding: '7px 16px',
+                                fontWeight: 500,
+                                fontSize: 14
+                              }}>{t}</span>
+                            ))}
+                            <span style={{ color: '#6b7280', fontSize: 14, marginLeft: 8 }}>Add travel interests (Adventure, Food, Culture, etc)</span>
+                          </div>
+                        </div>
+
+                        {/* Achievements (moved from Travel to match screenshot) */}
+                        <div style={{ marginBottom: 24 }}>
+                          <div style={{ fontSize: 17, marginBottom: 18 }}>Achievements</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                              <span style={{ fontSize: 20, color: '#06b6d4', textAlign: 'center' }}>🌐</span>
+                              <input className="form-input" value="Globe Trotter" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="Visited 10+ countries" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="15/08/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                              <span style={{ fontSize: 20, color: '#6366f1', textAlign: 'center' }}>🖼️</span>
+                              <input className="form-input" value="Photo Master" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="Shared 200+ photos" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="20/09/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                              <span style={{ fontSize: 20, color: '#f59e42', textAlign: 'center' }}>⭐</span>
+                              <input className="form-input" value="Review Expert" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="Written 25+ reviews" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="05/10/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
+                            </div>
+                          </div>
+                          <button type="button" style={{
+                            marginTop: 14,
+                            background: '#22c55e',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '10px 18px',
+                            borderRadius: 8,
+                            fontWeight: 500,
+                            fontSize: 15
+                          }}>+ Add Achievement</button>
+                        </div>
+
+                        {/* Recent Activity (moved from Travel to match screenshot) */}
+                        <div style={{ marginBottom: 24 }}>
+                          <div style={{ fontSize: 17, marginBottom: 12 }}>Recent Activity</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                              <select className="form-input" disabled style={{ width: 38 }}>
+                                <option>Photo</option>
+                              </select>
+                              <input className="form-input" value="Shared photos from Bali sunset" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="15/11/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                              <select className="form-input" disabled style={{ width: 38 }}>
+                                <option>Review</option>
+                              </select>
+                              <input className="form-input" value='Reviewed "Sunset Villa Resort"' disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="14/11/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                              <select className="form-input" disabled style={{ width: 38 }}>
+                                <option>Visit</option>
+                              </select>
+                              <input className="form-input" value="Checked in at Ubud, Bali" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="13/11/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                              <select className="form-input" disabled style={{ width: 38 }}>
+                                <option>Friend</option>
+                              </select>
+                              <input className="form-input" value="Connected with Mike Chen" disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value="12/11/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
+                            </div>
+                          </div>
+                          <button type="button" style={{
+                            marginTop: 14,
+                            background: '#22c55e',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '10px 18px',
+                            borderRadius: 8,
+                            fontWeight: 500,
+                            fontSize: 15
+                          }}>+ Add Activity</button>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 0 }} />
+                      </>
+                    )}
+
+                    {/* PROFILE tab (matches screenshot) */}
+                    {userEditTab === 'profile' && (
+                      <>
+                        {/* top divider like in the screenshot */}
+                        <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 -24px 24px -24px' }} />
+
+                        <div style={{ marginBottom: 18 }}>
+                          <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>
+                            Profile Picture
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            {editingUser.profilePictureUrl ? (
+                              <img
+                                src={editingUser.profilePictureUrl}
+                                alt=""
+                                style={{
+                                  width: 56, height: 56, borderRadius: '50%',
+                                  objectFit: 'cover', boxShadow: '0 2px 10px rgba(0,0,0,.08)'
+                                }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: 56, height: 56, borderRadius: '50%',
+                                background: '#4f46e5', color: '#fff',
+                                display: 'grid', placeItems: 'center',
+                                fontWeight: 600, fontSize: 22,
+                                boxShadow: '0 2px 10px rgba(0,0,0,.08)'
+                              }}>
+                                {(editingUser.travelerName || editingUser.name || editingUser.email || 'U')
+                                  .trim().charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById('editUserUploadInput')?.click()}
+                              style={{
+                                background: '#10b981',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '10px 16px',
+                                borderRadius: 8,
+                                fontWeight: 700,
+                                boxShadow: '0 2px 8px rgba(16,185,129,.25)',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Upload Photo
+                            </button>
+                            <input
+                              id="editUserUploadInput"
+                              type="file"
+                              accept="image/*"
+                              hidden
+                              onChange={() => alert('Upload Photo coming soon')}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 18 }}>
+                          <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>
+                            Traveler Bio
+                          </div>
+                          <textarea
+                            className="form-input"
+                            style={{ minHeight: 130 }}
+                            defaultValue={
+                              editingUser.travelerBio ||
+                              editingUser.bio ||
+                              'Adventure seeker and photography enthusiast. Love exploring hidden gems around the world and sharing travel tips with fellow wanderers.'
+                            }
+                          />
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 24 }} />
+                      </>
+                    )}
+
+                    {/* TRAVEL tab (matches screenshot) */}
+                    {userEditTab === 'travel' && (
+                      <>
+                        <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 -24px 24px -24px' }} />
+
+                        {/* Travel Interests */}
+                        <div style={{ marginBottom: 18 }}>
+                          <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>Travel Interests</div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: 8,
+                              alignItems: 'center',
+                              background: '#fff',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: 8,
+                              padding: '8px 10px',
+                              minHeight: 42
+                            }}
+                          >
+                            {editInterests.map((t, idx) => (
+                              <span key={idx} style={{
+                                background: '#2563eb',
+                                color: '#fff',
+                                borderRadius: 999,
+                                padding: '7px 12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontWeight: 600,
+                                fontSize: 14
+                              }}>
+                                {t}
+                                <button
+                                  type="button"
+                                  onClick={() => setEditInterests(editInterests.filter((_, i) => i !== idx))}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    lineHeight: 1
+                                  }}
+                                  aria-label={`Remove ${t}`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                            <input
+                              value={interestInput}
+                              onChange={(e) => setInterestInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ',') {
+                                  e.preventDefault();
+                                  const v = interestInput.trim();
+                                  if (v && !editInterests.includes(v)) setEditInterests([...editInterests, v]);
+                                  setInterestInput('');
+                                } else if (e.key === 'Backspace' && !interestInput && editInterests.length) {
+                                  // remove last chip when input is empty
+                                  setEditInterests(editInterests.slice(0, -1));
+                                }
+                              }}
+                              onBlur={() => {
+                                const v = interestInput.trim();
+                                if (v && !editInterests.includes(v)) setEditInterests([...editInterests, v]);
+                                setInterestInput('');
+                              }}
+                              placeholder="Add travel interests (Adventure, Food, Culture, etc.)"
+                              style={{
+                                border: 'none',
+                                outline: 'none',
+                                flex: 1,
+                                minWidth: 220,
+                                fontSize: 14,
+                                color: '#111827',
+                                padding: '6px 4px',
+                                background: 'transparent'
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Places Visited */}
+                        <div style={{ marginBottom: 18 }}>
+                          <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>Places Visited</div>
+                          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <input
+                              className="form-input"
+                              placeholder="Add a place you've visited"
+                              value={placeInput}
+                              onChange={(e) => setPlaceInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const v = placeInput.trim();
+                                  if (v && !editPlaces.includes(v)) setEditPlaces([...editPlaces, v]);
+                                  setPlaceInput('');
+                                }
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const v = placeInput.trim();
+                                if (v && !editPlaces.includes(v)) setEditPlaces([...editPlaces, v]);
+                                setPlaceInput('');
+                              }}
+                              style={{
+                                background: 'linear-gradient(90deg,#10b981,#059669)',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '10px 18px',
+                                borderRadius: 8,
+                                fontWeight: 700,
+                                boxShadow: '0 2px 8px rgba(16,185,129,.25)',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Add
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                            {editPlaces.map((p, idx) => (
+                              <span key={idx} style={{
+                                background: '#2563eb',
+                                color: '#fff',
+                                borderRadius: 999,
+                                padding: '7px 12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontWeight: 600,
+                                fontSize: 14
+                              }}>
+                                {p}
+                                <button
+                                  type="button"
+                                  onClick={() => setEditPlaces(editPlaces.filter((_, i) => i !== idx))}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    lineHeight: 1
+                                  }}
+                                  aria-label={`Remove ${p}`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 -24px 0 -24px' }} />
+                      </>
+                    )}
+
+                    {/* SETTINGS tab (matches screenshot) */}
+                    {userEditTab === 'settings' && (
+                      <>
+                        <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 -24px 24px -24px' }} />
+
+                        <div style={{ marginBottom: 18 }}>
+                          <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 8 }}>Account Status</div>
+                          <select
+                            className="form-input"
+                            value={editStatus}
+                            onChange={(e) => setEditStatus(e.target.value)}
+                          >
+                            <option value="active">Active</option>
+                            <option value="disabled">Disabled</option>
+                            <option value="banned">Banned</option>
+                          </select>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #e5e7eb', margin: '0 -24px 0 -24px' }} />
+                      </>
+                    )}
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 18 }}>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => { setUserEditOpen(false); setEditingUser(null); }}
+                        style={{ padding: '10px 18px', borderRadius: 8 }}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn-primary" style={{ padding: '10px 18px', borderRadius: 8 }}>
+                        Update User
+                      </button>
+                    </div>
+                  </form>
                 </div>
+              </div>
             )}
         </div>
-        )};
-    </main>
+        )}
+      </main>
     </div>
-    );   
-}
-
+)}
 export default ContentManagement;
