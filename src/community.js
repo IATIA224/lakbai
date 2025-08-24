@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { addDoc, collection, serverTimestamp, getDocs, query, where, doc, getDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, getDocs, query, where, doc, getDoc, updateDoc, setDoc, arrayUnion } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "./firebase";
 import { CLOUDINARY_CONFIG } from "./profile";
@@ -265,66 +265,74 @@ const Community = () => {
   const [posts, setPosts] = useState(initialPosts);
   const [open, setOpen] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // NEW
+  const [isLoading, setIsLoading] = useState(true);
+  // NEW: track current user's friends and add-in-progress
+  const [friends, setFriends] = useState(new Set());
+  const [addingFriendId, setAddingFriendId] = useState(null);
+
+  // NEW: load current user's friends
+  async function loadFriendsForUser(user) {
+    if (!user) {
+      setFriends(new Set());
+      return;
+    }
+    const snap = await getDocs(collection(db, "users", user.uid, "friends"));
+    setFriends(new Set(snap.docs.map(d => d.id)));
+  }
 
   async function loadPostsForUser(user) {
-    setIsLoading(true); // NEW
+    setIsLoading(true);
     try {
       const col = collection(db, "community");
-
-      // Fetch all posts in parallel
       const [pubSnap, ownSnap, friendsSnap] = await Promise.all([
         getDocs(query(col, where("visibility", "==", "Public"))),
         user ? getDocs(query(col, where("authorId", "==", user.uid))) : Promise.resolve({ docs: [] }),
         user ? getDocs(query(col, where("visibility", "==", "Friends"), where("allowedUids", "array-contains", user.uid))) : Promise.resolve({ docs: [] }),
       ]);
 
-      // Combine and deduplicate posts
       const map = new Map();
       [...pubSnap.docs, ...ownSnap.docs, ...friendsSnap.docs].forEach(d => {
         map.set(d.id, { id: d.id, ...d.data() });
       });
       const postsArr = Array.from(map.values());
 
-      // Collect all unique authorIds
-      const authorIds = [...new Set(postsArr.map(post => post.authorId).filter(Boolean))];
+      const authorIds = [...new Set(postsArr.map(p => p.authorId).filter(Boolean))];
 
-      // Batch fetch all author profiles
       const authorProfiles = {};
+      const requestedByMe = {};
       if (authorIds.length > 0) {
         const userCol = collection(db, "users");
-        const authorSnaps = await Promise.all(
-          authorIds.map(uid => getDoc(doc(userCol, uid)))
-        );
+        const authorSnaps = await Promise.all(authorIds.map(uid => getDoc(doc(userCol, uid))));
         authorSnaps.forEach((snap, i) => {
-          authorProfiles[authorIds[i]] = snap.exists() && snap.data().profilePicture
-            ? snap.data().profilePicture
-            : "/user.png";
+          const data = snap.exists() ? snap.data() : {};
+          const uid = authorIds[i];
+          authorProfiles[uid] = data.profilePicture || "/user.png";
+          if (user) requestedByMe[uid] = Array.isArray(data.friendRequests) && data.friendRequests.includes(user.uid);
         });
       }
 
-      // Attach profilePicture to each post
-      const postsWithPics = postsArr.map(post => ({
+      const postsWithMeta = postsArr.map(post => ({
         ...post,
-        profilePicture: authorProfiles[post.authorId] || "/user.png"
+        profilePicture: authorProfiles[post.authorId] || "/user.png",
+        requestedByMe: user ? !!requestedByMe[post.authorId] : false,
       }));
 
-      // Sort by date
-      postsWithPics.sort((a, b) => {
+      postsWithMeta.sort((a, b) => {
         const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
         const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
         return tb - ta;
       });
 
-      setPosts(postsWithPics);
+      setPosts(postsWithMeta);
     } finally {
-      setIsLoading(false); // NEW
+      setIsLoading(false);
     }
   }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       loadPostsForUser(user);
+      loadFriendsForUser(user); // NEW
     });
     return () => unsub();
   }, []);
@@ -332,6 +340,32 @@ const Community = () => {
   const handleCreate = () => loadPostsForUser(auth.currentUser);
 
   const hasPosts = useMemo(() => posts.length > 0, [posts]);
+
+  // NEW: add friend (mutual)
+  async function handleAddFriend(targetUid) {
+    const me = auth.currentUser;
+    if (!me) {
+      alert("Please sign in to add friends.");
+      return;
+    }
+    if (!targetUid || targetUid === me.uid || friends.has(targetUid)) return;
+
+    try {
+      setAddingFriendId(targetUid);
+      const targetRef = doc(db, "users", targetUid);
+      await updateDoc(targetRef, { friendRequests: arrayUnion(me.uid) });
+      // Fallback if user doc missing
+      // await setDoc(targetRef, { friendRequests: [me.uid] }, { merge: true });
+
+      // Reflect locally
+      setPosts(prev => prev.map(p => p.authorId === targetUid ? { ...p, requestedByMe: true } : p));
+    } catch (e) {
+      console.error("Send request failed:", e);
+      alert("Failed to send friend request.");
+    } finally {
+      setAddingFriendId(null);
+    }
+  }
 
   return (
     <>
@@ -400,7 +434,27 @@ const Community = () => {
                         {post.visibility ? <>{post.visibility}</> : null}
                       </div>
                     </div>
-                    <button className="add-friend">+ Add Friend</button>
+                    <button
+                      className="add-friend"
+                      onClick={() => handleAddFriend(post.authorId)}
+                      disabled={
+                        !auth.currentUser ||
+                        auth.currentUser.uid === post.authorId ||
+                        friends.has(post.authorId) ||
+                        post.requestedByMe ||
+                        addingFriendId === post.authorId
+                      }
+                    >
+                      {auth.currentUser?.uid === post.authorId
+                        ? "You"
+                        : friends.has(post.authorId)
+                          ? "Friends"
+                          : post.requestedByMe
+                            ? "Requested"
+                            : addingFriendId === post.authorId
+                              ? "Sending..."
+                              : "+ Add Friend"}
+                    </button>
                   </header>
 
                   {post.images?.length ? (
