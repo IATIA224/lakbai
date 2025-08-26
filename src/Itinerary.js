@@ -17,6 +17,8 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -695,10 +697,11 @@ export default function Itinerary() {
   const exportToPDF = async () => {
     if (!exportSelected.size) return;
 
-    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-      import("jspdf"),
-      import("jspdf-autotable"),
-    ]);
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const w = doc.internal.pageSize.getWidth();
+    const h = doc.internal.pageSize.getHeight();
+    const pad = 40;
+    const contentW = w - pad * 2;
 
     // Sort by arrival date, newest first, then name
     const toMs = (d) => (d ? new Date(d).getTime() : 0);
@@ -718,31 +721,6 @@ export default function Itinerary() {
       },
       { days: 0, budget: 0 }
     );
-
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const w = doc.internal.pageSize.getWidth();
-    const h = doc.internal.pageSize.getHeight();
-    const pad = 40;
-    const contentW = w - pad * 2;
-
-    // Build table rows
-    const rows = sel.map((it, idx) => {
-      const days =
-        it.arrival && it.departure
-          ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
-          : "";
-      const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
-      const budget = `$${Number(it.budget || 0).toLocaleString()}`;
-      return [
-        idx + 1,
-        it.name || "Destination",
-        it.region || "—",
-        dates,
-        String(days || "—"),
-        it.status || "—",
-        budget,
-      ];
-    });
 
     // Header + footer via didDrawPage
     const drawHeader = () => {
@@ -766,11 +744,43 @@ export default function Itinerary() {
       doc.text(`Page ${page}`, w - pad, h - 16, { align: "right" });
     };
 
-    drawHeader();
-    drawFooter();
+    // Build table rows
+    const rows = sel.map((it, idx) => {
+      const days =
+        it.arrival && it.departure
+          ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
+          : "";
+      const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
+      const budget = `$${Number(it.budget || 0).toLocaleString()}`;
+      return [
+        idx + 1,
+        it.name || "Destination",
+        it.region || "—",
+        dates,
+        String(days || "—"),
+        it.status || "—",
+        budget,
+      ];
+    });
 
-    autoTable(doc, {
-      startY: 72,
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 90);
+    doc.text(`Destinations: ${sel.length}`, pad + 12, 80);
+    doc.text(`Total days: ${totals.days}`, pad + 160, 80);
+    doc.text(`Total budget: $${totals.budget.toLocaleString()}`, pad + 280, 80);
+
+    // when adding a table:
+    const addTable = (opts) => {
+      // works with both plugin styles
+      if (typeof doc.autoTable === 'function') {
+        doc.autoTable(opts);
+      } else {
+        autoTable(doc, opts);
+      }
+    };
+
+    addTable({
+      startY: 92,
       margin: { left: pad, right: pad },
       head: [["#", "Destination", "Region", "Dates", "Days", "Status", "Budget"]],
       body: rows,

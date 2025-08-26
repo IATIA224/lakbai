@@ -1,30 +1,36 @@
 import React, { useEffect, useMemo } from "react";
 
-export default function Achievements({ isOpen, onClose, achievementsData = [] }) {
-  if (!isOpen) return null;
-
+export default function Achievements({ user, open, onClose, achievements = [] }) {
   // Lock body scroll while open + close on ESC
   useEffect(() => {
+    if (!open) return;
+
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
     window.addEventListener("keydown", onKey);
+
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [open, onClose]);
 
   // Group by category
-  const grouped = useMemo(() => {
+  const computed = useMemo(() => {
+    const list = Array.isArray(achievements) ? achievements : [];
+    if (!list.length) return [];
     const map = new Map();
-    for (const a of achievementsData) {
+    for (const a of list) {
       const key = a.category || "General";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(a);
     }
     return Array.from(map.entries());
-  }, [achievementsData]);
+  }, [achievements]);
+
+  if (!open) return null;
 
   return (
     <div className="achv-backdrop" onClick={onClose}>
@@ -44,7 +50,7 @@ export default function Achievements({ isOpen, onClose, achievementsData = [] })
         </div>
 
         <div className="achv-body">
-          {grouped.map(([category, items]) => (
+          {computed.map(([category, items]) => (
             <section key={category} className="achv-section">
               <h3 className="achv-section-title">{category}</h3>
               <div className="achv-divider" />
@@ -69,7 +75,7 @@ export default function Achievements({ isOpen, onClose, achievementsData = [] })
               </div>
             </section>
           ))}
-          {grouped.length === 0 && (
+          {computed.length === 0 && (
             <div style={{ color: "#64748b" }}>No achievements to display.</div>
           )}
         </div>
