@@ -570,6 +570,59 @@ const saveSettings = () => {
     })();
   }, []);
 
+  // LIVE: dashboard counters from Firestore (destinations + users)
+  useEffect(() => {
+    if (active !== 'dashboard') return;
+
+    let unsubDest = null;
+    let unsubUsers = null;
+
+    const setCounts = (dest, users) =>
+      setAnalytics((a) => ({ ...a, totalDestinations: dest, totalUsers: users }));
+
+    (async () => {
+      // Initial counts using count aggregation (fast, low cost)
+      try {
+        const [dc, uc] = await Promise.all([
+          getCountFromServer(collection(db, 'destinations')),
+          getCountFromServer(collection(db, 'users')),
+        ]);
+        setCounts(dc.data().count || 0, uc.data().count || 0);
+      } catch (err) {
+        // Fallback to fetching docs or localStorage
+        try {
+          const [dSnap, uSnap] = await Promise.all([
+            getDocs(collection(db, 'destinations')),
+            getDocs(collection(db, 'users')),
+          ]);
+          setCounts(dSnap.size, uSnap.size);
+        } catch {
+          const ld = (JSON.parse(localStorage.getItem('destinations') || '[]') || []).length;
+          const lu = (JSON.parse(localStorage.getItem('users') || '[]') || []).length;
+          setCounts(ld, lu);
+        }
+      }
+
+      // Real-time updates while Dashboard is visible
+      try {
+        unsubDest = onSnapshot(collection(db, 'destinations'), (snap) =>
+          setAnalytics((a) => ({ ...a, totalDestinations: snap.size }))
+        );
+        unsubUsers = onSnapshot(collection(db, 'users'), (snap) =>
+          setAnalytics((a) => ({ ...a, totalUsers: snap.size }))
+        );
+      } catch (e) {
+        // ignore listener failures
+        console.warn('onSnapshot counters error:', e);
+      }
+    })();
+
+    return () => {
+      if (typeof unsubDest === 'function') unsubDest();
+      if (typeof unsubUsers === 'function') unsubUsers();
+    };
+  }, [active]);
+
 useEffect(() => {
     if (active !== 'destinations') return;
     (async () => {
@@ -1387,10 +1440,14 @@ useEffect(() => {
                       }
                       return (
                         <div style={{
-                          width: 56, height: 56, borderRadius: '50%', background: '#6366f1',
-                          color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 500, fontSize: 24
+                          width: 56, height: 56, borderRadius: '50%',
+                          background: '#6366f1', color: '#fff',
+                          display: 'grid', placeItems: 'center',
+                          fontWeight: 600, fontSize: 22,
+                          boxShadow: '0 2px 10px rgba(0,0,0,.08)'
                         }}>
-                          {(userProfile.travelerName || userProfile.name || 'U').charAt(0).toUpperCase()}
+                          {(userProfile.travelerName || userProfile.name || 'U')
+                            .trim().charAt(0).toUpperCase()}
                         </div>
                       );
                     })()}
