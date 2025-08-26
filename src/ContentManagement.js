@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where } from 'firebase/firestore';
 import { CloudinaryContext, Image, Video } from './cloudinary';
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -108,7 +108,7 @@ return (
 };
 
 /* DestinationForm used in modal - matches screenshot layout */
-const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [] }) => {
+const DestinationForm = ({ initial = null, onCancel, onSave }) => {
 const [data, setData] = useState(() => {
     const base = {
         name: '',
@@ -119,9 +119,7 @@ const [data, setData] = useState(() => {
         location: '',
         priceRange: '',
         bestTime: '',
-        // rating: 0,
-        region: '', // CHANGED: use region instead of rating
-        packingSuggestions: [], // NEW: support packing suggestions (also used by CSV import)
+        rating: 0,
         media: { featuredImage: '', gallery: [] },
         status: 'draft',
     };
@@ -138,7 +136,6 @@ const [data, setData] = useState(() => {
 });
 const [activeTab, setActiveTab] = useState('content');
 const [uploading, setUploading] = useState(false);
-const [nameError, setNameError] = useState(''); // NEW: live duplicate error
 const handleImageAdd = () => {
     // Use Cloudinary for image upload
     const inp = document.createElement('input');
@@ -186,35 +183,13 @@ const handleImageAdd = () => {
 const submit = (e) => {
     e?.preventDefault();
     // minimal validation
-    const nameTrim = (data.name || '').trim();
-    if (!nameTrim) return alert('Please enter a destination name');
-    // Duplicate check (only for "Add New destination")
-    if (!initial) {
-      const normalized = nameTrim.toLowerCase();
-      if (existingNames.includes(normalized)) {
-        alert('Destination already exists. Please use a different name.');
-        return;
-      }
-    }
-    onSave({
-      ...data,
-      name: nameTrim,
-      updatedAt: new Date().toISOString(),
-      createdAt: initial?.createdAt || new Date().toISOString()
-    });
+    if (!data.name.trim()) return alert('Please enter a destination name');
+    onSave({ ...data, updatedAt: new Date().toISOString(), createdAt: initial?.createdAt || new Date().toISOString() });
 };
-
-// NEW: live duplicate validation for "Add New" only
-useEffect(() => {
-  if (initial) { setNameError(''); return; }
-  const v = (data.name || '').trim().toLowerCase();
-  if (!v) { setNameError(''); return; }
-  setNameError(existingNames.includes(v) ? 'Destination already exists.' : '');
-}, [data.name, existingNames, initial]);
 
 return (
     <form className="content-form" onSubmit={submit}>
-      <div className="tabs" style={{ borderBottom: '1px solid #eef2f7', marginBottom: 16}}>
+    <div className="tabs" style={{ borderBottom: '1px solid #eef2f7', marginBottom: 16}}>
         {['content', 'media', 'seo', 'settings'].map((t) => (
             <button
                 type="button"
@@ -237,22 +212,11 @@ return (
 
     {activeTab === 'content' && (
         <div className="grid two-col">
-          <div>
+        <div>
             <label>Destination Name *</label>
-            <input
-              required
-              value={data.name}
-              onChange={(e) => setData({ ...data, name: e.target.value })}
-              className="form-input"
-              style={nameError ? { borderColor: '#ef4444', background: '#fef2f2' } : undefined}
-            />
-            {nameError && (
-              <div className="muted" style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>
-                {nameError}
-              </div>
-            )}
-          </div>
-          <div>
+            <input required value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} className="form-input" />
+        </div>
+        <div>
             <label>Category</label>
             <select value={data.category} onChange={(e) => setData({ ...data, category: e.target.value })} className="form-input">
             <option value="">Select category</option>
@@ -271,28 +235,28 @@ return (
                 <option>Lakes</option>
                 <option>Heritage</option>
             </select>
-          </div>
+        </div>
 
-          <div className="full">
+        <div className="full">
             <label>Description</label>
             <textarea value={data.description} onChange={(e) => setData({ ...data, description: e.target.value })} className="form-input" />
-          </div>
+        </div>
 
-          <div className="full">
+        <div className="full">
             <label>Content</label>
             <RichTextEditor value={data.content} onChange={(v) => setData({ ...data, content: v })} placeholder="Write rich content..." />
-          </div>
+        </div>
 
-          <div className="full">
+        <div className="full">
             <label>Tags</label>
             <TagInput tags={data.tags} onChange={(tags) => setData({ ...data, tags })} placeholder="Add tags..." />
-          </div>
+        </div>
 
-          <div>
+        <div>
             <label>Location</label>
             <input value={data.location} onChange={(e) => setData({ ...data, location: e.target.value })} className="form-input" />
-          </div>
-          <div>
+        </div>
+        <div>
             <label>Price Range</label>
             <select value={data.priceRange} onChange={(e) => setData({ ...data, priceRange: e.target.value })} className="form-input">
             <option value="">Select price range</option>
@@ -301,34 +265,27 @@ return (
             <option>$$$</option>
             <option>$$$$</option>
             </select>
-          </div>
+        </div>
 
-          <div>
+        <div>
             <label>Best Time to Visit</label>
             <input value={data.bestTime} onChange={(e) => setData({ ...data, bestTime: e.target.value })} className="form-input" placeholder="e.g., March to May" />
-          </div>
-          <div>
-            <label>Region</label> {/* CHANGED: was Rating */}
-            <select
-              value={data.region}  // CHANGED
-              onChange={(e) => setData({ ...data, region: e.target.value })} // CHANGED
-              className="form-input"
-            >
-              <option value="">Select region</option>
-              <option value="CAR - Cordillera Administrative Region">CAR - Cordillera Administrative Region</option>
-              <option value="CARAGA - Region XIII">CARAGA - Region XIII</option>
-              <option value="NCR - National Capital Region">NCR - National Capital Region</option>
-              <option value="Region I - Ilocos Region">Region I - Ilocos Region</option>
-              <option value="Region IV-B - MIMAROPA">Region IV-B - MIMAROPA</option>
-              <option value="Region V - Bicol Region">Region V - Bicol Region</option>
-              <option value="Region VI - Western Visayas">Region VI - Western Visayas</option>
-              <option value="Region VII - Central Visayas">Region VII - Central Visayas</option>
-            </select>
-          </div>
         </div>
-      )}
+        <div>
+            <label>Rating</label>
+            <select value={data.rating} onChange={(e) => setData({ ...data, rating: Number(e.target.value) })} className="form-input">
+            <option value={0}>☆☆☆☆☆ (0/5)</option>
+            <option value={1}>★☆☆☆☆ (1/5)</option>
+            <option value={2}>★★☆☆☆ (2/5)</option>
+            <option value={3}>★★★☆☆ (3/5)</option>
+            <option value={4}>★★★★☆ (4/5)</option>
+            <option value={5}>★★★★★ (5/5)</option>
+            </select>
+            </div>
+        </div>
+    )}
 
-      {activeTab === 'media' && (
+    {activeTab === 'media' && (
         <div style={{ paddingBottom: 6 }}>
             <label style={{ display: 'block', marginBottom: 8, color: '#6b7280', fontSize: 12 }}>Featured Image</label>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
@@ -464,21 +421,28 @@ return (
     )}
 
     <div className="form-actions" style={{ marginTop: 18 }}>
-        <button
-          type="submit"
-          className="btn-primary"
-          style={{ padding: '10px 18px', borderRadius: 8, opacity: (!data.name.trim() || nameError) ? 0.6 : 1, cursor: (!data.name.trim() || nameError) ? 'not-allowed' : 'pointer' }}
-          disabled={!data.name.trim() || !!nameError}
-        >
-          {initial ? 'Update destination' : 'Create destination'}
+        <button type="submit" className="btn-primary" style={{ padding: '10px 18px', borderRadius: 8 }}>
+        {initial ? 'Update destination' : 'Create destination'}
         </button>
         <button type="button" className="btn-secondary" onClick={onCancel} style={{ padding: '10px 18px', borderRadius: 8 }}>
-          Cancel
+        Cancel
         </button>
-      </div>
+    </div>
     </form>
 );
 };
+
+function fmtDate(v) {
+  const d = toDateSafe(v);
+  return d ? d.toLocaleDateString() : '—';
+}
+function fmtDateTime(v) {
+  const d = toDateSafe(v);
+  return d ? d.toLocaleString() : '—';
+}
+
+// Helper date formatters (fixes fmtDate / fmtDateTime no-undef)
+const toDateSafe = (v) => (v?.toDate ? v.toDate() : (v ? new Date(v) : null));
 
 function ContentManagement() {
   const [analytics, setAnalytics] = useState({
@@ -497,171 +461,15 @@ function ContentManagement() {
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [loadingDest, setLoadingDest] = useState(false);
-  const [importingCsv, setImportingCsv] = useState(false); // Added state for importingCsv
-  const csvInputRef = useRef(null); // Define csvInputRef using useRef
-
-  const handleCsvFile = async (file) => {
-    if (!file) return;
-    setImportingCsv(true);
-    try {
-      const text = await file.text();
-
-      // CSV parser that supports quoted fields and escaped quotes
-      const splitCsvLine = (line) => {
-        const out = [];
-        let cur = '';
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') {
-            if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
-            else { inQuotes = !inQuotes; }
-          } else if (ch === ',' && !inQuotes) {
-            out.push(cur);
-            cur = '';
-          } else {
-            cur += ch;
-          }
-        }
-        out.push(cur);
-        return out;
-      };
-
-      const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length);
-      if (lines.length < 2) {
-        alert('CSV must contain a header row and at least one data row.');
-        return;
-      }
-
-      const headers = splitCsvLine(lines[0]).map(h => (h || '').trim().toLowerCase());
-
-      // Required columns and accepted aliases
-      const headerAliases = {
-        name: ['destination name', 'name', 'title'],
-        category: ['category'],
-        description: ['description', 'desc'],
-        tags: ['tags', 'tag'],
-        location: ['location', 'address', 'place'],
-        priceRange: ['price range', 'pricerange', 'price'],
-        bestTime: ['best time to visit', 'best time', 'season'],
-        region: ['region'],
-        packingSuggestions: ['packing suggestions', 'packing', 'suggestions'],
-      };
-
-      const headerIndex = {};
-      const missingHeaders = [];
-      Object.entries(headerAliases).forEach(([key, aliases]) => {
-        const idx = headers.findIndex(h => aliases.includes(h));
-        if (idx === -1) missingHeaders.push(aliases[0]);
-        else headerIndex[key] = idx;
-      });
-
-      if (missingHeaders.length) {
-        alert(
-          'Missing required column(s): ' +
-          missingHeaders.join(', ') +
-          '\nPlease include these headers (or their aliases) in the CSV.'
-        );
-        return;
-      }
-
-      const toArray = (v) => (v || '')
-        .split(/[,;|]/)
-        .map(x => x.trim())
-        .filter(Boolean);
-
-      const existing = new Set(destinations.map(d => (d.name || '').trim().toLowerCase()));
-      const toCreate = [];
-      const errors = [];
-      let dupes = 0;
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = splitCsvLine(lines[i]).map(c => c.trim());
-        if (cols.every(c => !c)) continue;
-
-        const get = (key) => cols[headerIndex[key]] || '';
-
-        const name = get('name');
-        if (!name) {
-          errors.push(`Row ${i + 1}: Missing Destination Name`);
-          continue;
-        }
-        if (existing.has(name.toLowerCase())) { dupes++; continue; }
-
-        const item = {
-          name,
-          category: get('category'),
-          description: get('description'),
-          content: '',
-          tags: toArray(get('tags')),
-          location: get('location'),
-          priceRange: get('priceRange'),
-          bestTime: get('bestTime'),
-          region: get('region'),
-          packingSuggestions: toArray(get('packingSuggestions')),
-          media: { featuredImage: '', gallery: [] },
-          status: 'draft',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        // Validate required values and report missing ones
-        const requiredValues = ['category', 'description', 'tags', 'location', 'priceRange', 'bestTime', 'region', 'packingSuggestions'];
-        const missingVals = requiredValues.filter((k) => {
-          const v = item[k];
-          return Array.isArray(v) ? v.length === 0 : !v;
-        });
-        if (missingVals.length) {
-          errors.push(`Row ${i + 1}: Missing ${missingVals.join(', ')}`);
-          continue;
-        }
-
-        existing.add(name.toLowerCase());
-        toCreate.push(item);
-      }
-
-      if (!toCreate.length) {
-        let msg = 'No new destinations to import.';
-        if (dupes) msg += ` Skipped ${dupes} duplicate name(s).`;
-        if (errors.length) msg += `\nIssues:\n- ${errors.join('\n- ')}`;
-        alert(msg);
-        return;
-      }
-
-      const created = [];
-      for (const item of toCreate) {
-        try {
-          const ref = await addDoc(collection(db, 'destinations'), item);
-          created.push({ ...item, id: ref.id });
-        } catch (e) {
-          errors.push(`Failed to import "${item.name}": ${e.message || e}`);
-        }
-      }
-
-      if (created.length) {
-        setDestinations((prev) => [...created, ...prev]);
-        setAnalytics((a) => ({ ...a, totalDestinations: (a.totalDestinations || 0) + created.length }));
-        // NEW: log bulk import summary
-        addActivity({ action: 'imported', subject: 'destination', count: created.length });
-      }
-
-      let summary = `Import complete. Added ${created.length} destination(s).`;
-      if (dupes) summary += ` Skipped ${dupes} duplicate name(s).`;
-      if (errors.length) summary += `\nProblems:\n- ${errors.join('\n- ')}`;
-      alert(summary);
-    } catch (e) {
-      alert('Failed to import CSV: ' + (e.message || 'Unknown error'));
-    } finally {
-      setImportingCsv(false);
-      if (csvInputRef.current) csvInputRef.current.value = '';
-    }
-  };
 
   // USERS state + fetch (added)
   const [users, setUsers] = useState([]);
   const [searchUser, setSearchUser] = useState('');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
+
+  // NEW: per-user travel stats loaded from Firestore
+  const [userStats, setUserStats] = useState({});
 
   // NEW: User Profile modal state
   const [userProfileOpen, setUserProfileOpen] = useState(false);
@@ -795,126 +603,144 @@ useEffect(() => {
     })();
 }, [active]);
 
-const openCreate = () => {
-    console.log('openCreate called');
+// NEW: fetch Travel Stats (places, photos, reviews) for users from Firestore
+useEffect(() => {
+  if (active !== 'users' || !users?.length) return;
+  let cancelled = false;
+
+  const getCountSafe = async (refOrQuery) => {
+    try {
+      const c = await getCountFromServer(refOrQuery);
+      return c.data().count || 0;
+    } catch (e) {
+      console.warn('count error:', e);
+      return 0;
+    }
+  };
+
+  // helper to total destinations inside a list of Trip docs
+  const tallyDestinationsFromTripDocs = async (tripDocs) => {
+    let total = 0;
+    for (const d of tripDocs) {
+      const data = d.data();
+      if (Array.isArray(data?.destinations)) {
+        total += data.destinations.length;
+      } else if (typeof data?.destinationsCount === 'number') {
+        total += data.destinationsCount;
+      } else {
+        // fallback: subcollection "destinations" under each trip doc
+        try {
+          const subCnt = await getCountFromServer(collection(d.ref, 'destinations'));
+          total += subCnt.data().count || 0;
+        } catch (e) {
+          console.warn('destinations subcollection count error:', e);
+        }
+      }
+    }
+    return total;
+  };
+
+  // REWORKED: places come from "myTrips" destinations
+  const countForUser = async (uid) => {
+    const calcPlacesFromMyTrips = async () => {
+      // Try top-level "myTrips" with userId field
+      try {
+        const tripsQ = query(collection(db, 'myTrips'), where('userId', '==', uid));
+        const tripsSnap = await getDocs(tripsQ);
+        if (!tripsSnap.empty) {
+          return await tallyDestinationsFromTripDocs(tripsSnap.docs);
+        }
+      } catch (e) {
+        console.warn('myTrips (top-level) fetch error:', e);
+      }
+
+      // Fallback: subcollection "users/{uid}/myTrips"
+      try {
+        const userTripsSnap = await getDocs(collection(db, 'users', uid, 'myTrips'));
+        if (!userTripsSnap.empty) {
+          return await tallyDestinationsFromTripDocs(userTripsSnap.docs);
+        }
+      } catch (e) {
+        console.warn('myTrips (user subcollection) fetch error:', e);
+      }
+
+      return 0;
+    };
+
+    // photos and reviews keep existing collection strategy
+    const photosTop = query(collection(db, 'photos'), where('userId', '==', uid));
+    const reviewsTop = query(collection(db, 'reviews'), where('userId', '==', uid));
+
+    const [photosTopCnt, reviewsTopCnt, placesFromTrips] = await Promise.all([
+      getCountSafe(photosTop),
+      getCountSafe(reviewsTop),
+      calcPlacesFromMyTrips()
+    ]);
+
+    const photos =
+      photosTopCnt || (await getCountSafe(collection(db, 'users', uid, 'photos')));
+    const reviews =
+      reviewsTopCnt || (await getCountSafe(collection(db, 'users', uid, 'reviews')));
+    const places = placesFromTrips;
+
+    return { places, photos, reviews };
+  };
+
+  (async () => {
+    const ids = users.map(u => u.id).filter(Boolean);
+    const missing = ids.filter(id => userStats[id] === undefined);
+    if (!missing.length) return;
+
+    const entries = await Promise.all(
+      missing.map(async (uid) => [uid, await countForUser(uid)])
+    );
+
+    if (!cancelled) {
+      setUserStats((prev) => {
+        const next = { ...prev };
+        for (const [uid, stats] of entries) next[uid] = stats;
+        return next;
+      });
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, [active, users, userStats]);
+
+  // Handlers for Destination modal (fixes openCreate/closeForm/handleSaveDestination)
+  const openCreate = () => {
     setEditing(null);
     setShowForm(true);
-};
+  };
 
-const closeForm = () => {
+  const closeForm = () => {
     setShowForm(false);
     setEditing(null);
-};
+  };
 
-// prevent body scroll when modal is open and close on ESC
-useEffect(() => {
-    document.body.style.overflow = showForm ? 'hidden' : '';
-    const onKey = (e) => {
-        if (e.key === 'Escape' && showForm) closeForm();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-        window.removeEventListener('keydown', onKey);
-        document.body.style.overflow = '';
-    };
-}, [showForm]);
-
-// NEW: prevent body scroll for Edit User modal and close on ESC
-useEffect(() => {
-  const prev = document.body.style.overflow;
-  if (userEditOpen) document.body.style.overflow = 'hidden';
-  const onKey = (e) => {
-    if (e.key === 'Escape' && userEditOpen) {
-      setUserEditOpen(false);
-      setEditingUser(null);
+  const handleSaveDestination = async (payload) => {
+    try {
+      if (editing?.id) {
+        await updateDoc(doc(db, 'destinations', editing.id), payload);
+        setDestinations((prev) => prev.map((d) => (d.id === editing.id ? { ...d, ...payload, id: editing.id } : d)));
+      } else {
+        const ref = await addDoc(collection(db, 'destinations'), payload);
+        const newDoc = { ...payload, id: ref.id };
+        setDestinations((prev) => [...prev, newDoc]);
+        setAnalytics((a) => ({ ...a, totalDestinations: (a.totalDestinations || 0) + 1 }));
+      }
+      // optional localStorage fallback sync
+      try {
+        localStorage.setItem('destinations', JSON.stringify((prev => prev)(destinations)));
+      } catch {}
+      closeForm();
+    } catch (err) {
+      console.error('Save destination failed:', err);
+      alert('Failed to save destination.');
     }
   };
-  window.addEventListener('keydown', onKey);
-  return () => {
-    window.removeEventListener('keydown', onKey);
-    document.body.style.overflow = prev || '';
-  };
-}, [userEditOpen]);
 
-// fallback removed — rely on the React portal (createPortal) to render the modal
-
-const handleSaveDestination = (saved) => {
-  // Remove undefined fields before saving
-  // Deep clean: remove undefined and empty string recursively
-  function deepClean(obj) {
-    if (Array.isArray(obj)) {
-        return obj.filter((v) => v !== undefined && v !== '');
-    } else if (typeof obj === 'object' && obj !== null) {
-        return Object.fromEntries(
-            Object.entries(obj)
-                .filter(([_, v]) => v !== undefined && v !== '')
-                .map(([k, v]) => [k, deepClean(v)])
-        );
-    }
-    return obj;
-  }
-  const clean = deepClean(saved);
-  if (editing) {
-    const docRef = doc(db, 'destinations', editing.id);
-    setDoc(docRef, clean, { merge: true });
-    setDestinations((s) => s.map((it) => (it.id === editing.id ? { ...it, ...clean } : it)));
-    // NEW: log edit destination
-    addActivity({ action: 'updated', subject: 'destination', id: editing.id, name: clean.name || editing.name });
-  } else {
-    addDoc(collection(db, 'destinations'), clean).then((docRef) => {
-      setDestinations((s) => [{ ...clean, id: docRef.id }, ...s]);
-      setAnalytics((a) => ({ ...a, totalDestinations: (a.totalDestinations || 0) + 1 }));
-      // NEW: log create destination
-      addActivity({ action: 'created', subject: 'destination', id: docRef.id, name: clean.name });
-    });
-    return;
-  }
-  setShowForm(false);
-  setEditing(null);
-  setAnalytics((a) => ({ ...a, totalDestinations: a.totalDestinations || 0 }));
-};
-
-  // Live total destinations counter for the Dashboard
-  useEffect(() => {
-    let unsub;
-    (async () => {
-      try {
-        const coll = collection(db, 'destinations');
-        const snapCount = await getCountFromServer(coll);
-        setAnalytics((a) => ({ ...a, totalDestinations: snapCount.data().count || 0 }));
-        unsub = onSnapshot(
-          coll,
-          (snap) => setAnalytics((a) => ({ ...a, totalDestinations: snap.size })),
-          (err) => console.warn('destinations snapshot error:', err)
-        );
-      } catch (e) {
-        console.error('Failed to load destinations count:', e);
-      }
-    })();
-    return () => unsub && unsub();
-  }, []);
-
-  // NEW: Live total users counter for the Dashboard
-  useEffect(() => {
-    let unsub;
-    (async () => {
-      try {
-        const coll = collection(db, 'users');
-        const snapCount = await getCountFromServer(coll);
-        setAnalytics((a) => ({ ...a, totalUsers: snapCount.data().count || 0 }));
-        unsub = onSnapshot(
-          coll,
-          (snap) => setAnalytics((a) => ({ ...a, totalUsers: snap.size })),
-          (err) => console.warn('users snapshot error:', err)
-        );
-      } catch (e) {
-        console.error('Failed to load users count:', e);
-      }
-    })();
-    return () => unsub && unsub();
-  }, []);
-
-  // NEW helpers for the user modal
+  // User Profile modal handlers (fixes openUserProfile/closeUserProfile)
   const openUserProfile = (u) => {
     setUserProfile(u);
     setUserProfileTab('overview');
@@ -922,121 +748,20 @@ const handleSaveDestination = (saved) => {
   };
   const closeUserProfile = () => {
     setUserProfileOpen(false);
-    setTimeout(() => setUserProfile(null), 200);
-  };
-  const fmtDate = (d) => {
-    if (!d) return '';
-    const dt = d?.toDate ? d.toDate() : (typeof d === 'number' ? new Date(d) : new Date(d));
-    if (Number.isNaN(dt.getTime())) return '';
-    return dt.toLocaleDateString();
-  };
-  const fmtDateTime = (d) => {
-    if (!d) return '';
-    const dt = d?.toDate ? d.toDate() : (typeof d === 'number' ? new Date(d) : new Date(d));
-    if (Number.isNaN(dt.getTime())) return '';
-    return dt.toLocaleString();
+    setUserProfile(null);
   };
 
-  // lock scroll when profile modal is open
-  useEffect(() => {
-    if (userProfileOpen) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = '';
-    const onEsc = (e) => e.key === 'Escape' && userProfileOpen && closeUserProfile();
-    window.addEventListener('keydown', onEsc);
-    return () => {
-      window.removeEventListener('keydown', onEsc);
-      document.body.style.overflow = '';
-    };
-  }, [userProfileOpen]);
-
-  // Add this helper to open the Edit User modal with seeded data
+  // Edit User modal handler (fixes openEditUserModal)
   const openEditUserModal = (u, tab = 'basic') => {
-    const defaultInterests = ['Adventure', 'Photography', 'Cultural Sites', 'Mountain Hiking', 'Local Cuisine'];
-    const defaultPlaces = ['Paris, France', 'Tokyo, Japan', 'Machu Picchu, Peru', 'Santorini, Greece', 'Bali, Indonesia', 'New York, USA'];
-
     setEditingUser(u);
-    setUserEditTab(tab);
-
-    const interests = Array.isArray(u?.interests) && u.interests.length ? [...u.interests] : defaultInterests;
-    setEditInterests(interests);
-    setInterestInput(''); // reset interests input
-
-    const places = Array.isArray(u?.places) && u.places.length
-      ? u.places.map(p => (typeof p === 'string' ? p : (p?.name || p?.title || 'Unknown')))
-      : defaultPlaces;
-    setEditPlaces(places);
-
-    setEditStatus(String(u?.status || 'active').toLowerCase()); // NEW: seed status
-    setPlaceInput('');
     setUserEditOpen(true);
+    setUserEditTab(tab);
+    setEditInterests(Array.isArray(u?.interests) ? u.interests : []);
+    setEditPlaces(Array.isArray(u?.places) ? u.places : []);
+    setEditStatus((u?.status || 'active').toLowerCase());
   };
 
-  // Activity persistence helpers (local cache survives restarts)
-  const ACTIVITY_LOCAL_KEY = 'activity';
-  const saveActivityLocal = (arr) => {
-    try {
-      localStorage.setItem(ACTIVITY_LOCAL_KEY, JSON.stringify(arr.slice(0, 500)));
-    } catch {}
-  };
-  const appendActivityLocal = (evt) => {
-    try {
-      const arr = JSON.parse(localStorage.getItem(ACTIVITY_LOCAL_KEY) || '[]');
-      arr.unshift(evt);
-      saveActivityLocal(arr);
-    } catch {}
-  };
-
- // Add a helper to push activity entries (also updates dashboard immediately)
-const addActivity = async (evt) => {
-  const item = {
-    ...evt,                      // { action, subject, id?, name?, count? }
-    by: (auth?.currentUser?.email || 'admin'),
-    at: new Date().toISOString(),
-  };
-  // Update UI immediately
-  setAnalytics((a) => ({
-    ...a,
-    recentActivity: [item, ...(a.recentActivity || [])].slice(0, 20),
-  }));
-  // Always persist to local cache
-  appendActivityLocal(item);
-  // Try to persist to Firestore (non-blocking)
-  try { await addDoc(collection(db, 'activity'), item); } catch {}
-};
-
-  // Subscribe to the activity collection to keep Recent Activity live
-  useEffect(() => {
-    let unsub;
-    // Prefill from local cache so activity appears even before Firestore loads
-    try {
-      const cached = JSON.parse(localStorage.getItem(ACTIVITY_LOCAL_KEY) || '[]');
-      if (cached.length) {
-        setAnalytics((a) => ({ ...a, recentActivity: cached.slice(0, 20) }));
-      }
-    } catch {}
-    try {
-      const coll = collection(db, 'activity');
-      unsub = onSnapshot(
-        coll,
-        (snap) => {
-          const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          rows.sort((a, b) => new Date(b.at) - new Date(a.at));
-          setAnalytics((a) => ({ ...a, recentActivity: rows.slice(0, 20) }));
-          // Mirror Firestore to local cache so history survives restarts/offline
-          saveActivityLocal(rows);
-        },
-        (err) => console.warn('activity snapshot error:', err)
-      );
-    } catch (e) {
-      try {
-        const arr = JSON.parse(localStorage.getItem(ACTIVITY_LOCAL_KEY) || '[]');
-        setAnalytics((a) => ({ ...a, recentActivity: arr.slice(0, 20) }));
-      } catch {}
-    }
-    return () => unsub && unsub();
-  }, []);
-
-return (
+  return (
     <div className="cms-root">
     <aside className="sidebar">
         <div className="brand">
@@ -1111,54 +836,20 @@ return (
                 <h2 style={{ marginTop: 0 }}>Recent Activity</h2>
                 <div style={{ minHeight: 120 }}>
                 {loading ? (
-                  <div className="centered"><div className="loading-spinner" /></div>
+                    <div className="centered"><div className="loading-spinner" /></div>
                 ) : analytics.recentActivity.length ? (
-                  analytics.recentActivity.map((it, i) => {
-                    // NEW: render activity feed entries
-                    if (it.action) {
-                      const action = String(it.action).toLowerCase();
-                      const subject = (it.subject || 'item').toLowerCase();
-                      const icon = subject === 'destination' ? '🏖️' : subject === 'user' ? '👤' : '📝';
-                      const badgeMap = {
-                        created: { bg: '#dcfce7', color: '#166534' },
-                        updated: { bg: '#e0e7ff', color: '#2563eb' },
-                        deleted: { bg: '#fee2e2', color: '#b91c1c' },
-                        imported: { bg: '#d1fae5', color: '#065f46' },
-                      };
-                      const badge = badgeMap[action] || { bg: '#e5e7eb', color: '#374151' };
-                      const title = `${action.charAt(0).toUpperCase() + action.slice(1)} ${subject}${it.name ? `: ${it.name}` : it.count ? ` (${it.count})` : ''}`;
-                      const when = new Date(it.at || Date.now()).toLocaleString();
-                      return (
-                        <div key={i} className="activity-row">
-                          <div className="activity-icon">{icon}</div>
-                          <div className="activity-body">
-                            <strong>{title}</strong>
-                            <div className="muted small">{when} • {it.by || 'system'}</div>
-                          </div>
-                          <div
-                            className="status-badge"
-                            style={{ background: badge.bg, color: badge.color, fontWeight: 700 }}
-                          >
-                            {action.toUpperCase()}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Fallback for legacy items
-                    return (
-                      <div key={i} className="activity-row">
+                    analytics.recentActivity.map((it, i) => (
+                    <div key={i} className="activity-row">
                         <div className="activity-icon">{it.type === 'destination' ? '🏖️' : '📝'}</div>
                         <div className="activity-body">
-                          <strong>{it.name || it.title}</strong>
-                          <div className="muted small">{it.type} • Updated {new Date(it.updatedAt || it.createdAt || Date.now()).toLocaleDateString()}</div>
+                        <strong>{it.name || it.title}</strong>
+                        <div className="muted small">{it.type} • Updated {new Date(it.updatedAt || it.createdAt || Date.now()).toLocaleDateString()}</div>
                         </div>
                         <div className={`status-badge status-${it.status || 'draft'}`}>{(it.status || 'draft').toUpperCase()}</div>
-                      </div>
-                    );
-                  })
+                    </div>
+                    ))
                 ) : (
-                  <div className="muted" style={{ padding: 24 }}>No recent activity</div>
+                    <div className="muted" style={{ padding: 24 }}>No recent activity</div>
                 )}
                 </div>
             </div>
@@ -1174,23 +865,6 @@ return (
                         <p className="muted">Manage your destinations content</p>
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        {/* NEW: Import from CSV button (left of Add New) */}
-                        <button
-                          className="btn-secondary"
-                          onClick={() => csvInputRef.current?.click()}
-                          disabled={importingCsv}
-                          style={{ padding: '10px 16px', borderRadius: 12, background: '#eef2ff', color: '#1f2937' }}
-                          title="Import multiple destinations from a CSV exported from Excel"
-                        >
-                          {importingCsv ? 'Importing...' : 'Import from CSV (Excel file)'}
-                        </button>
-                        <input
-                          ref={csvInputRef}
-                          type="file"
-                          accept=".csv"
-                          hidden
-                          onChange={(e) => handleCsvFile(e.target.files?.[0])}
-                        />
                         <button className="btn-primary-cms" onClick={openCreate} style={{ padding: '10px 16px', borderRadius: 12 }}>
                             + Add New destination
                         </button>
@@ -1228,7 +902,6 @@ return (
                         initial={editing}
                         onCancel={closeForm}
                         onSave={handleSaveDestination}
-                        existingNames={destinations.map(d => (d.name || '').trim().toLowerCase())} // pass existing names
                       />
                     </div>
                   </div>
@@ -1400,39 +1073,37 @@ return (
                                                         boxShadow: 'none'
                                                     }}
                                                     onClick={async () => {
-                                                        if (window.confirm('Delete this destination?')) {
-                                                            // Delete from Firestore
-                                                            try {
-                                                                await import('firebase/firestore').then(({ deleteDoc, doc }) =>
-                                                                    deleteDoc(doc(db, 'destinations', d.id))
-                                                                );
-                                                                // NEW: log delete destination
-                                                                addActivity({ action: 'deleted', subject: 'destination', id: d.id, name: d.name });
-                                                            } catch (err) {
-                                                                console.error('Firestore delete failed:', err);
-                                                            }
+                                                         if (window.confirm('Delete this destination?')) {
+                                                             // Delete from Firestore
+                                                             try {
+                                                                 await import('firebase/firestore').then(({ deleteDoc, doc }) =>
+                                                                     deleteDoc(doc(db, 'destinations', d.id))
+                                                                 );
+                                                             } catch (err) {
+                                                                 console.error('Firestore delete failed:', err);
+                                                             }
                                                              // Delete featured image from Cloudinary
-                                                            const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
-                                                            if (featuredId) await deleteCloudinaryImage(featuredId);
+                                                             const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
+                                                             if (featuredId) await deleteCloudinaryImage(featuredId);
                                                              // Delete gallery images from Cloudinary
-                                                            if (Array.isArray(d.media?.gallery)) {
-                                                                for (const img of d.media.gallery) {
-                                                                    const imgId = getCloudinaryPublicId(img);
-                                                                    if (imgId) await deleteCloudinaryImage(imgId);
-                                                                }
-                                                            }
+                                                             if (Array.isArray(d.media?.gallery)) {
+                                                                 for (const img of d.media.gallery) {
+                                                                     const imgId = getCloudinaryPublicId(img);
+                                                                     if (imgId) await deleteCloudinaryImage(imgId);
+                                                                 }
+                                                             }
                                                              // Remove from local state
-                                                            setDestinations((s) => s.filter((x) => x.id !== d.id));
+                                                             setDestinations((s) => s.filter((x) => x.id !== d.id));
                                                              // Remove from localStorage fallback
-                                                            const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
-                                                            localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
+                                                             const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
+                                                             localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
                                                              // set analytics state
-                                                            setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
-                                                        }
-                                                    }}
-                                                >
-                                                    Delete
-                                                </button>
+                                                             setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
+                                                         }
+                                                     }}
+                                                 >
+                                                     Delete
+                                                 </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -1521,19 +1192,33 @@ return (
                         const reviews = u.reviewsWritten || 0;
                         const createdAt = u.createdAt?.toDate ? u.createdAt.toDate() : (u.createdAt ? new Date(u.createdAt) : null);
                         const joinDate = createdAt ? createdAt.toLocaleDateString() : '';
+                        const pUrl = u.profilePictureUrl || u.photoURL || u.photoUrl || u.avatarUrl || u.avatar || u.photo;
+                        const pid = getCloudinaryPublicId(pUrl);
                         return (
                           <div key={u.id || i} style={{ ...rowStyle, background: i % 2 ? '#fff' : '#fafbfc', borderBottom: '1px solid #eef2f7' }}>
                             {/* User */}
                             <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                              {u.profilePictureUrl ? (
-                                <img src={u.profilePictureUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                              {pid ? (
+                                <CloudinaryContext cloudName={CLOUDINARY_CLOUD_NAME}>
+                                  <Image
+                                    publicId={pid}
+                                    width="36"
+                                    height="36"
+                                    crop="fill"
+                                    gravity="face"
+                                    radius="max"
+                                    alt=""
+                                    style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }}
+                                  />
+                                </CloudinaryContext>
+                              ) : pUrl ? (
+                                <img src={pUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
                               ) : (
                                 <div style={{
                                   width: 36, height: 36, borderRadius: '50%', background: '#6366f1',
                                   color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 500, fontSize: 24
                                 }}>
-                                  {(u.travelerName || u.name || 'U').charAt(0).toUpperCase()
-                                  }
+                                  {initial}
                                 </div>
                               )}
                               <div>
@@ -1551,8 +1236,18 @@ return (
                             </div>
                             {/* Travel Stats */}
                             <div style={{ padding: '14px 16px' }}>
-                              <div style={{ fontWeight: 700 }}>{places} places</div>
-                              <div className="muted small" style={{ fontWeight: 400 }}>{photos} photos, {reviews} reviews</div>
+                              {(() => {
+                                const stats = userStats[u.id] || {};
+                                const places = stats.places ?? (u.placesCount ?? (Array.isArray(u.places) ? u.places.length : 0));
+                                const photos = stats.photos ?? (u.photosShared || 0);
+                                const reviews = stats.reviews ?? (u.reviewsWritten || 0);
+                                return (
+                                  <>
+                                    <div style={{ fontWeight: 700 }}>{places} places</div>
+                                    <div className="muted small">{photos} photos, {reviews} reviews</div>
+                                  </>
+                                );
+                              })()}
                             </div>
                             {/* Join Date */}
                             <div style={{ padding: '14px 16px' }}>{joinDate}</div>
@@ -1612,8 +1307,6 @@ return (
                                     try {
                                         await deleteDoc(doc(db, 'users', u.id));
                                         setUsers((arr) => arr.filter((x) => x.id !== u.id));
-                                        // NEW: log delete user
-                                        addActivity({ action: 'deleted', subject: 'user', id: u.id, name: u.travelerName || u.name || u.email });
                                     } catch (err) {
                                         console.error('Delete user failed', err);
                                         alert('Failed to delete user.');
@@ -1662,23 +1355,48 @@ return (
                     background: 'linear-gradient(90deg,#4f46e5,#3b82f6)', padding: '24px 28px',
                     display: 'flex', alignItems: 'center', gap: 22
                   }}>
-                    {userProfile.profilePictureUrl ? (
-                      <img src={userProfile.profilePictureUrl} alt="" style={{
-                        width: 56, height: 56, borderRadius: '50%', objectFit: 'cover',
-                        background: '#fff', border: '3px solid rgba(255,255,255,.35)'
-                      }} />
-                    ) : (
-                      <div style={{
-                        width: 56, height: 56, borderRadius: '50%', background: '#6366f1',
-                        color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 500, fontSize: 24
-                      }}>
-                        {(userProfile.travelerName || userProfile.name || 'U').charAt(0).toUpperCase()
-                        }
-                      </div>
-                    )}
+                    {(() => {
+                      const pUrl = userProfile.profilePictureUrl || userProfile.photoURL || userProfile.photoUrl || userProfile.avatarUrl || userProfile.avatar || userProfile.photo;
+                      const pid = getCloudinaryPublicId(pUrl);
+                      if (pid) {
+                        return (
+                          <CloudinaryContext cloudName={CLOUDINARY_CLOUD_NAME}>
+                            <Image
+                              publicId={pid}
+                              width="56"
+                              height="56"
+                              crop="fill"
+                              gravity="face"
+                              radius="max"
+                              alt=""
+                              style={{
+                                width: 56, height: 56, borderRadius: '50%', objectFit: 'cover',
+                                background: '#fff', border: '3px solid rgba(255,255,255,.35)'
+                              }}
+                            />
+                          </CloudinaryContext>
+                        );
+                      }
+                      if (pUrl) {
+                        return (
+                          <img src={pUrl} alt="" style={{
+                            width: 56, height: 56, borderRadius: '50%', objectFit: 'cover',
+                            background: '#fff', border: '3px solid rgba(255,255,255,.35)'
+                          }} />
+                        );
+                      }
+                      return (
+                        <div style={{
+                          width: 56, height: 56, borderRadius: '50%', background: '#6366f1',
+                          color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 500, fontSize: 24
+                        }}>
+                          {(userProfile.travelerName || userProfile.name || 'U').charAt(0).toUpperCase()}
+                        </div>
+                      );
+                    })()}
                     <div style={{ color: '#fff', flex: 1 }}>
                       <div style={{ fontSize: 22, fontWeight: 500 }}>{userProfile.travelerName || userProfile.name || 'Unnamed'}</div>
-                                           <div style={{ opacity: .95, fontWeight: 400 }}>{userProfile.email || ''}</div>
+                      <div style={{ opacity: .95, fontWeight: 400 }}>{userProfile.email || ''}</div>
                       <div style={{ display: 'flex', gap: 12, marginTop: 10, alignItems: 'center' }}>
                         <span style={{
                           background: '#34d399', color: '#fff', fontSize: 13, fontWeight: 500,
@@ -1741,34 +1459,34 @@ return (
                           background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18
                         }}>
                           <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Travel Stats</div>
-                          <div style={{
-                            display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 14, columnGap: 12
-                          }}>
-                            <div>
-                              <div style={{ color: '#2563eb', fontWeight: 500, fontSize: 22 }}>
-                                {userProfile.placesCount ?? (Array.isArray(userProfile.places) ? userProfile.places.length : 0)}
+                          {(() => {
+                            const s = userStats[userProfile.id] || {};
+                            const places = s.places ?? (userProfile.placesCount ?? (Array.isArray(userProfile.places) ? userProfile.places.length : 0));
+                            const photos = s.photos ?? (userProfile.photosShared || 0);
+                            const reviews = s.reviews ?? (userProfile.reviewsWritten || 0);
+                            return (
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 14, columnGap: 12 }}>
+                                <div>
+                                  <div style={{ color: '#2563eb', fontWeight: 500, fontSize: 22 }}>{places}</div>
+                                  <div className="muted small" style={{ fontWeight: 400 }}>Places Visited</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: '#22c55e', fontWeight: 500, fontSize: 22 }}>{photos}</div>
+                                  <div className="muted small" style={{ fontWeight: 400 }}>Photos Shared</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: '#6366f1', fontWeight: 500, fontSize: 22 }}>{reviews}</div>
+                                  <div className="muted small" style={{ fontWeight: 400 }}>Reviews Written</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: '#f97316', fontWeight: 500, fontSize: 22 }}>
+                                    {userProfile.friendsCount ?? (Array.isArray(userProfile.friends) ? userProfile.friends.length : 0)}
+                                  </div>
+                                  <div className="muted small" style={{ fontWeight: 400 }}>Friends</div>
+                                </div>
                               </div>
-                              <div className="muted small" style={{ fontWeight: 400 }}>Places Visited</div>
-                            </div>
-                            <div>
-                              <div style={{ color: '#22c55e', fontWeight: 500, fontSize: 22 }}>
-                                {userProfile.photosShared || 0}
-                              </div>
-                              <div className="muted small" style={{ fontWeight: 400 }}>Photos Shared</div>
-                            </div>
-                            <div>
-                              <div style={{ color: '#6366f1', fontWeight: 500, fontSize: 22 }}>
-                                {userProfile.reviewsWritten || 0}
-                              </div>
-                              <div className="muted small" style={{ fontWeight: 400 }}>Reviews Written</div>
-                            </div>
-                            <div>
-                              <div style={{ color: '#f97316', fontWeight: 500, fontSize: 22 }}>
-                                {userProfile.friendsCount ?? (Array.isArray(userProfile.friends) ? userProfile.friends.length : 0)}
-                              </div>
-                              <div className="muted small" style={{ fontWeight: 400 }}>Friends</div>
-                            </div>
-                          </div>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div style={{
@@ -1806,7 +1524,7 @@ return (
                             ])).slice(0, 8).map((p, idx) => (
                               <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span style={{ color: '#ec4899', fontSize: 18 }}>📍</span>
-                                <span style={{ fontSize: 15, fontWeight: 400 }}>{typeof p === 'string' ? p : (p.name || p.title || 'Unknown')}</span>
+                                <span style={{ fontSize: 15, fontWeight: 400 }}>{typeof p === 'string' ? p : (p?.name || p?.title || 'Unknown')}</span>
                               </li>
                             ))}
                           </ul>
@@ -1914,8 +1632,7 @@ return (
                     }}
                     onSubmit={async (e) => {
                       e.preventDefault();
-                      // NEW: log edit user (UI-only edit for now)
-                      addActivity({ action: 'updated', subject: 'user', id: editingUser.id, name: editingUser.travelerName || editingUser.name || editingUser.email });
+                      // Hook up persistence here if needed
                       setUserEditOpen(false);
                       setEditingUser(null);
                     }}
@@ -1936,7 +1653,7 @@ return (
                               <input className="form-input" type="password" value="**********" disabled style={{ background: '#f3f4f6' }} />
                             </div>
                             <div>
-                              <label style={{ color: '#374151', fontSize:  13 }}>Sign-in Provider</label>
+                              <label style={{ color: '#374151', fontSize: 13 }}>Sign-in Provider</label>
                               <input className="form-input" value={editingUser.provider || editingUser.providerId || 'Email'} disabled style={{ background: '#f3f4f6' }} />
                             </div>
                             <div>
@@ -1952,25 +1669,26 @@ return (
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18 }}>
                             <div>
                               <label style={{ color: '#374151', fontSize: 13 }}>Places Visited</label>
-                              <input className="form-input" value={editingUser.placesCount ?? (Array.isArray(editingUser.places) ? editingUser.places.length : 0)} disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value={editingUser.placesCount ?? (Array.isArray(editingUser.places) ? editingUser.places.length : 0)} disabled style={{ background: '#f3f4f6', color: '#2563eb', fontWeight: 500 }} />
                             </div>
                             <div>
                               <label style={{ color: '#374151', fontSize: 13 }}>Photos Shared</label>
-                              <input className="form-input" value={editingUser.photosShared || 0} disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value={editingUser.photosShared || 0} disabled style={{ background: '#f3f4f6', color: '#22c55e', fontWeight: 500 }} />
                             </div>
                             <div>
                               <label style={{ color: '#374151', fontSize: 13 }}>Reviews Written</label>
-                              <input className="form-input" value={editingUser.reviewsWritten || 0} disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value={editingUser.reviewsWritten || 0} disabled style={{ background: '#f3f4f6', color: '#6366f1', fontWeight: 500 }} />
                             </div>
                             <div>
                               <label style={{ color: '#374151', fontSize: 13 }}>Total Friends</label>
-                              <input className="form-input" value={editingUser.friendsCount ?? (Array.isArray(editingUser.friends) ? editingUser.friends.length : 0)} disabled style={{ background: '#fff' }} />
+                              <input className="form-input" value={editingUser.friendsCount ?? (Array.isArray(editingUser.friends) ? editingUser.friends.length : 0)} disabled style={{ background: '#f3f4f6', color: '#f97316', fontWeight: 500 }} />
                             </div>
                           </div>
                         </div>
 
                         {/* Travel Interests (chips) */}
                         <div style={{ marginBottom: 24 }}>
+                                                
                           <div style={{ fontSize: 17, marginBottom: 12 }}>Travel Interests</div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                             {(editingUser.interests && editingUser.interests.length ? editingUser.interests : ['Adventure', 'Photography', 'Cultural Sites', 'Mountain Hiking', 'Local Cuisine']).map((t, idx) => (
@@ -1982,66 +1700,19 @@ return (
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 8,
-                                fontWeight: 600,
+                                fontWeight: 500,
                                 fontSize: 14
-                              }}>
-                                {t}
-                                <button
-                                  type="button"
-                                  onClick={() => setEditInterests(editInterests.filter((_, i) => i !== idx))}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#ffffff',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    lineHeight: 1
-                                  }}
-                                  aria-label={`Remove ${t}`}
-                                >
-                                  ×
-                                </button>
-                              </span>
+                              }}>{t}</span>
                             ))}
-                            <input
-                              value={interestInput}
-                              onChange={(e) => setInterestInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ',') {
-                                  e.preventDefault();
-                                  const v = interestInput.trim();
-                                  if (v && !editInterests.includes(v)) setEditInterests([...editInterests, v]);
-                                  setInterestInput('');
-                                } else if (e.key === 'Backspace' && !interestInput && editInterests.length) {
-                                  // remove last chip when input is empty
-                                  setEditInterests(editInterests.slice(0, -1));
-                                }
-                              }}
-                              onBlur={() => {
-                                const v = interestInput.trim();
-                                if (v && !editInterests.includes(v)) setEditInterests([...editInterests, v]);
-                                setInterestInput('');
-                              }}
-                              placeholder="Add travel interests (Adventure, Food, Culture, etc.)"
-                              style={{
-                                border: 'none',
-                                outline: 'none',
-                                flex: 1,
-                                minWidth: 220,
-                                fontSize: 14,
-                                color: '#111827',
-                                padding: '6px 4px',
-                                background: 'transparent'
-                              }}
-                            />
+                            <span style={{ color: '#6b7280', fontSize: 14, marginLeft: 8 }}>Add travel interests (Adventure, Food, Culture, etc)</span>
                           </div>
                         </div>
 
                         {/* Achievements (moved from Travel to match screenshot) */}
                         <div style={{ marginBottom: 24 }}>
                           <div style={{ fontSize: 17, marginBottom: 18 }}>Achievements</div>
-                          <div style={{
-                            display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr 1.2fr 1fr 110px', gap: 12, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '10px 12px' }}>
                               <span style={{ fontSize: 20, color: '#06b6d4', textAlign: 'center' }}>🌐</span>
                               <input className="form-input" value="Globe Trotter" disabled style={{ background: '#fff' }} />
                               <input className="form-input" value="Visited 10+ countries" disabled style={{ background: '#fff' }} />
@@ -2060,7 +1731,9 @@ return (
                               <input className="form-input" value="Review Expert" disabled style={{ background: '#fff' }} />
                               <input className="form-input" value="Written 25+ reviews" disabled style={{ background: '#fff' }} />
                               <input className="form-input" value="05/10/2023" disabled style={{ background: '#fff' }} />
+                              <button type="button" className="btn-danger" style={{ padding: '8px 16px', borderRadius: 8 }}>Remove</button>
                             </div>
+                          </div>
                           <button type="button" style={{
                             marginTop: 14,
                             background: '#22c55e',
@@ -2137,27 +1810,47 @@ return (
                             Profile Picture
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                            {editingUser.profilePictureUrl ? (
-                              <img
-                                src={editingUser.profilePictureUrl}
-                                alt=""
-                                style={{
+                            {(() => {
+                              const pUrl = editingUser.profilePictureUrl || editingUser.photoURL || editingUser.photoUrl || editingUser.avatarUrl || editingUser.avatar || editingUser.photo;
+                              const pid = getCloudinaryPublicId(pUrl);
+                              if (pid) {
+                                return (
+                                  <CloudinaryContext cloudName={CLOUDINARY_CLOUD_NAME}>
+                                    <Image
+                                      publicId={pid}
+                                      width="56"
+                                      height="56"
+                                      crop="fill"
+                                      gravity="face"
+                                      radius="max"
+                                      alt=""
+                                      style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 10px rgba(0,0,0,.08)' }}
+                                    />
+                                  </CloudinaryContext>
+                                );
+                              }
+                              if (pUrl) {
+                                return (
+                                  <img
+                                    src={pUrl}
+                                    alt=""
+                                    style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 10px rgba(0,0,0,.08)' }}
+                                  />
+                                );
+                              }
+                              return (
+                                <div style={{
                                   width: 56, height: 56, borderRadius: '50%',
-                                  objectFit: 'cover', boxShadow: '0 2px 10px rgba(0,0,0,.08)'
-                                }}
-                              />
-                            ) : (
-                              <div style={{
-                                width: 56, height: 56, borderRadius: '50%',
-                                background: '#4f46e5', color: '#fff',
-                                display: 'grid', placeItems: 'center',
-                                fontWeight: 600, fontSize: 22,
-                                boxShadow: '0 2px 10px rgba(0,0,0,.08)'
-                              }}>
-                                {(editingUser.travelerName || editingUser.name || editingUser.email || 'U')
-                                  .trim().charAt(0).toUpperCase()}
-                              </div>
-                            )}
+                                  background: '#4f46e5', color: '#fff',
+                                  display: 'grid', placeItems: 'center',
+                                  fontWeight: 600, fontSize: 22,
+                                  boxShadow: '0 2px 10px rgba(0,0,0,.08)'
+                                }}>
+                                  {(editingUser.travelerName || editingUser.name || editingUser.email || 'U')
+                                    .trim().charAt(0).toUpperCase()}
+                                </div>
+                              );
+                            })()}
                             <button
                               type="button"
                               onClick={() => document.getElementById('editUserUploadInput')?.click()}
