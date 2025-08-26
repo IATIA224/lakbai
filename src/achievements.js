@@ -1,83 +1,79 @@
-import React, { useState } from 'react';
-import './achievements.css';
+import React, { useEffect, useMemo } from "react";
 
-const Achievements = ({ isOpen, onClose, achievementsData }) => {
-  // Use passed achievements data or default to empty array
-  const achievements = achievementsData || [];
-
-  // Group achievements by category
-  const groupedAchievements = achievements.reduce((acc, achievement) => {
-    if (!acc[achievement.category]) {
-      acc[achievement.category] = [];
-    }
-    acc[achievement.category].push(achievement);
-    return acc;
-  }, {});
-
-  // If not used as a modal, just render the achievements list
-  if (typeof isOpen === 'undefined') {
-    return (
-      <div className="achievements-list">
-        {Object.entries(groupedAchievements).map(([category, achievements]) => (
-          <div key={category} className="achievements-category">
-            <h3 className="achievements-category-title">{category}</h3>
-            <div className="achievements-grid">
-              {achievements.map((achievement) => (
-                <div
-                  key={achievement.id}
-                  className={`achievement-item ${achievement.unlocked ? 'achievement-unlocked' : 'achievement-locked'}`}
-                >
-                  <div className="achievement-icon">{achievement.icon}</div>
-                  <div className="achievement-details">
-                    <h4 className="achievement-title">{achievement.title}</h4>
-                    <p className="achievement-description">{achievement.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  // If used as a modal, render the full modal
+export default function Achievements({ isOpen, onClose, achievementsData = [] }) {
   if (!isOpen) return null;
 
+  // Lock body scroll while open + close on ESC
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  // Group by category
+  const grouped = useMemo(() => {
+    const map = new Map();
+    for (const a of achievementsData) {
+      const key = a.category || "General";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(a);
+    }
+    return Array.from(map.entries());
+  }, [achievementsData]);
+
   return (
-    <div className="achievements-overlay" onClick={onClose}>
-      <div className="achievements-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="achievements-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/achievement.png" alt="Achievement" style={{ width: '32px', height: '32px' }} />
-            <h2 style={{ margin: 0 }}>Achievements</h2>
+    <div className="achv-backdrop" onClick={onClose}>
+      <div className="achv-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="achv-header">
+          <div className="achv-title">
+            <img className="achv-title-icon" src="/achievement.png" alt="" />
+            <span>All Achievements</span>
           </div>
-          <button className="achievements-close" onClick={onClose}>×</button>
+          <button
+            className="achv-close"
+            aria-label="Close achievements"
+            onClick={onClose}
+          >
+            ×
+          </button>
         </div>
-        <div className="achievements-content">
-          {Object.entries(groupedAchievements).map(([category, achievements]) => (
-            <div key={category} className="achievements-category">
-              <h3 className="achievements-category-title">{category}</h3>
-              <div className="achievements-grid">
-                {achievements.map((achievement) => (
+
+        <div className="achv-body">
+          {grouped.map(([category, items]) => (
+            <section key={category} className="achv-section">
+              <h3 className="achv-section-title">{category}</h3>
+              <div className="achv-divider" />
+              <div className="achv-grid">
+                {items.map((a) => (
                   <div
-                    key={achievement.id}
-                    className={`achievement-item ${achievement.unlocked ? 'achievement-unlocked' : 'achievement-locked'}`}
+                    key={a.id || a.title}
+                    className={`achv-item ${a.unlocked ? "is-unlocked" : "is-locked"}`}
                   >
-                    <div className="achievement-icon">{achievement.icon}</div>
-                    <div className="achievement-details">
-                      <h4 className="achievement-title">{achievement.title}</h4>
-                      <p className="achievement-description">{achievement.description}</p>
+                    <div className="achv-item-icon">{a.icon || "🏆"}</div>
+                    <div className="achv-item-main">
+                      <div className="achv-item-title">{a.title}</div>
+                      <div className="achv-item-desc">{a.description}</div>
                     </div>
+                    {a.unlocked ? (
+                      <span className="achv-badge ok">Unlocked</span>
+                    ) : (
+                      <span className="achv-badge">Locked</span>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           ))}
+          {grouped.length === 0 && (
+            <div style={{ color: "#64748b" }}>No achievements to display.</div>
+          )}
         </div>
       </div>
     </div>
   );
-};
-
-export default Achievements;
+}
