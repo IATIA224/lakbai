@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./itinerary.css";
@@ -20,13 +20,11 @@ import { onAuthStateChanged } from "firebase/auth";
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
-  if (!q?.trim()) return [];
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-    q
-  )}`;
-  const res = await fetch(url, {
-    headers: { "Accept-Language": "en" },
-  });
+  if (!q?.trim()) {
+    return [];
+  }
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
   return res.ok ? res.json() : [];
 }
 
@@ -376,6 +374,83 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus }) {
   );
 }
 
+function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose }) {
+  const [filter, setFilter] = useState("");
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (it) =>
+        (it.name || "").toLowerCase().includes(q) ||
+        (it.region || "").toLowerCase().includes(q)
+    );
+  }, [items, filter]);
+
+  const allChecked = selected.size === items.length && items.length > 0;
+
+  return (
+    <div className="itn-modal-backdrop" onClick={onClose}>
+      <div className="itn-modal itn-modal-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header itn-gradient">
+          <div className="itn-modal-title">Export Itinerary to PDF</div>
+          <button className="itn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="itn-modal-body">
+          <div className="itn-toolbar">
+            <input
+              className="itn-input"
+              placeholder="Search destinations to include..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <div className="itn-toolbar-right">
+              <span className="itn-muted">
+                Selected {selected.size}/{items.length}
+              </span>
+              <button className="itn-btn ghost" onClick={onSelectAll}>
+                {allChecked ? "Clear all" : "Select all"}
+              </button>
+            </div>
+          </div>
+
+          <div className="itn-results">
+            {filtered.map((it) => {
+              const checked = selected.has(it.id);
+              return (
+                <label key={it.id} className={`itn-result ${checked ? "is-checked" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggle(it.id)}
+                  />
+                  <div className="itn-result-main">
+                    <div className="itn-result-title">{it.name || "Destination"}</div>
+                    <div className="itn-result-sub">
+                      {(it.region || "—")} • {(it.arrival || "—")} → {(it.departure || "—")} • {(it.status || "Upcoming")}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+            {!items.length && <div className="itn-empty-sm">No destinations available.</div>}
+            {items.length > 0 && filtered.length === 0 && (
+              <div className="itn-empty-sm">No matches for “{filter}”.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="itn-modal-footer">
+          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
+          <button className="itn-btn primary" onClick={onExport} disabled={!selected.size}>
+            Export PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Itinerary() {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -388,6 +463,10 @@ export default function Itinerary() {
 
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
+
+  // ADD THESE
+  const [showExport, setShowExport] = useState(false);
+  const [exportSelected, setExportSelected] = useState(new Set());
 
   // NEW: current user
   const [user, setUser] = useState(null);
@@ -592,6 +671,159 @@ export default function Itinerary() {
     }
   };
 
+  // Open export dialog (preselect all)
+  const openExport = () => {
+    setExportSelected(new Set(items.map(i => i.id)));
+    setShowExport(true);
+  };
+
+  const toggleSelected = (id) => {
+    setExportSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setExportSelected(prev => {
+      if (prev.size === items.length) return new Set();
+      return new Set(items.map(i => i.id));
+    });
+  };
+
+  const exportToPDF = async () => {
+    if (!exportSelected.size) return;
+
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+
+    // Sort by arrival date, newest first, then name
+    const toMs = (d) => (d ? new Date(d).getTime() : 0);
+    const sel = [...items]
+      .filter((i) => exportSelected.has(i.id))
+      .sort((a, b) => (toMs(b.arrival) - toMs(a.arrival)) || (a.name || "").localeCompare(b.name || ""));
+
+    const totals = sel.reduce(
+      (acc, it) => {
+        const days =
+          it.arrival && it.departure
+            ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
+            : 0;
+        acc.days += days;
+        acc.budget += Number(it.budget || 0);
+        return acc;
+      },
+      { days: 0, budget: 0 }
+    );
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const w = doc.internal.pageSize.getWidth();
+    const h = doc.internal.pageSize.getHeight();
+    const pad = 40;
+    const contentW = w - pad * 2;
+
+    // Build table rows
+    const rows = sel.map((it, idx) => {
+      const days =
+        it.arrival && it.departure
+          ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
+          : "";
+      const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
+      const budget = `$${Number(it.budget || 0).toLocaleString()}`;
+      return [
+        idx + 1,
+        it.name || "Destination",
+        it.region || "—",
+        dates,
+        String(days || "—"),
+        it.status || "—",
+        budget,
+      ];
+    });
+
+    // Header + footer via didDrawPage
+    const drawHeader = () => {
+      doc.setFillColor(246, 247, 255);
+      doc.rect(0, 0, w, 64, "F");
+      doc.setFontSize(18);
+      doc.setTextColor(28, 28, 30);
+      doc.text("LakbAI Itinerary", pad, 32);
+      doc.setFontSize(10);
+      doc.setTextColor(90, 90, 100);
+      doc.text(
+        `Exported: ${new Date().toLocaleString()} • Destinations: ${sel.length} • Total days: ${totals.days} • Total budget: $${totals.budget.toLocaleString()}`,
+        pad,
+        50
+      );
+    };
+    const drawFooter = () => {
+      const page = doc.getNumberOfPages();
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 130);
+      doc.text(`Page ${page}`, w - pad, h - 16, { align: "right" });
+    };
+
+    drawHeader();
+    drawFooter();
+
+    autoTable(doc, {
+      startY: 72,
+      margin: { left: pad, right: pad },
+      head: [["#", "Destination", "Region", "Dates", "Days", "Status", "Budget"]],
+      body: rows,
+      styles: {
+        fontSize: 9,
+        cellPadding: 6,
+        overflow: "linebreak",
+        lineColor: [230, 230, 242],
+        lineWidth: 0.2,
+        valign: "middle",
+      },
+      headStyles: { fillColor: [108, 99, 255], textColor: 255 },
+      alternateRowStyles: { fillColor: [248, 248, 255] },
+      columnStyles: {
+        0: { cellWidth: contentW * 0.06, halign: "right" },
+        1: { cellWidth: contentW * 0.32 },
+        2: { cellWidth: contentW * 0.16 },
+        3: { cellWidth: contentW * 0.20 },
+        4: { cellWidth: contentW * 0.08, halign: "right" },
+        5: { cellWidth: contentW * 0.10 },
+        6: { cellWidth: contentW * 0.08, halign: "right" },
+      },
+      didDrawPage: () => {
+        drawHeader();
+        drawFooter();
+      },
+    });
+
+    // Summary box after table
+    let y = (doc.lastAutoTable?.finalY || 72) + 18;
+    if (y + 80 > h - pad) {
+      doc.addPage();
+      drawHeader();
+      drawFooter();
+      y = 72;
+    }
+    doc.setDrawColor(108, 99, 255);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(pad, y, contentW, 60, 8, 8);
+    doc.setFontSize(12);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Summary", pad + 12, y + 20);
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 90);
+    doc.text(`Destinations: ${sel.length}`, pad + 12, y + 40);
+    doc.text(`Total days: ${totals.days}`, pad + 160, y + 40);
+    doc.text(`Total budget: $${totals.budget.toLocaleString()}`, pad + 280, y + 40);
+
+    const filename = `itinerary-${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(filename);
+    setShowExport(false);
+  };
+
   return (
     <div className="itn-page">
       <div className="itn-hero">
@@ -599,7 +831,14 @@ export default function Itinerary() {
         <div className="itn-hero-sub">Plan every aspect of your perfect journey</div>
         <div className="itn-hero-actions">
           <button className="itn-btn ghost">Share Itinerary</button>
-          <button className="itn-btn ghost">Export PDF</button>
+          <button
+            className="itn-btn ghost"
+            onClick={openExport}
+            disabled={!items.length}
+            title={!items.length ? "No items to export" : "Export to PDF"}
+          >
+            Export PDF
+          </button>
         </div>
       </div>
 
@@ -635,18 +874,28 @@ export default function Itinerary() {
               </>
             ) : (
               <div className="itn-muted">Search for places on the map to start planning.</div>
-            )}
+            )
 
+            /* Search results list */
+            }
             {results.length > 1 && (
               <div className="itn-results">
                 {results.map((r) => (
-                  <button
-                    key={r.place_id}
-                    className={`itn-result ${selected?.place_id === r.place_id ? "sel" : ""}`}
-                    onClick={() => setSelected(r)}
+                  <div
+                    key={r.place_id || `${r.lat}-${r.lon}`}
+                    className="itn-result"
                   >
-                    {r.display_name}
-                  </button>
+                    <div className="itn-result-title">{r.display_name}</div>
+                    <div className="itn-result-coords">
+                      {r.lat && r.lon ? `Lat: ${r.lat}, Lon: ${r.lon}` : "Coordinates not found"}
+                    </div>
+                    <button
+                      className="itn-btn success itn-result-add"
+                      onClick={() => setSelected(r)}
+                    >
+                      Add to Itinerary
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -702,6 +951,17 @@ export default function Itinerary() {
           initial={editing}
           onSave={saveItem}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {showExport && (
+        <ExportPDFModal
+          items={items}
+          selected={exportSelected}
+          onToggle={toggleSelected}
+          onSelectAll={toggleSelectAll}
+          onExport={exportToPDF}
+          onClose={() => setShowExport(false)}
         />
       )}
     </div>
