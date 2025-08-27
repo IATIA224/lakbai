@@ -1603,13 +1603,161 @@ useEffect(() => {
                     </div>
                   )}
 
-                  {userProfileTab !== 'overview' && (
+                  {/* NEW: Activity tab (matches screenshot) */}
+                  {userProfileTab === 'activity' && (
+                    <div className="up-activity-wrap">
+                      <div className="up-activity-card content-card">
+                        <div className="up-activity-title">Recent Activity</div>
+                        <div className="up-activity-list">
+                          {(() => {
+                            // Use data if present; otherwise show sample items like screenshot
+                            const items = Array.isArray(userProfile?.recentActivity) && userProfile.recentActivity.length
+                              ? userProfile.recentActivity
+                              : [
+                                  { id: '1', type: 'photo', title: 'Shared photos from Bali sunset', date: '11/15/2023' },
+                                  { id: '2', type: 'review', title: 'Reviewed "Sunset Villa Resort"', date: '11/14/2023' },
+                                  { id: '3', type: 'visit', title: 'Checked in at Ubud, Bali', date: '11/13/2023' },
+                                  { id: '4', type: 'friend', title: 'Connected with Mike Chen', date: '11/12/2023' },
+                                ];
+
+                            const iconFor = (t) => {
+                              switch (String(t).toLowerCase()) {
+                                case 'photo': return { emoji: '🖼️', bg: '#eef2ff', fg: '#2563eb' };
+                                case 'review': return { emoji: '⭐', bg: '#f5f3ff', fg: '#7c3aed' };
+                                case 'visit': return { emoji: '📍', bg: '#ecfeff', fg: '#06b6d4' };
+                                case 'friend': return { emoji: '👥', bg: '#f0f9ff', fg: '#0ea5e9' };
+                                default: return { emoji: '📌', bg: '#f1f5f9', fg: '#334155' };
+                              }
+                            };
+
+                            return items.map((it) => {
+                              const ico = iconFor(it.type);
+                              const when = it.date || fmtDate(it.createdAt || it.updatedAt);
+                              return (
+                                <div key={it.id || it.title} className="up-activity-item">
+                                  <div className="up-activity-icon" style={{ background: ico.bg, color: ico.fg }}>
+                                    {ico.emoji}
+                                  </div>
+                                  <div className="up-activity-main">
+                                    <div className="up-activity-text">{it.title}</div>
+                                    <div className="up-activity-date">{when}</div>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NEW: Photos tab (matches screenshot) */}
+                  {userProfileTab === 'photos' && (
+                    <div className="up-photos-wrap">
+                      <div className="up-photos-card content-card">
+                        <div className="up-photos-title">Photo Gallery</div>
+                        <div className="up-photos-grid">
+                          {(() => {
+                            // Normalize optional user photos
+                            const raw = Array.isArray(userProfile?.photos) ? userProfile.photos : [];
+                            const photos = raw.length
+                              ? raw.map((p, i) => ({
+                                  id: p.id || p.publicId || p.url || p.src || i,
+                                  title: p.title || p.caption || `Photo ${i + 1}`,
+                                  url: p.url || p.src || p.imageUrl || p.photoUrl || p.secure_url || null,
+                                }))
+                              : [
+                                  { id: 1, title: 'Bali Sunset', color: '#fb7185' },
+                                  { id: 2, title: 'Tokyo Streets', color: '#60a5fa' },
+                                  { id: 3, title: 'Paris Eiffel', color: '#34d399' },
+                                  { id: 4, title: 'Santorini', color: '#e9d5ff' },
+                                ];
+
+                            const toCloudThumb = (url, size = 220) => {
+                              if (!url || typeof url !== 'string') return null;
+                              const i = url.indexOf('/upload/');
+                              if (i === -1) return url;
+                              const before = url.slice(0, i + 8);
+                              const after = url.slice(i + 8);
+                              // keep existing transforms if any
+                              if (/c_|w_\d+|h_\d+/.test(after)) return `${before}${after}`;
+                              const tx = `f_auto,q_auto:good,c_fill,g_auto,w_${size},h_${size}`;
+                              return `${before}${tx}/${after}`;
+                            };
+
+                            return photos.map((p, idx) => {
+                              const bgImage = p.url ? `url('${toCloudThumb(p.url, 220)}')` : null;
+                              const color = p.color || ['#fb7185', '#60a5fa', '#34d399', '#e9d5ff'][idx % 4];
+                              return (
+                                <div
+                                  key={p.id || idx}
+                                  className="up-photo-tile"
+                                  style={{
+                                    background: bgImage ? undefined : color,
+                                    backgroundImage: bgImage || undefined,
+                                  }}
+                                >
+                                  <div className="up-photo-label">{p.title}</div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NEW: Achievements tab (matches screenshot) */}
+                  {userProfileTab === 'achievements' && (
+                    <div className="up-ach-wrap">
+                      <div className="up-ach-card content-card">
+                        <div className="up-ach-title">Achievements</div>
+                        <div className="up-ach-grid">
+                          {(() => {
+                            const items = Array.isArray(userProfile?.achievements) && userProfile.achievements.length
+                              ? userProfile.achievements.map((a, i) => ({
+                                  id: a.id || i,
+                                  icon: a.icon || '🌐',
+                                  title: a.title || 'Achievement',
+                                  subtitle: a.description || a.subtitle || '',
+                                  earned: a.earned ? fmtDate(a.earned) : (a.date ? fmtDate(a.date) : '')
+                                }))
+                              : [
+                                  { id: 'a1', icon: '🌐', title: 'Globe Trotter', subtitle: 'Visited 10+ countries', earned: '8/15/2023' },
+                                  { id: 'a2', icon: '📷', title: 'Photo Master', subtitle: 'Shared 200+ photos', earned: '9/20/2023' },
+                                  { id: 'a3', icon: '⭐', title: 'Review Expert', subtitle: 'Written 25+ reviews', earned: '10/5/2023' },
+                                ];
+
+                            return items.map((it, idx) => (
+                              <div
+                                key={it.id}
+                                className="up-ach-item"
+                                style={{
+                                  gridColumn: (idx === items.length - 1 && items.length % 2 === 1) ? '1 / -1' : undefined
+                                }}
+                              >
+                                <div className="up-ach-ico">{it.icon}</div>
+                                <div className="up-ach-main">
+                                  <div className="up-ach-name">{it.title}</div>
+                                  <div className="up-ach-sub">{it.subtitle}</div>
+                                  <div className="up-ach-date">Earned {it.earned}</div>
+                                </div>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Keep other tabs; only show placeholder for unknown tabs */}
+                  {userProfileTab !== 'overview' && userProfileTab !== 'activity' && userProfileTab !== 'photos' && userProfileTab !== 'achievements' && (
                     <div style={{ padding: 40, background: '#f8fafc', color: '#6b7280', textAlign: 'center', fontSize: 17 }}>
                       <em>“{userProfileTab.charAt(0).toUpperCase() + userProfileTab.slice(1)}” view is coming soon.</em>
                     </div>
                   )}
                 </div>
-              </div>
+                           </div>
             )}
 
             {/* Edit User Modal */}
