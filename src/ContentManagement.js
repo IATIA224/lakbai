@@ -527,9 +527,10 @@ const saveSettings = () => {
         const destinations = dSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const users = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const articles = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        const published =
-          (destinations.filter((x) => x.status === 'published').length || 0) +
-          (articles.filter((x) => x.status === 'published').length || 0);
+        // Count ONLY destinations that are published (case-insensitive)
+        const publishedDestinations =
+          destinations.filter((x) => String(x.status || '').toLowerCase() === 'published').length;
+
         const recent = [
           ...destinations.slice(-5).map((d) => ({ ...d, type: 'destination' })),
           ...articles.slice(-5).map((a) => ({ ...a, type: 'article' })),
@@ -537,11 +538,10 @@ const saveSettings = () => {
           .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
           .slice(0, 10);
 
-        // Do NOT set totalDestinations/totalUsers here; live counters below own them
         setAnalytics((a) => ({
           ...a,
           totalArticles: articles.length,
-          publishedContent: published,
+          publishedContent: publishedDestinations, // only destinations
           recentActivity: recent,
         }));
 
@@ -556,9 +556,8 @@ const saveSettings = () => {
         setAnalytics((a) => ({
           ...a,
           totalArticles: localArticles.length,
-          publishedContent:
-            (localDest.filter((d) => d.status === 'published').length || 0) +
-            (localArticles.filter((x) => x.status === 'published').length || 0),
+          // only destinations; case-insensitive
+          publishedContent: localDest.filter((d) => String(d.status || '').toLowerCase() === 'published').length,
           recentActivity: [...localDest.slice(-5), ...localArticles.slice(-5)].slice(0, 10),
         }));
 
@@ -570,49 +569,62 @@ const saveSettings = () => {
     })();
   }, []);
 
-  // LIVE: dashboard counters from Firestore (destinations + users)
+  // LIVE: dashboard counters from Firestore (destinations + users + published destinations)
   useEffect(() => {
     if (active !== 'dashboard') return;
 
     let unsubDest = null;
     let unsubUsers = null;
+    let unsubPubDest = null;
 
-    const setCounts = (dest, users) =>
-      setAnalytics((a) => ({ ...a, totalDestinations: dest, totalUsers: users }));
+    const destColl = collection(db, 'destinations');
+    const usersColl = collection(db, 'users');
+    // accept both lowercase/uppercase values stored in Firestore
+    const pubQ = query(destColl, where('status', 'in', ['published', 'PUBLISHED']));
 
     (async () => {
-      // Initial counts using count aggregation (fast, low cost)
       try {
-        const [dc, uc] = await Promise.all([
-          getCountFromServer(collection(db, 'destinations')),
-          getCountFromServer(collection(db, 'users')),
+        const [dc, uc, pc] = await Promise.all([
+          getCountFromServer(destColl),
+          getCountFromServer(usersColl),
+          getCountFromServer(pubQ),
         ]);
-        setCounts(dc.data().count || 0, uc.data().count || 0);
+        setAnalytics((a) => ({
+          ...a,
+          totalDestinations: dc.data().count || 0,
+          totalUsers: uc.data().count || 0,
+          publishedContent: pc.data().count || 0, // only destinations
+        }));
       } catch (err) {
-        // Fallback to fetching docs or localStorage
         try {
-          const [dSnap, uSnap] = await Promise.all([
-            getDocs(collection(db, 'destinations')),
-            getDocs(collection(db, 'users')),
+          const [dSnap, uSnap, pSnap] = await Promise.all([
+            getDocs(destColl),
+            getDocs(usersColl),
+            getDocs(pubQ),
           ]);
-          setCounts(dSnap.size, uSnap.size);
+          setAnalytics((a) => ({
+            ...a,
+            totalDestinations: dSnap.size,
+            totalUsers: uSnap.size,
+            publishedContent: pSnap.size, // only destinations
+          }));
         } catch {
-          const ld = (JSON.parse(localStorage.getItem('destinations') || '[]') || []).length;
-          const lu = (JSON.parse(localStorage.getItem('users') || '[]') || []).length;
-          setCounts(ld, lu);
+          // keep previous values
         }
       }
 
-      // Real-time updates while Dashboard is visible
+      // Real-time updates
       try {
-        unsubDest = onSnapshot(collection(db, 'destinations'), (snap) =>
+        unsubDest = onSnapshot(destColl, (snap) =>
           setAnalytics((a) => ({ ...a, totalDestinations: snap.size }))
         );
-        unsubUsers = onSnapshot(collection(db, 'users'), (snap) =>
+        unsubUsers = onSnapshot(usersColl, (snap) =>
           setAnalytics((a) => ({ ...a, totalUsers: snap.size }))
         );
+        unsubPubDest = onSnapshot(pubQ, (snap) =>
+          setAnalytics((a) => ({ ...a, publishedContent: snap.size }))
+        );
       } catch (e) {
-        // ignore listener failures
         console.warn('onSnapshot counters error:', e);
       }
     })();
@@ -620,6 +632,7 @@ const saveSettings = () => {
     return () => {
       if (typeof unsubDest === 'function') unsubDest();
       if (typeof unsubUsers === 'function') unsubUsers();
+      if (typeof unsubPubDest === 'function') unsubPubDest();
     };
   }, [active]);
 
@@ -1673,6 +1686,7 @@ useEffect(() => {
                           borderBottom: userEditTab === tab ? '3px solid #2563eb' : '3px solid transparent'
                         }}
                       >
+                       
                         {tab.charAt(0).toUpperCase() + tab.slice(1)}
                       </button>
                     ))}
@@ -1753,7 +1767,7 @@ useEffect(() => {
                                 background: '#2563eb',
                                 color: '#fff',
                                 borderRadius: 999,
-                                padding: '7px 16px',
+                                padding: '7px 12px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 8,
