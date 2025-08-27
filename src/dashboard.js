@@ -48,84 +48,11 @@ function Dashboard({ setShowAIModal }) {
           <span className="dashboard-stat-label">Avg Rating</span>
         </div>
       </div>
-      <div className="trips-preview-section">
-        <div className="trips-preview-title">
-          <span role="img" aria-label="plane">✈️</span> Your Trip's Preview
-        </div>
-        <div className="trips-preview-cards">
-          {/* Card 1 */}
-          <div className="trips-preview-card gradient-blue">
-            <div className="trips-preview-status confirmed">Confirmed</div>
-            <div className="trips-preview-main">
-              <div className="trips-preview-place">Tokyo, Japan</div>
-              <div className="trips-preview-date">
-                <span role="img" aria-label="calendar">📅</span> March 15-22, 2024
-              </div>
-            </div>
-            <div className="trips-preview-details">
-              <div>
-                <div className="trips-preview-companions">
-                  <span style={{ color: "#888" }}>Companions</span>
-                  <div className="trips-preview-names">Sarah, Mike, Emma</div>
-                </div>
-                <div className="trips-preview-meta">
-                  7 days • Cherry Blossom Season
-                </div>
-              </div>
-              <a href="#" className="trips-preview-link">View Details →</a>
-            </div>
-          </div>
-          {/* Card 2 */}
-          <div className="trips-preview-card gradient-orange">
-            <div className="trips-preview-status pending">Pending</div>
-            <div className="trips-preview-main">
-              <div className="trips-preview-place">Santorini, Greece</div>
-              <div className="trips-preview-date">
-                <span role="img" aria-label="calendar">📅</span> June 10-17, 2024
-              </div>
-            </div>
-            <div className="trips-preview-details">
-              <div>
-                <div className="trips-preview-companions">
-                  <span style={{ color: "#888" }}>Companions</span>
-                  <div className="trips-preview-names">Alex, Lisa</div>
-                </div>
-                <div className="trips-preview-meta">
-                  7 days • Summer Getaway
-                </div>
-              </div>
-              <a href="#" className="trips-preview-link">View Details →</a>
-            </div>
-          </div>
-          {/* Card 3 */}
-          <div className="trips-preview-card gradient-green">
-            <div className="trips-preview-status confirmed">Confirmed</div>
-            <div className="trips-preview-main">
-              <div className="trips-preview-place">Bali, Indonesia</div>
-              <div className="trips-preview-date">
-                <span role="img" aria-label="calendar">📅</span> August 5-12, 2024
-              </div>
-            </div>
-            <div className="trips-preview-details">
-              <div>
-                <div className="trips-preview-companions">
-                  <span style={{ color: "#888" }}>Companions</span>
-                  <div className="trips-preview-names">John, Mia</div>
-                </div>
-                <div className="trips-preview-meta">
-                  8 days • Beach & Culture
-                </div>
-              </div>
-              <a href="#" className="trips-preview-link">View Details →</a>
-            </div>
-          </div>
-        </div>
-      </div>
       <div className="personalized-section">
         <div className="personalized-title">
           <span role="img" aria-label="target">🎯</span> Personalized for You
         </div>
-        <div className="personalized-cards">
+        <div className="personalized-cards-dashboard">
           <div className="personalized-card">
             <div className="personalized-img" style={{ background: '#5ec6fa' }}>
               <svg width="100%" height="80" viewBox="0 0 200 80">
