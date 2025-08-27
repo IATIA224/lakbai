@@ -12,6 +12,7 @@ import {
   onSnapshot,
   updateDoc,
   query as fsQuery,
+  where as fsWhere,
   arrayUnion,
   arrayRemove,
   deleteDoc,
@@ -136,40 +137,27 @@ export default function Bookmarks2() {
   const [page, setPage] = useState(1);
   const pageSize = 12;
 
-  // 1) Ensure destinations exist in Firestore, then fetch them
+  // 1) Load only CMS-published destinations (status in ['published','PUBLISHED'])
   useEffect(() => {
-    const seedAndFetch = async () => {
-      try {
-        setIsLoading(true);
-        for (const d of initialDestinations) {
-          const ref = doc(db, 'destinations', d.id);
-          const snap = await getDoc(ref);
-          if (!snap.exists()) {
-            // Start with zero rating/aggregate fields
-            await setDoc(ref, {
-              ...d,
-              rating: 0,
-              ratingSum: 0,
-              ratingCount: 0,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-          }
-        }
-
-        const q = fsQuery(collection(db, 'destinations'));
-        const snap = await getDocs(q);
+    setIsLoading(true);
+    const q = fsQuery(
+      collection(db, 'destinations'),
+      fsWhere('status', 'in', ['published', 'PUBLISHED'])
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         const items = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
         setDestinations(items);
-      } catch (e) {
-        console.error('Seed/fetch destinations failed:', e);
-        setDestinations(initialDestinations.map(i => ({ ...i, rating: 0 })));
-      } finally {
+        setIsLoading(false);
+      },
+      (err) => {
+        console.error('Failed to load published destinations:', err);
+        setDestinations([]);
         setIsLoading(false);
       }
-    };
-
-    seedAndFetch();
+    );
+    return () => unsub();
   }, []);
 
   // 2) Listen to auth and the current user's bookmarks
@@ -212,8 +200,13 @@ export default function Bookmarks2() {
 
   // Filter + sort
   const filtered = useMemo(() => {
-    let list = destinations.filter((d) => {
-      const q = query.trim().toLowerCase();
+    // Guard: keep only truly published docs
+    let list = destinations.filter(
+      (d) => String(d.status || '').toUpperCase() === 'PUBLISHED'
+    );
+
+    const q = query.trim().toLowerCase();
+    list = list.filter((d) => {
       const matchesQ =
         !q ||
         d.name?.toLowerCase().includes(q) ||
