@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { CloudinaryContext, Image, Video } from './cloudinary';
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -476,6 +476,16 @@ function ContentManagement() {
   const [userProfile, setUserProfile] = useState(null);
   const [userProfileTab, setUserProfileTab] = useState('overview');
 
+  // Activity state for User Profile
+  const [userActivity, setUserActivity] = useState([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+
+  // NEW: Photos state for User Profile
+  const [userPhotos, setUserPhotos] = useState([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+
+  // ADD: Activity state for User Profile (fixes no-undef)
+
   // Modal state (was missing -> caused no-undef ESLint errors)
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -826,6 +836,94 @@ useEffect(() => {
     setEditPlaces(Array.isArray(u?.places) ? u.places : []);
     setEditStatus((u?.status || 'active').toLowerCase());
   };
+
+  // Live activity loader for the selected user (Activity tab)
+  useEffect(() => {
+    if (!userProfileOpen || !userProfile || userProfileTab !== 'activity') return;
+
+    let unsub = null;
+    setLoadingActivity(true);
+    setUserActivity([]); // reset while loading
+    const uid = userProfile.id;
+
+    const normalize = (docs) =>
+      docs
+        .map((d) => {
+          const a = typeof d.data === 'function' ? d.data() : d;
+          const created =
+            a.createdAt?.toDate?.() ||
+            a.timestamp?.toDate?.() ||
+            a.date?.toDate?.() ||
+            a.updatedAt?.toDate?.() ||
+            a.createdAt ||
+            a.timestamp ||
+            a.date ||
+            a.updatedAt ||
+            null;
+          return {
+            id: d.id || a.id,
+            type: a.type || a.kind || a.actionType || a.category || 'event',
+            title: a.title || a.action || a.message || a.text || a.description || 'Activity',
+            createdAt: created ? new Date(created) : null,
+          };
+        })
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    const trySubscribe = async () => {
+      // Preferred: users/{uid}/activity or users/{uid}/activities
+      const preferred = [
+        () => query(collection(db, 'users', uid, 'activity'), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'users', uid, 'activity'), orderBy('timestamp', 'desc'), limit(50)),
+        () => query(collection(db, 'users', uid, 'activities'), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'users', uid, 'activities'), orderBy('timestamp', 'desc'), limit(50)),
+      ];
+
+      // Top-level with userId filter
+      const candidates = [
+        () => query(collection(db, 'activity'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'activity'), where('userId', '==', uid), orderBy('timestamp', 'desc'), limit(50)),
+        () => query(collection(db, 'activities'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'activities'), where('userId', '==', uid), orderBy('timestamp', 'desc'), limit(50)),
+        () => query(collection(db, 'userActivity'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'userActivities'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+      ];
+
+      const all = [...preferred, ...candidates];
+
+      // Probe until one works; if orderBy index is missing, fall back to unordered and client-side sort
+      for (const make of all) {
+        try {
+          const qref = make();
+          const probe = await getDocs(qref);
+          unsub = onSnapshot(
+            qref,
+            (snap) => { setUserActivity(normalize(snap.docs)); setLoadingActivity(false); },
+            () => { setUserActivity([]); setLoadingActivity(false); }
+          );
+          return;
+        } catch {
+          // continue
+        }
+      }
+
+      // Fallback unordered subcollection
+      try {
+        const base = collection(db, 'users', uid, 'activity');
+        unsub = onSnapshot(
+          base,
+          (snap) => { setUserActivity(normalize(snap.docs)); setLoadingActivity(false); },
+          () => { setUserActivity([]); setLoadingActivity(false); }
+        );
+      } catch {
+        setUserActivity([]);
+        setLoadingActivity(false);
+      }
+    };
+
+    trySubscribe();
+
+    return () => { if (typeof unsub === 'function') unsub(); };
+  }, [userProfileOpen, userProfile, userProfileTab]);
 
   return (
     <div className="cms-root">
@@ -1386,9 +1484,10 @@ useEffect(() => {
                         );
                       })}
                     </div>
-                  );
-                })()
-              )}
+                  )
+                  })()
+
+                )}
             </div>
 
             {/* User Profile Modal */}
@@ -1583,10 +1682,6 @@ useEffect(() => {
 
                         {/* Places Visited */}
                         <div style={{
-                          background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18
-                        }}>
-                          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Places Visited</div>
-                          <ul style={{
                             listStyle: 'none', padding: 0, margin: 0, display: 'grid', rowGap: 10
                           }}>
                             {((Array.isArray(userProfile.places) && userProfile.places.length ? userProfile.places : [
@@ -1597,7 +1692,6 @@ useEffect(() => {
                                 <span style={{ fontSize: 15, fontWeight: 400 }}>{typeof p === 'string' ? p : (p?.name || p?.title || 'Unknown')}</span>
                               </li>
                             ))}
-                          </ul>
                         </div>
                       </div>
                     </div>
@@ -1609,43 +1703,37 @@ useEffect(() => {
                       <div className="up-activity-card content-card">
                         <div className="up-activity-title">Recent Activity</div>
                         <div className="up-activity-list">
-                          {(() => {
-                            // Use data if present; otherwise show sample items like screenshot
-                            const items = Array.isArray(userProfile?.recentActivity) && userProfile.recentActivity.length
-                              ? userProfile.recentActivity
-                              : [
-                                  { id: '1', type: 'photo', title: 'Shared photos from Bali sunset', date: '11/15/2023' },
-                                  { id: '2', type: 'review', title: 'Reviewed "Sunset Villa Resort"', date: '11/14/2023' },
-                                  { id: '3', type: 'visit', title: 'Checked in at Ubud, Bali', date: '11/13/2023' },
-                                  { id: '4', type: 'friend', title: 'Connected with Mike Chen', date: '11/12/2023' },
-                                ];
-
-                            const iconFor = (t) => {
-                              switch (String(t).toLowerCase()) {
-                                case 'photo': return { emoji: '🖼️', bg: '#eef2ff', fg: '#2563eb' };
-                                case 'review': return { emoji: '⭐', bg: '#f5f3ff', fg: '#7c3aed' };
-                                case 'visit': return { emoji: '📍', bg: '#ecfeff', fg: '#06b6d4' };
-                                case 'friend': return { emoji: '👥', bg: '#f0f9ff', fg: '#0ea5e9' };
-                                default: return { emoji: '📌', bg: '#f1f5f9', fg: '#334155' };
-                              }
-                            };
-
-                            return items.map((it) => {
+                          {loadingActivity ? (
+                            <div className="centered" style={{ padding: 16 }}>
+                              <div className="loading-spinner" />
+                            </div>
+                          ) : userActivity.length === 0 ? (
+                            <div className="muted" style={{ padding: 16 }}>No recent activity</div>
+                          ) : (
+                            userActivity.map((it) => {
+                              const iconFor = (t) => {
+                                switch (String(t || '').toLowerCase()) {
+                                  case 'photo': return { emoji: '🖼️', bg: '#eef2ff', fg: '#2563eb' };
+                                  case 'review': return { emoji: '⭐', bg: '#f5f3ff', fg: '#7c3aed' };
+                                  case 'visit': return { emoji: '📍', bg: '#ecfeff', fg: '#06b6d4' };
+                                  case 'friend': return { emoji: '👥', bg: '#f0f9ff', fg: '#0ea5e9' };
+                                  default: return { emoji: '📌', bg: '#f1f5f9', fg: '#334155' };
+                                }
+                              };
                               const ico = iconFor(it.type);
-                              const when = it.date || fmtDate(it.createdAt || it.updatedAt);
                               return (
-                                <div key={it.id || it.title} className="up-activity-item">
+                                <div key={it.id} className="up-activity-item">
                                   <div className="up-activity-icon" style={{ background: ico.bg, color: ico.fg }}>
                                     {ico.emoji}
                                   </div>
                                   <div className="up-activity-main">
                                     <div className="up-activity-text">{it.title}</div>
-                                    <div className="up-activity-date">{when}</div>
+                                    <div className="up-activity-date">{fmtDate(it.createdAt)}</div>
                                   </div>
                                 </div>
                               );
-                            });
-                          })()}
+                            })
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1657,51 +1745,48 @@ useEffect(() => {
                       <div className="up-photos-card content-card">
                         <div className="up-photos-title">Photo Gallery</div>
                         <div className="up-photos-grid">
-                          {(() => {
-                            // Normalize optional user photos
-                            const raw = Array.isArray(userProfile?.photos) ? userProfile.photos : [];
-                            const photos = raw.length
-                              ? raw.map((p, i) => ({
-                                  id: p.id || p.publicId || p.url || p.src || i,
-                                  title: p.title || p.caption || `Photo ${i + 1}`,
-                                  url: p.url || p.src || p.imageUrl || p.photoUrl || p.secure_url || null,
-                                }))
-                              : [
-                                  { id: 1, title: 'Bali Sunset', color: '#fb7185' },
-                                  { id: 2, title: 'Tokyo Streets', color: '#60a5fa' },
-                                  { id: 3, title: 'Paris Eiffel', color: '#34d399' },
-                                  { id: 4, title: 'Santorini', color: '#e9d5ff' },
-                                ];
+                          {loadingPhotos ? (
+                            <div className="centered" style={{ padding: 16, gridColumn: '1 / -1' }}>
+                              <div className="loading-spinner" />
+                            </div>
+                          ) : userPhotos.length === 0 ? (
+                            <div className="muted" style={{ padding: 16, gridColumn: '1 / -1' }}>
+                              No photos uploaded
+                            </div>
+                          ) : (
+                            userPhotos.map((p, idx) => {
+                              const cloudThumbFromPublicId = (id, size = 220) =>
+                                `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto:good,c_fill,g_auto,w_${size},h_${size}/${id}`;
+                              const toCloudThumb = (url, size = 220) => {
+                                if (!url || typeof url !== 'string') return null;
+                                const i = url.indexOf('/upload/');
+                                if (i === -1) return url;
+                                const before = url.slice(0, i + 8);
+                                const after = url.slice(i + 8);
+                                if (/c_|w_\d+|h_\d+/.test(after)) return `${before}${after}`;
+                                const tx = `f_auto,q_auto:good,c_fill,g_auto,w_${size},h_${size}`;
+                                return `${before}${tx}/${after}`;
+                              };
+                              const src = p.publicId
+                                ? cloudThumbFromPublicId(p.publicId, 280)
+                                : toCloudThumb(p.url, 280) || p.url;
 
-                            const toCloudThumb = (url, size = 220) => {
-                              if (!url || typeof url !== 'string') return null;
-                              const i = url.indexOf('/upload/');
-                              if (i === -1) return url;
-                              const before = url.slice(0, i + 8);
-                              const after = url.slice(i + 8);
-                              // keep existing transforms if any
-                              if (/c_|w_\d+|h_\d+/.test(after)) return `${before}${after}`;
-                              const tx = `f_auto,q_auto:good,c_fill,g_auto,w_${size},h_${size}`;
-                              return `${before}${tx}/${after}`;
-                            };
-
-                            return photos.map((p, idx) => {
-                              const bgImage = p.url ? `url('${toCloudThumb(p.url, 220)}')` : null;
-                              const color = p.color || ['#fb7185', '#60a5fa', '#34d399', '#e9d5ff'][idx % 4];
                               return (
                                 <div
                                   key={p.id || idx}
                                   className="up-photo-tile"
+                                  title={p.title || ''}
                                   style={{
-                                    background: bgImage ? undefined : color,
-                                    backgroundImage: bgImage || undefined,
+                                    backgroundImage: src ? `url('${src}')` : undefined,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
                                   }}
                                 >
-                                  <div className="up-photo-label">{p.title}</div>
+                                  {p.title ? <div className="up-photo-label">{p.title}</div> : null}
                                 </div>
                               );
-                            });
-                          })()}
+                            })
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1757,7 +1842,7 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
-                           </div>
+              </div>
             )}
 
             {/* Edit User Modal */}
@@ -1834,7 +1919,6 @@ useEffect(() => {
                           borderBottom: userEditTab === tab ? '3px solid #2563eb' : '3px solid transparent'
                         }}
                       >
-                       
                         {tab.charAt(0).toUpperCase() + tab.slice(1)}
                       </button>
                     ))}
