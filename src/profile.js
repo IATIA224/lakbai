@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import EditProfile from "./EditProfile";
-import Achievements from "./achievements";
 import InfoDelete from "./info_delete";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +23,7 @@ import "./profile.css";
 import { v4 as uuidv4 } from "uuid"; // Install with: npm install uuid
 import { useUser } from "./UserContext";
 import { emitAchievement } from "./achievementsBus";
+import { onAuthStateChanged } from "firebase/auth";
 
 export const CLOUDINARY_CONFIG = {
   cloudName: "dxvewejox",
@@ -45,7 +45,15 @@ const LABELS = {
 };
 
 const Profile = () => {
-  const { profile, setProfile } = useUser();
+  // Replace this:
+  // const { profile } = useUser();
+
+  // With this local state that mirrors context (no context setter needed)
+  const { profile: ctxProfile } = useUser();
+  const [profile, setProfile] = useState(ctxProfile || null);
+  useEffect(() => {
+    setProfile(ctxProfile);
+  }, [ctxProfile]);
 
   // Custom marker icon
   const customIcon = new L.Icon({
@@ -80,50 +88,52 @@ const Profile = () => {
   const [shareCode, setShareCode] = useState("");
 
   // Function to fetch profile data
-  const fetchProfile = async () => {
+  const fetchProfile = async (uidParam, userObj) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const uid = uidParam || userObj?.uid || auth.currentUser?.uid;
+      if (!uid) return;
+
+      const user = userObj || auth.currentUser || null;
 
       // Get Firestore profile
-      const docRef = doc(db, "users", user.uid);
+      const docRef = doc(db, "users", uid);
       const docSnap = await getDoc(docRef);
       let data = docSnap.exists() ? docSnap.data() : {};
 
-      // Get joined date from Auth
-      const joined = user.metadata?.creationTime
-        ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "long",
-          })
-        : "";
+      // Joined date from Auth if available
+      const joined =
+        user?.metadata?.creationTime
+          ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "long",
+            })
+          : (data.joined || ""); // fallback to existing
 
       setProfile((prev) => ({
         ...prev,
-        name: data.name || user.displayName || "",
+        name: data.name || user?.displayName || "",
         bio: data.bio || "",
         profilePicture: data.profilePicture || "/user.png",
         likes: Array.isArray(data.likes) ? data.likes : [],
         dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
         joined,
       }));
+
       setShareCode(data.shareCode || "");
 
-      // Fetch stats, achievements, etc. (lightweight)
       const friendsCount = Array.isArray(data.friends)
         ? data.friends.length
         : typeof data.friendsCount === "number"
         ? data.friendsCount
-        : 0;
+        : data?.stats?.friends || 0;
 
       setStats({
         placesVisited: data.stats?.placesVisited || 0,
         photosShared: data.stats?.photosShared || 0,
         reviewsWritten: data.stats?.reviewsWritten || 0,
-        friends: friendsCount, // <- use array length
+        friends: friendsCount,
       });
 
-      // Achievements
       const achievementsObj = data.achievements || {};
       const unlocked = new Set(
         Object.entries(achievementsObj)
@@ -132,48 +142,33 @@ const Profile = () => {
       );
       setUnlockedAchievements(unlocked);
 
-      // Heavy data: fetch in parallel, update each section as ready
+      // Heavy reads in parallel (photos, map, activities)
       await Promise.all([
         (async () => {
           try {
-            const photosQuery = query(
-              collection(db, "photos"),
-              where("userId", "==", user.uid)
-            );
+            const photosQuery = query(collection(db, "photos"), where("userId", "==", uid));
             const photosSnapshot = await getDocs(photosQuery);
-            setPhotos(photosSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-          } catch {
-            setPhotos([]);
-          }
+            setPhotos(photosSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+          } catch { setPhotos([]); }
         })(),
         (async () => {
           try {
-            const locationsQuery = query(
-              collection(db, "travel_map"),
-              where("userId", "==", user.uid)
-            );
+            const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", uid));
             const locationsSnapshot = await getDocs(locationsQuery);
-            setVisitedLocations(locationsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-          } catch {
-            setVisitedLocations([]);
-          }
+            setVisitedLocations(locationsSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+          } catch { setVisitedLocations([]); }
         })(),
         (async () => {
           try {
-            const activitiesQuery = query(
-              collection(db, "activities"),
-              where("userId", "==", user.uid)
-            );
+            const activitiesQuery = query(collection(db, "activities"), where("userId", "==", uid));
             const activitiesSnapshot = await getDocs(activitiesQuery);
             setActivities(
               activitiesSnapshot.docs
-                .map((doc) => ({ id: doc.id, ...doc.data() }))
+                .map((d) => ({ id: d.id, ...d.data() }))
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                 .slice(0, 10)
             );
-          } catch {
-            setActivities([]);
-          }
+          } catch { setActivities([]); }
         })(),
       ]);
     } catch (error) {
@@ -181,63 +176,66 @@ const Profile = () => {
     }
   };
 
-  // Initial load (no overlay)
+  // Add userId state and subscribe to auth state (critical for refresh)
+  const [userId, setUserId] = useState(null);
+
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-    fetchProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+        fetchProfile(user.uid, user); // initial load as soon as Firebase restores session
+      } else {
+        setUserId(null);
+        setProfile(null);
+        setPhotos([]);
+        setVisitedLocations([]);
+        setActivities([]);
+        setStats({ placesVisited: 0, photosShared: 0, reviewsWritten: 0, friends: 0 });
+        setShareCode("");
+      }
+    });
+    return unsub;
   }, []);
 
-  // Real-time listener for profile changes
+  // Remove the old "Initial load (no overlay)" effect that used auth.currentUser
+  // and replace it with a simple refetch whenever userId changes.
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (userId) fetchProfile(userId);
+  }, [userId]);
 
-    const userRef = doc(db, "users", user.uid);
+  // Real-time listener now depends on userId (not auth.currentUser?.uid)
+  useEffect(() => {
+    if (!userId) return;
+
+    const userRef = doc(db, "users", userId);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (!docSnap.exists()) return;
       const data = docSnap.data();
 
-      // Update only fields that can change often
       setProfile((prev) => ({
         ...prev,
-        name: data.name ?? prev.name,
-        bio: data.bio ?? prev.bio,
-        profilePicture: data.profilePicture ?? prev.profilePicture,
-        likes: Array.isArray(data.likes) ? data.likes : prev.likes,
-        dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev.dislikes,
+        name: data.name ?? prev?.name ?? "",
+        bio: data.bio ?? prev?.bio ?? "",
+        profilePicture: data.profilePicture ?? prev?.profilePicture ?? "/user.png",
+        likes: Array.isArray(data.likes) ? data.likes : prev?.likes || [],
+        dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev?.dislikes || [],
       }));
 
       const friendsCount =
         Array.isArray(data.friends) ? data.friends.length
-        : (typeof data.friendsCount === "number" ? data.friendsCount
-        : (data.stats?.friends || 0));
+        : typeof data.friendsCount === "number" ? data.friendsCount
+        : data?.stats?.friends || 0;
 
       setStats((prev) => ({ ...prev, friends: friendsCount }));
     });
 
-    const handleUserDataChange = (event) => {
-      if (user && event.detail.userId === user.uid) {
-        // Optional: refresh heavy sections (photos/activities) without touching friends
-        fetchProfile();
-      }
-    };
-    window.addEventListener("userDataChanged", handleUserDataChange);
+    return () => unsubscribe();
+  }, [userId]);
 
-    return () => {
-      unsubscribe();
-      window.removeEventListener("userDataChanged", handleUserDataChange);
-    };
-  }, [auth.currentUser?.uid]);
-
-  // Initial fetch + after editing profile
+  // After editing profile, refetch using userId (auth.currentUser may still be null briefly on hard refresh)
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      fetchProfile();
-    }
-  }, [showEditProfile]);
+    if (userId) fetchProfile(userId);
+  }, [showEditProfile, userId]);
 
   const navigate = useNavigate();
 
@@ -612,7 +610,7 @@ const Profile = () => {
         <div className="profile-header">
           <div className="profile-avatar">
             <img
-              src={profile.profilePicture || "/user.png"}
+              src={profile?.profilePicture || "/user.png"}
               alt="Profile"
               style={{
                 width: 96,
@@ -626,7 +624,7 @@ const Profile = () => {
           </div>
           <div className="profile-info">
             <div className="profile-title-row">
-              <h2>{profile.name || "Your Name"}</h2>
+              <h2>{profile?.name || "Your Name"}</h2>
               {/* Make Edit Profile look like the other buttons */}
               <button
                 className="btn btn-primary"
@@ -637,21 +635,21 @@ const Profile = () => {
             </div>
             <div className="profile-meta">
               <span>🌟 Explorer</span>
-              <span>• 🎂 Joined {profile.joined}</span>
+              <span>• 🎂 Joined {profile?.joined || ""}</span>   {/* null-safe */}
             </div>
             <div className="profile-badges">
-              {profile.likes.map((like) => (
+              {(profile?.likes || []).map((like) => (
                 <div className="profile-interest profile-interest-like" key={like}>
                   <span className="profile-interest-label">{like}</span>
                 </div>
               ))}
-              {profile.dislikes.map((dislike) => (
+              {(profile?.dislikes || []).map((dislike) => (
                 <div className="profile-interest profile-interest-dislike" key={dislike}>
                   <span className="profile-interest-label">{dislike}</span>
                 </div>
               ))}
             </div>
-            <div className="profile-bio">{profile.bio || "No bio yet."}</div>
+            <div className="profile-bio">{profile?.bio || "No bio yet."}</div>
           </div>
         </div>
 
@@ -753,7 +751,7 @@ const Profile = () => {
                 {activities.length > 0 ? (
                   activities
                     .slice(0, 10)
-                    .map((a, i) => (
+                    .map((a, i) =>
                       <div
                         className="profile-activity-item"
                         key={a.id || i}
@@ -803,7 +801,7 @@ const Profile = () => {
                           {new Date(a.timestamp).toLocaleDateString()}
                         </span>
                       </div>
-                    ))
+                    )
                 ) : (
                   <div
                     style={{
@@ -1212,11 +1210,41 @@ const Profile = () => {
 
       {/* Achievements Modal */}
       {showAchievements && (
-        <Achievements
-          isOpen={showAchievements}
-          onClose={() => setShowAchievements(false)}
-          achievementsData={achievementsData}
-        />
+        <div className="achv-backdrop" onClick={() => setShowAchievements(false)}>
+          <div className="achv-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="achv-header">
+              <div className="achv-title">
+                <span className="achv-title-icon">🏆</span>
+                Achievements
+              </div>
+              <button className="achv-close" onClick={() => setShowAchievements(false)} aria-label="Close">×</button>
+            </div>
+
+            <div className="achv-body">
+              <div className="achv-section">
+                <div className="achv-section-title">Getting Started</div>
+                <div className="achv-divider" />
+                <div className="achv-grid">
+                  {achievementsData.map((a) => (
+                    <div
+                      key={a.id}
+                      className={`achv-item ${a.unlocked ? "is-unlocked" : "is-locked"}`}
+                    >
+                      <div className="achv-item-icon">{a.icon || "🏆"}</div>
+                      <div>
+                        <div className="achv-item-title">{a.title}</div>
+                        <div className="achv-item-desc">{a.description}</div>
+                      </div>
+                      <div className={`achv-badge ${a.unlocked ? "ok" : ""}`}>
+                        {a.unlocked ? "Unlocked" : "Locked"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Info / Delete Modal */}
@@ -1385,10 +1413,10 @@ const Profile = () => {
                         background: "rgba(255, 255, 255, 0.8)",
                         border: "none",
                         borderRadius: "50%",
-                        width: "24px",
-                        height: "24px",
+                        width: 24,
+                        height: 24,
                         cursor: "pointer",
-                        fontSize: "14px",
+                        fontSize: 14,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
