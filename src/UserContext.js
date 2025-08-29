@@ -11,6 +11,7 @@ export function UserProvider({ children }) {
     dislikes: [],
     joined: "",
   });
+  const [localProfile, setLocalProfile] = useState(profile);
 
   return (
     <UserContext.Provider value={{ profile, setProfile }}>
@@ -19,4 +20,11 @@ export function UserProvider({ children }) {
   );
 }
 
-export const useUser = () => useContext(UserContext);
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error("useUser must be used within a UserProvider");
+  }
+  const { profile } = context;
+  return profile;
+};
