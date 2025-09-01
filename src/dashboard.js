@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
 import './dashboardBanner.css';
+import { useEffect, useState } from 'react';
+import { db } from './firebase';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
@@ -15,6 +18,61 @@ function Dashboard({ setShowAIModal }) {
       console.error('Logout failed:', err);
     }
   };
+
+const [stats, setStats] = useState({
+  destinations: 0,
+  bookmarked: 0,
+  tripsPlanned: 0,
+  avgRating: 0
+});
+
+useEffect(() => {
+  async function fetchStats() {
+    // Destinations count
+    const destinationsSnap = await getDocs(collection(db, 'destinations'));
+    const destinationsCount = destinationsSnap.size;
+
+    // Bookmarked count (from userBookmarks collection)
+    let bookmarkedCount = 0;
+    let tripsCount = 0;
+    let avgRating = 0;
+
+    const user = auth.currentUser;
+    if (user) {
+      const userBookmarksRef = doc(db, 'userBookmarks', user.uid);
+      const userBookmarksSnap = await getDoc(userBookmarksRef);
+      if (userBookmarksSnap.exists()) {
+        const bookmarksArr = userBookmarksSnap.data().bookmarks || [];
+        bookmarkedCount = bookmarksArr.length;
+      }
+
+      // Trips Planned (example: users/{uid}/trips)
+      const tripsSnap = await getDocs(collection(db, 'users', user.uid, 'trips'));
+      tripsCount = tripsSnap.size;
+    }
+
+    // Avg Rating (average of all destination ratings)
+    let totalRating = 0;
+    let ratingCount = 0;
+    destinationsSnap.forEach(doc => {
+      const data = doc.data();
+      if (data.rating) {
+        totalRating += data.rating;
+        ratingCount++;
+      }
+    });
+    if (ratingCount > 0) avgRating = (totalRating / ratingCount).toFixed(1);
+
+    setStats({
+      destinations: destinationsCount,
+      bookmarked: bookmarkedCount,
+      tripsPlanned: tripsCount,
+      avgRating: avgRating
+    });
+  }
+
+  fetchStats();
+}, []);
 
   return (
     <>
@@ -32,19 +90,19 @@ function Dashboard({ setShowAIModal }) {
       </div>
       <div className="dashboard-stats-row">
         <div className="dashboard-stat">
-          <span className="dashboard-stat-number blue">0</span>
+          <span className="dashboard-stat-number blue">{stats.destinations}</span>
           <span className="dashboard-stat-label">Destinations</span>
         </div>
         <div className="dashboard-stat">
-          <span className="dashboard-stat-number green">0</span>
+          <span className="dashboard-stat-number green">{stats.bookmarked}</span>
           <span className="dashboard-stat-label">Bookmarked</span>
         </div>
         <div className="dashboard-stat">
-          <span className="dashboard-stat-number purple">0</span>
+          <span className="dashboard-stat-number purple">{stats.tripsPlanned}</span>
           <span className="dashboard-stat-label">Trips Planned</span>
         </div>
         <div className="dashboard-stat">
-          <span className="dashboard-stat-number orange">0</span>
+          <span className="dashboard-stat-number orange">{stats.avgRating}</span>
           <span className="dashboard-stat-label">Avg Rating</span>
         </div>
       </div>

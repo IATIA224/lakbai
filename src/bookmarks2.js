@@ -4,6 +4,7 @@ import { collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, serverTime
 import cloudinary from './cloudinary';
 import { Image } from 'cloudinary-react';
 import './Styles/bookmark2.css';
+export default Bookmarks2;
 
 // Initial destinations data
 const initialDestinations = [
