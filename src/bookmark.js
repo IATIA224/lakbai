@@ -1,405 +1,277 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import './Styles/bookmark2.css';
-import { db, auth } from './firebase';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from './firebase';
 import {
-  addDoc,
-  collection,
-  serverTimestamp,
-  setDoc,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  updateDoc,
-  query as fsQuery,
-  arrayUnion,
-  arrayRemove,
-  deleteDoc,
+  doc, getDoc, setDoc, deleteDoc, collection, getDocs,
+  orderBy, query as fsQuery, onSnapshot, addDoc, serverTimestamp,
+  where, limit,
 } from 'firebase/firestore';
+import './Styles/bookmark.css';
 
-const initialDestinations = [
-  {
-    id: 'boracay',
-    name: 'Boracay Island',
-    region: 'Region VI - Western Visayas',
-    rating: 4.8,
-    price: '₱3,500',
-    priceTier: 'expensive',
-    description:
-      'World-famous white sand beach destination with crystal clear waters and vibrant nightlife. Perfect for water sports, beach relaxation, and island hopping adventures.',
-    tags: ['Beach', 'Water Sports', 'Nightlife', 'Island Hopping'],
-    categories: ['Beaches', 'Islands', 'Tourist'],
-    bestTime: 'November to April',
-  },
-  {
-    id: 'banaue',
-    name: 'Banaue Rice Terraces',
-    region: 'CAR - Cordillera Administrative Region',
-    rating: 4.7,
-    price: '₱1,800',
-    priceTier: 'less',
-    description:
-      'Ancient rice terraces carved into mountains, often called the “Eighth Wonder of the World.”',
-    tags: ['UNESCO', 'Cultural', 'Hiking'],
-    categories: ['Mountains', 'Cultural'],
-    bestTime: 'December to May',
-  },
-  {
-    id: 'palawan-underground',
-    name: 'Palawan Underground River',
-    region: 'Region IV-B - MIMAROPA',
-    rating: 4.6,
-    price: '₱2,500',
-    priceTier: 'expensive',
-    description:
-      'Subterranean river flowing through a spectacular limestone karst landscape.',
-    tags: ['UNESCO', 'Cave', 'Boat Tour'],
-    categories: ['Caves', 'Islands'],
-    bestTime: 'November to May',
-  },
-  {
-    id: 'mayon',
-    name: 'Mayon Volcano',
-    region: 'Region V - Bicol Region',
-    rating: 4.5,
-    price: '₱1,200',
-    priceTier: 'less',
-    description:
-      'Perfect cone-shaped active volcano, considered the most beautiful volcano in the Philippines.',
-    tags: ['Volcano', 'Hiking', 'Photography'],
-    categories: ['Mountains', 'Parks'],
-    bestTime: 'February to April',
-  },
-  {
-    id: 'chocolate-hills',
-    name: 'Chocolate Hills',
-    region: 'Region VII - Central Visayas',
-    rating: 4.4,
-    price: '₱1,300',
-    priceTier: 'less',
-    description:
-      'Unique geological formation of over 1,200 hills that turn chocolate brown in dry season.',
-    tags: ['Geological Wonder', 'View', 'Photography'],
-    categories: ['Landmarks', 'Natural'],
-    bestTime: 'December to May',
-  },
-  {
-    id: 'intramuros',
-    name: 'Intramuros',
-    region: 'NCR - National Capital Region',
-    rating: 4.3,
-    price: '₱800',
-    priceTier: 'less',
-    description:
-      'Historic walled city built during Spanish colonial period. Features museums, churches, and cobbled streets.',
-    tags: ['Historical', 'Colonial', 'Museums'],
-    categories: ['Historical', 'Museums'],
-    bestTime: 'All year',
-  },
-  // Add more items to approach “12 destinations” UI
-  { id: 'el-nido', name: 'El Nido', region: 'Region IV-B - MIMAROPA', rating: 4.8, price: '₱3,200', priceTier: 'expensive', description: 'Dramatic limestone cliffs and turquoise lagoons.', tags: ['Islands', 'Snorkeling', 'Boat Tour'], categories: ['Islands'], bestTime: 'November to May' },
-  { id: 'siargao', name: 'Siargao', region: 'CARAGA - Region XIII', rating: 4.7, price: '₱2,200', priceTier: 'expensive', description: 'Surfing capital with laid-back island vibes.', tags: ['Surfing', 'Beach'], categories: ['Beaches', 'Parks'], bestTime: 'March to October' },
-  { id: 'vigan', name: 'Vigan', region: 'Region I - Ilocos Region', rating: 4.5, price: '₱1,500', priceTier: 'less', description: 'Well-preserved Spanish colonial town.', tags: ['UNESCO', 'Cultural'], categories: ['Historical', 'Cultural'], bestTime: 'December to March' },
-  { id: 'puerto-galera', name: 'Puerto Galera', region: 'Region IV-B - MIMAROPA', rating: 4.2, price: '₱1,600', priceTier: 'less', description: 'Diving spots and beaches close to Manila.', tags: ['Diving', 'Beach'], categories: ['Beaches'], bestTime: 'November to May' },
-  { id: 'pagudpud', name: 'Pagudpud', region: 'Region I - Ilocos Region', rating: 4.4, price: '₱1,400', priceTier: 'less', description: 'Northern white-sand beaches and windmills.', tags: ['Beach', 'View'], categories: ['Beaches'], bestTime: 'December to April' },
-  { id: 'bohol', name: 'Bohol Countryside', region: 'Region VII - Central Visayas', rating: 4.6, price: '₱1,900', priceTier: 'less', description: 'Countryside tour with tarsiers and rivers.', tags: ['River Cruise', 'Wildlife'], categories: ['Natural'], bestTime: 'November to May' },
-];
-
-export default function Bookmarks2() {
-  // Firestore-backed destinations and bookmarks
-  const [destinations, setDestinations] = useState([]);
-  const [bookmarks, setBookmarks] = useState(new Set());
+function Bookmark() {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
-  // NEW: page loading state
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('recent');
 
-  // UI state
-  const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState('name'); // name | rating | price
-  const [selectedRegions, setSelectedRegions] = useState(new Set());
-  const [selectedPrice, setSelectedPrice] = useState(null); // less | expensive | null
-  const [selectedCats, setSelectedCats] = useState(new Set());
+  // Add-to-Trip state
+  const [addingTripId, setAddingTripId] = useState(null);
+  const [addedTripId, setAddedTripId] = useState(null);
+  const [inTripCount, setInTripCount] = useState(0);
+
+  // NEW: details modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [addingTripId, setAddingTripId] = useState(null);
-  const [addedTripId, setAddedTripId] = useState(null); // NEW: show ✔ after success
-
-  // NEW: ratings state
-  const [ratingsByDest, setRatingsByDest] = useState({}); // { [destId]: { avg, count } }
-  const [userRating, setUserRating] = useState(0);        // current user's rating for selected
+  const [userRating, setUserRating] = useState(0);
   const [savingRating, setSavingRating] = useState(false);
 
-  // NEW: bookmark toggle pending (modal)
-  const [bookmarking, setBookmarking] = useState(false);
+  // NEW: average ratings loaded from destinations/{id}/ratings
+  const [ratingsByDest, setRatingsByDest] = useState({});
 
-  // NEW: pagination
-  const [page, setPage] = useState(1);
-  const pageSize = 12;
+  // Confirm “unbookmark”
+  const [confirmingUnbookmark, setConfirmingUnbookmark] = useState(false);
+  const confirmTimerRef = useRef(null);
 
-  // 1) Ensure destinations exist in Firestore, then fetch them
+  // clear pending confirm timer on unmount
   useEffect(() => {
-    const seedAndFetch = async () => {
-      try {
-        setIsLoading(true);
-        for (const d of initialDestinations) {
-          const ref = doc(db, 'destinations', d.id);
-          const snap = await getDoc(ref);
-          if (!snap.exists()) {
-            // Start with zero rating/aggregate fields
-            await setDoc(ref, {
-              ...d,
-              rating: 0,
-              ratingSum: 0,
-              ratingCount: 0,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-          }
-        }
-
-        const q = fsQuery(collection(db, 'destinations'));
-        const snap = await getDocs(q);
-        const items = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
-        setDestinations(items);
-      } catch (e) {
-        console.error('Seed/fetch destinations failed:', e);
-        setDestinations(initialDestinations.map(i => ({ ...i, rating: 0 })));
-      } finally {
-        setIsLoading(false);
-      }
+    return () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
     };
-
-    seedAndFetch();
   }, []);
 
-  // 2) Listen to auth and the current user's bookmarks
   useEffect(() => {
-    let unsubUserDoc = null;
-    const unsubAuth = auth.onAuthStateChanged(async (user) => {
+    setLoading(true);
+    const unsub = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user || null);
       if (user) {
-        const userRef = doc(db, 'userBookmarks', user.uid);
-        // Create doc if not exists (so updateDoc won’t fail later)
-        const snap = await getDoc(userRef);
-        if (!snap.exists()) {
-          await setDoc(userRef, { bookmarks: [], createdAt: serverTimestamp() }, { merge: true });
-        }
-        unsubUserDoc = onSnapshot(userRef, (s) => {
-          const ids = (s.exists() ? s.data().bookmarks : []) || [];
-          setBookmarks(new Set(ids));
-        });
+        await fetchBookmarkedDestinations(user.uid);
       } else {
-        setBookmarks(new Set());
-        if (unsubUserDoc) unsubUserDoc();
+        setItems([]);
       }
+      setLoading(false);
     });
-    return () => {
-      if (unsubUserDoc) unsubUserDoc();
-      unsubAuth();
-    };
+    return () => unsub();
   }, []);
 
-  // Regions/Categories derived from Firestore data
-  const regions = useMemo(
-    () => [...new Set(destinations.map((d) => d.region).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [destinations]
-  );
-  const categories = useMemo(() => {
-    const s = new Set();
-    destinations.forEach((d) => (d.categories || []).forEach((c) => s.add(c)));
-    return [...s].sort((a, b) => a.localeCompare(b));
-  }, [destinations]);
+  // NEW: live count of itinerary items for current user
+  useEffect(() => {
+    if (!currentUser) { setInTripCount(0); return; }
+    const colRef = collection(db, 'itinerary', currentUser.uid, 'items');
+    const unsub = onSnapshot(colRef, (snap) => setInTripCount(snap.size));
+    return () => unsub();
+  }, [currentUser]);
 
-  // Filter + sort
-  const filtered = useMemo(() => {
-    let list = destinations.filter((d) => {
-      const q = query.trim().toLowerCase();
-      const matchesQ =
-        !q ||
-        d.name?.toLowerCase().includes(q) ||
-        d.description?.toLowerCase().includes(q) ||
-        d.region?.toLowerCase().includes(q);
-      const matchesRegion = !selectedRegions.size || selectedRegions.has(d.region);
-      const matchesPrice = !selectedPrice || selectedPrice === d.priceTier;
-      const matchesCat = !selectedCats.size || (d.categories || []).some((c) => selectedCats.has(c));
-      return matchesQ && matchesRegion && matchesPrice && matchesCat;
-    });
-
-    if (sortBy === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    if (sortBy === 'rating') list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    if (sortBy === 'price') {
-      const n = (x) => parseInt((x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
-      list = [...list].sort((a, b) => n(a) - n(b));
+  // Read ONLY current user's bookmarks collection and merge with destination data if needed
+  const fetchBookmarkedDestinations = async (uid) => {
+    try {
+      const colRef = collection(db, 'users', uid, 'bookmarks');
+      const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc')));
+      const rows = await Promise.all(
+        snap.docs.map(async (b) => {
+          const data = b.data() || {};
+          // Prefer data stored on the bookmark doc
+          if (data.name && data.description) {
+            return {
+              id: b.id,
+              ...data,
+              savedAt: toDateSafe(data.createdAt || data.updatedAt),
+            };
+          }
+          // Fallback: merge with source destination doc
+          const dref = doc(db, 'destinations', b.id);
+          const ddoc = await getDoc(dref);
+          return {
+            id: b.id,
+            ...(ddoc.exists() ? ddoc.data() : {}),
+            ...data,
+            savedAt: toDateSafe(data.createdAt || data.updatedAt),
+          };
+        })
+      );
+      setItems(rows.filter(Boolean));
+    } catch (e) {
+      console.error('Error fetching current user bookmarks:', e);
+      setItems([]);
     }
-    return list;
-  }, [destinations, query, selectedRegions, selectedPrice, selectedCats, sortBy]);
+  };
 
-  // NEW: clamp/reset page when filters/sort change
-  useEffect(() => {
-    setPage(1);
-  }, [query, selectedRegions, selectedPrice, selectedCats, sortBy]);
+  const toDateSafe = (ts) => {
+    try {
+      // Firestore Timestamp -> Date
+      if (ts && typeof ts.toDate === 'function') return ts.toDate();
+      // ISO string
+      if (typeof ts === 'string') return new Date(ts);
+    } catch {}
+    return null;
+  };
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  const handleExploreClick = () => navigate('/bookmarks2'); // ensure this exists
 
-  const start = (page - 1) * pageSize;
-  const end = Math.min(start + pageSize, filtered.length);
-  const pageItems = useMemo(() => filtered.slice(start, end), [filtered, start, end]);
+  // Remove bookmark from users/{uid}/bookmarks and keep legacy array in sync
+  const removeBookmark = async (destinationId) => {
+    try {
+      if (!currentUser) {
+        alert('Please login to manage bookmarks');
+        return;
+      }
+      // Delete per-user bookmark doc
+      await deleteDoc(doc(db, 'users', currentUser.uid, 'bookmarks', destinationId)).catch(() => {});
 
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
+      // Keep legacy list in sync if present
+      const legacyRef = doc(db, 'userBookmarks', currentUser.uid);
+      const legacyDoc = await getDoc(legacyRef);
+      if (legacyDoc.exists()) {
+        const list = legacyDoc.data().bookmarks || [];
+        const updated = list.filter((id) => id !== destinationId);
+        await setDoc(legacyRef, { bookmarks: updated, updatedAt: new Date().toISOString() }, { merge: true });
+      }
 
-  const Pager = () => (
-    <div className="bp2-pager" style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', margin: '12px 0' }}>
-      <div className="bp2-pager-info" style={{ color: '#475569', fontSize: 14 }}>
-        {filtered.length ? `Showing ${start + 1}–${end} of ${filtered.length}` : 'No destinations found'}
-      </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button className="next-page-btn" onClick={() => setPage(1)} disabled={!canPrev} aria-label="First page">« First</button>
-        <button className="next-page-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={!canPrev} aria-label="Previous page">‹ Prev</button>
-        <span style={{ padding: '6px 10px', fontSize: 14 }}>{page} / {totalPages}</span>
-        <button className="next-page-btn  " onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={!canNext} aria-label="Next page">Next ›</button>
-        <button className="next-page-btn" onClick={() => setPage(totalPages)} disabled={!canNext} aria-label="Last page">Last »</button>
-      </div>
-    </div>
-  );
+      setItems((prev) => prev.filter((d) => d.id !== destinationId));
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      alert('Failed to remove bookmark. Please try again.');
+    }
+  };
 
-  // Helpers
-  const toggleSet = (setter, value) =>
-    setter((prev) => {
-      const n = new Set(prev);
-      n.has(value) ? n.delete(value) : n.add(value);
-      return n;
-    });
-
-  // 3) Toggle bookmark in Firestore for current user
-  const toggleBookmark = async (dest) => {
-    const user = auth.currentUser;
-    if (!user) {
-      alert('Please sign in to bookmark destinations.');
+  const clearAllBookmarks = async () => {
+    if (!currentUser) {
+      alert('Please login to manage bookmarks');
       return;
     }
+    if (!window.confirm('Clear all bookmarks?')) return;
     try {
-      // A. Maintain your existing array of ids for bookmark.js
-      const listRef = doc(db, 'userBookmarks', user.uid);
-      const listSnap = await getDoc(listRef);
-      if (!listSnap.exists()) {
-        await setDoc(listRef, { bookmarks: [], createdAt: serverTimestamp() }, { merge: true });
-      }
-
-      // B. Also store a full copy under users/{uid}/bookmarks/{destId}
-      const userDocRef = doc(db, 'users', user.uid);
-      const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
-
-      if (bookmarks.has(dest.id)) {
-        // Unbookmark: remove id and delete the per-user bookmark doc
-        await Promise.all([
-          updateDoc(listRef, {
-            bookmarks: arrayRemove(dest.id),
-            updatedAt: serverTimestamp(),
-          }),
-          deleteDoc(bookmarkDocRef),
-          setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true }),
-        ]);
-      } else {
-        // Bookmark: add id and upsert the per-user bookmark doc with details
-        await Promise.all([
-          updateDoc(listRef, {
-            bookmarks: arrayUnion(dest.id),
-            updatedAt: serverTimestamp(),
-          }),
-          setDoc(
-            userDocRef,
-            { updatedAt: serverTimestamp() }, // ensure parent user doc exists
-            { merge: true }
-          ),
-          setDoc(
-            bookmarkDocRef,
-            {
-              destId: dest.id,
-              name: dest.name,
-              region: dest.region || '',
-              rating: dest.rating ?? null,
-              price: dest.price || '',
-              priceTier: dest.priceTier || null,
-              tags: dest.tags || [],
-              categories: dest.categories || [],
-              bestTime: dest.bestTime || '',
-              image: dest.image || '',
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          ),
-        ]);
-      }
-      // onSnapshot on userBookmarks will update local state automatically
+      // Clear subcollection
+      const colRef = collection(db, 'users', currentUser.uid, 'bookmarks');
+      const snap = await getDocs(colRef);
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+      // Clear legacy array
+      await setDoc(
+        doc(db, 'userBookmarks', currentUser.uid),
+        { bookmarks: [], updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+      setItems([]);
     } catch (e) {
-      console.error('Toggle bookmark failed:', e);
-      alert('Could not update bookmark. Please try again.');
+      console.error(e);
+      alert('Failed to clear bookmarks.');
     }
   };
 
-  // Average ratings loader for current page
-  useEffect(() => {
-    let cancelled = false;
-    async function loadAverages() {
-      try {
-        const entries = await Promise.all(
-          pageItems.map(async (d) => {
-            const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
-            let sum = 0;
-            let count = 0;
-            rsnap.forEach((r) => {
-              const v = Number(r.data()?.value) || 0;
-              if (v > 0) { sum += v; count += 1; }
-            });
-            const avg = count ? sum / count : 0;
-            return [d.id, { avg, count }];
-          })
-        );
-        if (!cancelled) setRatingsByDest((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-      } catch (e) {
-        console.error('Load averages failed', e);
+  // Derived stats
+  const stats = useMemo(() => {
+    const total = items.length;
+    const regions = new Set(items.map((d) => d.region || d.locationRegion || '').filter(Boolean));
+    const avg = total === 0 ? 0 : items.reduce((s, d) => s + (Number(d.rating) || 0), 0) / total;
+    return { total, regions: regions.size, avgRating: Number(avg.toFixed(1)), inTrip: inTripCount }; // <- use live count
+  }, [items, inTripCount]);
+
+  // Sorting
+  const sorted = useMemo(() => {
+    const list = [...items];
+    if (sortBy === 'name') return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (sortBy === 'rating') return list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
+    // recent: sort by savedAt desc
+    return list.sort((a, b) => {
+      const at = a.savedAt ? a.savedAt.getTime() : 0;
+      const bt = b.savedAt ? b.savedAt.getTime() : 0;
+      return bt - at;
+    });
+  }, [items, sortBy]);
+
+  const fmtSaved = (d) => {
+    if (!d) return 'Unknown';
+    const mm = d.getMonth() + 1;
+    const dd = d.getDate();
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  };
+
+  // sanitize object before Firestore write
+  const clean = (obj) => {
+    const out = {};
+    Object.entries(obj || {}).forEach(([k, v]) => {
+      if (v === undefined) return;              // Firestore rejects undefined
+      if (Array.isArray(v)) out[k] = v.filter((x) => x !== undefined && x !== null && x !== '');
+      else out[k] = v;
+    });
+    return out;
+  };
+
+  const onAddToTrip = async (dest) => {
+    try {
+      const u = auth.currentUser;
+      if (!u) { alert('Please sign in to add to My Trips.'); return; }
+
+      const destId = String(dest?.id || dest?.destId || '').trim();
+      if (!destId) { alert('Invalid destination.'); return; }
+
+      setAddingTripId(dest.id);
+
+      // ensure parent user doc (some rulesets require the parent to exist)
+      await setDoc(doc(db, 'users', u.uid), { uid: u.uid, lastTripAdd: serverTimestamp() }, { merge: true });
+
+      const itemsCol = collection(db, 'itinerary', u.uid, 'items');
+
+      // Check if this destination is already in My Trips
+      const existsQ = fsQuery(itemsCol, where('destId', '==', destId), limit(1));
+      const existsSnap = await getDocs(existsQ);
+
+      if (existsSnap.empty) {
+        // Prepare and add
+        const payload = {
+          destId,
+          name: dest?.name || 'Untitled destination',
+          region: dest?.region || dest?.locationRegion || '',
+          categories: (dest?.categories || dest?.tags || []).filter(Boolean),
+          rating: typeof dest?.rating === 'number' ? dest.rating : null,
+          priceTier: dest?.priceTier ?? null,
+          description: dest?.description || '',
+          status: 'Upcoming',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        await addDoc(itemsCol, payload);
       }
-    }
-    if (pageItems.length) loadAverages();
-    return () => { cancelled = true; };
-  }, [pageItems]);
+      // Remove from Bookmarks after being added or if it already exists in My Trips
+      await removeBookmark(dest.id).catch(() => {});
 
-  const avgText = (id) => {
-    const r = ratingsByDest[id];
-    return r && r.count > 0 ? r.avg.toFixed(1) : '—';
+      setAddedTripId(dest.id);
+      setTimeout(() => setAddedTripId(null), 1200);
+    } catch (e) {
+      console.error('Add to trip failed:', e);
+      alert('Failed to add to My Trips.');
+    } finally {
+      setAddingTripId(null);
+    }
   };
 
-  const openDetails = async (d) => {
-    setSelected(d);
+  const openDetails = async (dest) => {
+    setSelected(dest);
     setModalOpen(true);
 
-    // Load user's rating for this destination
+    // Load user's rating for this destination from destinations/{id}/ratings/{uid}
     try {
       const u = auth.currentUser;
       if (!u) { setUserRating(0); return; }
-      const rref = doc(db, 'destinations', d.id, 'ratings', u.uid);
+      const rref = doc(db, 'destinations', dest.id, 'ratings', u.uid);
       const rsnap = await getDoc(rref);
       setUserRating(Number(rsnap.data()?.value || 0));
     } catch {
       setUserRating(0);
     }
 
-    // Ensure we have averages for this selected item
-    if (!ratingsByDest[d.id]) {
+    // Ensure we have average for the selected item
+    if (!ratingsByDest[dest.id]) {
       try {
-        const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
+        const rsnap = await getDocs(collection(db, 'destinations', dest.id, 'ratings'));
         let sum = 0, count = 0;
         rsnap.forEach((r) => {
           const v = Number(r.data()?.value) || 0;
           if (v > 0) { sum += v; count += 1; }
         });
         const avg = count ? sum / count : 0;
-        setRatingsByDest((m) => ({ ...m, [d.id]: { avg, count } }));
+        setRatingsByDest((m) => ({ ...m, [dest.id]: { avg, count } }));
       } catch (e) {
         console.error('Load selected avg failed', e);
       }
@@ -409,429 +281,371 @@ export default function Bookmarks2() {
   const closeDetails = () => {
     setModalOpen(false);
     setSelected(null);
-    setUserRating(0);
-  };
-
-// NEW: modal bookmark click with optimistic UI + rollback on error
-  const handleModalBookmarkClick = async () => {
-    const user = auth.currentUser;
-    if (!user) { alert('Please sign in to bookmark destinations.'); return; }
-    if (!selected) return;
-
-    const id = selected.id;
-    const wasBookmarked = bookmarks.has(id);
-
-    // Optimistic UI
-    setBookmarks((prev) => {
-      const n = new Set(prev);
-      wasBookmarked ? n.delete(id) : n.add(id);
-      return n;
-    });
-
-    setBookmarking(true);
-    try {
-      await toggleBookmark(selected); // persists to Firestore
-      // onSnapshot will keep state in sync afterward
-    } catch (e) {
-      // Rollback on failure
-      setBookmarks((prev) => {
-        const n = new Set(prev);
-        wasBookmarked ? n.add(id) : n.delete(id);
-        return n;
-      });
-      console.error('Bookmark toggle from modal failed:', e);
-      alert('Could not update bookmark. Please try again.');
-    } finally {
-      setBookmarking(false);
+    // reset confirm state when modal closes
+    setConfirmingUnbookmark(false);
+    if (confirmTimerRef.current) {
+      clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
     }
   };
 
-  // NEW: save rating for current user and refresh average
-  const rateSelected = async (value) => {
+  const saveRating = async (value) => {
     const u = auth.currentUser;
-    if (!u) { alert('Please sign in to rate.'); return; }
-    if (!selected) return;
-    const v = Math.max(1, Math.min(5, Number(value) || 0));
+    if (!u || !selected) return;
     setSavingRating(true);
     try {
-      const ref = doc(db, 'destinations', String(selected.id), 'ratings', u.uid);
-      await setDoc(ref, { value: v, userId: u.uid, updatedAt: serverTimestamp() }, { merge: true });
+      const v = Math.max(1, Math.min(5, Number(value) || 0));
+
+      // Save under the destination's ratings subcollection (canonical for averages)
+      await setDoc(
+        doc(db, 'destinations', String(selected.id), 'ratings', u.uid),
+        { value: v, userId: u.uid, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+
+      // Optional: also keep a user copy (not used for averages)
+      await setDoc(
+        doc(db, 'users', u.uid, 'ratings', String(selected.id)),
+        { value: v, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+
       setUserRating(v);
 
-      // Recompute average
+      // Recompute and update the average for this destination
       const rsnap = await getDocs(collection(db, 'destinations', String(selected.id), 'ratings'));
       let sum = 0, count = 0;
-      rsnap.forEach((r) => { const val = Number(r.data()?.value) || 0; if (val > 0) { sum += val; count += 1; } });
+      rsnap.forEach((r) => {
+        const val = Number(r.data()?.value) || 0;
+        if (val > 0) { sum += val; count += 1; }
+      });
       const avg = count ? sum / count : 0;
 
       setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
-      setDestinations((prev) => prev.map((x) => (x.id === selected.id ? { ...x, rating: avg } : x)));
     } catch (e) {
-      console.error('Save rating failed:', e.code, e.message);
+      console.error('Save rating failed:', e);
       alert('Failed to save rating.');
     } finally {
       setSavingRating(false);
     }
   };
 
-  // Add to Trip handler (stub implementation)
-  const addToTripFromBookmarks = async (dest) => {
-    setAddingTripId(dest.id);
+  // Two-step confirm remove for Bookmarked button
+  const handleBookmarkedClick = async () => {
+    if (!currentUser) { alert('Please login to manage bookmarks'); return; }
+    if (!selected) return;
+    if (!confirmingUnbookmark) {
+      setConfirmingUnbookmark(true);
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = setTimeout(() => setConfirmingUnbookmark(false), 2500);
+      return;
+    }
     try {
-      // TODO: Implement actual logic to add destination to user's trip
-      // For now, just simulate success
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setAddedTripId(dest.id);
-      setTimeout(() => setAddedTripId(null), 1200);
+      await removeBookmark(selected.id);
+      setConfirmingUnbookmark(false);
+      closeDetails();
     } catch (e) {
-      alert('Failed to add to trip.');
-    } finally {
-      setAddingTripId(null);
+      console.error('Remove bookmark failed:', e);
+      setConfirmingUnbookmark(false);
+      alert('Failed to remove bookmark. Please try again.');
     }
   };
 
   return (
-    <div className="App">
-      {isLoading && (
-        <div className="bm2-loading-backdrop" role="status" aria-live="polite">
-          <div className="lb-card">
-            <div className="lb-scene">
-              <svg className="lb-globe" viewBox="0 0 200 200" aria-hidden="true">
+    <div className="App bm-page" aria-busy={loading}>
+      {loading && (
+        <div className="bm-loading-backdrop">
+          <div className="bm-loading-container">
+            <div className="bm-loading-icon-wrapper">
+              <svg className="bm-pushpin-svg" viewBox="0 0 100 100" aria-hidden="true">
                 <defs>
-                  <radialGradient id="lbOcean" cx="50%" cy="45%">
-                    <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="100%" stopColor="#e8f1ff" />
+                  <radialGradient id="pinHeadGradient" cx="0.3" cy="0.3" r="0.7">
+                    <stop offset="0%" stopColor="#ff8a8a" />
+                    <stop offset="100%" stopColor="#e52e2e" />
                   </radialGradient>
-                  <linearGradient id="lbIsland" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" />
-                    <stop offset="100%" stopColor="#16a34a" />
+                  <linearGradient id="pinNeedleGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#d1d5db" />
+                    <stop offset="50%" stopColor="#9ca3af" />
+                    <stop offset="100%" stopColor="#d1d5db" />
                   </linearGradient>
-                  <filter id="lbShadow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(2,6,23,.25)" />
-                  </filter>
                 </defs>
-
-                <circle cx="100" cy="100" r="92" fill="url(#lbOcean)" />
-                <circle cx="100" cy="100" r="92" fill="none" stroke="#fff" strokeWidth="8" />
-                <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(2,6,23,.06)" strokeWidth="1" />
-
-                {/* Stylized PH islands (vector, no image) */}
-                <g filter="url(#lbShadow)" fill="url(#lbIsland)">
-                  <path d="M70 40 l18 -10 18 8 -6 22 -14 10 -16 -8 z" />
-                  <path d="M92 63 l6 -6 8 2 5 6 -6 6 -9 -2 z" />
-                  <path d="M102 82 l8 -6 10 2 6 10 -8 8 -12 -3 z" />
-                  <circle cx="96" cy="96" r="3.2" />
-                  <circle cx="108" cy="96" r="3.2" />
-                  <circle cx="100" cy="108" r="3" />
-                  <path d="M120 120 l20 -10 22 12 2 14 -10 12 -22 4 -12 -10 z" />
-                </g>
-
-                <g className="lb-sheen">
-                  <path d="M12,128 C60,152 140,152 188,128" stroke="rgba(37,99,235,.18)" strokeWidth="12" fill="none" strokeLinecap="round" />
+                <g className="bm-pushpin-group">
+                  <path fill="url(#pinNeedleGradient)" d="M48 45 L48 85 L52 85 L52 45 Z" />
+                  <path fill="#e52e2e" d="M40 20 C25 20 25 45 40 45 L60 45 C75 45 75 20 60 20 Z" />
+                  <path fill="url(#pinHeadGradient)" d="M40 20 C25 20 25 45 40 45 L60 45 C75 45 75 20 60 20 Z" />
+                  <path fill="rgba(255,255,255,0.3)" d="M42 25 C35 25 35 35 42 35 L58 35 C65 35 65 25 58 25 Z" />
                 </g>
               </svg>
-
-              <div className="lb-orbit" />
-              <div className="lb-plane" />
+              <div className="bm-icon-shadow"></div>
             </div>
-
-            <h2 className="lb-title">Discover Philippines</h2>
-            <p className="lb-sub">Loading destinations…</p>
-            <div className="lb-progress"><span /></div>
+            <div className="bm-loading-text">
+              Loading Bookmarks
+              <span className="bm-loading-dots">...</span>
+            </div>
+            <div className="bm-loading-bar">
+              <div className="bm-loading-progress"></div>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="bp2-page-layout">
-        {/* Filters */}
-        <aside className="bp2-filters">
-          <div className="bp2-filters-header">Filters</div>
-
-          <div className="bp2-filter-group">
-            <label className="bp2-label">Search Destinations</label>
-            <input
-              type="text"
-              className="bp2-input"
-              placeholder="Search by name..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+      {/* Header */}
+      <header className="bm-header">
+        <div className="bm-title-wrap">
+          <div className="bm-title-icon">❤️</div>
+          <div>
+            <h1 className="bm-title">My Bookmarks</h1>
+            <p className="bm-subtitle">Your saved destinations with quick previews and actions</p>
           </div>
+        </div>
 
-          <div className="bp2-filter-group">
-            <div className="bp2-group-title">Region</div>
-            <div className="bp2-checklist">
-              {regions.map((r) => (
-                <label key={r} className="bp2-check">
-                  <input
-                    type="checkbox"
-                    checked={selectedRegions.has(r)}
-                    onChange={() => toggleSet(setSelectedRegions, r)}
-                  />
-                  <span>{r}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="bp2-filter-group">
-            <div className="bp2-group-title">Price Range</div>
-            <label className="bp2-radio">
-              <input
-                type="radio"
-                name="priceTier"
-                checked={selectedPrice === 'less'}
-                onChange={() => setSelectedPrice(selectedPrice === 'less' ? null : 'less')}
-              />
-              <span>Less Expensive (₱500–2,000)</span>
-            </label>
-            <label className="bp2-radio">
-              <input
-                type="radio"
-                name="priceTier"
-                checked={selectedPrice === 'expensive'}
-                onChange={() =>
-                  setSelectedPrice(selectedPrice === 'expensive' ? null : 'expensive')
-                }
-              />
-              <span>Expensive (₱2,000+)</span>
-            </label>
-          </div>
-
-          <div className="bp2-filter-group">
-            <div className="bp2-group-title">Category</div>
-            <div className="bp2-checklist">
-              {categories.map((c) => (
-                <label key={c} className="bp2-check">
-                  <input
-                    type="checkbox"
-                    checked={selectedCats.has(c)}
-                    onChange={() => toggleSet(setSelectedCats, c)}
-                  />
-                  <span>{c}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <button
-            className="bp2-clear-btn"
-            onClick={() => {
-              setQuery('');
-              setSelectedRegions(new Set());
-              setSelectedPrice(null);
-              setSelectedCats(new Set());
-              setSortBy('name');
-            }}
-          >
-            Clear All Filters
+        <div className="bm-controls">
+          <select className="bm-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="recent">Recently Added</option>
+            <option value="name">Name</option>
+            <option value="rating">Rating</option>
+          </select>
+          <button className="bm-clear-btn" onClick={clearAllBookmarks}>
+            <span className="bm-clear-icon">🗑️</span>
+            Clear All
           </button>
-        </aside>
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <main className="bp2-content">
-          <div className="bp2-header-row">
-            <h1 className="bp2-title">
-              Discover Philippines <span className="bp2-count-link">({filtered.length} destinations)</span>
-            </h1>
-            <div className="bp2-sort">
-              <label htmlFor="bp2-sort-select">Sort by</label>
-              <select
-                id="bp2-sort-select"
-                className="bp2-sort-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="name">Name</option>
-                <option value="rating">Rating</option>
-                <option value="price">Price</option>
-              </select>
-            </div>
+      {/* Stats */}
+      <section className="bm-stats">
+        <article className="bm-stat-card">
+          <div className="bm-stat-icon heart">❤️</div>
+          <div>
+            <div className="bm-stat-label">Total Bookmarks</div>
+            <div className="bm-stat-value">{stats.total}</div>
           </div>
+        </article>
+        <article className="bm-stat-card">
+          <div className="bm-stat-icon pin">📍</div>
+          <div>
+            <div className="bm-stat-label">Regions Covered</div>
+            <div className="bm-stat-value">{stats.regions}</div>
+          </div>
+        </article>
+        <article className="bm-stat-card">
+          <div className="bm-stat-icon star">⭐</div>
+          <div>
+            <div className="bm-stat-label">Avg Rating</div>
+            <div className="bm-stat-value">{stats.avgRating.toFixed(1)}</div>
+          </div>
+        </article>
+        <article className="bm-stat-card">
+          <div className="bm-stat-icon route">🔗</div>
+          <div>
+            <div className="bm-stat-label">In Trip Plan</div>
+            <div className="bm-stat-value">{stats.inTrip}</div>
+          </div>
+        </article>
+      </section>
 
-          {/* NEW: top pager */}
-          <Pager />
+      {/* Grid */}
+      {sorted.length === 0 ? (
+        <section className="bm-empty">
+          <div className="bm-empty-heart">
+            <span>❤️</span>
+          </div>
+          <h2 className="bm-empty-title">No bookmarks yet</h2>
+          <p className="bm-empty-text">
+            Start exploring amazing Philippine destinations and bookmark your favorites to see them here with detailed previews!
+          </p>
+          <button className="bm-primary" onClick={handleExploreClick}>
+            <span className="bm-primary-icon">🔎</span>
+            Start Exploring
+          </button>
+        </section>
+      ) : (
+        <div className="bookmarks-grid">
+          {sorted.map((d) => (
+            <article key={d.id} className="bm-card">
+              {/* Top art */}
+              <div className="bm-card-hero">
+                <div className="sun-decoration" />
+                <div className="wave-decoration" />
+                <div className="bm-saved-badge">Saved {fmtSaved(d.savedAt)}</div>
+                <button
+                  className="bm-heart-bubble"
+                  onClick={(e) => { e.stopPropagation(); removeBookmark(d.id); }}
+                  aria-label="Remove from bookmarks"
+                  title="Remove"
+                >
+                  ❤️
+                </button>
+              </div>
 
-          <div className="grid-container">
-            {pageItems.map((d) => (
-              <div className="grid-card" key={d.id}>
-                <div className="card-image">
-                  <div className="sun-decoration" />
-                  <div className="wave-decoration" />
-                  <button
-                    className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
-                    onClick={() => toggleBookmark(d)}
-                    aria-label="Toggle bookmark"
-                    title="Bookmark"
-                  >
-                    {bookmarks.has(d.id) ? '❤️' : '🤍'}
-                  </button>
+              {/* Content */}
+              <div className="bm-card-body">
+                <div className="bm-card-head">
+                  <h3 className="bm-card-title">{d.name}</h3>
+                  <div className="bm-card-rating" title="Average Rating">
+                    <span>⭐</span> {ratingsByDest[d.id]?.avg?.toFixed(1) || '—'}
+                  </div>
                 </div>
 
-                <div className="card-header">
-                  <h2>{d.name}</h2>
-                  <div className="mini-rating" title="Average Rating">
-                    <span>⭐</span> {avgText(d.id)}
+                <a href="#" className="bm-region-link" onClick={(e) => e.preventDefault()} title="Region">
+                  {d.region || d.locationRegion}
+                </a>
+
+                <p className="bm-card-desc">{d.description}</p>
+
+                <div className="bm-info-box">
+                  <div className="bm-info-item">
+                    <div className="bm-info-label">Best Time:</div>
+                    <div className="bm-pill">{d.bestTime || d.best_time || '—'}</div>
+                  </div>
+                  <div className="bm-info-item">
+                    <div className="bm-info-label">Price Range:</div>
+                    <div className={`bm-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
+                      {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
                     </div>
+                  </div>
                 </div>
 
-                <div className="bp2-region-line">{d.region}</div>
-                <p className="description">{d.description}</p>
-
-                <div className="tag-container">
-                  {(d.tags || []).map((t, i) => (
-                    <span key={i} className="tag">
-                      {t}
-                    </span>
+                <div className="bm-tags">
+                  {(d.tags || d.categories || []).slice(0, 8).map((t, i) => (
+                    <span key={i} className="bm-tag">{t}</span>
                   ))}
                 </div>
 
-                <div className="card-footer">
-                  <div className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
-                    {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
-                  </div>
-                  <button className="details-btn" onClick={() => openDetails(d)}>
-                    View Details
+                <div className="bm-actions">
+                  <button className="itn-btn primary" onClick={() => openDetails(d)}>
+                    <span>🔎</span> View Details
+                  </button>
+                  <button
+                    className={`itn-btn success ${addedTripId === d.id ? 'btn-success' : ''}`}
+                    onClick={() => onAddToTrip(d)}
+                    disabled={addingTripId === d.id}
+                    aria-busy={addingTripId === d.id}
+                  >
+                    <span>{addedTripId === d.id ? '✔' : '+'}</span>
+                    {addingTripId === d.id ? ' Adding…' : addedTripId === d.id ? ' Added!' : ' Add to Trip'}
+                  </button>
+                  <button className="itn-btn danger" onClick={() => removeBookmark(d.id)}>
+                    <span>🗑️</span> Remove
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+            </article>
+          ))}
+        </div>
+      )}
 
-          {/* NEW: bottom pager */}
-          <Pager />
-        </main>
-      </div>
-
-      {/* Details Modal */}
+      {/* NEW: Details modal */}
       {modalOpen && selected && (
-        <div
-          className="modal-overlay active"
-          onClick={(e) => e.target.classList.contains('modal-overlay') && closeDetails()}
-        >
-          <div className="modal-content details-modal">
-            <button className="modal-close-floating" onClick={closeDetails} aria-label="Close">
-              ✕
-            </button>
+        <div className="bm-modal-backdrop" onClick={closeDetails}>
+          <div className="bm-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <button className="bm-modal-close" onClick={closeDetails} aria-label="Close details">✕</button>
 
-            <div className="details-hero">
-              <div className="details-hero-art">
-                <div className="hero-water" />
-                <div className="hero-sand" />
-                <div className="hero-curve" />
-              </div>
+            <div className="bm-modal-hero">
+              <div className="bm-modal-sky" />
+              <div className="bm-modal-wave" />
             </div>
 
-            <div className="details-body">
-              <div className="details-head-row">
-                <div className="details-title-col">
-                  <h2 className="details-title">{selected.name}</h2>
-                  <a href="#" className="details-region" onClick={(e) => e.preventDefault()}>
-                    {selected.region}
-                  </a>
+            <div className="bm-modal-body">
+              <div className="bm-modal-main">
+                <h2 className="bm-modal-title">{selected.name}</h2>
 
-                  <div className="details-rating-row">
+                <a className="bm-modal-region" href="#" onClick={(e) => e.preventDefault()}>
+                  {selected.region || selected.locationRegion}
+                </a>
+
+                <div className="bm-modal-ratings">
+                  <div className="bm-avg-rating">
                     <span className="star">⭐</span>
-                    <span className="avg">
-                      {(ratingsByDest[selected.id]?.count ?? 0) > 0
-                        ? (ratingsByDest[selected.id].avg).toFixed(1)
-                        : '—'}
-                    </span>
-                    <span className="muted"> (Average Rating)</span>
-                    <span className="muted sep">Your Rating:</span>
-                    <div className="your-stars">
-                      {[1, 2, 3, 4, 5].map((n) => (
+                    {(ratingsByDest[selected.id]?.count ?? 0) > 0
+                      ? ratingsByDest[selected.id].avg.toFixed(1)
+                      : '—'} <span className="muted">(Average Rating)</span>
+                  </div>
+                  <div className="bm-user-rating">
+                    <span className="label">Your Rating:</span>
+                    <div className="bm-stars" aria-label="Your Rating">
+                      {[1,2,3,4,5].map((v) => (
                         <button
-                          key={n}
-                          className={`star-btn ${userRating >= n ? 'filled' : ''}`}
-                          onClick={() => rateSelected(n)}
+                          key={v}
+                          className={`bm-star ${userRating >= v ? 'filled' : ''}`}
+                          onClick={() => saveRating(v)}
                           disabled={savingRating}
-                          aria-label={`${n} star${n > 1 ? 's' : ''}`}
-                          title={`${n} star${n > 1 ? 's' : ''}`}
-                        >
-                          ★
-                        </button>
+                          title={`${v} star${v>1?'s':''}`}
+                        >★</button>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                <div className="details-actions">
+                <section>
+                  <h3 className="bm-section-title">Description</h3>
+                  <p className="bm-modal-desc">{selected.description}</p>
+                </section>
+
+                <section>
+                  <h3 className="bm-section-title">Tags</h3>
+                  <div className="bm-tags">
+                    {(selected.tags || selected.categories || []).map((t, i) => (
+                      <span key={i} className="bm-chip">{t}</span>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="bm-section-title">Packing Suggestions</h3>
+                  <div className="bm-pack-card">
+                    {selected.packing || 'Swimwear, sunscreen, light clothing, waterproof bag, snorkeling gear'}
+                  </div>
+                </section>
+              </div>
+
+              <aside className="bm-modal-aside">
+                <div className="bm-info-panel">
+                  <h3 className="bm-info-title">Trip Information</h3>
+
+                  <div className="bm-info-row">
+                    <div className="bm-info-key">Price Range</div>
+                    <div className="bm-info-val">
+                      <span className="chip-green">{selected.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bm-info-row">
+                    <div className="bm-info-key">Best Time to Visit</div>
+                    <div className="bm-info-val">{selected.bestTime || selected.best_time || '—'}</div>
+                  </div>
+
+                  <div className="bm-info-row">
+                    <div className="bm-info-key">Categories</div>
+                    <div className="bm-info-val">
+                      {(selected.categories || selected.tags || []).map((c, i) => (
+                        <span key={i} className="bm-chip soft">{c}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bm-modal-actions">
                   <button
-                    className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
-                    onClick={handleModalBookmarkClick}
-                    disabled={bookmarking}
-                    aria-pressed={bookmarks.has(selected.id)}
-                    aria-label={bookmarks.has(selected.id) ? 'Remove bookmark' : 'Add bookmark'}
+                    className={`bm-bookmarked ${confirmingUnbookmark ? 'confirm' : ''}`}
+                    onClick={handleBookmarkedClick}
+                    aria-pressed="true"
+                    title={confirmingUnbookmark ? 'Click again to remove' : 'Bookmarked'}
                   >
-                    <span className="icon">{bookmarks.has(selected.id) ? '❤️' : '🤍'}</span>
-                    {bookmarks.has(selected.id) ? 'Bookmarked' : 'Bookmark'}
+                    <span className="bm-heart">💗</span>
+                    {confirmingUnbookmark ? 'Click again to remove' : 'Bookmarked'}
                   </button>
                   <button
-                    className={`btn-green ${addedTripId === selected.id ? 'btn-success' : ''}`}  // NEW: success style 
-                    onClick={() => addToTripFromBookmarks(selected)}
+                    className={`itn-btn success ${addedTripId === selected.id ? 'btn-success' : ''}`}
+                    onClick={() => onAddToTrip(selected)}
                     disabled={addingTripId === selected.id}
                     aria-busy={addingTripId === selected.id}
                   >
-                    <span className="icon">
-                      {addedTripId === selected.id ? '✔' : '＋'}  {/* NEW: + -> ✔ */}
-                    </span>
-                    {addingTripId === selected.id
-                      ? 'Adding…'
-                      : addedTripId === selected.id
-                      ? 'Added!'
-                      : 'Add to Trip'}
+                    <span>{addedTripId === selected.id ? '✔' : '+'}</span>
+                    {addingTripId === selected.id ? ' Adding…' : addedTripId === selected.id ? ' Added!' : ' Add to Trip'}
                   </button>
                 </div>
-              </div>
-
-              <div className="details-grid">
-                <div className="details-left">
-                  <div className="section-title">Description</div>
-                  <p className="details-paragraph">{selected.description}</p>
-
-                  <div className="section-title">Tags</div>
-                  <div className="badge-row">
-                    {(selected.tags || []).map((t, i) => (
-                      <span key={i} className="badge">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="section-title">Packing Suggestions</div>
-                  <div className="packing-box">
-                    Swimwear, sunscreen, light clothing, waterproof bag, snorkeling gear
-                  </div>
-                </div>
-
-                <aside className="trip-info-box">
-                  <div className="trip-title">Trip Information</div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Price Range</div>
-                    <span className="pill small pill-green">
-                      {selected.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
-                    </span>
-                  </div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Best Time to Visit</div>
-                    <div className="trip-text">{selected.bestTime}</div>
-                  </div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Categories</div>
-                    <div className="badge-row">
-                      {(selected.categories || []).map((c, i) => (
-                        <span key={i} className="badge purple">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </aside>
-              </div>
+              </aside>
             </div>
           </div>
         </div>
@@ -839,3 +653,5 @@ export default function Bookmarks2() {
     </div>
   );
 }
+
+export default Bookmark;
