@@ -95,7 +95,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
         </div>
 
         {/* CHANGED: two-column form with scrollable body */}
-        <div className="itn-modal-body">
+        <div className="itn-modal-body itn-modal-body-scroll">
           <div className="itn-form-grid">
             <div className="itn-form-col">
               <div className="itn-grid">
