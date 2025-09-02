@@ -17,6 +17,8 @@ import {
   arrayRemove,
   deleteDoc,
 } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
+import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
 
 const initialDestinations = [
   {
@@ -109,6 +111,7 @@ const initialDestinations = [
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
   const [destinations, setDestinations] = useState([]);
+  const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
   // NEW: page loading state
@@ -498,13 +501,27 @@ export default function Bookmarks2() {
   const addToTripFromBookmarks = async (dest) => {
     setAddingTripId(dest.id);
     try {
-      // TODO: Implement actual logic to add destination to user's trip
-      // For now, just simulate success
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const user = auth.currentUser;
+      if (!user) {
+        alert('Please sign in to add to My Trips.');
+        return;
+      }
+
+      // Persist to itinerary/{uid}/items via Itinerary.js helper
+      await addTripForCurrentUser(dest);
+
       setAddedTripId(dest.id);
-      setTimeout(() => setAddedTripId(null), 1200);
+      setTimeout(() => {
+        setAddedTripId(null);
+        navigate('/itinerary'); // Route for “My Trips”
+      }, 600);
     } catch (e) {
-      alert('Failed to add to trip.');
+      if (e?.message === 'AUTH_REQUIRED') {
+        alert('Please sign in to add to My Trips.');
+      } else {
+        console.error('Add to My Trips failed:', e);
+        alert('Failed to add to trip. Please try again.');
+      }
     } finally {
       setAddingTripId(null);
     }
