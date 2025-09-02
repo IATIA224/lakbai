@@ -488,8 +488,7 @@ function Bookmark() {
                     disabled={addingTripId === d.id}
                     aria-busy={addingTripId === d.id}
                   >
-                    <span>{addedTripId === d.id ? '✔' : '+'}</span>
-                    {addingTripId === d.id ? ' Adding…' : addedTripId === d.id ? ' Added!' : ' Add to Trip'}
+                    Add to Trip
                   </button>
                   <button className="itn-btn danger" onClick={() => removeBookmark(d.id)}>
                     <span>🗑️</span> Remove
