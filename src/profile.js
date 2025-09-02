@@ -381,7 +381,7 @@ const Profile = () => {
 
         const photoDocRef = await addDoc(collection(db, "photos"), photoData);
         const newPhoto = { id: photoDocRef.id, ...photoData };
-        const updatedPhotos = [...photos, newPhoto];
+        const updatedPhotos = [newPhoto, ...photos]; // <-- PREPEND new photo
 
         setPhotos(updatedPhotos);
         setStats((prevStats) => ({
@@ -865,7 +865,7 @@ const Profile = () => {
                 style={{
                   display: "flex",
                   gap: 12,
-                  overflowX: "auto",
+                  overflowX: "hidden",
                   overflowY: "hidden",
                   padding: "6px 2px 10px",
                   scrollSnapType: "x proximity",
