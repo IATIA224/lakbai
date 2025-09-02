@@ -1,37 +1,66 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import EditProfile from './EditProfile';
-import Achievements from './achievements';
-import InfoDelete from './info_delete';
-import { signOut } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import EditProfile from "./EditProfile";
+import InfoDelete from "./info_delete";
+import { signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  addDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  onSnapshot,
+} from "firebase/firestore";
 import { db, auth } from "./firebase";
-import './profile.css';
-import { v4 as uuidv4 } from 'uuid'; // Install with: npm install uuid
+import "./profile.css";
+import { v4 as uuidv4 } from "uuid"; // Install with: npm install uuid
 import { useUser } from "./UserContext";
 import { emitAchievement } from "./achievementsBus";
+import { onAuthStateChanged } from "firebase/auth";
 
 export const CLOUDINARY_CONFIG = {
   cloudName: "dxvewejox",
-  uploadPreset: "dxvewejox"
+  uploadPreset: "dxvewejox",
+};
+
+// Helper: fix EXIF orientation + square crop for Cloudinary assets
+const transformCloudinary = (url, { w = 120, h = 120 } = {}) => {
+  if (!url) return url;
+  if (!url.includes("res.cloudinary.com")) return url;
+  return url.replace(
+    "/upload/",
+    `/upload/c_fill,w_${w},h_${h},q_auto,f_auto,a_auto/`
+  );
 };
 
 const LABELS = {
-  ALL_PHOTOS: 'All Photos'
+  ALL_PHOTOS: "All Photos",
 };
 
 const Profile = () => {
-  const { profile, setProfile } = useUser();
+  // Replace this:
+  // const { profile } = useUser();
+
+  // With this local state that mirrors context (no context setter needed)
+  const { profile: ctxProfile } = useUser();
+  const [profile, setProfile] = useState(ctxProfile || null);
+  useEffect(() => {
+    setProfile(ctxProfile);
+  }, [ctxProfile]);
 
   // Custom marker icon
   const customIcon = new L.Icon({
-    iconUrl: '/placeholder.png',
+    iconUrl: "/placeholder.png",
     iconSize: [32, 32],
     iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
+    popupAnchor: [0, -32],
   });
 
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -40,13 +69,13 @@ const Profile = () => {
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showInfoDelete, setShowInfoDelete] = useState(false);
   const [showShareCode, setShowShareCode] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState("");
   const [unlockedAchievements, setUnlockedAchievements] = useState(new Set());
   const [photos, setPhotos] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [visitedLocations, setVisitedLocations] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [mapCenter, setMapCenter] = useState([12.8797, 121.7740]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [mapCenter, setMapCenter] = useState([12.8797, 121.774]);
   const [mapZoom, setMapZoom] = useState(6);
   const [searchMarker, setSearchMarker] = useState(null);
   const [activities, setActivities] = useState([]);
@@ -54,46 +83,57 @@ const Profile = () => {
     placesVisited: 0,
     photosShared: 0,
     reviewsWritten: 0,
-    friends: 0
+    friends: 0,
   });
   const [shareCode, setShareCode] = useState("");
 
   // Function to fetch profile data
-  const fetchProfile = async () => {
+  const fetchProfile = async (uidParam, userObj) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const uid = uidParam || userObj?.uid || auth.currentUser?.uid;
+      if (!uid) return;
+
+      const user = userObj || auth.currentUser || null;
 
       // Get Firestore profile
-      const docRef = doc(db, "users", user.uid);
+      const docRef = doc(db, "users", uid);
       const docSnap = await getDoc(docRef);
       let data = docSnap.exists() ? docSnap.data() : {};
 
-      // Get joined date from Auth
-      const joined = user.metadata?.creationTime
-        ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
-        : "";
+      // Joined date from Auth if available
+      const joined =
+        user?.metadata?.creationTime
+          ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "long",
+            })
+          : (data.joined || ""); // fallback to existing
 
-      setProfile(prev => ({
+      setProfile((prev) => ({
         ...prev,
-        name: data.name || user.displayName || "",
+        name: data.name || user?.displayName || "",
         bio: data.bio || "",
         profilePicture: data.profilePicture || "/user.png",
         likes: Array.isArray(data.likes) ? data.likes : [],
         dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
         joined,
       }));
+
       setShareCode(data.shareCode || "");
 
-      // Fetch stats, achievements, etc. (lightweight)
+      const friendsCount = Array.isArray(data.friends)
+        ? data.friends.length
+        : typeof data.friendsCount === "number"
+        ? data.friendsCount
+        : data?.stats?.friends || 0;
+
       setStats({
         placesVisited: data.stats?.placesVisited || 0,
         photosShared: data.stats?.photosShared || 0,
         reviewsWritten: data.stats?.reviewsWritten || 0,
-        friends: data.stats?.friends || 0
+        friends: friendsCount,
       });
 
-      // Achievements
       const achievementsObj = data.achievements || {};
       const unlocked = new Set(
         Object.entries(achievementsObj)
@@ -102,97 +142,170 @@ const Profile = () => {
       );
       setUnlockedAchievements(unlocked);
 
-      // Heavy data: fetch in parallel, update each section as ready
-      Promise.all([
-        // Photos
+      // Heavy reads in parallel (photos, map, activities)
+      await Promise.all([
         (async () => {
           try {
-            const photosQuery = query(collection(db, "photos"), where("userId", "==", user.uid));
+            const photosQuery = query(collection(db, "photos"), where("userId", "==", uid));
             const photosSnapshot = await getDocs(photosQuery);
-            setPhotos(photosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            setPhotos(photosSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
           } catch { setPhotos([]); }
         })(),
-        // Locations
         (async () => {
           try {
-            const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", user.uid));
+            const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", uid));
             const locationsSnapshot = await getDocs(locationsQuery);
-            setVisitedLocations(locationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            setVisitedLocations(locationsSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
           } catch { setVisitedLocations([]); }
         })(),
-        // Activities
         (async () => {
           try {
-            const activitiesQuery = query(collection(db, "activities"), where("userId", "==", user.uid));
+            const activitiesQuery = query(collection(db, "activities"), where("userId", "==", uid));
             const activitiesSnapshot = await getDocs(activitiesQuery);
             setActivities(
               activitiesSnapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .map((d) => ({ id: d.id, ...d.data() }))
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                 .slice(0, 10)
             );
           } catch { setActivities([]); }
-        })()
+        })(),
       ]);
     } catch (error) {
       console.error("Error fetching profile data:", error);
     }
   };
 
-  // Real-time listener for profile changes
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
+  // Add userId state and subscribe to auth state (critical for refresh)
+  const [userId, setUserId] = useState(null);
 
-    const userRef = doc(db, "users", user.uid);
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        // Update friends count from friends array length
-        const friendsCount = Array.isArray(data.friends) ? data.friends.length : 0;
-        setStats(prev => ({
-          ...prev,
-          friends: friendsCount
-        }));
-        fetchProfile();
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+        fetchProfile(user.uid, user); // initial load as soon as Firebase restores session
+      } else {
+        setUserId(null);
+        setProfile(null);
+        setPhotos([]);
+        setVisitedLocations([]);
+        setActivities([]);
+        setStats({ placesVisited: 0, photosShared: 0, reviewsWritten: 0, friends: 0 });
+        setShareCode("");
       }
     });
+    return unsub;
+  }, []);
 
-    const handleUserDataChange = (event) => {
-      if (user && event.detail.userId === user.uid) {
-        fetchProfile();
-      }
-    };
-
-    window.addEventListener('userDataChanged', handleUserDataChange);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener('userDataChanged', handleUserDataChange);
-    };
-  }, [auth.currentUser?.uid]);
-
-  // Initial fetch + after editing profile
+  // Remove the old "Initial load (no overlay)" effect that used auth.currentUser
+  // and replace it with a simple refetch whenever userId changes.
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      fetchProfile();
-    }
-  }, [showEditProfile]);
+    if (userId) fetchProfile(userId);
+  }, [userId]);
+
+  // Real-time listener now depends on userId (not auth.currentUser?.uid)
+  useEffect(() => {
+    if (!userId) return;
+
+    const userRef = doc(db, "users", userId);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (!docSnap.exists()) return;
+      const data = docSnap.data();
+
+      setProfile((prev) => ({
+        ...prev,
+        name: data.name ?? prev?.name ?? "",
+        bio: data.bio ?? prev?.bio ?? "",
+        profilePicture: data.profilePicture ?? prev?.profilePicture ?? "/user.png",
+        likes: Array.isArray(data.likes) ? data.likes : prev?.likes || [],
+        dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev?.dislikes || [],
+      }));
+
+      const friendsCount =
+        Array.isArray(data.friends) ? data.friends.length
+        : typeof data.friendsCount === "number" ? data.friendsCount
+        : data?.stats?.friends || 0;
+
+      setStats((prev) => ({ ...prev, friends: friendsCount }));
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  // After editing profile, refetch using userId (auth.currentUser may still be null briefly on hard refresh)
+  useEffect(() => {
+    if (userId) fetchProfile(userId);
+  }, [showEditProfile, userId]);
 
   const navigate = useNavigate();
 
   // Achievements data
   const achievementsData = [
-    { id: 1, category: 'Getting Started', title: 'First Step', description: 'Create your very first itinerary.', icon: '🎯', unlocked: unlockedAchievements.has(1) },
-    { id: 2, category: 'Getting Started', title: 'First Bookmark', description: 'Save your first place to your favorites.', icon: '⭐', unlocked: unlockedAchievements.has(2) },
-    { id: 3, category: 'Getting Started', title: 'Say Cheese!', description: 'Upload your first travel photo.', icon: '📸', unlocked: unlockedAchievements.has(3) },
-    { id: 4, category: 'Getting Started', title: 'Hello, World!', description: 'Post your first comment on any itinerary or location.',
-      icon: '💬', unlocked: unlockedAchievements.has(4) },
-    { id: 5, category: 'Getting Started', title: 'Profile Pioneer', description: 'Complete your profile with a photo and bio.', icon: '👤', unlocked: unlockedAchievements.has(5) },
-    { id: 6, category: 'Exploration & Planning', title: 'Mini Planner', description: 'Add at least 3 places to a single itinerary.', icon: '🗺️', unlocked: unlockedAchievements.has(6) },
-    { id: 7, category: 'Exploration & Planning', title: 'Explorer at Heart', description: 'View 10 different destinations in the app.', icon: '✈️', unlocked: unlockedAchievements.has(7) },
-    { id: 8, category: 'Exploration & Planning', title: 'Checklist Champ', description: 'Mark your first place as "visited".', icon: '✅', unlocked: unlockedAchievements.has(8) }
+    {
+      id: 1,
+      category: "Getting Started",
+      title: "First Step",
+      description: "Create your very first itinerary.",
+      icon: "🎯",
+      unlocked: unlockedAchievements.has(1),
+    },
+    {
+      id: 2,
+      category: "Getting Started",
+      title: "First Bookmark",
+      description: "Save your first place to your favorites.",
+      icon: "⭐",
+      unlocked: unlockedAchievements.has(2),
+    },
+    {
+      id: 3,
+      category: "Getting Started",
+      title: "Say Cheese!",
+      description: "Upload your first travel photo.",
+      icon: "📸",
+      unlocked: unlockedAchievements.has(3),
+    },
+    {
+      id: 4,
+      category: "Getting Started",
+      title: "Hello, World!",
+      description:
+        "Post your first comment on any itinerary or location.",
+      icon: "💬",
+      unlocked: unlockedAchievements.has(4),
+    },
+    {
+      id: 5,
+      category: "Getting Started",
+      title: "Profile Pioneer",
+      description: "Complete your profile with a photo and bio.",
+      icon: "👤",
+      unlocked: unlockedAchievements.has(5),
+    },
+    {
+      id: 6,
+      category: "Exploration & Planning",
+      title: "Mini Planner",
+      description: "Add at least 3 places to a single itinerary.",
+      icon: "🗺️",
+      unlocked: unlockedAchievements.has(6),
+    },
+    {
+      id: 7,
+      category: "Exploration & Planning",
+      title: "Explorer at Heart",
+      description: "View 10 different destinations in the app.",
+      icon: "✈️",
+      unlocked: unlockedAchievements.has(7),
+    },
+    {
+      id: 8,
+      category: "Exploration & Planning",
+      title: "Checklist Champ",
+      description: 'Mark your first place as "visited".',
+      icon: "✅",
+      unlocked: unlockedAchievements.has(8),
+    },
   ];
 
   // Notification helper
@@ -203,13 +316,13 @@ const Profile = () => {
   // Unlock achievement (generic)
   const unlockAchievement = async (achievementId, achievementName) => {
     if (!unlockedAchievements.has(achievementId)) {
-      setUnlockedAchievements(prev => new Set(prev).add(achievementId));
+      setUnlockedAchievements((prev) => new Set(prev).add(achievementId));
       showAchievementNotification(`${achievementName} Achievement Unlocked! 🎉`);
       try {
         const user = auth.currentUser;
         if (user) {
           await updateDoc(doc(db, "users", user.uid), {
-            [`achievements.${achievementId}`]: true
+            [`achievements.${achievementId}`]: true,
           });
         }
       } catch (error) {
@@ -263,7 +376,7 @@ const Profile = () => {
         const photoData = {
           userId: user.uid,
           url: photoUrl,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
 
         const photoDocRef = await addDoc(collection(db, "photos"), photoData);
@@ -271,13 +384,13 @@ const Profile = () => {
         const updatedPhotos = [...photos, newPhoto];
 
         setPhotos(updatedPhotos);
-        setStats(prevStats => ({
+        setStats((prevStats) => ({
           ...prevStats,
-          photosShared: prevStats.photosShared + 1
+          photosShared: prevStats.photosShared + 1,
         }));
 
         await updateDoc(doc(db, "users", user.uid), {
-          "stats.photosShared": updatedPhotos.length
+          "stats.photosShared": updatedPhotos.length,
         });
 
         // Unlock "Say Cheese!" when uploading a photo (with toast)
@@ -298,16 +411,16 @@ const Profile = () => {
       if (!user) throw new Error("No user logged in");
 
       await deleteDoc(doc(db, "photos", photoId));
-      const updatedPhotos = photos.filter(photo => photo.id !== photoId);
+      const updatedPhotos = photos.filter((photo) => photo.id !== photoId);
 
       setPhotos(updatedPhotos);
-      setStats(prevStats => ({
+      setStats((prevStats) => ({
         ...prevStats,
-        photosShared: Math.max(0, prevStats.photosShared - 1)
+        photosShared: Math.max(0, prevStats.photosShared - 1),
       }));
 
       await updateDoc(doc(db, "users", user.uid), {
-        "stats.photosShared": updatedPhotos.length
+        "stats.photosShared": updatedPhotos.length,
       });
     } catch (err) {
       console.error("Failed to delete photo: ", err);
@@ -329,11 +442,11 @@ const Profile = () => {
         userId: user.uid,
         text,
         icon,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       await addDoc(collection(db, "activities"), activityData);
-      setActivities(prev => [activityData, ...prev.slice(0, 9)]);
+      setActivities((prev) => [activityData, ...prev.slice(0, 9)]);
     } catch (error) {
       console.error("Error adding activity:", error);
     }
@@ -357,15 +470,17 @@ const Profile = () => {
     changePreferences: () => addActivity("You have changed your travel preferences.", "⚙️"),
     followTraveler: () => addActivity("You have followed a traveler.", "👥"),
     unfollowTraveler: () => addActivity("You have unfollowed a traveler.", "👋"),
-    shareItinerary: () => addActivity("You have shared an itinerary.", "🔗")
+    shareItinerary: () => addActivity("You have shared an itinerary.", "🔗"),
   };
 
   // Search
   const handleSearch = async (e) => {
-    if (e.key === 'Enter' && searchQuery.trim()) {
+    if (e.key === "Enter" && searchQuery.trim()) {
       try {
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', Philippines')}&limit=1`
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            searchQuery + ", Philippines"
+          )}&limit=1`
         );
         const data = await response.json();
         if (data.length > 0) {
@@ -376,7 +491,7 @@ const Profile = () => {
           setSearchMarker({ position, name: display_name });
         }
       } catch (error) {
-        console.error('Search error:', error);
+        console.error("Search error:", error);
       }
     }
   };
@@ -411,11 +526,82 @@ const Profile = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate('/');
+      navigate("/");
     } catch (err) {
-      console.error('Logout failed:', err);
+      console.error("Logout failed:", err);
     }
   };
+
+  // Only keep newest first and a preview of 6
+  const sortedPhotos = useMemo(() => {
+    const ts = (p) =>
+      p?.createdAt?.toMillis?.() ??
+      (typeof p?.createdAt === "number" ? p.createdAt : p?.uploadedAt ?? 0);
+    return [...(photos || [])].sort((a, b) => ts(b) - ts(a));
+  }, [photos]);
+
+  const previewPhotos = useMemo(() => sortedPhotos.slice(0, 6), [sortedPhotos]);
+
+  // Pick the 2 most recent completed achievements from activities
+  const recentCompletedAchievements = useMemo(() => {
+    const toMs = (x) =>
+      x?.toMillis?.() ??
+      (typeof x === "number" ? x : (x ? Date.parse(x) : 0));
+    return (activities || [])
+      .filter(
+        (a) =>
+          a?.icon === "🏆" ||
+          /completed an achievement/i.test(a?.text || "") ||
+          /achievement/i.test(a?.text || "")
+      )
+      .sort(
+        (a, b) =>
+          toMs(b.completedAt || b.createdAt || b.timestamp || b.date) -
+          toMs(a.completedAt || a.createdAt || a.timestamp || a.date)
+      );
+  }, [activities]);
+
+  // Helper to extract the achievement name from the activity text
+  const extractAchievementName = (text = "") => {
+    const m = /completed an achievement:\s*(.+)$/i.exec(text);
+    return (m && m[1]?.trim()) || "";
+  };
+
+  // Build render-ready cards for the 2 most recent completed achievements
+  const recentAchievementCards = useMemo(() => {
+    const cards = [];
+    const seen = new Set();
+
+    for (const a of recentCompletedAchievements) {
+      const name =
+        extractAchievementName(a.text) || a.title || a.name || "Achievement";
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const meta =
+        achievementsData.find(
+          (x) => x.title.toLowerCase() === key
+        ) || undefined;
+
+      const when =
+        a?.completedAt?.toMillis?.() ||
+        a?.createdAt?.toMillis?.() ||
+        (a?.timestamp ? Date.parse(a.timestamp) : undefined) ||
+        (a?.date ? Date.parse(a.date) : undefined) ||
+        Date.now();
+
+      cards.push({
+        title: name,
+        description: meta?.description || a.text || "Achievement completed",
+        icon: meta?.icon || a.icon || "🏆",
+        when,
+      });
+
+      if (cards.length === 2) break;
+    }
+    return cards;
+  }, [recentCompletedAchievements, achievementsData]);
 
   return (
     <>
@@ -424,45 +610,67 @@ const Profile = () => {
         <div className="profile-header">
           <div className="profile-avatar">
             <img
-              src={profile.profilePicture || "/user.png"}
+              src={profile?.profilePicture || "/user.png"}
               alt="Profile"
               style={{
-                width: 96, height: 96, borderRadius: "50%", objectFit: "cover",
-                background: "#f3f4f6", border: "3px solid #e5e7eb"
+                width: 96,
+                height: 96,
+                borderRadius: "50%",
+                objectFit: "cover",
+                background: "#f3f4f6",
+                border: "3px solid #e5e7eb",
               }}
             />
           </div>
           <div className="profile-info">
             <div className="profile-title-row">
-              <h2>{profile.name || "Your Name"}</h2>
-              <button className="profile-edit-btn" onClick={() => setShowEditProfile(true)}>Edit Profile</button>
+              <h2>{profile?.name || "Your Name"}</h2>
+              {/* Make Edit Profile look like the other buttons */}
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowEditProfile(true)}
+              >
+                Edit Profile
+              </button>
             </div>
             <div className="profile-meta">
               <span>🌟 Explorer</span>
-              <span>• 🎂 Joined {profile.joined}</span>
+              <span>• 🎂 Joined {profile?.joined || ""}</span>   {/* null-safe */}
             </div>
             <div className="profile-badges">
-              {profile.likes.map(like => (
+              {(profile?.likes || []).map((like) => (
                 <div className="profile-interest profile-interest-like" key={like}>
                   <span className="profile-interest-label">{like}</span>
                 </div>
               ))}
-              {profile.dislikes.map(dislike => (
+              {(profile?.dislikes || []).map((dislike) => (
                 <div className="profile-interest profile-interest-dislike" key={dislike}>
                   <span className="profile-interest-label">{dislike}</span>
                 </div>
               ))}
             </div>
-            <div className="profile-bio">{profile.bio || "No bio yet."}</div>
+            <div className="profile-bio">{profile?.bio || "No bio yet."}</div>
           </div>
         </div>
 
         {/* Stats */}
         <div className="profile-stats-row">
-          <div className="profile-stat"><span>{stats.placesVisited}</span><div>Places Visited</div></div>
-          <div className="profile-stat"><span>{stats.photosShared}</span><div>Photos Shared</div></div>
-          <div className="profile-stat"><span>{stats.reviewsWritten}</span><div>Reviews Written</div></div>
-          <div className="profile-stat"><span>{stats.friends}</span><div>Friends</div></div>
+          <div className="profile-stat">
+            <span>{stats.placesVisited}</span>
+            <div>Places Visited</div>
+          </div>
+          <div className="profile-stat">
+            <span>{stats.photosShared}</span>
+            <div>Photos Shared</div>
+          </div>
+          <div className="profile-stat">
+            <span>{stats.reviewsWritten}</span>
+            <div>Reviews Written</div>
+          </div>
+          <div className="profile-stat">
+            <span>{stats.friends}</span>
+            <div>Friends</div>
+          </div>
         </div>
 
         <div className="profile-content-row">
@@ -471,8 +679,8 @@ const Profile = () => {
             {/* Travel Map */}
             <div className="profile-card">
               <div className="profile-card-title">🗺️ My Travel Map</div>
-              <div style={{ height: '300px', position: 'relative' }}>
-                <div style={{ marginBottom: '16px', padding: '0 4px' }}>
+              <div style={{ height: "300px", position: "relative" }}>
+                <div style={{ marginBottom: "16px", padding: "0 4px" }}>
                   <input
                     type="text"
                     placeholder="Search for a destination in the Philippines..."
@@ -480,15 +688,25 @@ const Profile = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={handleSearch}
                     style={{
-                      width: '100%', padding: '10px 14px', borderRadius: '8px',
-                      border: '1px solid #d1d5db', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "8px",
+                      border: "1px solid #d1d5db",
+                      fontSize: "14px",
+                      outline: "none",
+                      boxSizing: "border-box",
                     }}
                   />
                 </div>
                 <MapContainer
                   center={mapCenter}
                   zoom={mapZoom}
-                  style={{ height: '250px', width: '100%', borderRadius: '12px', zIndex: 1 }}
+                  style={{
+                    height: "250px",
+                    width: "100%",
+                    borderRadius: "12px",
+                    zIndex: 1,
+                  }}
                   key={`${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
                   attributionControl={false}
                 >
@@ -497,7 +715,10 @@ const Profile = () => {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
                   {visitedLocations.map((location) => (
-                    <Marker key={location.id} position={[location.latitude, location.longitude]}>
+                    <Marker
+                      key={location.id}
+                      position={[location.latitude, location.longitude]}
+                    >
                       <Popup>
                         <div>
                           <h3>{location.name}</h3>
@@ -523,26 +744,72 @@ const Profile = () => {
             {/* Recent Activity */}
             <div className="profile-card">
               <div className="profile-card-title">📝 Recent Activity</div>
-              <div className="profile-activity-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
-                {activities.length > 0 ? activities.slice(0, 10).map((a, i) => (
+              <div
+                className="profile-activity-list"
+                style={{ maxHeight: "240px", overflowY: "auto" }}
+              >
+                {activities.length > 0 ? (
+                  activities
+                    .slice(0, 10)
+                    .map((a, i) =>
+                      <div
+                        className="profile-activity-item"
+                        key={a.id || i}
+                        style={{
+                          background: `linear-gradient(135deg, ${[
+                            "#667eea",
+                            "#764ba2",
+                            "#f093fb",
+                            "#f5576c",
+                            "#4facfe",
+                            "#00f2fe",
+                          ][i % 6]} 0%, ${[
+                            "#764ba2",
+                            "#667eea",
+                            "#f5576c",
+                            "#f093fb",
+                            "#00f2fe",
+                            "#4facfe",
+                          ][i % 6]} 100%)`,
+                          color: "white",
+                          padding: "12px 16px",
+                          borderRadius: "12px",
+                          margin: "8px 0",
+                          backdropFilter: "blur(10px)",
+                          border: "1px solid rgba(255, 255, 255, 0.2)",
+                        }}
+                      >
+                        <span
+                          className="profile-activity-icon"
+                          style={{
+                            marginRight: "12px",
+                            fontSize: "18px",
+                          }}
+                        >
+                          {a.icon}
+                        </span>
+                        <span
+                          className="profile-activity-text"
+                          style={{ flex: 1, fontWeight: "500" }}
+                        >
+                          {a.text}
+                        </span>
+                        <span
+                          className="profile-activity-time"
+                          style={{ fontSize: "12px", opacity: 0.6 }}
+                        >
+                          {new Date(a.timestamp).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )
+                ) : (
                   <div
-                    className="profile-activity-item"
-                    key={a.id || i}
                     style={{
-                      background: `linear-gradient(135deg, ${['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'][i % 6]} 0%, ${['#764ba2', '#667eea', '#f5576c', '#f093fb', '#00f2fe', '#4facfe'][i % 6]} 100%)`,
-                      color: 'white', padding: '12px 16px', borderRadius: '12px',
-                      margin: '8px 0', backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                      textAlign: "center",
+                      color: "#666",
+                      padding: "20px",
                     }}
                   >
-                    <span className="profile-activity-icon" style={{ marginRight: '12px', fontSize: '18px' }}>{a.icon}</span>
-                    <span className="profile-activity-text" style={{ flex: 1, fontWeight: '500' }}>{a.text}</span>
-                    <span className="profile-activity-time" style={{ fontSize: '12px', opacity: 0.6 }}>
-                      {new Date(a.timestamp).toLocaleDateString()}
-                    </span>
-                  </div>
-                )) : (
-                  <div style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
                     No recent activities
                   </div>
                 )}
@@ -551,59 +818,143 @@ const Profile = () => {
 
             {/* Photo Gallery */}
             <div className="profile-card">
-              <div className="profile-card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div
+                className="profile-card-title"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <span>📷 Photo Gallery</span>
-                <div>
-                  <label htmlFor="photo-upload" className="profile-gallery-link" style={{ cursor: 'pointer' }}>
+                <div
+                  className="profile-gallery-actions"
+                  style={{ display: "flex", gap: 12 }}
+                >
+                  <label
+                    htmlFor="photo-upload"
+                    className="btn btn-primary"
+                    style={{ cursor: "pointer" }}
+                  >
                     Upload Photo
                   </label>
-                  <input id="photo-upload" type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
-                  {photos.length > 6 && (
-                    <a
-                      href="#"
-                      className="profile-gallery-link"
-                      style={{ marginLeft: '16px' }}
-                      onClick={(e) => { e.preventDefault(); setShowAllPhotos(true); }}
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handlePhotoUpload}
+                  />
+                  {photos.length > 0 && (
+                    <button
+                      className="btn btn-primary"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowAllPhotos(true);
+                      }}
                     >
                       View All ({photos.length})
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
-              <div className="profile-gallery-scroll">
-                {photos.length > 0 ? (
-                  photos.slice(0, 6).map((photo) => (
+
+              {/* Single-row, horizontally scrollable preview — ONLY 7 recent */}
+              <div
+                className="profile-gallery-scroll"
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  overflowX: "auto",
+                  overflowY: "hidden",
+                  padding: "6px 2px 10px",
+                  scrollSnapType: "x proximity",
+                  flexWrap: "nowrap", // keep a single row
+                  maxHeight: 132, // 120 tile + paddings = one line only
+                }}
+              >
+                {previewPhotos.length > 0 ? (
+                  previewPhotos.map((photo) => (
                     <div
                       className="profile-gallery-photo"
-                      key={photo.id}
-                      style={{ position: 'relative', width: '120px', height: '120px', cursor: 'pointer' }}
+                      key={photo.id || photo.url}
+                      style={{
+                        position: "relative",
+                        width: 120,
+                        height: 120,
+                        flex: "0 0 auto",
+                        cursor: "pointer",
+                        scrollSnapAlign: "start",
+                      }}
                       onClick={() => handlePhotoClick(photo)}
                     >
-                      <img src={photo.url} alt="Gallery" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '14px' }} />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id); }}
+                      <img
+                        src={transformCloudinary(photo.url, { w: 120, h: 120 })}
+                        alt="Gallery"
                         style={{
-                          position: 'absolute', top: '4px', right: '4px',
-                          background: 'rgba(255, 255, 255, 0.8)', border: 'none',
-                          borderRadius: '50%', width: '24px', height: '24px',
-                          cursor: 'pointer', fontSize: '14px', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center'
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          borderRadius: 14,
+                          imageOrientation: "from-image",
+                          background: "#f3f4f6",
                         }}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePhoto(photo.id);
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          background: "rgba(255,255,255,0.85)",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: 24,
+                          height: 24,
+                          cursor: "pointer",
+                          fontSize: 14,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        aria-label="Delete photo"
+                        title="Delete"
                       >
                         ×
                       </button>
                     </div>
                   ))
                 ) : (
-                  <div style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    width: '120px', height: '120px',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    borderRadius: '14px', color: 'white', textAlign: 'center',
-                    padding: '12px', boxSizing: 'border-box', border: '2px dashed rgba(255, 255, 255, 0.3)'
-                  }}>
-                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>📸</div>
-                    <div style={{ fontSize: '11px', fontWeight: '500', lineHeight: '1.2' }}>Upload your first photo!</div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 120,
+                      height: 120,
+                      flex: "0 0 auto",
+                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      borderRadius: 14,
+                      color: "white",
+                      textAlign: "center",
+                      padding: 12,
+                      boxSizing: "border-box",
+                      border: "2px dashed rgba(255,255,255,0.3)",
+                    }}
+                  >
+                    <div style={{ fontSize: 24, marginRight: 8 }}>📸</div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      Upload your first photo!
+                    </div>
                   </div>
                 )}
               </div>
@@ -616,27 +967,192 @@ const Profile = () => {
             <div className="profile-card profile-achievements">
               <div className="profile-card-title">🏆 Achievements</div>
               <div className="profile-achievements-list">
-                <button className="achievements-trigger" onClick={() => setShowAchievements(true)} style={{ width: '100%', padding: '12px', marginBottom: '16px' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowAchievements(true)}
+                  style={{ width: "100%", marginBottom: 16 }}
+                >
                   View All Achievements
                 </button>
-                <div className="achievements-preview">
-                  <div className={`achievement-item ${unlockedAchievements.has(1) ? 'achievement-unlocked' : 'achievement-locked'}`}
-                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', margin: '6px 0', borderRadius: '8px', background: unlockedAchievements.has(1) ? '#f0f9ff' : '#f9fafb', border: `1px solid ${unlockedAchievements.has(1) ? '#0ea5e9' : '#e5e7eb'}`, minHeight: '50px' }}>
-                    <div className="achievement-icon" style={{ fontSize: '20px', marginRight: '10px' }}>🎯</div>
-                    <div className="achievement-details" style={{ flex: 1 }}>
-                      <h4 className="achievement-title" style={{ margin: '0 0 2px 0', fontSize: '14px', fontWeight: '600' }}>First Step</h4>
-                      <p className="achievement-description" style={{ margin: 0, fontSize: '12px', color: '#666', lineHeight: '1.3' }}>Create your very first itinerary</p>
+
+                {/* If we have completed achievements, show the 2 most recent.
+                    Otherwise show your default preview tiles. */}
+                {recentAchievementCards.length > 0 ? (
+                  <div className="achievements-preview">
+                    {recentAchievementCards.map((a, i) => (
+                      <div
+                        key={`${a.title}-${i}`}
+                        className="achievement-item achievement-unlocked"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          padding: "12px",
+                          margin: "6px 0",
+                          borderRadius: "12px",
+                          background: "#fff",
+                          border: "1px solid #6c63ff",
+                          minHeight: "50px",
+                        }}
+                      >
+                        <div
+                          className="achievement-icon"
+                          style={{
+                            fontSize: "20px",
+                            marginRight: "10px",
+                            width: 40,
+                            height: 40,
+                            borderRadius: "50%",
+                            background:
+                              "linear-gradient(135deg, #a084ee 60%, #6c63ff 100%)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {a.icon || "🏆"}
+                        </div>
+                        <div className="achievement-details" style={{ flex: 1 }}>
+                          <h4
+                            className="achievement-title"
+                            style={{
+                              margin: "0 0 2px 0",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {a.title}
+                          </h4>
+                          <p
+                            className="achievement-description"
+                            style={{
+                              margin: 0,
+                              fontSize: "12px",
+                              color: "#666",
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {a.description}
+                          </p>
+                        </div>
+                        <div
+                          className="achievement-when"
+                          style={{ fontSize: 12, color: "#64748b" }}
+                        >
+                          {new Date(a.when).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="achievements-preview">
+                    {/* Default tiles (unchanged) */}
+                    <div
+                      className={`achievement-item ${
+                        unlockedAchievements.has(1)
+                          ? "achievement-unlocked"
+                          : "achievement-locked"
+                      }`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        margin: "6px 0",
+                        borderRadius: "8px",
+                        background: unlockedAchievements.has(1)
+                          ? "#f0f9ff"
+                          : "#f9fafb",
+                        border: `1px solid ${
+                          unlockedAchievements.has(1) ? "#0ea5e9" : "#e5e7eb"
+                        }`,
+                        minHeight: "50px",
+                      }}
+                    >
+                      <div
+                        className="achievement-icon"
+                        style={{ fontSize: "20px", marginRight: "10px" }}
+                      >
+                        🎯
+                      </div>
+                      <div className="achievement-details" style={{ flex: 1 }}>
+                        <h4
+                          className="achievement-title"
+                          style={{
+                            margin: "0 0 2px 0",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                          }}
+                        >
+                          First Step
+                        </h4>
+                        <p
+                          className="achievement-description"
+                          style={{
+                            margin: 0,
+                            fontSize: "12px",
+                            color: "#666",
+                            lineHeight: "1.3",
+                          }}
+                        >
+                          Create your very first itinerary
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`achievement-item ${
+                        unlockedAchievements.has(5)
+                          ? "achievement-unlocked"
+                          : "achievement-locked"
+                      }`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        margin: "6px 0",
+                        borderRadius: "8px",
+                        background: unlockedAchievements.has(5)
+                          ? "#f0f9ff"
+                          : "#f9fafb",
+                        border: `1px solid ${
+                          unlockedAchievements.has(5) ? "#0ea5e9" : "#e5e7eb"
+                        }`,
+                        minHeight: "50px",
+                      }}
+                    >
+                      <div
+                        className="achievement-icon"
+                        style={{ fontSize: "20px", marginRight: "10px" }}
+                      >
+                        👤
+                      </div>
+                      <div className="achievement-details" style={{ flex: 1 }}>
+                        <h4
+                          className="achievement-title"
+                          style={{
+                            margin: "0 0 2px 0",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                          }}
+                        >
+                          Profile Pioneer
+                        </h4>
+                        <p
+                          className="achievement-description"
+                          style={{
+                            margin: 0,
+                            fontSize: "12px",
+                            color: "#666",
+                            lineHeight: "1.3",
+                          }}
+                        >
+                          Complete your profile with photo and bio
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className={`achievement-item ${unlockedAchievements.has(5) ? 'achievement-unlocked' : 'achievement-locked'}`}
-                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', margin: '6px 0', borderRadius: '8px', background: unlockedAchievements.has(5) ? '#f0f9ff' : '#f9fafb', border: `1px solid ${unlockedAchievements.has(5) ? '#0ea5e9' : '#e5e7eb'}`, minHeight: '50px' }}>
-                    <div className="achievement-icon" style={{ fontSize: '20px', marginRight: '10px' }}>👤</div>
-                    <div className="achievement-details" style={{ flex: 1 }}>
-                      <h4 className="achievement-title" style={{ margin: '0 0 2px 0', fontSize: '14px', fontWeight: '600' }}>Profile Pioneer</h4>
-                      <p className="achievement-description" style={{ margin: 0, fontSize: '12px', color: '#666', lineHeight: '1.3' }}>Complete your profile with photo and bio</p>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -651,8 +1167,19 @@ const Profile = () => {
                 🗂️ Share Profile
               </button>
               <button className="profile-action-btn export">💾 Export My Data</button>
-              <button className="profile-action-btn settings" onClick={() => setShowInfoDelete(true)}>⚙️ Account Settings</button>
-              <button className="profile-action-btn logout" style={{ background: '#3b5fff', marginTop: '8px' }} onClick={handleLogout}>🚪 Logout</button>
+              <button
+                className="profile-action-btn settings"
+                onClick={() => setShowInfoDelete(true)}
+              >
+                ⚙️ Account Settings
+              </button>
+              <button
+                className="profile-action-btn logout"
+                style={{ background: "#3b5fff", marginTop: "8px" }}
+                onClick={handleLogout}
+              >
+                🚪 Logout
+              </button>
             </div>
           </div>
         </div>
@@ -662,18 +1189,62 @@ const Profile = () => {
       {showEditProfile && (
         <div
           style={{
-            position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-            background: "rgba(44, 44, 84, 0.25)", zIndex: 9999, display: "flex",
-            alignItems: "center", justifyContent: "center"
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(44, 44, 84, 0.25)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          <EditProfile onClose={() => setShowEditProfile(false)} onProfileUpdate={() => unlockAchievement(5, 'Profile Pioneer')} />
+          <EditProfile
+            onClose={() => setShowEditProfile(false)}
+            onProfileUpdate={() => unlockAchievement(5, "Profile Pioneer")}
+          />
         </div>
       )}
 
       {/* Achievements Modal */}
       {showAchievements && (
-        <Achievements isOpen={showAchievements} onClose={() => setShowAchievements(false)} achievementsData={achievementsData} />
+        <div className="achv-backdrop" onClick={() => setShowAchievements(false)}>
+          <div className="achv-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="achv-header">
+              <div className="achv-title">
+                <span className="achv-title-icon">🏆</span>
+                Achievements
+              </div>
+              <button className="achv-close" onClick={() => setShowAchievements(false)} aria-label="Close">×</button>
+            </div>
+
+            <div className="achv-body">
+              <div className="achv-section">
+                <div className="achv-section-title">Getting Started</div>
+                <div className="achv-divider" />
+                <div className="achv-grid">
+                  {achievementsData.map((a) => (
+                    <div
+                      key={a.id}
+                      className={`achv-item ${a.unlocked ? "is-unlocked" : "is-locked"}`}
+                    >
+                      <div className="achv-item-icon">{a.icon || "🏆"}</div>
+                      <div>
+                        <div className="achv-item-title">{a.title}</div>
+                        <div className="achv-item-desc">{a.description}</div>
+                      </div>
+                      <div className={`achv-badge ${a.unlocked ? "ok" : ""}`}>
+                        {a.unlocked ? "Unlocked" : "Locked"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Info / Delete Modal */}
@@ -683,29 +1254,49 @@ const Profile = () => {
       {selectedPhoto && (
         <div
           style={{
-            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', zIndex: 10000
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0, 0, 0, 0.9)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
           }}
           onClick={closePhotoView}
         >
           <div
-            style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}
+            style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              src={selectedPhoto.url}
+              src={transformCloudinary(selectedPhoto.url, { w: 1600, h: 1600 })}
               alt="Expanded"
-              style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain' }}
+              style={{
+                maxWidth: "90vw",
+                maxHeight: "90vh",
+                objectFit: "contain",
+                imageOrientation: "from-image",
+              }}
             />
             <button
               onClick={closePhotoView}
               style={{
-                position: 'absolute', top: '10px', right: '10px',
-                background: 'rgba(255, 255, 255, 0.8)', border: 'none',
-                borderRadius: '50%', width: '32px', height: '32px',
-                cursor: 'pointer', fontSize: '20px', display: 'flex',
-                alignItems: 'center', justifyContent: 'center'
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                background: "rgba(255, 255, 255, 0.8)",
+                border: "none",
+                borderRadius: "50%",
+                width: "32px",
+                height: "32px",
+                cursor: "pointer",
+                fontSize: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               ×
@@ -718,28 +1309,53 @@ const Profile = () => {
       {showAllPhotos && (
         <div
           style={{
-            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            background: 'rgba(0, 0, 0, 0.9)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', zIndex: 10001
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0, 0, 0, 0.9)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10001,
           }}
           onClick={() => setShowAllPhotos(false)}
         >
           <div
             style={{
-              position: 'relative', width: '90%', height: '90%',
-              background: 'white', borderRadius: '16px', padding: '24px',
-              overflowY: 'auto'
+              position: "relative",
+              width: "90%",
+              height: "90%",
+              background: "white",
+              borderRadius: "16px",
+              padding: "24px",
+              overflowY: "auto",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
               <h2 style={{ margin: 0 }}>{LABELS.ALL_PHOTOS}</h2>
               <button
                 onClick={() => setShowAllPhotos(false)}
                 style={{
-                  background: 'none', border: 'none', fontSize: '24px',
-                  cursor: 'pointer', padding: 0, width: '32px', height: '32px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  padding: 0,
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 ×
@@ -748,9 +1364,9 @@ const Profile = () => {
 
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                gap: '16px'
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                gap: "16px",
               }}
             >
               {photos
@@ -760,12 +1376,12 @@ const Profile = () => {
                   <div
                     key={photo.id}
                     style={{
-                      position: 'relative',
-                      width: '100%',
-                      paddingTop: '100%',
-                      borderRadius: '14px',
-                      overflow: 'hidden',
-                      cursor: 'pointer'
+                      position: "relative",
+                      width: "100%",
+                      paddingTop: "100%",
+                      borderRadius: "14px",
+                      overflow: "hidden",
+                      cursor: "pointer",
                     }}
                     onClick={() => {
                       setSelectedPhoto(photo);
@@ -773,15 +1389,16 @@ const Profile = () => {
                     }}
                   >
                     <img
-                      src={photo.url}
+                      src={transformCloudinary(photo.url, { w: 600, h: 600 })}
                       alt="Gallery"
                       style={{
-                        position: 'absolute',
+                        position: "absolute",
                         top: 0,
                         left: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        imageOrientation: "from-image",
                       }}
                     />
                     <button
@@ -790,11 +1407,19 @@ const Profile = () => {
                         handleDeletePhoto(photo.id);
                       }}
                       style={{
-                        position: 'absolute', top: '4px', right: '4px',
-                        background: 'rgba(255, 255, 255, 0.8)', border: 'none',
-                        borderRadius: '50%', width: '24px', height: '24px',
-                        cursor: 'pointer', fontSize: '14px', display: 'flex',
-                        alignItems: 'center', justifyContent: 'center'
+                        position: "absolute",
+                        top: "4px",
+                        right: "4px",
+                        background: "rgba(255, 255, 255, 0.8)",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: 24,
+                        height: 24,
+                        cursor: "pointer",
+                        fontSize: 14,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
                       ×
@@ -808,18 +1433,39 @@ const Profile = () => {
 
       {/* Share Code Popup */}
       {showShareCode && (
-        <div className="sharecode-backdrop" onClick={() => setShowShareCode(false)}>
-          <div className="sharecode-card" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="sharecode-backdrop"
+          onClick={() => setShowShareCode(false)}
+        >
+          <div
+            className="sharecode-card"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="sharecode-header">
               <div className="sharecode-title">Share Profile Code</div>
-              <button className="sharecode-close" onClick={() => setShowShareCode(false)}>×</button>
+              <button
+                className="sharecode-close"
+                onClick={() => setShowShareCode(false)}
+              >
+                ×
+              </button>
             </div>
 
             <div className="sharecode-body">
               <div className="sharecode-box">{shareCode || "--------"}</div>
               <div className="sharecode-actions">
-                <button className="sharecode-btn primary" onClick={copyShareCode}>Copy Code</button>
-                <button className="sharecode-btn ghost" onClick={handleShareProfile}>Regenerate</button>
+                <button
+                  className="sharecode-btn primary"
+                  onClick={copyShareCode}
+                >
+                  Copy Code
+                </button>
+                <button
+                  className="sharecode-btn ghost"
+                  onClick={handleShareProfile}
+                >
+                  Regenerate
+                </button>
               </div>
               <div className="sharecode-hint">
                 Friends can add you by entering this code in Community → Friends.
