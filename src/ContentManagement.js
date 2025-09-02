@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { CloudinaryContext, Image, Video } from './cloudinary';
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -476,6 +476,16 @@ function ContentManagement() {
   const [userProfile, setUserProfile] = useState(null);
   const [userProfileTab, setUserProfileTab] = useState('overview');
 
+  // Activity state for User Profile
+  const [userActivity, setUserActivity] = useState([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+
+  // NEW: Photos state for User Profile
+  const [userPhotos, setUserPhotos] = useState([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+
+  // ADD: Activity state for User Profile (fixes no-undef)
+
   // Modal state (was missing -> caused no-undef ESLint errors)
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -527,9 +537,10 @@ const saveSettings = () => {
         const destinations = dSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const users = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const articles = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        const published =
-          (destinations.filter((x) => x.status === 'published').length || 0) +
-          (articles.filter((x) => x.status === 'published').length || 0);
+        // Count ONLY destinations that are published (case-insensitive)
+        const publishedDestinations =
+          destinations.filter((x) => String(x.status || '').toLowerCase() === 'published').length;
+
         const recent = [
           ...destinations.slice(-5).map((d) => ({ ...d, type: 'destination' })),
           ...articles.slice(-5).map((a) => ({ ...a, type: 'article' })),
@@ -537,11 +548,10 @@ const saveSettings = () => {
           .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
           .slice(0, 10);
 
-        // Do NOT set totalDestinations/totalUsers here; live counters below own them
         setAnalytics((a) => ({
           ...a,
           totalArticles: articles.length,
-          publishedContent: published,
+          publishedContent: publishedDestinations, // only destinations
           recentActivity: recent,
         }));
 
@@ -556,9 +566,8 @@ const saveSettings = () => {
         setAnalytics((a) => ({
           ...a,
           totalArticles: localArticles.length,
-          publishedContent:
-            (localDest.filter((d) => d.status === 'published').length || 0) +
-            (localArticles.filter((x) => x.status === 'published').length || 0),
+          // only destinations; case-insensitive
+          publishedContent: localDest.filter((d) => String(d.status || '').toLowerCase() === 'published').length,
           recentActivity: [...localDest.slice(-5), ...localArticles.slice(-5)].slice(0, 10),
         }));
 
@@ -570,49 +579,62 @@ const saveSettings = () => {
     })();
   }, []);
 
-  // LIVE: dashboard counters from Firestore (destinations + users)
+  // LIVE: dashboard counters from Firestore (destinations + users + published destinations)
   useEffect(() => {
     if (active !== 'dashboard') return;
 
     let unsubDest = null;
     let unsubUsers = null;
+    let unsubPubDest = null;
 
-    const setCounts = (dest, users) =>
-      setAnalytics((a) => ({ ...a, totalDestinations: dest, totalUsers: users }));
+    const destColl = collection(db, 'destinations');
+    const usersColl = collection(db, 'users');
+    // accept both lowercase/uppercase values stored in Firestore
+    const pubQ = query(destColl, where('status', 'in', ['published', 'PUBLISHED']));
 
     (async () => {
-      // Initial counts using count aggregation (fast, low cost)
       try {
-        const [dc, uc] = await Promise.all([
-          getCountFromServer(collection(db, 'destinations')),
-          getCountFromServer(collection(db, 'users')),
+        const [dc, uc, pc] = await Promise.all([
+          getCountFromServer(destColl),
+          getCountFromServer(usersColl),
+          getCountFromServer(pubQ),
         ]);
-        setCounts(dc.data().count || 0, uc.data().count || 0);
+        setAnalytics((a) => ({
+          ...a,
+          totalDestinations: dc.data().count || 0,
+          totalUsers: uc.data().count || 0,
+          publishedContent: pc.data().count || 0, // only destinations
+        }));
       } catch (err) {
-        // Fallback to fetching docs or localStorage
         try {
-          const [dSnap, uSnap] = await Promise.all([
-            getDocs(collection(db, 'destinations')),
-            getDocs(collection(db, 'users')),
+          const [dSnap, uSnap, pSnap] = await Promise.all([
+            getDocs(destColl),
+            getDocs(usersColl),
+            getDocs(pubQ),
           ]);
-          setCounts(dSnap.size, uSnap.size);
+          setAnalytics((a) => ({
+            ...a,
+            totalDestinations: dSnap.size,
+            totalUsers: uSnap.size,
+            publishedContent: pSnap.size, // only destinations
+          }));
         } catch {
-          const ld = (JSON.parse(localStorage.getItem('destinations') || '[]') || []).length;
-          const lu = (JSON.parse(localStorage.getItem('users') || '[]') || []).length;
-          setCounts(ld, lu);
+          // keep previous values
         }
       }
 
-      // Real-time updates while Dashboard is visible
+      // Real-time updates
       try {
-        unsubDest = onSnapshot(collection(db, 'destinations'), (snap) =>
+        unsubDest = onSnapshot(destColl, (snap) =>
           setAnalytics((a) => ({ ...a, totalDestinations: snap.size }))
         );
-        unsubUsers = onSnapshot(collection(db, 'users'), (snap) =>
+        unsubUsers = onSnapshot(usersColl, (snap) =>
           setAnalytics((a) => ({ ...a, totalUsers: snap.size }))
         );
+        unsubPubDest = onSnapshot(pubQ, (snap) =>
+          setAnalytics((a) => ({ ...a, publishedContent: snap.size }))
+        );
       } catch (e) {
-        // ignore listener failures
         console.warn('onSnapshot counters error:', e);
       }
     })();
@@ -620,6 +642,7 @@ const saveSettings = () => {
     return () => {
       if (typeof unsubDest === 'function') unsubDest();
       if (typeof unsubUsers === 'function') unsubUsers();
+      if (typeof unsubPubDest === 'function') unsubPubDest();
     };
   }, [active]);
 
@@ -813,6 +836,94 @@ useEffect(() => {
     setEditPlaces(Array.isArray(u?.places) ? u.places : []);
     setEditStatus((u?.status || 'active').toLowerCase());
   };
+
+  // Live activity loader for the selected user (Activity tab)
+  useEffect(() => {
+    if (!userProfileOpen || !userProfile || userProfileTab !== 'activity') return;
+
+    let unsub = null;
+    setLoadingActivity(true);
+    setUserActivity([]); // reset while loading
+    const uid = userProfile.id;
+
+    const normalize = (docs) =>
+      docs
+        .map((d) => {
+          const a = typeof d.data === 'function' ? d.data() : d;
+          const created =
+            a.createdAt?.toDate?.() ||
+            a.timestamp?.toDate?.() ||
+            a.date?.toDate?.() ||
+            a.updatedAt?.toDate?.() ||
+            a.createdAt ||
+            a.timestamp ||
+            a.date ||
+            a.updatedAt ||
+            null;
+          return {
+            id: d.id || a.id,
+            type: a.type || a.kind || a.actionType || a.category || 'event',
+            title: a.title || a.action || a.message || a.text || a.description || 'Activity',
+            createdAt: created ? new Date(created) : null,
+          };
+        })
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    const trySubscribe = async () => {
+      // Preferred: users/{uid}/activity or users/{uid}/activities
+      const preferred = [
+        () => query(collection(db, 'users', uid, 'activity'), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'users', uid, 'activity'), orderBy('timestamp', 'desc'), limit(50)),
+        () => query(collection(db, 'users', uid, 'activities'), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'users', uid, 'activities'), orderBy('timestamp', 'desc'), limit(50)),
+      ];
+
+      // Top-level with userId filter
+      const candidates = [
+        () => query(collection(db, 'activity'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'activity'), where('userId', '==', uid), orderBy('timestamp', 'desc'), limit(50)),
+        () => query(collection(db, 'activities'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'activities'), where('userId', '==', uid), orderBy('timestamp', 'desc'), limit(50)),
+        () => query(collection(db, 'userActivity'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+        () => query(collection(db, 'userActivities'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
+      ];
+
+      const all = [...preferred, ...candidates];
+
+      // Probe until one works; if orderBy index is missing, fall back to unordered and client-side sort
+      for (const make of all) {
+        try {
+          const qref = make();
+          const probe = await getDocs(qref);
+          unsub = onSnapshot(
+            qref,
+            (snap) => { setUserActivity(normalize(snap.docs)); setLoadingActivity(false); },
+            () => { setUserActivity([]); setLoadingActivity(false); }
+          );
+          return;
+        } catch {
+          // continue
+        }
+      }
+
+      // Fallback unordered subcollection
+      try {
+        const base = collection(db, 'users', uid, 'activity');
+        unsub = onSnapshot(
+          base,
+          (snap) => { setUserActivity(normalize(snap.docs)); setLoadingActivity(false); },
+          () => { setUserActivity([]); setLoadingActivity(false); }
+        );
+      } catch {
+        setUserActivity([]);
+        setLoadingActivity(false);
+      }
+    };
+
+    trySubscribe();
+
+    return () => { if (typeof unsub === 'function') unsub(); };
+  }, [userProfileOpen, userProfile, userProfileTab]);
 
   return (
     <div className="cms-root">
@@ -1373,9 +1484,10 @@ useEffect(() => {
                         );
                       })}
                     </div>
-                  );
-                })()
-              )}
+                  )
+                  })()
+
+                )}
             </div>
 
             {/* User Profile Modal */}
@@ -1570,10 +1682,6 @@ useEffect(() => {
 
                         {/* Places Visited */}
                         <div style={{
-                          background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18
-                        }}>
-                          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Places Visited</div>
-                          <ul style={{
                             listStyle: 'none', padding: 0, margin: 0, display: 'grid', rowGap: 10
                           }}>
                             {((Array.isArray(userProfile.places) && userProfile.places.length ? userProfile.places : [
@@ -1584,13 +1692,151 @@ useEffect(() => {
                                 <span style={{ fontSize: 15, fontWeight: 400 }}>{typeof p === 'string' ? p : (p?.name || p?.title || 'Unknown')}</span>
                               </li>
                             ))}
-                          </ul>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {userProfileTab !== 'overview' && (
+                  {/* NEW: Activity tab (matches screenshot) */}
+                  {userProfileTab === 'activity' && (
+                    <div className="up-activity-wrap">
+                      <div className="up-activity-card content-card">
+                        <div className="up-activity-title">Recent Activity</div>
+                        <div className="up-activity-list">
+                          {loadingActivity ? (
+                            <div className="centered" style={{ padding: 16 }}>
+                              <div className="loading-spinner" />
+                            </div>
+                          ) : userActivity.length === 0 ? (
+                            <div className="muted" style={{ padding: 16 }}>No recent activity</div>
+                          ) : (
+                            userActivity.map((it) => {
+                              const iconFor = (t) => {
+                                switch (String(t || '').toLowerCase()) {
+                                  case 'photo': return { emoji: '🖼️', bg: '#eef2ff', fg: '#2563eb' };
+                                  case 'review': return { emoji: '⭐', bg: '#f5f3ff', fg: '#7c3aed' };
+                                  case 'visit': return { emoji: '📍', bg: '#ecfeff', fg: '#06b6d4' };
+                                  case 'friend': return { emoji: '👥', bg: '#f0f9ff', fg: '#0ea5e9' };
+                                  default: return { emoji: '📌', bg: '#f1f5f9', fg: '#334155' };
+                                }
+                              };
+                              const ico = iconFor(it.type);
+                              return (
+                                <div key={it.id} className="up-activity-item">
+                                  <div className="up-activity-icon" style={{ background: ico.bg, color: ico.fg }}>
+                                    {ico.emoji}
+                                  </div>
+                                  <div className="up-activity-main">
+                                    <div className="up-activity-text">{it.title}</div>
+                                    <div className="up-activity-date">{fmtDate(it.createdAt)}</div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NEW: Photos tab (matches screenshot) */}
+                  {userProfileTab === 'photos' && (
+                    <div className="up-photos-wrap">
+                      <div className="up-photos-card content-card">
+                        <div className="up-photos-title">Photo Gallery</div>
+                        <div className="up-photos-grid">
+                          {loadingPhotos ? (
+                            <div className="centered" style={{ padding: 16, gridColumn: '1 / -1' }}>
+                              <div className="loading-spinner" />
+                            </div>
+                          ) : userPhotos.length === 0 ? (
+                            <div className="muted" style={{ padding: 16, gridColumn: '1 / -1' }}>
+                              No photos uploaded
+                            </div>
+                          ) : (
+                            userPhotos.map((p, idx) => {
+                              const cloudThumbFromPublicId = (id, size = 220) =>
+                                `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto:good,c_fill,g_auto,w_${size},h_${size}/${id}`;
+                              const toCloudThumb = (url, size = 220) => {
+                                if (!url || typeof url !== 'string') return null;
+                                const i = url.indexOf('/upload/');
+                                if (i === -1) return url;
+                                const before = url.slice(0, i + 8);
+                                const after = url.slice(i + 8);
+                                if (/c_|w_\d+|h_\d+/.test(after)) return `${before}${after}`;
+                                const tx = `f_auto,q_auto:good,c_fill,g_auto,w_${size},h_${size}`;
+                                return `${before}${tx}/${after}`;
+                              };
+                              const src = p.publicId
+                                ? cloudThumbFromPublicId(p.publicId, 280)
+                                : toCloudThumb(p.url, 280) || p.url;
+
+                              return (
+                                <div
+                                  key={p.id || idx}
+                                  className="up-photo-tile"
+                                  title={p.title || ''}
+                                  style={{
+                                    backgroundImage: src ? `url('${src}')` : undefined,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                  }}
+                                >
+                                  {p.title ? <div className="up-photo-label">{p.title}</div> : null}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NEW: Achievements tab (matches screenshot) */}
+                  {userProfileTab === 'achievements' && (
+                    <div className="up-ach-wrap">
+                      <div className="up-ach-card content-card">
+                        <div className="up-ach-title">Achievements</div>
+                        <div className="up-ach-grid">
+                          {(() => {
+                            const items = Array.isArray(userProfile?.achievements) && userProfile.achievements.length
+                              ? userProfile.achievements.map((a, i) => ({
+                                  id: a.id || i,
+                                  icon: a.icon || '🌐',
+                                  title: a.title || 'Achievement',
+                                  subtitle: a.description || a.subtitle || '',
+                                  earned: a.earned ? fmtDate(a.earned) : (a.date ? fmtDate(a.date) : '')
+                                }))
+                              : [
+                                  { id: 'a1', icon: '🌐', title: 'Globe Trotter', subtitle: 'Visited 10+ countries', earned: '8/15/2023' },
+                                  { id: 'a2', icon: '📷', title: 'Photo Master', subtitle: 'Shared 200+ photos', earned: '9/20/2023' },
+                                  { id: 'a3', icon: '⭐', title: 'Review Expert', subtitle: 'Written 25+ reviews', earned: '10/5/2023' },
+                                ];
+
+                            return items.map((it, idx) => (
+                              <div
+                                key={it.id}
+                                className="up-ach-item"
+                                style={{
+                                  gridColumn: (idx === items.length - 1 && items.length % 2 === 1) ? '1 / -1' : undefined
+                                }}
+                              >
+                                <div className="up-ach-ico">{it.icon}</div>
+                                <div className="up-ach-main">
+                                  <div className="up-ach-name">{it.title}</div>
+                                  <div className="up-ach-sub">{it.subtitle}</div>
+                                  <div className="up-ach-date">Earned {it.earned}</div>
+                                </div>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Keep other tabs; only show placeholder for unknown tabs */}
+                  {userProfileTab !== 'overview' && userProfileTab !== 'activity' && userProfileTab !== 'photos' && userProfileTab !== 'achievements' && (
                     <div style={{ padding: 40, background: '#f8fafc', color: '#6b7280', textAlign: 'center', fontSize: 17 }}>
                       <em>“{userProfileTab.charAt(0).toUpperCase() + userProfileTab.slice(1)}” view is coming soon.</em>
                     </div>
@@ -1753,7 +1999,7 @@ useEffect(() => {
                                 background: '#2563eb',
                                 color: '#fff',
                                 borderRadius: 999,
-                                padding: '7px 16px',
+                                padding: '7px 12px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 8,
