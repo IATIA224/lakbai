@@ -16,6 +16,7 @@ import Itinerary from "./Itinerary";
 import DestinationManager from "./DestinationManager";
 import UserManagement from "./components/UserManagement";
 import ContentManagement from './ContentManagement';
+import Footer from './Footer';
 
 function App() {
   const [showAIModal, setShowAIModal] = useState(false);
@@ -48,6 +49,9 @@ function App() {
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
       <AchievementToast />
+
+      {/* Footer: hide on login/register */}
+      {showHeader && <Footer />}
     </UserProvider>
   );
 }

@@ -1,0 +1,139 @@
+.global-footer {
+  background: #1a2332;
+  color: #e3eaf5;
+  padding: 40px 0 0 0;
+  font-size: 1rem;
+  margin-top: 48px;
+}
+.footer-main {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 1100px;
+  margin: 0 auto;
+  gap: 32px;
+  padding: 0 24px;
+}
+.footer-brand {
+  flex: 1 1 260px;
+  min-width: 260px;
+  margin-bottom: 24px;
+}
+.footer-logo {
+  display: flex;
+  align-items: center;
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.footer-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+}
+.footer-desc {
+  margin-bottom: 16px;
+  color: #bfcbe3;
+  font-size: 1rem;
+}
+.footer-social a {
+  color: #bfcbe3;
+  margin-right: 12px;
+  font-size: 1.2rem;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-social a:hover {
+  color: #3b5fff;
+}
+.footer-links {
+  display: flex;
+  flex: 2 1 400px;
+  gap: 48px;
+  flex-wrap: wrap;
+}
+.footer-section {
+  min-width: 180px;
+  margin-bottom: 24px;
+}
+.footer-heading {
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 10px;
+  font-size: 1.08rem;
+}
+.footer-section a {
+  display: block;
+  color: #bfcbe3;
+  text-decoration: none;
+  margin-bottom: 7px;
+  font-size: 0.98rem;
+  transition: color 0.2s;
+}
+.footer-section a:hover {
+  color: #3b5fff;
+}
+.footer-subscribe {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.footer-subscribe input {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #232d3e;
+  color: #e3eaf5;
+  font-size: 1rem;
+  outline: none;
+}
+.footer-subscribe button {
+  background: #2962ff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+.footer-subscribe button:hover {
+  background: #1a3fa3;
+}
+.footer-bottom {
+  border-top: 1px solid #232d3e;
+  margin-top: 32px;
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.97rem;
+  color: #bfcbe3;
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.footer-bottom a {
+  color: #bfcbe3;
+  text-decoration: none;
+  margin: 0 4px;
+  transition: color 0.2s;
+}
+.footer-bottom a:hover {
+  color: #3b5fff;
+}
+@media (max-width: 900px) {
+  .footer-main {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .footer-links {
+    flex-direction: column;
+    gap: 24px;
+  }
+  .footer-bottom {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+}
