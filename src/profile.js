@@ -111,7 +111,7 @@ const Profile = () => {
 
       setProfile((prev) => ({
         ...prev,
-        name: data.name || user?.displayName || "",
+        name: data.travelerName || user?.displayName || "",
         bio: data.bio || "",
         profilePicture: data.profilePicture || "/user.png",
         likes: Array.isArray(data.likes) ? data.likes : [],
@@ -214,7 +214,7 @@ const Profile = () => {
 
       setProfile((prev) => ({
         ...prev,
-        name: data.name ?? prev?.name ?? "",
+        name: data.travelerName ?? prev?.travelerName ?? "",
         bio: data.bio ?? prev?.bio ?? "",
         profilePicture: data.profilePicture ?? prev?.profilePicture ?? "/user.png",
         likes: Array.isArray(data.likes) ? data.likes : prev?.likes || [],
