@@ -3,6 +3,8 @@ import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
 import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where, orderBy, limit, serverTimestamp, collectionGroup, documentId, getDoc } from 'firebase/firestore';
 import { CloudinaryContext, Image, Video } from './cloudinary';
+import EditProfileCMS from './editprofile-cms'; // <-- add this import
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -551,6 +553,42 @@ async function loadAdditionalUserInterests(db, uid) {
   return normalizeInterests(merged);
 }
 
+// Helper to update a user's password via admin function or HTTP fallback
+async function adminUpdatePassword(uid, newPassword) {
+  if (!uid || !newPassword) return;
+
+  // Try Firebase Callable Function first
+  try {
+    const functions = getFunctions();
+    const fn = httpsCallable(functions, 'adminUpdateUserPassword');
+    await fn({ uid, newPassword });
+    return;
+  } catch (err) {
+    console.warn('Callable password update failed, falling back to HTTP:', err?.message);
+  }
+
+  // Fallback to your API endpoints if available
+  const base = window.location.origin;
+  const endpoints = [
+    `${base}/admin/api/auth/updatePassword`,
+    `${base}/api/auth/updatePassword`,
+  ];
+  let lastErr;
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ uid, newPassword }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('All password update endpoints failed.');
+}
+
 function ContentManagement() {
   const [analytics, setAnalytics] = useState({
     totalDestinations: 0,
@@ -772,7 +810,8 @@ const handleTakeAction = async ({ actionType, reason, notes }) => {
 
         setAnalytics((a) => ({
           ...a,
-          totalArticles: reportsCount, // reports from Firestore (or 0)
+          totalArticles: reportsCount // reports from Firestore (or 0)
+          ,
           publishedContent: localDest.filter((d) => String(d.status || '').toLowerCase() === 'published').length,
           recentActivity: [...localDest.slice(-5), ...localArticles.slice(-5)].slice(0, 10),
         }));
@@ -1136,7 +1175,7 @@ useEffect(() => {
   }, [userProfileOpen, userProfile?.id]);
 
   // Edit User modal handler (fixes openEditUserModal)
-  const openEditUserModal = (u, tab = 'basic') => {
+  const openEditUserModal = (u, tab = 'basic') => { // <-- default to 'profile'
     setEditingUser(u);
     setUserEditOpen(true);
     setUserEditTab(tab);
@@ -1146,93 +1185,44 @@ useEffect(() => {
     setEditStatus((u?.status || 'active').toLowerCase());
   };
 
-  // Live activity loader for the selected user (Activity tab)
-  useEffect(() => {
-    if (!userProfileOpen || !userProfile || userProfileTab !== 'activity') return;
+  // Save handler for EditProfileCMS
+  const handleSaveUser = async (payload) => {
+    if (!editingUser?.id) return;
+    const uid = editingUser.id;
 
-    let unsub = null;
-    setLoadingActivity(true);
-    setUserActivity([]); // reset while loading
-    const uid = userProfile.id;
-
-    const normalize = (docs) =>
-      docs
-        .map((d) => {
-          const a = typeof d.data === 'function' ? d.data() : d;
-          const created =
-            a.createdAt?.toDate?.() ||
-            a.timestamp?.toDate?.() ||
-            a.date?.toDate?.() ||
-            a.updatedAt?.toDate?.() ||
-            a.createdAt ||
-            a.timestamp ||
-            a.date ||
-            a.updatedAt ||
-            null;
-          return {
-            id: d.id || a.id,
-            type: a.type || a.kind || a.actionType || a.category || 'event',
-            title: a.title || a.action || a.message || a.text || a.description || 'Activity',
-            createdAt: created ? new Date(created) : null,
-          };
-        })
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-
-    const trySubscribe = async () => {
-      // Preferred: users/{uid}/activity or users/{uid}/activities
-      const preferred = [
-        () => query(collection(db, 'users', uid, 'activity'), orderBy('createdAt', 'desc'), limit(50)),
-        () => query(collection(db, 'users', uid, 'activity'), orderBy('timestamp', 'desc'), limit(50)),
-        () => query(collection(db, 'users', uid, 'activities'), orderBy('createdAt', 'desc'), limit(50)),
-        () => query(collection(db, 'users', uid, 'activities'), orderBy('timestamp', 'desc'), limit(50)),
-      ];
-
-      // Top-level with userId filter
-      const candidates = [
-        () => query(collection(db, 'activity'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
-        () => query(collection(db, 'activity'), where('userId', '==', uid), orderBy('timestamp', 'desc'), limit(50)),
-        () => query(collection(db, 'activities'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
-        () => query(collection(db, 'activities'), where('userId', '==', uid), orderBy('timestamp', 'desc'), limit(50)),
-        () => query(collection(db, 'userActivity'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
-        () => query(collection(db, 'userActivities'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50)),
-      ];
-
-      const all = [...preferred, ...candidates];
-
-      // Probe until one works; if orderBy index is missing, fall back to unordered and client-side sort
-      for (const make of all) {
-        try {
-          const qref = make();
-          const probe = await getDocs(qref);
-          unsub = onSnapshot(
-            qref,
-            (snap) => { setUserActivity(normalize(snap.docs)); setLoadingActivity(false); },
-            () => { setUserActivity([]); setLoadingActivity(false); }
-          );
-          return;
-        } catch {
-          // continue
-        }
-      }
-
-      // Fallback unordered subcollection
-      try {
-        const base = collection(db, 'users', uid, 'activity');
-        unsub = onSnapshot(
-          base,
-          (snap) => { setUserActivity(normalize(snap.docs)); setLoadingActivity(false); },
-          () => { setUserActivity([]); setLoadingActivity(false); }
-        );
-      } catch {
-        setUserActivity([]);
-        setLoadingActivity(false);
-      }
+    // separate password from profile update
+    const { password, ...profile } = {
+      email: payload.email ?? editingUser.email ?? '',
+      travelerName: payload.travelerName ?? editingUser.travelerName ?? '',
+      provider: payload.provider ?? editingUser.provider ?? 'Email',
+      photoURL: payload.photoURL ?? editingUser.photoURL ?? '',
+      travelerBio: payload.travelerBio ?? editingUser.travelerBio ?? editingUser.bio ?? '',
+      status: payload.status ?? editingUser.status ?? 'active',
+      stats: { ...(editingUser.stats || {}), ...(payload.stats || {}) },
+      interests: Array.isArray(payload.interests) ? payload.interests : [],
+      updatedAt: serverTimestamp(),
     };
 
-    trySubscribe();
+    try {
+      // update Firestore profile first
+      await updateDoc(doc(db, 'users', uid), profile);
 
-    return () => { if (typeof unsub === 'function') unsub(); };
-  }, [userProfileOpen, userProfile, userProfileTab]);
+      // optionally update password via admin
+      if (password && typeof password === 'string') {
+        await adminUpdatePassword(uid, password);
+      }
+
+      // reflect changes locally (never store password in state)
+      setUsers((prev) =>
+        prev.map((u) => (u.id === uid ? { ...u, ...profile, id: uid } : u))
+      );
+      setUserEditOpen(false);
+      setEditingUser(null);
+    } catch (e) {
+      console.error('Update user failed:', e);
+      alert('Failed to update user.');
+    }
+  };
 
   // NEW: Reports state + fetch
   const [reports, setReports] = useState([]);
@@ -1687,6 +1677,7 @@ useEffect(() => {
   const [viewReportId, setViewReportId] = useState(null);
 
   // Subscribe to the selected report doc while the modal is open
+ 
   useEffect(() => {
     if (!viewReportId) return;
    
@@ -1761,11 +1752,14 @@ useEffect(() => {
                 const data = ds.data() || {};
                 updates[uid] = data.travelerName || data.name || data.displayName || data.username || data.email || '—';
               }
-            } catch {}
+            } catch (err) {
+              // Handle error or ignore
+            }
           }
         }
       }
       if (Object.keys(updates).length) setUserNameCache((prev) => ({ ...prev, ...updates }));
+   
     })();
   }, [reports, userNameCache]);
 
@@ -2530,7 +2524,7 @@ useEffect(() => {
                                 fontSize: 14,
                                 boxShadow: 'none'
                               }}
-                              onClick={() => openEditUserModal(u, 'profile')}
+                              onClick={() => openEditUserModal(u, 'basic')}
                             >
                               Edit
                             </button>
@@ -2659,7 +2653,7 @@ useEffect(() => {
                         background: '#22c55e', color: '#fff', border: 'none', padding: '10px 22px',
                         fontWeight: 500, borderRadius: 8, fontSize: 16, boxShadow: '0 2px 8px rgba(34,197,94,.15)'
                       }}
-                      onClick={() => openEditUserModal(userProfile, 'profile')}
+                      onClick={() => openEditUserModal(userProfile, 'basic')}
                     >Edit Profile
                     </button>
                   </div>
@@ -3017,7 +3011,14 @@ useEffect(() => {
         </div>
         )}
       </main>
+      <EditProfileCMS
+        open={userEditOpen}
+        user={editingUser}
+        initialTab={userEditTab || 'basic'}
+        onClose={() => { setUserEditOpen(false); setEditingUser(null); }}
+        onSave={handleSaveUser}
+      />
     </div>
-  );
+    );
 }
 export default ContentManagement;
