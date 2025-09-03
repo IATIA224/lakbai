@@ -7,6 +7,7 @@ import {
   where, limit,
 } from 'firebase/firestore';
 import './Styles/bookmark.css';
+import { unlockAchievement } from './profile';
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -348,6 +349,31 @@ function Bookmark() {
       console.error('Remove bookmark failed:', e);
       setConfirmingUnbookmark(false);
       alert('Failed to remove bookmark. Please try again.');
+    }
+  };
+
+  // Add bookmark or toggle bookmark status
+  const toggleBookmark = async (destinationId) => {
+    try {
+      if (!currentUser) {
+        alert('Please login to manage bookmarks');
+        return;
+      }
+      
+      // Check if this is the first bookmark
+      const userRef = doc(db, 'userBookmarks', currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      const isFirstBookmark = !docSnap.exists() || !(docSnap.data()?.bookmarks || []).length;
+      
+      // Regular bookmark logic...
+      
+      // If this is the first bookmark, unlock the achievement
+      if (isFirstBookmark && !bookmarks.has(destinationId)) {
+        await unlockAchievement(2, "First Bookmark");
+      }
+      
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
     }
   };
 

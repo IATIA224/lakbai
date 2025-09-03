@@ -127,6 +127,16 @@
   overflow: auto;
   overscroll-behavior: contain;
   background: #fff; /* body was transparent */
+  scrollbar-width: thin;
+  scrollbar-color: #6c63ff #f0f0f8;
+}
+.itn-modal-body::-webkit-scrollbar {
+  width: 8px;
+  background: #f0f0f8;
+}
+.itn-modal-body::-webkit-scrollbar-thumb {
+  background: #6c63ff;
+  border-radius: 8px;
 }
 .itn-modal-body.itn-modal-body-scroll {
   max-height: 54vh;
