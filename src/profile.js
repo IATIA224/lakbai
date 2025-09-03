@@ -315,20 +315,24 @@ const Profile = () => {
 
   // Unlock achievement (generic)
   const unlockAchievement = async (achievementId, achievementName) => {
-    if (!unlockedAchievements.has(achievementId)) {
-      setUnlockedAchievements((prev) => new Set(prev).add(achievementId));
-      showAchievementNotification(`${achievementName} Achievement Unlocked! 🎉`);
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          await updateDoc(doc(db, "users", user.uid), {
-            [`achievements.${achievementId}`]: true,
-          });
-        }
-      } catch (error) {
-        console.error("Error saving achievement:", error);
-      }
-      await trackActivity.completeAchievement(achievementName);
+    // Get current user
+    const user = auth.currentUser;
+    if (!user) return;
+
+    // Check if already unlocked
+    const snap = await getDoc(doc(db, "users", user.uid));
+    const already =
+      snap.exists() &&
+      snap.data().achievements &&
+      snap.data().achievements[achievementId] === true;
+
+    if (!already) {
+      // Save to Firestore
+      await updateDoc(doc(db, "users", user.uid), {
+        [`achievements.${achievementId}`]: true,
+      });
+      // Optionally show notification
+      emitAchievement(`${achievementName} Achievement Unlocked! 🎉`);
     }
   };
 
@@ -381,7 +385,7 @@ const Profile = () => {
 
         const photoDocRef = await addDoc(collection(db, "photos"), photoData);
         const newPhoto = { id: photoDocRef.id, ...photoData };
-        const updatedPhotos = [newPhoto, ...photos]; // <-- PREPEND new photo
+        const updatedPhotos = [...photos, newPhoto];
 
         setPhotos(updatedPhotos);
         setStats((prevStats) => ({
@@ -865,7 +869,7 @@ const Profile = () => {
                 style={{
                   display: "flex",
                   gap: 12,
-                  overflowX: "hidden",
+                  overflowX: "auto",
                   overflowY: "hidden",
                   padding: "6px 2px 10px",
                   scrollSnapType: "x proximity",
@@ -1081,7 +1085,7 @@ const Profile = () => {
                           style={{
                             margin: "0 0 2px 0",
                             fontSize: "14px",
-                            fontWeight: "600",
+                            fontWeight: 600,
                           }}
                         >
                           First Step
@@ -1133,7 +1137,7 @@ const Profile = () => {
                           style={{
                             margin: "0 0 2px 0",
                             fontSize: "14px",
-                            fontWeight: "600",
+                            fontWeight: 600,
                           }}
                         >
                           Profile Pioneer
@@ -1476,6 +1480,26 @@ const Profile = () => {
       )}
     </>
   );
-};
+}; // Profile component ends here
+
+// Add this export function AFTER the Profile component
+export async function unlockAchievement(achievementId, achievementName) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const userRef = doc(db, "users", user.uid);
+  const snap = await getDoc(userRef);
+  const already =
+    snap.exists() &&
+    snap.data().achievements &&
+    snap.data().achievements[achievementId] === true;
+
+  if (!already) {
+    await updateDoc(userRef, {
+      [`achievements.${achievementId}`]: true,
+    });
+    emitAchievement(`${achievementName} Achievement Unlocked! 🎉`);
+  }
+}
 
 export default Profile;

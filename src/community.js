@@ -1047,6 +1047,3 @@ async function addActivity(userId, text, icon = "🔵") {
     console.error("Error adding activity:", error);
   }
 }
-
-// anywhere in the app when an achievement is unlocked
-emitAchievement("Say Cheese! Achievement Unlocked! 🎉");

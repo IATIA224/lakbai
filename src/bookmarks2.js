@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './Styles/bookmark2.css';
 import { db, auth } from './firebase';
+import { useNavigate } from 'react-router-dom';
+import { unlockAchievement } from './profile';
 import {
   addDoc,
   collection,
@@ -17,8 +19,7 @@ import {
   arrayRemove,
   deleteDoc,
 } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
-import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
+import { addTripForCurrentUser } from './Itinerary';
 
 const initialDestinations = [
   {
@@ -299,66 +300,85 @@ export default function Bookmarks2() {
       alert('Please sign in to bookmark destinations.');
       return;
     }
-    const listRef = doc(db, 'userBookmarks', user.uid);
-    const userDocRef = doc(db, 'users', user.uid);
-    const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
-
-    const isBookmarked = bookmarks.has(dest.id);
-
     try {
-      await setDoc(
-        listRef,
-        {
-          userId: user.uid,                         // <- add this to satisfy rules on update
-          updatedAt: serverTimestamp(),
-          bookmarks: isBookmarked ? arrayRemove(dest.id) : arrayUnion(dest.id),
-        },
-        { merge: true }
-      );
+      // A. Maintain your existing array of ids for bookmark.js
+      const listRef = doc(db, 'userBookmarks', user.uid);
+      const listSnap = await getDoc(listRef);
+      if (!listSnap.exists()) {
+        await setDoc(listRef, { bookmarks: [], createdAt: serverTimestamp() }, { merge: true });
+      }
 
-      // Best-effort secondary writes; do not fail the whole toggle if they’re blocked by rules
+      // Check if this is the first bookmark (for achievement)
+      const isFirstBookmark = !listSnap.exists() || !(listSnap.data()?.bookmarks || []).length;
+      const isBookmarked = bookmarks.has(dest.id);
+
+      // B. Also store a full copy under users/{uid}/bookmarks/{destId}
+      const userDocRef = doc(db, 'users', user.uid);
+      const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
+
       try {
-        await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
-      } catch (e) {
-        console.warn('users/{uid} timestamp write skipped:', e.code || e.message);
-      }
+        await setDoc(
+          listRef,
+          {
+            userId: user.uid,                         // <- add this to satisfy rules on update
+            updatedAt: serverTimestamp(),
+            bookmarks: isBookmarked ? arrayRemove(dest.id) : arrayUnion(dest.id),
+          },
+          { merge: true }
+        );
 
-      if (isBookmarked) {
+        // Best-effort secondary writes; do not fail the whole toggle if they're blocked by rules
         try {
-          await deleteDoc(bookmarkDocRef);
+          await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
         } catch (e) {
-          console.warn('delete users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+          console.warn('users/{uid} timestamp write skipped:', e.code || e.message);
         }
-      } else {
-        try {
-          await setDoc(
-            bookmarkDocRef,
-            {
-              destId: dest.id,
-              name: dest.name,
-              region: dest.region || '',
-              rating: dest.rating ?? null,
-              price: dest.price || '',
-              priceTier: dest.priceTier || null,
-              tags: dest.tags || [],
-              categories: dest.categories || [],
-              bestTime: dest.bestTime || '',
-              image: dest.image || '',
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-        } catch (e) {
-          console.warn('upsert users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+
+        if (isBookmarked) {
+          try {
+            await deleteDoc(bookmarkDocRef);
+          } catch (e) {
+            console.warn('delete users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+          }
+        } else {
+          try {
+            await setDoc(
+              bookmarkDocRef,
+              {
+                destId: dest.id,
+                name: dest.name,
+                region: dest.region || '',
+                rating: dest.rating ?? null,
+                price: dest.price || '',
+                priceTier: dest.priceTier || null,
+                tags: dest.tags || [],
+                categories: dest.categories || [],
+                bestTime: dest.bestTime || '',
+                image: dest.image || '',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+            
+            // If this is the user's first bookmark, unlock the achievement
+            if (isFirstBookmark) {
+              unlockAchievement(2, "First Bookmark");
+            }
+          } catch (e) {
+            console.warn('set users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+          }
         }
+        // onSnapshot on userBookmarks will update local state automatically
+      } catch (e) {
+        console.error('Toggle bookmark failed:', e.code || e.message);
+        alert('Could not update bookmark. Please try again.');
       }
-      // onSnapshot on userBookmarks keeps UI in sync
     } catch (e) {
       console.error('Toggle bookmark failed:', e.code || e.message);
       alert('Could not update bookmark. Please try again.');
     }
-  };
+  }; // Add this closing brace
 
   // Average ratings loader for current page
   useEffect(() => {
@@ -443,6 +463,9 @@ export default function Bookmarks2() {
 
     const id = selected.id;
     const wasBookmarked = bookmarks.has(id);
+    
+    // Check if this will be the first bookmark
+    const isFirstBookmark = !wasBookmarked && bookmarks.size === 0;
 
     // Optimistic UI
     setBookmarks((prev) => {
@@ -454,6 +477,12 @@ export default function Bookmarks2() {
     setBookmarking(true);
     try {
       await toggleBookmark(selected); // persists to Firestore
+      
+      // If adding first bookmark, unlock achievement
+      if (isFirstBookmark) {
+        unlockAchievement(2, "First Bookmark");
+      }
+      
       // onSnapshot will keep state in sync afterward
     } catch (e) {
       // Rollback on failure
@@ -544,7 +573,7 @@ export default function Bookmarks2() {
                     <stop offset="100%" stopColor="#16a34a" />
                   </linearGradient>
                   <filter id="lbShadow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(2,6,23,.25)" />
+                    <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(2,6,23,.25)" />
                   </filter>
                 </defs>
 
