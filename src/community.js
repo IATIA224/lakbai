@@ -287,10 +287,14 @@ function ReportPostModal({ post, onClose }) {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const reasons = [
-    { value: "nudity", label: "Nudity", priority: "High" },
-    { value: "violence", label: "Violence", priority: "High" },
-    { value: "spam", label: "Spam", priority: "Medium" },
+    { value: "inappropriate", label: "Inappropriate Content", priority: "High" },
+    { value: "spam", label: "Spam/Promotional Content", priority: "Medium" },
+    { value: "harassment", label: "Harassment/Bullying", priority: "High" },
+    { value: "fake", label: "Fake/Misleading Content", priority: "Medium" },
     { value: "hate", label: "Hate Speech", priority: "High" },
+    { value: "violence", label: "Violence/Threats", priority: "High" },
+    { value: "copyright", label: "Copyright Violation", priority: "Medium" },
+    { value: "privacy", label: "Privacy Violation", priority: "High" },
     { value: "other", label: "Other", priority: "Low" }
   ];
 
@@ -301,6 +305,7 @@ function ReportPostModal({ post, onClose }) {
     try {
       const selected = reasons.find(r => r.value === reason);
       await addDoc(collection(db, "report"), {
+        reporterId: auth.currentUser.uid,
         reportedUser: post.authorId,
         postId: post.id,
         contentType: "post",
@@ -309,7 +314,7 @@ function ReportPostModal({ post, onClose }) {
         details,
         priority: selected?.priority || "Low",
         status: "pending",
-        date: serverTimestamp()
+        date: serverTimestamp(),       // must be serverTimestamp to satisfy rules
       });
       setShowSuccess(true);
       setTimeout(() => {
@@ -371,12 +376,12 @@ function ReportPostModal({ post, onClose }) {
   );
 }
 
-// Comment modal (top-level "comments" collection, real-time)
 function CommentModal({ post, onClose, onCountChange }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [comments, setComments] = useState([]);
   const [fetching, setFetching] = useState(true);
+  const [reportingComment, setReportingComment] = useState(null);
   const textareaRef = useRef(null);
 
   const getInitials = (name = "User") =>
@@ -515,73 +520,191 @@ function CommentModal({ post, onClose, onCountChange }) {
   };
 
   return (
-    <div className="community-modal-backdrop" onClick={onClose}>
-      <div className="community-modal cmt-modal" onClick={e => e.stopPropagation()}>
-        <div className="share-modal-header cmt-header">
-          <h3>Comments <span className="cmt-count">({comments.length})</span></h3>
-          <button className="cmt-close" onClick={onClose} aria-label="Close">×</button>
-        </div>
-
-        <div className="cmt-list">
-          {fetching ? (
-            <div className="cmt-skeleton">
-              <div className="cmt-skel-row" />
-              <div className="cmt-skel-row" />
-              <div className="cmt-skel-row" />
-            </div>
-          ) : comments.length === 0 ? (
-            <div className="cmt-empty">No comments yet.</div>
-          ) : (
-            comments.map(c => (
-              <div key={c.id} className="cmt-item">
-                <div className="cmt-avatar" aria-hidden="true">
-                  {c.userPhoto
-                    ? <img src={c.userPhoto} alt={c.userName || "User"} />
-                    : getInitials(c.userName)}
-                </div>
-                <div className="cmt-content">
-                  <div className="cmt-meta">
-                    <span className="cmt-name">{c.userName}</span>
-                    <span className="cmt-dot">•</span>
-                    <span className="cmt-time">{timeAgo(c.createdAt?.toMillis?.())}</span>
-                  </div>
-                  <div className="cmt-text">{c.text}</div>
-                </div>
-                <button
-                  className={`cmt-heart ${c.heartedBy?.includes(auth.currentUser?.uid) ? "is-on" : ""}`}
-                  onClick={() => handleHeart(c)}
-                  title="Heart this comment"
-                >
-                  <span>❤️</span>
-                  <b>{c.hearts || 0}</b>
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-
-        <form className="cmt-composer" onSubmit={handleSubmit}>
-          <textarea
-            ref={textareaRef}
-            className="cmt-input"
-            rows={1}
-            placeholder="Write a comment… (Enter to send, Shift+Enter for newline)"
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={onComposerKeyDown}
-            maxLength={500}
-            required
-          />
-          <div className="cmt-actions">
-            <span className="cmt-countdown">{text.length}/500</span>
-            <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
-            <button type="submit" className="btn-primary" disabled={!text.trim() || loading}>
-              {loading ? "Posting…" : "Post"}
-            </button>
+    <>
+      <div className="community-modal-backdrop" onClick={onClose}>
+        <div className="community-modal cmt-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="share-modal-header cmt-header">
+            <h3>
+              Comments <span className="cmt-count">({comments.length})</span>
+            </h3>
+            <button className="cmt-close" onClick={onClose} aria-label="Close" type="button">×</button>
           </div>
-        </form>
+
+          <div className="cmt-list">
+            {fetching ? (
+              <div className="cmt-skeleton">
+                <div className="cmt-skel-row" />
+                <div className="cmt-skel-row" />
+                <div className="cmt-skel-row" />
+              </div>
+            ) : comments.length === 0 ? (
+              <div className="cmt-empty">No comments yet.</div>
+            ) : (
+              comments.map((c) => (
+                <div key={c.id} className="cmt-item">
+                  <div className="cmt-avatar" aria-hidden="true">
+                    {c.userPhoto ? <img src={c.userPhoto} alt={c.userName || "User"} /> : getInitials(c.userName)}
+                  </div>
+                  <div className="cmt-content">
+                    <div className="cmt-meta">
+                      <span className="cmt-name">{c.userName}</span>
+                      <span className="cmt-dot">•</span>
+                      <span className="cmt-time">{timeAgo(c.createdAt?.toMillis?.())}</span>
+                    </div>
+                    <div className="cmt-text">{c.text}</div>
+                  </div>
+                  <div className="cmt-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      type="button"
+                      className={`cmt-heart ${c.heartedBy?.includes(auth.currentUser?.uid) ? "is-on" : ""}`}
+                      onClick={() => handleHeart(c)}
+                      title="Heart this comment"
+                    >
+                      <span>❤️</span>
+                      <b>{c.hearts || 0}</b>
+                    </button>
+                    <button
+                      type="button"
+                      className="cmt-report"
+                      onClick={() => setReportingComment(c)}
+                      title="Report this comment"
+                    >
+                      <span>🚩</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <form className="cmt-composer" onSubmit={handleSubmit}>
+            <textarea
+              ref={textareaRef}
+              className="cmt-input"
+              rows={1}
+              placeholder="Write a comment… (Enter to send, Shift+Enter for newline)"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={onComposerKeyDown}
+              maxLength={500}
+              required
+            />
+            <div className="cmt-actions">
+              <span className="cmt-countdown">{text.length}/500</span>
+              <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
+              <button type="submit" className="btn-primary" disabled={!text.trim() || loading}>
+                {loading ? "Posting…" : "Post"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+
+      {reportingComment && (
+        <ReportCommentModal
+          comment={reportingComment}
+          post={post}
+          onClose={() => setReportingComment(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function ReportCommentModal({ comment, post, onClose }) {
+  const [reason, setReason] = useState("");
+  const [details, setDetails] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const reasons = [
+    { value: "inappropriate", label: "Inappropriate Content", priority: "High" },
+    { value: "spam", label: "Spam/Promotional Content", priority: "Medium" },
+    { value: "harassment", label: "Harassment/Bullying", priority: "High" },
+    { value: "fake", label: "Fake/Misleading Content", priority: "Medium" },
+    { value: "hate", label: "Hate Speech", priority: "High" },
+    { value: "violence", label: "Violence/Threats", priority: "High" },
+    { value: "copyright", label: "Copyright Violation", priority: "Medium" },
+    { value: "privacy", label: "Privacy Violation", priority: "High" },
+    { value: "other", label: "Other", priority: "Low" }
+  ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!reason) return;
+    setLoading(true);
+    try {
+      const selected = reasons.find(r => r.value === reason);
+      await addDoc(collection(db, "report"), {
+        reporterId: auth.currentUser.uid,
+        reportedUser: comment.userId,
+        postId: post.id,
+        commentId: comment.id,
+        contentType: "comment",
+        reason,
+        reasonLabel: selected?.label || reason,
+        details,
+        priority: selected?.priority || "Low",
+        status: "pending",
+        date: serverTimestamp(),       // must be serverTimestamp to satisfy rules
+      });
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        onClose();
+      }, 2200);
+    } catch (err) {
+      alert("Failed to submit report.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="community-modal-backdrop" onClick={onClose}>
+        <div className="community-modal" onClick={e => e.stopPropagation()}>
+          <div className="share-modal-header">
+            <h3>Report Comment</h3>
+          </div>
+          <form className="modal-form" onSubmit={handleSubmit}>
+            <label className="modal-label">
+              <span className="field-title">Reason</span>
+              <select
+                className="modal-input"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                required
+              >
+                <option value="">Select reason</option>
+                {reasons.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Details</span>
+              <textarea
+                className="modal-textarea"
+                rows={3}
+                placeholder="Describe the issue (optional)"
+                value={details}
+                onChange={e => setDetails(e.target.value)}
+                maxLength={500}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={!reason || loading}>
+                {loading ? "Reporting..." : "Submit Report"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
+    </>
   );
 }
 
@@ -924,6 +1047,3 @@ async function addActivity(userId, text, icon = "🔵") {
     console.error("Error adding activity:", error);
   }
 }
-
-// anywhere in the app when an achievement is unlocked
-emitAchievement("Say Cheese! Achievement Unlocked! 🎉");
