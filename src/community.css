@@ -632,3 +632,90 @@ select.modal-input {
   0% { background-position: 100% 0; }
   100% { background-position: 0 0; }
 }
+
+/* Add this to your community.css */
+.action-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.action-dots {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.action-dots:hover {
+  background-color: #f1f5f9;
+}
+
+.action-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: white;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 140px;
+  z-index: 10;
+  animation: dropdownAppear 0.2s ease-out forwards;
+}
+
+@keyframes dropdownAppear {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  color: #334155;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.action-item:hover {
+  background-color: #f8fafc;
+}
+
+.action-item.delete {
+  color: #ef4444;
+}
+
+.action-item-icon {
+  margin-right: 8px;
+  font-size: 1.1rem;
+}
+
+/* Add these styles for comment editing */
+.cmt-edit-form {
+  margin-top: 2px;
+  width: 100%;
+}
+
+.cmt-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cmt-edited {
+  font-style: italic;
+  font-size: 0.9em;
+  opacity: 0.7;
+}
+
+/* Position the action menu for comments */
+.cmt-item .action-menu {
+  margin-right: 6px;
+}

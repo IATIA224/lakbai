@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   addDoc, collection, serverTimestamp, getDocs, query, where, doc, getDoc,
-  updateDoc, setDoc, arrayUnion, arrayRemove, onSnapshot, increment
+  updateDoc, setDoc, arrayUnion, arrayRemove, onSnapshot, increment, deleteDoc
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "./firebase";
@@ -376,13 +376,61 @@ function ReportPostModal({ post, onClose }) {
   );
 }
 
+function CommentActionMenu({ comment, onEdit, onDelete }) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+  const currentUser = auth.currentUser;
+  const isOwner = currentUser && comment.userId === currentUser.uid;
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  
+  if (!isOwner) return null;
+  
+  return (
+    <div className="action-menu" ref={dropdownRef}>
+      <button 
+        className="action-dots" 
+        onClick={() => setShowDropdown(!showDropdown)}
+        aria-label="Comment options"
+      >
+        •••
+      </button>
+      
+      {showDropdown && (
+        <div className="action-dropdown">
+          <div className="action-item" onClick={() => { onEdit(); setShowDropdown(false); }}>
+            <span className="action-item-icon">✏️</span> Edit
+          </div>
+          <div className="action-item delete" onClick={() => { onDelete(); setShowDropdown(false); }}>
+            <span className="action-item-icon">🗑️</span> Delete
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CommentModal({ post, onClose, onCountChange }) {
+  // Existing states
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [comments, setComments] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [reportingComment, setReportingComment] = useState(null);
+  // Add these new states
+  const [editingComment, setEditingComment] = useState(null);
+  const [editText, setEditText] = useState("");
   const textareaRef = useRef(null);
+  const editTextareaRef = useRef(null);
 
   const getInitials = (name = "User") =>
     name.trim().split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase();
@@ -519,6 +567,72 @@ function CommentModal({ post, onClose, onCountChange }) {
     }
   };
 
+  // Add delete comment function
+  async function handleDeleteComment(commentId) {
+    if (!window.confirm("Are you sure you want to delete this comment?")) {
+      return;
+    }
+    
+    try {
+      await deleteDoc(doc(db, "comments", commentId));
+      
+      // Update post's comment count
+      await updateDoc(doc(db, "community", post.id), { comments: increment(-1) });
+      
+      // Local state update (will be overwritten by onSnapshot, but this makes it feel faster)
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      onCountChange?.(comments.length - 1);
+    } catch (err) {
+      console.error("Failed to delete comment:", err);
+      alert("Failed to delete comment.");
+    }
+  }
+  
+  // Add edit comment function
+  async function handleEditComment(comment) {
+    if (editText.trim() === comment.text || !editText.trim() || loading) return;
+    
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, "comments", comment.id), {
+        text: editText.trim(),
+        edited: true,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Reset state
+      setEditingComment(null);
+      setEditText("");
+    } catch (err) {
+      console.error("Failed to edit comment:", err);
+      alert("Failed to edit comment.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  // When a comment is set for editing, set the text
+  useEffect(() => {
+    if (editingComment) {
+      setEditText(editingComment.text);
+    }
+  }, [editingComment]);
+  
+  // Setup autosize for edit textarea
+  useEffect(() => {
+    const el = editTextareaRef.current;
+    if (!el) return;
+    
+    const fit = () => {
+      el.style.height = "0px";
+      el.style.height = Math.min(el.scrollHeight, 180) + "px";
+    };
+    
+    fit();
+    el.addEventListener("input", fit);
+    return () => el.removeEventListener("input", fit);
+  }, [editingComment]);
+  
   return (
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
@@ -549,11 +663,50 @@ function CommentModal({ post, onClose, onCountChange }) {
                     <div className="cmt-meta">
                       <span className="cmt-name">{c.userName}</span>
                       <span className="cmt-dot">•</span>
-                      <span className="cmt-time">{timeAgo(c.createdAt?.toMillis?.())}</span>
+                      <span className="cmt-time">
+                        {timeAgo(c.createdAt?.toMillis?.())}
+                        {c.edited && <span className="cmt-edited"> (edited)</span>}
+                      </span>
                     </div>
-                    <div className="cmt-text">{c.text}</div>
+                    
+                    {editingComment?.id === c.id ? (
+                      <div className="cmt-edit-form">
+                        <textarea
+                          ref={editTextareaRef}
+                          className="cmt-input"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          maxLength={500}
+                        />
+                        <div className="cmt-edit-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => setEditingComment(null)}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => handleEditComment(c)}
+                            disabled={!editText.trim() || editText.trim() === c.text || loading}
+                          >
+                            {loading ? "Saving..." : "Save"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="cmt-text">{c.text}</div>
+                    )}
                   </div>
-                  <div className="cmt-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <CommentActionMenu
+                      comment={c}
+                      onEdit={() => setEditingComment(c)}
+                      onDelete={() => handleDeleteComment(c.id)}
+                    />
                     <button
                       type="button"
                       className={`cmt-heart ${c.heartedBy?.includes(auth.currentUser?.uid) ? "is-on" : ""}`}
@@ -562,14 +715,6 @@ function CommentModal({ post, onClose, onCountChange }) {
                     >
                       <span>❤️</span>
                       <b>{c.hearts || 0}</b>
-                    </button>
-                    <button
-                      type="button"
-                      className="cmt-report"
-                      onClick={() => setReportingComment(c)}
-                      title="Report this comment"
-                    >
-                      <span>🚩</span>
                     </button>
                   </div>
                 </div>
@@ -708,6 +853,199 @@ function ReportCommentModal({ comment, post, onClose }) {
   );
 }
 
+function PostActionMenu({ post, onEdit, onDelete }) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+  const currentUser = auth.currentUser;
+  const isOwner = currentUser && post.authorId === currentUser.uid;
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  
+  if (!isOwner) return null;
+  
+  return (
+    <div className="action-menu" ref={dropdownRef}>
+      <button 
+        className="action-dots" 
+        onClick={() => setShowDropdown(!showDropdown)}
+        aria-label="Post options"
+      >
+        •••
+      </button>
+      
+      {showDropdown && (
+        <div className="action-dropdown">
+          <div className="action-item" onClick={() => { onEdit(); setShowDropdown(false); }}>
+            <span className="action-item-icon">✏️</span> Edit
+          </div>
+          <div className="action-item delete" onClick={() => { onDelete(); setShowDropdown(false); }}>
+            <span className="action-item-icon">🗑️</span> Delete
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Add this component for editing a post
+function EditPostModal({ post, onClose, onUpdate }) {
+  const [caption, setCaption] = useState(post.details || "");
+  const [location, setLocation] = useState(post.location || "");
+  const [duration, setDuration] = useState(post.duration || "");
+  const [budget, setBudget] = useState(post.budget || "");
+  const [highlights, setHighlights] = useState(post.highlights || "");
+  const [loading, setLoading] = useState(false);
+  const [visibility, setVisibility] = useState(post.visibility || "Public");
+
+  const canSave = caption.trim().length > 0 || location;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!canSave || loading) return;
+    
+    setLoading(true);
+    try {
+      const postRef = doc(db, "community", post.id);
+      
+      await updateDoc(postRef, {
+        details: caption.trim(),
+        location,
+        duration,
+        budget,
+        highlights,
+        visibility,
+        title: caption.split("\n")[0].slice(0, 80) || "Shared Adventure",
+        updatedAt: serverTimestamp()
+      });
+      
+      onUpdate({
+        ...post,
+        details: caption.trim(),
+        location,
+        duration,
+        budget,
+        highlights,
+        visibility,
+        title: caption.split("\n")[0].slice(0, 80) || "Shared Adventure"
+      });
+      
+      onClose();
+    } catch (err) {
+      console.error("Failed to update post:", err);
+      alert("Failed to update post: " + (err.code || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="community-modal-backdrop" onClick={onClose}>
+      <div className="community-modal" onClick={e => e.stopPropagation()}>
+        <div className="share-modal-header">
+          <h3>Edit Your Post</h3>
+        </div>
+
+        <form className="modal-form" onSubmit={handleSubmit}>
+          <label className="modal-label">
+            <span className="field-title">📍 Location</span>
+            <select
+              className="modal-input"
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+            >
+              <option value="">Select Province/City</option>
+              <option>Metro Manila</option>
+              <option>Cebu</option>
+              <option>Bohol</option>
+              <option>Palawan</option>
+              <option>Siargao</option>
+              <option>Baguio</option>
+              <option>Davao</option>
+            </select>
+          </label>
+
+          <label className="modal-label">
+            <span className="field-title">Who can see this?</span>
+            <div className="segmented" role="group" aria-label="Post visibility">
+              {["Public", "Friends", "Only Me"].map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  className={`seg-btn${visibility === opt ? " is-active" : ""}`}
+                  onClick={() => setVisibility(opt)}
+                >
+                  {opt === "Public" ? "🌐 Public" : opt === "Friends" ? "👥 Friends" : "🔒 Only Me"}
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <label className="modal-label">
+            <span className="field-title">📝 Caption</span>
+            <textarea
+              className="modal-textarea"
+              rows={4}
+              placeholder="Share your experience... What made this trip special?"
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              maxLength={1000}
+            />
+          </label>
+
+          <div className="modal-row">
+            <label className="modal-label">
+              <span className="field-title">📅 Duration</span>
+              <input
+                className="modal-input"
+                placeholder="e.g., 3 days"
+                value={duration}
+                onChange={e => setDuration(e.target.value)}
+              />
+            </label>
+            <label className="modal-label">
+              <span className="field-title">💰 Budget</span>
+              <input
+                className="modal-input"
+                placeholder="e.g., ₱15,000"
+                value={budget}
+                onChange={e => setBudget(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="modal-label">
+            <span className="field-title">🗺️ Itinerary Highlights</span>
+            <textarea
+              className="modal-textarea"
+              rows={3}
+              placeholder="Day 1: Arrival, Day 2: Island hopping, etc."
+              value={highlights}
+              onChange={e => setHighlights(e.target.value)}
+              maxLength={1000}
+            />
+          </label>
+
+          <div className="modal-actions">
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={!canSave || loading}>
+              {loading ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 const Community = () => {
   const [posts, setPosts] = useState(initialPosts);
   const [open, setOpen] = useState(false);
@@ -718,7 +1056,9 @@ const Community = () => {
   const [addingFriendId, setAddingFriendId] = useState(null);
   const [reportingPost, setReportingPost] = useState(null);
   const [commentingPost, setCommentingPost] = useState(null); // NEW
-
+  const [editingPost, setEditingPost] = useState(null);
+  const [deletingPost, setDeletingPost] = useState(null);
+  
   // NEW: load current user's friends
   async function loadFriendsForUser(user) {
     if (!user) {
@@ -846,6 +1186,27 @@ const Community = () => {
     }
   }
 
+  // Add delete post function
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm("Are you sure you want to delete this post? This cannot be undone.")) {
+      return;
+    }
+    
+    try {
+      await deleteDoc(doc(db, "community", postId));
+      // Remove from local state
+      setPosts(prev => prev.filter(p => p.id !== postId));
+    } catch (err) {
+      console.error("Failed to delete post:", err);
+      alert("Failed to delete post. Please try again.");
+    }
+  };
+  
+  // Add update post function
+  const handleUpdatePost = (updatedPost) => {
+    setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
+  };
+  
   return (
     <>
       {/* Loading Overlay */}
@@ -913,7 +1274,12 @@ const Community = () => {
                         {post.visibility ? <>{post.visibility}</> : null}
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <PostActionMenu 
+                        post={post} 
+                        onEdit={() => setEditingPost(post)} 
+                        onDelete={() => handleDeletePost(post.id)}
+                      />
                       <button
                         className="add-friend"
                         onClick={() => handleAddFriend(post.authorId)}
@@ -1011,6 +1377,13 @@ const Community = () => {
                 prev.map(p => p.id === commentingPost.id ? { ...p, comments: count } : p)
               )
             }
+          />
+        )}
+        {editingPost && (
+          <EditPostModal 
+            post={editingPost} 
+            onClose={() => setEditingPost(null)} 
+            onUpdate={handleUpdatePost} 
           />
         )}
       </div>
