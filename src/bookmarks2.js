@@ -17,6 +17,8 @@ import {
   arrayRemove,
   deleteDoc,
 } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
+import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
 
 const initialDestinations = [
   {
@@ -109,6 +111,7 @@ const initialDestinations = [
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
   const [destinations, setDestinations] = useState([]);
+  const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
   // NEW: page loading state
@@ -167,15 +170,37 @@ export default function Bookmarks2() {
       setCurrentUser(user || null);
       if (user) {
         const userRef = doc(db, 'userBookmarks', user.uid);
-        // Create doc if not exists (so updateDoc won’t fail later)
-        const snap = await getDoc(userRef);
-        if (!snap.exists()) {
-          await setDoc(userRef, { bookmarks: [], createdAt: serverTimestamp() }, { merge: true });
+
+        try {
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            await setDoc(
+              userRef,
+              {
+                userId: user.uid,                      // <- add this to satisfy rules
+                bookmarks: [],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+        } catch (e) {
+          console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
         }
-        unsubUserDoc = onSnapshot(userRef, (s) => {
-          const ids = (s.exists() ? s.data().bookmarks : []) || [];
-          setBookmarks(new Set(ids));
-        });
+
+        // Subscribe with error handler (avoid crashing on permission-denied)
+        unsubUserDoc = onSnapshot(
+          userRef,
+          (s) => {
+            const ids = (s.exists() ? s.data().bookmarks : []) || [];
+            setBookmarks(new Set(ids));
+          },
+          (err) => {
+            console.warn('userBookmarks listener error:', err.code || err.message);
+            setBookmarks(new Set()); // fallback to empty set
+          }
+        );
       } else {
         setBookmarks(new Set());
         if (unsubUserDoc) unsubUserDoc();
@@ -274,41 +299,39 @@ export default function Bookmarks2() {
       alert('Please sign in to bookmark destinations.');
       return;
     }
+    const listRef = doc(db, 'userBookmarks', user.uid);
+    const userDocRef = doc(db, 'users', user.uid);
+    const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
+
+    const isBookmarked = bookmarks.has(dest.id);
+
     try {
-      // A. Maintain your existing array of ids for bookmark.js
-      const listRef = doc(db, 'userBookmarks', user.uid);
-      const listSnap = await getDoc(listRef);
-      if (!listSnap.exists()) {
-        await setDoc(listRef, { bookmarks: [], createdAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        listRef,
+        {
+          userId: user.uid,                         // <- add this to satisfy rules on update
+          updatedAt: serverTimestamp(),
+          bookmarks: isBookmarked ? arrayRemove(dest.id) : arrayUnion(dest.id),
+        },
+        { merge: true }
+      );
+
+      // Best-effort secondary writes; do not fail the whole toggle if they’re blocked by rules
+      try {
+        await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
+      } catch (e) {
+        console.warn('users/{uid} timestamp write skipped:', e.code || e.message);
       }
 
-      // B. Also store a full copy under users/{uid}/bookmarks/{destId}
-      const userDocRef = doc(db, 'users', user.uid);
-      const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
-
-      if (bookmarks.has(dest.id)) {
-        // Unbookmark: remove id and delete the per-user bookmark doc
-        await Promise.all([
-          updateDoc(listRef, {
-            bookmarks: arrayRemove(dest.id),
-            updatedAt: serverTimestamp(),
-          }),
-          deleteDoc(bookmarkDocRef),
-          setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true }),
-        ]);
+      if (isBookmarked) {
+        try {
+          await deleteDoc(bookmarkDocRef);
+        } catch (e) {
+          console.warn('delete users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+        }
       } else {
-        // Bookmark: add id and upsert the per-user bookmark doc with details
-        await Promise.all([
-          updateDoc(listRef, {
-            bookmarks: arrayUnion(dest.id),
-            updatedAt: serverTimestamp(),
-          }),
-          setDoc(
-            userDocRef,
-            { updatedAt: serverTimestamp() }, // ensure parent user doc exists
-            { merge: true }
-          ),
-          setDoc(
+        try {
+          await setDoc(
             bookmarkDocRef,
             {
               destId: dest.id,
@@ -325,12 +348,14 @@ export default function Bookmarks2() {
               updatedAt: serverTimestamp(),
             },
             { merge: true }
-          ),
-        ]);
+          );
+        } catch (e) {
+          console.warn('upsert users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+        }
       }
-      // onSnapshot on userBookmarks will update local state automatically
+      // onSnapshot on userBookmarks keeps UI in sync
     } catch (e) {
-      console.error('Toggle bookmark failed:', e);
+      console.error('Toggle bookmark failed:', e.code || e.message);
       alert('Could not update bookmark. Please try again.');
     }
   };
@@ -342,20 +367,25 @@ export default function Bookmarks2() {
       try {
         const entries = await Promise.all(
           pageItems.map(async (d) => {
-            const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
-            let sum = 0;
-            let count = 0;
-            rsnap.forEach((r) => {
-              const v = Number(r.data()?.value) || 0;
-              if (v > 0) { sum += v; count += 1; }
-            });
-            const avg = count ? sum / count : 0;
-            return [d.id, { avg, count }];
+            try {
+              const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
+              let sum = 0, count = 0;
+              rsnap.forEach((r) => {
+                const v = Number(r.data()?.value) || 0;
+                if (v > 0) { sum += v; count += 1; }
+              });
+              const avg = count ? sum / count : 0;
+              return [d.id, { avg, count }];
+            } catch (err) {
+              // Permission denied -> treat as no ratings
+              console.warn('ratings read skipped for', d.id, err.code || err.message);
+              return [d.id, { avg: 0, count: 0 }];
+            }
           })
         );
         if (!cancelled) setRatingsByDest((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
       } catch (e) {
-        console.error('Load averages failed', e);
+        console.error('Load averages failed', e.code || e.message);
       }
     }
     if (pageItems.length) loadAverages();
@@ -471,13 +501,27 @@ export default function Bookmarks2() {
   const addToTripFromBookmarks = async (dest) => {
     setAddingTripId(dest.id);
     try {
-      // TODO: Implement actual logic to add destination to user's trip
-      // For now, just simulate success
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const user = auth.currentUser;
+      if (!user) {
+        alert('Please sign in to add to My Trips.');
+        return;
+      }
+
+      // Persist to itinerary/{uid}/items via Itinerary.js helper
+      await addTripForCurrentUser(dest);
+
       setAddedTripId(dest.id);
-      setTimeout(() => setAddedTripId(null), 1200);
+      setTimeout(() => {
+        setAddedTripId(null);
+        navigate('/itinerary'); // Route for “My Trips”
+      }, 600);
     } catch (e) {
-      alert('Failed to add to trip.');
+      if (e?.message === 'AUTH_REQUIRED') {
+        alert('Please sign in to add to My Trips.');
+      } else {
+        console.error('Add to My Trips failed:', e);
+        alert('Failed to add to trip. Please try again.');
+      }
     } finally {
       setAddingTripId(null);
     }
