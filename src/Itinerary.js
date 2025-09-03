@@ -19,6 +19,7 @@ import {
 import { onAuthStateChanged } from "firebase/auth";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { unlockAchievement } from "./profile";
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -54,6 +55,8 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     notes: initial?.notes || "",
   }));
 
+  const [notif, setNotif] = useState("");
+
   const addActivity = () => {
     const v = form.activityDraft.trim();
     if (!v) return;
@@ -62,15 +65,25 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   const removeActivity = (i) =>
     setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
 
-  const handleSave = () => {
-    onSave({
-      ...initial,
-      ...form,
-      budget: Number(form.budget) || 0,
-      accomBudget: Number(form.accomBudget) || 0,
-      activityBudget: Number(form.activityBudget) || 0,
-      transportCost: Number(form.transportCost) || 0,
-    });
+  const handleSave = async () => {
+    try {
+      await onSave({
+        ...initial,
+        ...form,
+        budget: Number(form.budget) || 0,
+        accomBudget: Number(form.accomBudget) || 0,
+        activityBudget: Number(form.activityBudget) || 0,
+        transportCost: Number(form.transportCost) || 0,
+      });
+      setNotif("Itinerary item created successfully!");
+      setTimeout(() => {
+        setNotif("");
+        onClose(); // Close the modal after showing popup
+      }, 1200); // 1.2 seconds
+    } catch (e) {
+      setNotif("Failed to create itinerary item.");
+      setTimeout(() => setNotif(""), 2000);
+    }
   };
 
   // Allow Enter to add activity and Esc to close
@@ -88,16 +101,38 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
-      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="itn-modal-header">
+      <div
+        className="itn-modal"
+        style={{
+          maxWidth: 700,
+          boxShadow: "0 8px 32px rgba(108,99,255,0.12)",
+          borderRadius: 16,
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: "80vh",
+          background: "#fff",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="itn-modal-header" style={{ padding: "24px 32px 12px 32px" }}>
           <div className="itn-modal-title">Edit Destination Details</div>
           <button className="itn-close" onClick={onClose}>×</button>
         </div>
 
-        {/* CHANGED: two-column form with scrollable body */}
-        <div className="itn-modal-body">
-          <div className="itn-form-grid">
+        <div
+          className="itn-modal-body"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "0 32px 24px 32px",
+            background: "#fafaff",
+          }}
+        >
+          <div className="itn-form-grid" style={{ gap: 32 }}>
             <div className="itn-form-col">
+              {/* ...left column fields... */}
+              {/* (same as your previous code) */}
               <div className="itn-grid">
                 <label className="itn-field">
                   <span className="itn-label">Destination Name</span>
@@ -185,6 +220,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
             </div>
 
             <div className="itn-form-col">
+              {/* ...right column fields... */}
               <div className="itn-field">
                 <span className="itn-label">Accommodation Details</span>
                 <div className="itn-grid-2">
@@ -288,10 +324,38 @@ function EditDestinationModal({ initial, onSave, onClose }) {
           </div>
         </div>
 
-        <div className="itn-modal-footer">
+        <div className="itn-modal-footer" style={{
+          padding: "16px 32px",
+          borderTop: "1px solid #eee",
+          background: "#fff",
+          position: "sticky",
+          bottom: 0,
+          zIndex: 2,
+        }}>
           <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
           <button className="itn-btn primary" onClick={handleSave}>Save Details</button>
         </div>
+
+        {/* Notification popup */}
+        {notif && (
+          <div
+            style={{
+              position: "absolute",
+              top: 16,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "#6c63ff",
+              color: "#fff",
+              padding: "10px 24px",
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              fontWeight: 500,
+              zIndex: 10,
+            }}
+          >
+            {notif}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -555,63 +619,18 @@ export default function Itinerary() {
       return;
     }
 
-    // Ensure parent doc exists (some rules require this)
-    await setDoc(doc(db, "itinerary", user.uid), {
-      owner: user.uid,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-
-    const payload = {};
-    const setIf = (k, v) => {
-      const isNumberField = ["budget","accomBudget","activityBudget","transportCost"].includes(k);
-      if (isNumberField) {
-        if (v === "" || v === null || typeof v === "undefined") return;
-        const n = Number(v);
-        if (!Number.isNaN(n)) payload[k] = n;
-        return;
-      }
-      if (Array.isArray(v)) { if (v.length) payload[k] = v; return; }
-      if (v !== "" && v !== null && typeof v !== "undefined") payload[k] = v;
-    };
-
-    setIf("name", data.name);
-    setIf("region", data.region);
-    setIf("arrival", data.arrival);
-    setIf("departure", data.departure);
-    setIf("status", data.status || "Upcoming");
-    setIf("budget", data.budget);
-    setIf("accomBudget", data.accomBudget);
-    setIf("activityBudget", data.activityBudget);
-    setIf("accomType", data.accomType);
-    setIf("accomName", data.accomName);
-    setIf("accomNotes", data.accomNotes);
-    setIf("activities", data.activities);
-    setIf("transport", data.transport);
-    setIf("transportCost", data.transportCost);
-    setIf("transportNotes", data.transportNotes);
-    // Map info (keep if present)
-    if (data.lat && data.lon) {
-      payload.lat = Number(data.lat);
-      payload.lon = Number(data.lon);
-    }
-    if (data.display_name || data.name || data.region) {
-      payload.display_name = data.display_name || `${data.name || ""}${data.region ? ", " + data.region : ""}`;
-    }
-
-    payload.updatedAt = serverTimestamp();
-
-    const colRef = collection(db, "itinerary", user.uid, "items");
+    if (!data.name) data.name = "Untitled destination";
 
     try {
-      if (data.id && items.find((i) => i.id === data.id)) {
-        await updateDoc(doc(db, "itinerary", user.uid, "items", data.id), payload);
-        console.log("[Itinerary] Updated", data.id);
-      } else {
-        if (!payload.name && !payload.display_name) payload.name = "Untitled destination";
-        await addDoc(colRef, { ...payload, createdAt: serverTimestamp() });
-        console.log("[Itinerary] Created new item for", user.uid);
+      const colRef = collection(db, "itinerary", user.uid, "items");
+      await addDoc(colRef, { ...data, createdAt: serverTimestamp() });
+
+      // Check if this is the user's first itinerary item
+      const snap = await getDocs(colRef);
+      if (snap.size === 1) {
+        // Unlock "First Step" achievement (id: 1)
+        await unlockAchievement(1, "First Step");
       }
-      setEditing(null);
     } catch (e) {
       console.error("[Itinerary] saveItem write failed:", e);
       alert(`Failed to save itinerary item: ${e?.code || e?.message || e}`);
@@ -1052,6 +1071,15 @@ export async function addTripForCurrentUser(dest) {
   try {
     await setDoc(ref, payload, { merge: true });
     console.log("[Itinerary] Added trip:", { uid: u.uid, id });
+
+    // Check if this is the user's first itinerary item
+    const colRef = collection(db, "itinerary", u.uid, "items");
+    const snap = await getDocs(colRef);
+    if (snap.size === 1) {
+      // Unlock "First Step" achievement (id: 1)
+      await unlockAchievement(1, "First Step");
+    }
+
     return id;
   } catch (e) {
     console.error("[Itinerary] addTripForCurrentUser failed:", e);

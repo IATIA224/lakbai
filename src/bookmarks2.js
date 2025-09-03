@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './Styles/bookmark2.css';
 import { db, auth } from './firebase';
+import { useNavigate } from 'react-router-dom';
+import { unlockAchievement } from './profile';
 import {
   addDoc,
   collection,
@@ -112,6 +114,7 @@ export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
   const [destinations, setDestinations] = useState([]);
   const navigate = useNavigate();
+  const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
   // NEW: page loading state
@@ -170,6 +173,37 @@ export default function Bookmarks2() {
       setCurrentUser(user || null);
       if (user) {
         const userRef = doc(db, 'userBookmarks', user.uid);
+
+        try {
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            await setDoc(
+              userRef,
+              {
+                userId: user.uid,                      // <- add this to satisfy rules
+                bookmarks: [],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+        } catch (e) {
+          console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
+        }
+
+        // Subscribe with error handler (avoid crashing on permission-denied)
+        unsubUserDoc = onSnapshot(
+          userRef,
+          (s) => {
+            const ids = (s.exists() ? s.data().bookmarks : []) || [];
+            setBookmarks(new Set(ids));
+          },
+          (err) => {
+            console.warn('userBookmarks listener error:', err.code || err.message);
+            setBookmarks(new Set()); // fallback to empty set
+          }
+        );
 
         try {
           const snap = await getDoc(userRef);
@@ -381,10 +415,25 @@ export default function Bookmarks2() {
               console.warn('ratings read skipped for', d.id, err.code || err.message);
               return [d.id, { avg: 0, count: 0 }];
             }
+            try {
+              const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
+              let sum = 0, count = 0;
+              rsnap.forEach((r) => {
+                const v = Number(r.data()?.value) || 0;
+                if (v > 0) { sum += v; count += 1; }
+              });
+              const avg = count ? sum / count : 0;
+              return [d.id, { avg, count }];
+            } catch (err) {
+              // Permission denied -> treat as no ratings
+              console.warn('ratings read skipped for', d.id, err.code || err.message);
+              return [d.id, { avg: 0, count: 0 }];
+            }
           })
         );
         if (!cancelled) setRatingsByDest((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
       } catch (e) {
+        console.error('Load averages failed', e.code || e.message);
         console.error('Load averages failed', e.code || e.message);
       }
     }
@@ -443,6 +492,9 @@ export default function Bookmarks2() {
 
     const id = selected.id;
     const wasBookmarked = bookmarks.has(id);
+    
+    // Check if this will be the first bookmark
+    const isFirstBookmark = !wasBookmarked && bookmarks.size === 0;
 
     // Optimistic UI
     setBookmarks((prev) => {
@@ -454,6 +506,12 @@ export default function Bookmarks2() {
     setBookmarking(true);
     try {
       await toggleBookmark(selected); // persists to Firestore
+      
+      // If adding first bookmark, unlock achievement
+      if (isFirstBookmark) {
+        unlockAchievement(2, "First Bookmark");
+      }
+      
       // onSnapshot will keep state in sync afterward
     } catch (e) {
       // Rollback on failure
@@ -510,12 +568,31 @@ export default function Bookmarks2() {
       // Persist to itinerary/{uid}/items via Itinerary.js helper
       await addTripForCurrentUser(dest);
 
+      const user = auth.currentUser;
+      if (!user) {
+        alert('Please sign in to add to My Trips.');
+        return;
+      }
+
+      // Persist to itinerary/{uid}/items via Itinerary.js helper
+      await addTripForCurrentUser(dest);
+
       setAddedTripId(dest.id);
       setTimeout(() => {
         setAddedTripId(null);
         navigate('/itinerary'); // Route for “My Trips”
       }, 600);
+      setTimeout(() => {
+        setAddedTripId(null);
+        navigate('/itinerary'); // Route for “My Trips”
+      }, 600);
     } catch (e) {
+      if (e?.message === 'AUTH_REQUIRED') {
+        alert('Please sign in to add to My Trips.');
+      } else {
+        console.error('Add to My Trips failed:', e);
+        alert('Failed to add to trip. Please try again.');
+      }
       if (e?.message === 'AUTH_REQUIRED') {
         alert('Please sign in to add to My Trips.');
       } else {
@@ -544,7 +621,7 @@ export default function Bookmarks2() {
                     <stop offset="100%" stopColor="#16a34a" />
                   </linearGradient>
                   <filter id="lbShadow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(2,6,23,.25)" />
+                    <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(2,6,23,.25)" />
                   </filter>
                 </defs>
 
