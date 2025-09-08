@@ -138,7 +138,7 @@ function Dashboard({ setShowAIModal }) {
       </div>
       <div className="personalized-section-dashboard">
         <div className="personalized-title">
-          <span role="img" aria-label="target">🎯</span> Personalized for You
+          Personalized for You
         </div>
         <div className="personalized-cards-grid">
           {/* Example cards, replace with dynamic data if needed */}
