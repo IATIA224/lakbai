@@ -94,7 +94,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
       content: '',
       tags: [],
       location: '',
-      priceRange: '',
+      price: '',
       bestTime: '',
       rating: 0,
       media: { featuredImage: '', gallery: [] },
@@ -295,17 +295,46 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
 
           <div>
             <label>Price Range</label>
-            <select
-              value={data.priceRange}
-              onChange={(e) => setData({ ...data, priceRange: e.target.value })}
-              className="form-input"
-            >
-              <option value="">Select price range</option>
-              <option>$</option>
-              <option>$$</option>
-              <option>$$$</option>
-              <option>$$$$</option>
-            </select>
+            {/* REPLACED: select -> numeric input with static Peso sign */}
+            <div style={{ position: 'relative' }}>
+              <span
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#6b7280',
+                  fontWeight: 600
+                }}
+              >
+                ₱
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                placeholder="Enter amount"
+                value={(() => {
+                  const v = data.price;
+                  if (v === null || v === undefined) return '';
+                  // If legacy values like '$$' exist, strip non-digits
+                  if (typeof v === 'string' && /\D/.test(v)) {
+                    const digits = v.replace(/[^\d]/g, '');
+                    return digits;
+                  }
+                  return v;
+                })()}
+                onChange={(e) =>
+                  setData({
+                    ...data,
+                    price: e.target.value.replace(/[^\d]/g, '')
+                  })
+                }
+                className="form-input"
+                style={{ paddingLeft: 32 }}
+              />
+            </div>
           </div>
 
           <div>
