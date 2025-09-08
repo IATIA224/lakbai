@@ -94,6 +94,7 @@ const REQUIRED = {
   description: 'Description',
   tags: 'Tags',
   location: 'Location',
+  price: 'Price',              // NEW
   bestTime: 'Best Time to Visit',
 };
 
@@ -105,6 +106,7 @@ const ALIASES = {
   description: ['description', 'summary', 'details'],
   tags: ['tags', 'keywords', 'labels'],
   location: ['location', 'city', 'place'],
+  price: ['price', 'pricerange', 'budget', 'cost', 'amount'], // NEW
   bestTime: ['besttime', 'besttimetovisit', 'season'],
 };
 
@@ -134,6 +136,7 @@ function normalizeRowObject(rowArray, headersRaw) {
 
 // ---- Row -> Destination mapping ----
 function rowToDestination(raw) {
+
   // Helper: read using aliases and defaults
   const g = (keys, def = '') => {
     const v = getFirstValue(raw, keys);
@@ -160,6 +163,29 @@ function rowToDestination(raw) {
 
   const status = String(raw.status ?? 'draft').toLowerCase();
 
+  // NEW: robust price parsing
+  const parsePrice = (v) => {
+    if (v == null) return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    const cleaned = String(v)
+      .replace(/[^0-9.,]/g, '')
+      .replace(/,/g, '')
+      .trim();
+    if (!cleaned) return null;
+    const num = Number(cleaned);
+    return isFinite(num) ? num : null;
+  };
+
+  const priceRaw =
+    raw.price ??
+    raw.pricerange ??
+    raw.budget ??
+    raw.cost ??
+    raw.amount ??
+    '';
+
+  const priceNum = parsePrice(priceRaw);
+
   const dest = {
     name: String(name).trim(),
     category: g(ALIASES.category, ''),
@@ -167,8 +193,10 @@ function rowToDestination(raw) {
     content: raw.content || raw.body || raw.html || '',
     tags,
     location: g(ALIASES.location, ''),
-    region: g(ALIASES.region, ''), // keep region if provided
-    priceRange: raw.pricerange || raw.price || raw.budget || '',
+    region: g(ALIASES.region, ''),
+    // Keep legacy field plus new numeric price
+    priceRange: priceRaw,          // legacy (not removed)
+    price: priceNum,               // NEW numeric field
     bestTime: g(ALIASES.bestTime, ''),
     rating,
     media: {
@@ -299,8 +327,8 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
   const downloadTemplate = () => {
     const template =
-      'Destination Name,Region,Category,Description,Content,Tags,Location,Price Range,Best Time to Visit,Rating,Status,Featured Image,Gallery\n' +
-      'Boracay,Aklan,Beach,"White sand beach","<p>Paradise</p>","beach, island",Aklan,$$$,Dec-May,5,published,https://res.cloudinary.com/.../boracay.jpg,https://.../1.jpg|https://.../2.jpg';
+      'Destination Name,Region,Category,Description,Content,Tags,Location,Price,Best Time to Visit,Rating,Status,Featured Image,Gallery\n' + // UPDATED (Price column)
+      'Boracay,Aklan,Beach,"White sand beach","<p>Paradise</p>","beach, island",Aklan,1500,Dec-May,5,published,https://res.cloudinary.com/.../boracay.jpg,https://.../1.jpg|https://.../2.jpg';
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
