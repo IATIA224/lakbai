@@ -618,6 +618,18 @@ export default function Bookmarks2() {
     }
   };
 
+  // NEW: peso formatter (non-destructive)
+  const formatPeso = (v) => {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number') return '₱' + v.toLocaleString();
+    if (typeof v === 'string') {
+      if (v.trim().startsWith('₱')) return v;            // already formatted
+      const digits = v.replace(/[^\d]/g, '');
+      return digits ? '₱' + Number(digits).toLocaleString() : v;
+    }
+    return '—';
+  };
+
   return (
     <div className="App">
       {isLoading && (
@@ -815,8 +827,11 @@ export default function Bookmarks2() {
                 </div>
 
                 <div className="card-footer">
-                  <div className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
-                    {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
+                  <div
+                    className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}
+                    title={d.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                  >
+                    {formatPeso(d.price)} {/* CHANGED: show actual price */}
                   </div>
                   <button className="details-btn" onClick={() => openDetails(d)}>
                     View Details
@@ -937,9 +952,14 @@ export default function Bookmarks2() {
                   <div className="trip-title">Trip Information</div>
 
                   <div className="trip-item">
-                    <div className="trip-label">Price Range</div>
-                    <span className="pill small pill-green">
-                      {selected.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
+                    <div className="trip-label">Price</div>
+                    <span
+                      className={`pill small ${
+                        selected.priceTier === 'less' ? 'pill-green' : 'pill-gray'
+                      }`}
+                      title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                    >
+                      {formatPeso(selected.price)} {/* CHANGED: actual price */}
                     </span>
                   </div>
 
