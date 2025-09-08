@@ -331,6 +331,9 @@ function Bookmark() {
       const docSnap = await getDoc(userRef);
       const isFirstBookmark = !docSnap.exists() || !(docSnap.data()?.bookmarks || []).length;
       
+      // Fetch the user's current bookmarks
+      const bookmarks = new Set(docSnap.data()?.bookmarks || []);
+
       // Regular bookmark logic...
       
       // If this is the first bookmark, unlock the achievement

@@ -19,7 +19,6 @@ import {
   arrayRemove,
   deleteDoc,
 } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
 import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
 
 const initialDestinations = [
@@ -113,7 +112,6 @@ const initialDestinations = [
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
   const [destinations, setDestinations] = useState([]);
-  const navigate = useNavigate();
   const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
@@ -565,17 +563,33 @@ export default function Bookmarks2() {
         return;
       }
 
-      // Persist to itinerary/{uid}/items via Itinerary.js helper
+      // Existing behavior (do not remove)
       await addTripForCurrentUser(dest);
 
-      const user = auth.currentUser;
-      if (!user) {
-        alert('Please sign in to add to My Trips.');
-        return;
+      // NEW: also save to users/{uid}/trips/{destId}
+      try {
+        await setDoc(
+          doc(db, 'users', user.uid, 'trips', String(dest.id)),
+          {
+            destId: String(dest.id),
+            name: dest.name || '',
+            region: dest.region || '',
+            rating: dest.rating ?? null,
+            price: dest.price || '',
+            priceTier: dest.priceTier || null,
+            tags: Array.isArray(dest.tags) ? dest.tags : [],
+            categories: Array.isArray(dest.categories) ? dest.categories : [],
+            bestTime: dest.bestTime || '',
+            image: dest.image || '',
+            addedBy: user.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn('users/{uid}/trips write skipped:', e.code || e.message);
       }
-
-      // Persist to itinerary/{uid}/items via Itinerary.js helper
-      await addTripForCurrentUser(dest);
 
       setAddedTripId(dest.id);
       setTimeout(() => {
