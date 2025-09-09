@@ -60,7 +60,8 @@
     ],
     "moduleNameMapper": {
       "^.+\\.(css|less|scss|sass)$": "<rootDir>/src/__mocks__/styleMock.js",
-      "^axios$": "axios/dist/node/axios.cjs"
+      "^axios$": "axios/dist/node/axios.cjs",
+      "^@testing-library/react/dist/act-compat$": "<rootDir>/src/__mocks__/rtl-act-compat.js"
     }
   },
   "engines": {
