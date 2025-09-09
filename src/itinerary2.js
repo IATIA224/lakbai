@@ -411,7 +411,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
       }, 1200);
     } catch (err) {
       setNotif("Failed to update itinerary item.");
-      console.error("Error updating item:", err);
+      console.error ("Error updating item:", err);
       setTimeout(() => setNotif(""), 2000);
     }
   };
@@ -1367,5 +1367,88 @@ async function leaveOrDeleteSharedItinerary(shared, user) {
     }
   } catch (e) {
     console.error("[LEAVE] Failed", e);
+  }
+}
+
+// Firestore helpers for "My Trips" ONLY (does not touch itinerary/sharedItineraries)
+
+// Internal helpers for global deletes under users/*/trips
+async function deleteTripDocFromAllUsers(itemId) {
+  if (!itemId) return;
+  const usersSnap = await getDocs(collection(db, "users"));
+  let batch = writeBatch(db);
+  let ops = 0;
+
+  for (const u of usersSnap.docs) {
+    const ref = doc(db, "users", u.id, "trips", itemId);
+    batch.delete(ref);
+    ops++;
+    if (ops >= 450) {
+      await batch.commit();
+      batch = writeBatch(db);
+      ops = 0;
+    }
+  }
+  if (ops) await batch.commit();
+}
+
+async function clearTripsForAllUsers() {
+  const usersSnap = await getDocs(collection(db, "users"));
+  for (const u of usersSnap.docs) {
+    const tripsCol = collection(db, "users", u.id, "trips");
+    // Batch-delete in chunks to avoid limits
+    while (true) {
+      const snap = await getDocs(query(tripsCol, limit(400)));
+      if (snap.empty) break;
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+}
+
+// Delete one destination from trips
+export async function deleteTripDestination(user, itemId, subcolOrOptions = "items") {
+  if (!user || !itemId) return;
+
+  // Allow overriding behavior if ever needed
+  const allUsers = typeof subcolOrOptions === "object" ? !!subcolOrOptions.allUsers : true;
+
+  // Always remove from the current user first (correct path includes "users")
+  await deleteDoc(doc(db, "users", user.uid, "trips", itemId));
+
+  // Also remove from every user's trips (requested behavior)
+  if (allUsers) {
+    try {
+      await deleteTripDocFromAllUsers(itemId);
+    } catch (e) {
+      console.error("Global trip delete failed; current user's trip removed only.", e);
+    }
+  }
+}
+
+// Clear all destinations from trips
+export async function clearAllTripDestinations(user, subcolOrOptions = "items") {
+  if (!user) return;
+
+  const allUsers = typeof subcolOrOptions === "object" ? !!subcolOrOptions.allUsers : true;
+
+  // Clear for the current user first
+  const itemsCol = collection(db, "users", user.uid, "trips");
+  while (true) {
+    const snap = await getDocs(query(itemsCol, limit(400)));
+    if (snap.empty) break;
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+
+  // Also clear for all users (requested behavior)
+  if (allUsers) {
+    try {
+      await clearTripsForAllUsers();
+    } catch (e) {
+      console.error("Global clear trips failed; current user's trips cleared only.", e);
+    }
   }
 }

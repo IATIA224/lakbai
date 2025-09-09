@@ -25,7 +25,10 @@ import {
   useFriendsList,
   useSharedItineraries,
   shareItinerary as shareItineraryWithFriends,
-  SharedItinerariesTab
+  SharedItinerariesTab,
+  // add:
+  deleteTripDestination,
+  clearAllTripDestinations,
 } from './itinerary2';
 
 // Simple place search via OpenStreetMap Nominatim
@@ -668,7 +671,15 @@ export default function Itinerary() {
   // NEW: delete from Firestore
   const removeItem = async (id) => {
     if (!user) return;
+    // delete from itinerary (existing behavior)
     await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
+
+    // also delete from My Trips (all users)
+    try {
+      await removeTripForAllUsers(id);
+    } catch (e) {
+      console.warn("[Trips] Failed to delete from trips across users:", e);
+    }
   };
 
   // NEW: toggle status in Firestore
@@ -710,10 +721,18 @@ export default function Itinerary() {
     if (!user || !items.length) return;
     if (!window.confirm("Remove all destinations from your itinerary?")) return;
     try {
+      // clear itinerary (existing behavior)
       const colRef = collection(db, "itinerary", user.uid, "items");
       const snap = await getDocs(colRef);
       await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
       console.log("[Itinerary] Cleared itinerary for", user.uid);
+
+      // also clear My Trips (all users)
+      try {
+        await clearAllTripsForAllUsers();
+      } catch (e) {
+        console.warn("[Trips] Failed to clear trips across users:", e);
+      }
     } catch (e) {
       console.error("Clear All failed:", e);
       alert("Failed to clear your itinerary. Please try again.");
@@ -984,8 +1003,7 @@ export default function Itinerary() {
             ) : (
               <div className="itn-muted">Search for places on the map to start planning.</div>
             )}
-
-           
+            
             {results.length > 1 && (
               <div className="itn-results">
                 {results.map((r) => (
@@ -1201,4 +1219,19 @@ export async function addTripForCurrentUser(dest) {
     console.error("[Itinerary] Failed to add trip:", err);
     throw err;
   }
+}
+
+// Add these named exports near the bottom (outside components) so "My Trips" UI can call them.
+export async function removeTripForAllUsers(itemId) {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+  // Deletes users/*/trips/<itemId> for every user. Does not touch itinerary/sharedItineraries.
+  await deleteTripDestination(u, itemId);
+}
+
+export async function clearAllTripsForAllUsers() {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+  // Clears users/*/trips for every user. Does not touch itinerary/sharedItineraries.
+  await clearAllTripDestinations(u);
 }
