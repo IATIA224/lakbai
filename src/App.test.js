@@ -22,8 +22,11 @@ jest.mock('./Itinerary', () => ({ __esModule: true, default: () => <div>Itinerar
 jest.mock('./DestinationManager', () => ({ __esModule: true, default: () => <div>DestinationManager</div> }));
 jest.mock('./components/UserManagement', () => ({ __esModule: true, default: () => <div>UserManagement</div> }));
 jest.mock('./ContentManagement', () => ({ __esModule: true, default: () => <div>ContentManagement</div> }));
+
+// Match the actual filename case on disk (Windows ignores case; Linux doesn’t)
 jest.mock('./header', () => ({ __esModule: true, default: () => <div>Header</div> }));
-jest.mock('./footer', () => ({ __esModule: true, default: () => <div>Footer</div> }));
+jest.mock('./Footer', () => ({ __esModule: true, default: () => <div>Footer</div> }));
+
 jest.mock('./AchievementToast', () => ({ __esModule: true, default: () => <div>Toast</div> }));
 jest.mock('./Ai', () => ({ __esModule: true, ChatbaseAIModal: () => <div>AI</div> }));
 
