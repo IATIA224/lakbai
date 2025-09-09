@@ -1,0 +1,603 @@
+/* Modal backdrop and base */
+.itn-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.itn-modal {
+  max-width: 850px;
+  width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal header */
+.itn-modal-header {
+  padding: 22px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #6c63ff 0%, #a084ee 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.itn-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+}
+
+.itn-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.itn-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Share modal body */
+.itn-share-modal-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+  flex: 1;
+}
+
+.itn-share-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.itn-share-column {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.itn-share-column:first-child {
+  border-right: 1px solid #eee;
+}
+
+.itn-share-heading {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #6c63ff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itn-share-heading-icon {
+  font-size: 18px;
+}
+
+.itn-share-search {
+  margin-bottom: 12px;
+}
+
+.itn-share-search input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #e4e6f0;
+  font-size: 14px;
+}
+
+.itn-share-list-container {
+  flex: 1;
+  overflow-y: auto;
+  background: #f8f9ff;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.itn-share-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  margin: 4px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid #e4e6f0;
+  transition: all 0.15s ease;
+}
+
+.itn-share-item.selected {
+  background: #eef2ff;
+  border: 1px solid #6c63ff;
+}
+
+.itn-share-item:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.itn-share-checkbox {
+  margin-right: 12px;
+  width: 18px;
+  height: 18px;
+  accent-color: #6c63ff;
+}
+
+.itn-share-destination-info {
+  flex: 1;
+}
+
+.itn-share-destination-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.itn-share-destination-meta {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.itn-share-friend-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  margin-right: 12px;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+  object-fit: cover;
+}
+
+.itn-share-friend-name {
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.itn-share-count {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.itn-share-count-value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Empty states */
+.itn-share-empty {
+  padding: 30px 20px;
+  text-align: center;
+  color: #64748b;
+}
+
+.itn-share-empty-icon {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+/* Modal footer */
+.itn-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-top: 1px solid #eee;
+  background-color: #f8f9ff;
+  align-items: center;
+}
+
+.itn-selection-count {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.itn-button-group {
+  display: flex;
+  gap: 12px;
+}
+
+.itn-btn {
+  padding: 10px 18px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.itn-btn.ghost {
+  background-color: #f0f0f5;
+  color: #444;
+  font-weight: 500;
+}
+
+.itn-btn.primary {
+  background-color: #6c63ff;
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.itn-btn.ghost:hover {
+  background-color: #e8e8ee;
+}
+
+.itn-btn.primary:hover {
+  background-color: #5b52ee;
+}
+
+.itn-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Loading spinner */
+.itn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Modal animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.itn-modal-backdrop {
+  animation: fadeIn 0.2s ease;
+}
+
+/* Shared Destination Card */
+.itn-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.itn-card-head {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.itn-card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.itn-step {
+  width: 28px;
+  height: 28px;
+  background: #6c63ff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.itn-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.itn-sub {
+  color: #666;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.itn-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itn-badge {
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.itn-badge.upcoming {
+  background: #eef2ff;
+  color: #3b82f6;
+}
+
+.itn-badge.ongoing {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.itn-badge.completed {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.itn-badge.cancelled {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.itn-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: #f5f5f9;
+  border-top: 1px solid #f0f0f0;
+}
+
+.itn-stat {
+  padding: 16px;
+  background: white;
+}
+
+.itn-stat-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.itn-stat.blue .itn-stat-title { color: #3b82f6; }
+.itn-stat.green .itn-stat-title { color: #10b981; }
+.itn-stat.purple .itn-stat-title { color: #8b5cf6; }
+.itn-stat.orange .itn-stat-title { color: #f59e0b; }
+
+.itn-stat-body {
+  font-size: 14px;
+}
+
+.itn-muted {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* Shared edit modal */
+.itn-shared-edit-modal {
+  max-width: 700px;
+  width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.itn-shared-edit-header {
+  padding: 22px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #6c63ff 0%, #a084ee 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.itn-shared-edit-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+}
+
+.itn-shared-edit-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Form styling */
+.itn-form-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.itn-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.itn-form-row.single {
+  grid-template-columns: 1fr;
+}
+
+.itn-form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.itn-input,
+.itn-form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e4e6f0;
+  font-size: 14px;
+  transition: border-color 0.15s ease;
+  background-color: #fff;
+}
+
+.itn-input:focus,
+.itn-form-input:focus {
+  border-color: #6c63ff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+}
+
+select.itn-input,
+select.itn-form-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c63ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 36px;
+}
+
+textarea.itn-input,
+textarea.itn-form-input {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* Activities section */
+.itn-activities-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.itn-activities-container {
+  background-color: #f8f9ff;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 80px;
+  border: 1px solid #e4e6f0;
+}
+
+.itn-activities-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.itn-activity-item {
+  background-color: white;
+  border: 1px solid #e1e4f5;
+  border-radius: 4px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.itn-activity-remove {
+  background-color: #ff3b30;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.itn-activity-remove:hover {
+  background-color: #e02e24;
+}
+
+.itn-empty-activities {
+  color: #64748b;
+  padding: 20px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.itn-shared-edit-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 28px;
+  border-top: 1px solid #eee;
+  background-color: #f8f9ff;
+  gap: 12px;
+}
+
+/* Button styles for edit modal */
+.itn-shared-edit-modal .itn-btn {
+  min-width: 80px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.itn-shared-edit-modal .itn-btn.primary {
+  background-color: #6c63ff;
+  color: #fff;
+}
+
+/* Make form responsive for mobile */
+@media (max-width: 640px) {
+  .itn-form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .itn-shared-edit-modal {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .itn-shared-edit-header,
+  .itn-shared-edit-footer {
+    padding: 16px 20px;
+  }
+  
+  .itn-shared-edit-body {
+    padding: 20px;
+  }
+}

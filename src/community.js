@@ -301,22 +301,56 @@ function ReportPostModal({ post, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!reason) return;
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("You must be signed in to report content.");
+      return;
+    }
+    
     setLoading(true);
     try {
       const selected = reasons.find(r => r.value === reason);
       await addDoc(collection(db, "report"), {
-        reporterId: auth.currentUser.uid,
-        reportedUser: post.authorId,
+        reporterId: currentUser.uid,           // ID of the user submitting the report
+        reporterName: currentUser.displayName || "Anonymous user", // Name of reporter
+        reportedUserId: post.authorId,         // ID of the user who created the reported content
+        reportedUserName: post.author?.name || "Unknown user", // Name of reported user
         postId: post.id,
         contentType: "post",
+        contentSnapshot: {                     // Save snapshot of reported content
+          title: post.title || "",
+          details: post.details || "",
+          location: post.location || "",
+        },
         reason,
         reasonLabel: selected?.label || reason,
         details,
         priority: selected?.priority || "Low",
         status: "pending",
-        date: serverTimestamp(),       // must be serverTimestamp to satisfy rules
+        reviewedBy: null,                      // Admin who reviews this report
+        reviewNotes: null,                     // Admin review notes
+        reviewedAt: null,                      // When review happened
+        createdAt: serverTimestamp(),          // When report was created
       });
       setShowSuccess(true);
+      
+      // Also log this action for moderation history
+      try {
+        await addDoc(collection(db, "moderationLogs"), {
+          action: "report_submitted",
+          contentType: "post",
+          contentId: post.id,
+          reporterId: currentUser.uid,
+          reportedUserId: post.authorId,
+          reason: selected?.label || reason,
+          timestamp: serverTimestamp()
+        });
+      } catch (logErr) {
+        console.error("Failed to log moderation action:", logErr);
+        // Non-blocking error - main report was still created
+      }
+      
       setTimeout(() => {
         setShowSuccess(false);
         onClose();
@@ -777,23 +811,57 @@ function ReportCommentModal({ comment, post, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!reason) return;
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("You must be signed in to report content.");
+      return;
+    }
+    
     setLoading(true);
     try {
       const selected = reasons.find(r => r.value === reason);
       await addDoc(collection(db, "report"), {
-        reporterId: auth.currentUser.uid,
-        reportedUser: comment.userId,
-        postId: post.id,
+        reporterId: currentUser.uid,           // ID of user submitting report
+        reporterName: currentUser.displayName || "Anonymous user", // Name of reporter
+        reportedUserId: comment.userId,        // ID of user who created reported content
+        reportedUserName: comment.userName || "Unknown user", // Name of reported user
+        postId: post.id,                       // Parent post ID
         commentId: comment.id,
         contentType: "comment",
+        contentSnapshot: {                     // Save snapshot of reported content
+          text: comment.text || "",
+          createdAt: comment.createdAt || null,
+        },
         reason,
         reasonLabel: selected?.label || reason,
         details,
         priority: selected?.priority || "Low",
         status: "pending",
-        date: serverTimestamp(),       // must be serverTimestamp to satisfy rules
+        reviewedBy: null,                      // Admin who reviews this report
+        reviewNotes: null,                     // Admin review notes
+        reviewedAt: null,                      // When review happened
+        createdAt: serverTimestamp(),          // When report was created
       });
       setShowSuccess(true);
+      
+      // Also log this action for moderation history
+      try {
+        await addDoc(collection(db, "moderationLogs"), {
+          action: "report_submitted",
+          contentType: "comment",
+          contentId: comment.id,
+          postId: post.id,
+          reporterId: currentUser.uid,
+          reportedUserId: comment.userId,
+          reason: selected?.label || reason,
+          timestamp: serverTimestamp()
+        });
+      } catch (logErr) {
+        console.error("Failed to log moderation action:", logErr);
+        // Non-blocking error - main report was still created
+      }
+      
       setTimeout(() => {
         setShowSuccess(false);
         onClose();
