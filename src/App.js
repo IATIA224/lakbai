@@ -13,7 +13,7 @@ import './App.css';
 import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
 import Itinerary from "./Itinerary";
-import Footer from './footer'; // ensure this exists
+import Footer from './Footer'; // FIX: was './footer'
 
 // New: place all UI that depends on useLocation in this inner component
 function AppInner() {
