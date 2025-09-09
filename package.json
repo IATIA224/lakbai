@@ -62,5 +62,9 @@
       "^.+\\.(css|less|scss|sass)$": "<rootDir>/src/__mocks__/styleMock.js",
       "^axios$": "axios/dist/node/axios.cjs"
     }
+  },
+  "engines": {
+    "node": ">=18 <21",
+    "npm": ">=8"
   }
 }
