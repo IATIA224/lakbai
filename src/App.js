@@ -59,7 +59,8 @@ function AppInner() {
 
 // Replace default export body to mount a Router only if needed
 export default function App() {
-  const inRouter = typeof useInRouterContext === 'function' ? useInRouterContext() : false;
+  // Was: typeof check that caused a conditional hook call lint error
+  const inRouter = useInRouterContext(); // safe: returns false if no Router
 
   if (inRouter) {
     // Already wrapped (e.g., tests use <MemoryRouter>)
