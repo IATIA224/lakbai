@@ -563,15 +563,50 @@ export default function Bookmarks2() {
         return;
       }
 
-      // Persist to itinerary/{uid}/items via Itinerary.js helper
+      // Existing behavior (do not remove)
       await addTripForCurrentUser(dest);
+
+      // NEW: also save to users/{uid}/trips/{destId}
+      try {
+        await setDoc(
+          doc(db, 'users', user.uid, 'trips', String(dest.id)),
+          {
+            destId: String(dest.id),
+            name: dest.name || '',
+            region: dest.region || '',
+            rating: dest.rating ?? null,
+            price: dest.price || '',
+            priceTier: dest.priceTier || null,
+            tags: Array.isArray(dest.tags) ? dest.tags : [],
+            categories: Array.isArray(dest.categories) ? dest.categories : [],
+            bestTime: dest.bestTime || '',
+            image: dest.image || '',
+            addedBy: user.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn('users/{uid}/trips write skipped:', e.code || e.message);
+      }
 
       setAddedTripId(dest.id);
       setTimeout(() => {
         setAddedTripId(null);
         navigate('/itinerary'); // Route for "My Trips"
       }, 600);
+      setTimeout(() => {
+        setAddedTripId(null);
+        navigate('/itinerary'); // Route for “My Trips”
+      }, 600);
     } catch (e) {
+      if (e?.message === 'AUTH_REQUIRED') {
+        alert('Please sign in to add to My Trips.');
+      } else {
+        console.error('Add to My Trips failed:', e);
+        alert('Failed to add to trip. Please try again.');
+      }
       if (e?.message === 'AUTH_REQUIRED') {
         alert('Please sign in to add to My Trips.');
       } else {
@@ -581,6 +616,18 @@ export default function Bookmarks2() {
     } finally {
       setAddingTripId(null);
     }
+  };
+
+  // NEW: peso formatter (non-destructive)
+  const formatPeso = (v) => {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number') return '₱' + v.toLocaleString();
+    if (typeof v === 'string') {
+      if (v.trim().startsWith('₱')) return v;            // already formatted
+      const digits = v.replace(/[^\d]/g, '');
+      return digits ? '₱' + Number(digits).toLocaleString() : v;
+    }
+    return '—';
   };
 
   return (
@@ -780,8 +827,11 @@ export default function Bookmarks2() {
                 </div>
 
                 <div className="card-footer">
-                  <div className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
-                    {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
+                  <div
+                    className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}
+                    title={d.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                  >
+                    {formatPeso(d.price)} {/* CHANGED: show actual price */}
                   </div>
                   <button className="details-btn" onClick={() => openDetails(d)}>
                     View Details
@@ -902,9 +952,14 @@ export default function Bookmarks2() {
                   <div className="trip-title">Trip Information</div>
 
                   <div className="trip-item">
-                    <div className="trip-label">Price Range</div>
-                    <span className="pill small pill-green">
-                      {selected.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
+                    <div className="trip-label">Price</div>
+                    <span
+                      className={`pill small ${
+                        selected.priceTier === 'less' ? 'pill-green' : 'pill-gray'
+                      }`}
+                      title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                    >
+                      {formatPeso(selected.price)} {/* CHANGED: actual price */}
                     </span>
                   </div>
 

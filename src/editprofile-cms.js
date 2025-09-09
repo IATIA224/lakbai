@@ -555,11 +555,7 @@ async function loadTravelerNameFromFirebase(userObj) {
     if (ds.exists()) {
       const data = ds.data() || {};
       const name =
-        data.displayName ??
         data.travelerName ??
-        data.name ??
-        data.profile?.displayName ??
-        data.profile?.name ??
         '';
       return typeof name === 'string' ? name : String(name || '');
     }

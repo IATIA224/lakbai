@@ -1,0 +1,1 @@
+export { TakeActionModal as default, TakeActionModal } from './reportdetails-cms';
