@@ -11,6 +11,7 @@ import DestinationForm from './adddestination-cms'; // NEW
 import AddFromCsvCMS from './addfromcsv-cms'; // NEW
 import ReportDetailModal from './reportdetails-cms'; //NEW
 import TakeActionModal from './takeaction-cms'; // NEW
+import AuditLogsCMS from './auditlogs-cms'; // NEW
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -1286,6 +1287,7 @@ useEffect(() => {
       </aside>
       <main className="main-content">
         <div className="page-wrap">
+
         {active === 'dashboard' && (
             <div className="dashboard">
             <header style={{ marginBottom: 18 }}>
@@ -1321,29 +1323,11 @@ useEffect(() => {
                 <div className="stat-value" style={{ color: '#fff' }}>{analytics.publishedContent}</div>
                 <div className="muted" style={{ opacity: 0.9 }}>Live content pieces</div>
                 </div>
-            </div>
 
-            <div className="content-card" style={{ padding: 20, borderRadius: 12 }}>
-                <h2 style={{ marginTop: 0 }}>Recent Activity</h2>
-                <div style={{ minHeight: 120 }}>
-                {loading ? (
-                    <div className="centered"><div className="loading-spinner" /></div>
-                ) : analytics.recentActivity.length ? (
-                    analytics.recentActivity.map((it, i) => (
-                    <div key={i} className="activity-row">
-                        <div className="activity-icon">{it.type === 'destination' ? '🏖️' : '📝'}</div>
-                        <div className="activity-body">
-                        <strong>{it.name || it.title}</strong>
-                        <div className="muted small">{it.type} • Updated {new Date(it.updatedAt || it.createdAt || Date.now()).toLocaleDateString()}</div>
-                        </div>
-                        <div className={`status-badge status-${it.status || 'draft'}`}>{(it.status || 'draft').toUpperCase()}</div>
-                    </div>
-                    ))
-                ) : (
-                    <div className="muted" style={{ padding: 24 }}>No recent activity</div>
-                )}
+              </div>
+                <div style={{ marginTop: 8 }}>
+                  <AuditLogsCMS useFirestore={true} pageSize={50} />
                 </div>
-            </div>
             </div>
         )}
         </div>
