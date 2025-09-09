@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, BrowserRouter, useLocation, useInRouterContext } from 'react-router-dom';
 import StickyHeader from './header';
 import Login from './login';
 import Register from './register';
@@ -19,13 +19,13 @@ import UserManagement from "./components/UserManagement";
 import ContentManagement from './ContentManagement';
 import Footer from './Footer';
 
-function App() {
+// New: place all UI that depends on useLocation in this inner component
+function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
+  // Safe access to pathname when running in tests
   const location = useLocation();
-
-  // Hide StickyHeader on login/register pages
   const hideHeaderRoutes = ['/', '/register', '/admin/ContentManagement'];
-  const showHeader = !hideHeaderRoutes.includes(location.pathname);
+  const showHeader = !hideHeaderRoutes.includes(location?.pathname || '/');
 
   return (
     <UserProvider>  {/* CHANGE THIS FROM AuthProvider TO UserProvider */}
@@ -57,5 +57,20 @@ function App() {
   );
 }
 
-export default App;
+// Replace default export body to mount a Router only if needed
+export default function App() {
+  const inRouter = typeof useInRouterContext === 'function' ? useInRouterContext() : false;
+
+  if (inRouter) {
+    // Already wrapped (e.g., tests use <MemoryRouter>)
+    return <AppInner />;
+  }
+
+  // Normal app run: provide BrowserRouter
+  return (
+    <BrowserRouter>
+      <AppInner />
+    </BrowserRouter>
+  );
+}
 
