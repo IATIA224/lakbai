@@ -1,3 +1,4 @@
+// Advanced Discover / Bookmarks module
 import React, { useEffect, useMemo, useState } from 'react';
 import './Styles/bookmark2.css';
 import { db, auth } from './firebase';
@@ -18,8 +19,9 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
+import { addTripForCurrentUser } from './Itinerary';
 
+// (Kept a minimal static fallback list only for initial UI shimmer if Firestore still loading)
 const initialDestinations = [
   {
     id: 'boracay',
@@ -34,87 +36,15 @@ const initialDestinations = [
     categories: ['Beaches', 'Islands', 'Tourist'],
     bestTime: 'November to April',
   },
-  {
-    id: 'banaue',
-    name: 'Banaue Rice Terraces',
-    region: 'CAR - Cordillera Administrative Region',
-    rating: 4.7,
-    price: '₱1,800',
-    priceTier: 'less',
-    description:
-      'Ancient rice terraces carved into mountains, often called the “Eighth Wonder of the World.”',
-    tags: ['UNESCO', 'Cultural', 'Hiking'],
-    categories: ['Mountains', 'Cultural'],
-    bestTime: 'December to May',
-  },
-  {
-    id: 'palawan-underground',
-    name: 'Palawan Underground River',
-    region: 'Region IV-B - MIMAROPA',
-    rating: 4.6,
-    price: '₱2,500',
-    priceTier: 'expensive',
-    description:
-      'Subterranean river flowing through a spectacular limestone karst landscape.',
-    tags: ['UNESCO', 'Cave', 'Boat Tour'],
-    categories: ['Caves', 'Islands'],
-    bestTime: 'November to May',
-  },
-  {
-    id: 'mayon',
-    name: 'Mayon Volcano',
-    region: 'Region V - Bicol Region',
-    rating: 4.5,
-    price: '₱1,200',
-    priceTier: 'less',
-    description:
-      'Perfect cone-shaped active volcano, considered the most beautiful volcano in the Philippines.',
-    tags: ['Volcano', 'Hiking', 'Photography'],
-    categories: ['Mountains', 'Parks'],
-    bestTime: 'February to April',
-  },
-  {
-    id: 'chocolate-hills',
-    name: 'Chocolate Hills',
-    region: 'Region VII - Central Visayas',
-    rating: 4.4,
-    price: '₱1,300',
-    priceTier: 'less',
-    description:
-      'Unique geological formation of over 1,200 hills that turn chocolate brown in dry season.',
-    tags: ['Geological Wonder', 'View', 'Photography'],
-    categories: ['Landmarks', 'Natural'],
-    bestTime: 'December to May',
-  },
-  {
-    id: 'intramuros',
-    name: 'Intramuros',
-    region: 'NCR - National Capital Region',
-    rating: 4.3,
-    price: '₱800',
-    priceTier: 'less',
-    description:
-      'Historic walled city built during Spanish colonial period. Features museums, churches, and cobbled streets.',
-    tags: ['Historical', 'Colonial', 'Museums'],
-    categories: ['Historical', 'Museums'],
-    bestTime: 'All year',
-  },
-  // Add more items to approach “12 destinations” UI
-  { id: 'el-nido', name: 'El Nido', region: 'Region IV-B - MIMAROPA', rating: 4.8, price: '₱3,200', priceTier: 'expensive', description: 'Dramatic limestone cliffs and turquoise lagoons.', tags: ['Islands', 'Snorkeling', 'Boat Tour'], categories: ['Islands'], bestTime: 'November to May' },
-  { id: 'siargao', name: 'Siargao', region: 'CARAGA - Region XIII', rating: 4.7, price: '₱2,200', priceTier: 'expensive', description: 'Surfing capital with laid-back island vibes.', tags: ['Surfing', 'Beach'], categories: ['Beaches', 'Parks'], bestTime: 'March to October' },
-  { id: 'vigan', name: 'Vigan', region: 'Region I - Ilocos Region', rating: 4.5, price: '₱1,500', priceTier: 'less', description: 'Well-preserved Spanish colonial town.', tags: ['UNESCO', 'Cultural'], categories: ['Historical', 'Cultural'], bestTime: 'December to March' },
-  { id: 'puerto-galera', name: 'Puerto Galera', region: 'Region IV-B - MIMAROPA', rating: 4.2, price: '₱1,600', priceTier: 'less', description: 'Diving spots and beaches close to Manila.', tags: ['Diving', 'Beach'], categories: ['Beaches'], bestTime: 'November to May' },
-  { id: 'pagudpud', name: 'Pagudpud', region: 'Region I - Ilocos Region', rating: 4.4, price: '₱1,400', priceTier: 'less', description: 'Northern white-sand beaches and windmills.', tags: ['Beach', 'View'], categories: ['Beaches'], bestTime: 'December to April' },
-  { id: 'bohol', name: 'Bohol Countryside', region: 'Region VII - Central Visayas', rating: 4.6, price: '₱1,900', priceTier: 'less', description: 'Countryside tour with tarsiers and rivers.', tags: ['River Cruise', 'Wildlife'], categories: ['Natural'], bestTime: 'November to May' },
 ];
 
+// Exported main component
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
   const [destinations, setDestinations] = useState([]);
   const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
-  // NEW: page loading state
   const [isLoading, setIsLoading] = useState(true);
 
   // UI state
@@ -125,22 +55,24 @@ export default function Bookmarks2() {
   const [selectedCats, setSelectedCats] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [addingTripId, setAddingTripId] = useState(null);
-  const [addedTripId, setAddedTripId] = useState(null); // NEW: show ✔ after success
 
-  // NEW: ratings state
+  // Adding to trip state
+  const [addingTripId, setAddingTripId] = useState(null);
+  const [addedTripId, setAddedTripId] = useState(null);
+
+  // Ratings
   const [ratingsByDest, setRatingsByDest] = useState({}); // { [destId]: { avg, count } }
-  const [userRating, setUserRating] = useState(0);        // current user's rating for selected
+  const [userRating, setUserRating] = useState(0);
   const [savingRating, setSavingRating] = useState(false);
 
-  // NEW: bookmark toggle pending (modal)
+  // Bookmark toggle (modal)
   const [bookmarking, setBookmarking] = useState(false);
 
-  // NEW: pagination
+  // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 12;
 
-  // 1) Load only CMS-published destinations (status in ['published','PUBLISHED'])
+  // 1) Live-listen only to published destinations
   useEffect(() => {
     setIsLoading(true);
     const q = fsQuery(
@@ -150,7 +82,7 @@ export default function Bookmarks2() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const items = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setDestinations(items);
         setIsLoading(false);
       },
@@ -163,7 +95,7 @@ export default function Bookmarks2() {
     return () => unsub();
   }, []);
 
-  // 2) Listen to auth and the current user's bookmarks
+  // 2) Auth + bookmarks document listener
   useEffect(() => {
     let unsubUserDoc = null;
     const unsubAuth = auth.onAuthStateChanged(async (user) => {
@@ -171,25 +103,26 @@ export default function Bookmarks2() {
       if (user) {
         const userRef = doc(db, 'userBookmarks', user.uid);
 
+        // Bootstrap (best-effort)
         try {
           const snap = await getDoc(userRef);
-          if (!snap.exists()) {
-            await setDoc(
-              userRef,
-              {
-                userId: user.uid,                      // <- add this to satisfy rules
-                bookmarks: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-          }
+            if (!snap.exists()) {
+              await setDoc(
+                userRef,
+                {
+                  userId: user.uid,
+                  bookmarks: [],
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                },
+                { merge: true }
+              );
+            }
         } catch (e) {
           console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
         }
 
-        // Subscribe with error handler (avoid crashing on permission-denied)
+        // Listener
         unsubUserDoc = onSnapshot(
           userRef,
           (s) => {
@@ -198,7 +131,7 @@ export default function Bookmarks2() {
           },
           (err) => {
             console.warn('userBookmarks listener error:', err.code || err.message);
-            setBookmarks(new Set()); // fallback to empty set
+            setBookmarks(new Set());
           }
         );
       } else {
@@ -212,9 +145,12 @@ export default function Bookmarks2() {
     };
   }, []);
 
-  // Regions/Categories derived from Firestore data
+  // Derived lists
   const regions = useMemo(
-    () => [...new Set(destinations.map((d) => d.region).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    () =>
+      [...new Set(destinations.map((d) => d.region).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b)
+      ),
     [destinations]
   );
   const categories = useMemo(() => {
@@ -225,11 +161,10 @@ export default function Bookmarks2() {
 
   // Filter + sort
   const filtered = useMemo(() => {
-    // Guard: keep only truly published docs
+    // Ensure only published
     let list = destinations.filter(
       (d) => String(d.status || '').toUpperCase() === 'PUBLISHED'
     );
-
     const q = query.trim().toLowerCase();
     list = list.filter((d) => {
       const matchesQ =
@@ -239,24 +174,29 @@ export default function Bookmarks2() {
         d.region?.toLowerCase().includes(q);
       const matchesRegion = !selectedRegions.size || selectedRegions.has(d.region);
       const matchesPrice = !selectedPrice || selectedPrice === d.priceTier;
-      const matchesCat = !selectedCats.size || (d.categories || []).some((c) => selectedCats.has(c));
+      const matchesCat =
+        !selectedCats.size || (d.categories || []).some((c) => selectedCats.has(c));
       return matchesQ && matchesRegion && matchesPrice && matchesCat;
     });
 
-    if (sortBy === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    if (sortBy === 'rating') list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (sortBy === 'name')
+      list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (sortBy === 'rating')
+      list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     if (sortBy === 'price') {
-      const n = (x) => parseInt((x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
-      list = [...list].sort((a, b) => n(a) - n(b));
+      const priceNum = (x) =>
+        parseInt(String(x.price || '').replace(/[^\d]/g, ''), 10) || 0;
+      list = [...list].sort((a, b) => priceNum(a) - priceNum(b));
     }
     return list;
   }, [destinations, query, selectedRegions, selectedPrice, selectedCats, sortBy]);
 
-  // NEW: clamp/reset page when filters/sort change
+  // Reset page when filters change
   useEffect(() => {
     setPage(1);
   }, [query, selectedRegions, selectedPrice, selectedCats, sortBy]);
 
+  // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -270,16 +210,57 @@ export default function Bookmarks2() {
   const canNext = page < totalPages;
 
   const Pager = () => (
-    <div className="bp2-pager" style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', margin: '12px 0' }}>
+    <div
+      className="bp2-pager"
+      style={{
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        margin: '12px 0',
+      }}
+    >
       <div className="bp2-pager-info" style={{ color: '#475569', fontSize: 14 }}>
-        {filtered.length ? `Showing ${start + 1}–${end} of ${filtered.length}` : 'No destinations found'}
+        {filtered.length
+          ? `Showing ${start + 1}–${end} of ${filtered.length}`
+          : 'No destinations found'}
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button className="next-page-btn" onClick={() => setPage(1)} disabled={!canPrev} aria-label="First page">« First</button>
-        <button className="next-page-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={!canPrev} aria-label="Previous page">‹ Prev</button>
-        <span style={{ padding: '6px 10px', fontSize: 14 }}>{page} / {totalPages}</span>
-        <button className="next-page-btn  " onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={!canNext} aria-label="Next page">Next ›</button>
-        <button className="next-page-btn" onClick={() => setPage(totalPages)} disabled={!canNext} aria-label="Last page">Last »</button>
+        <button
+          className="next-page-btn"
+          onClick={() => setPage(1)}
+          disabled={!canPrev}
+          aria-label="First page"
+        >
+          « First
+        </button>
+        <button
+          className="next-page-btn"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={!canPrev}
+          aria-label="Previous page"
+        >
+          ‹ Prev
+        </button>
+        <span style={{ padding: '6px 10px', fontSize: 14 }}>
+          {page} / {totalPages}
+        </span>
+        <button
+          className="next-page-btn"
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={!canNext}
+          aria-label="Next page"
+        >
+          Next ›
+        </button>
+        <button
+          className="next-page-btn"
+          onClick={() => setPage(totalPages)}
+          disabled={!canNext}
+          aria-label="Last page"
+        >
+          Last »
+        </button>
       </div>
     </div>
   );
@@ -292,7 +273,7 @@ export default function Bookmarks2() {
       return n;
     });
 
-  // 3) Toggle bookmark in Firestore for current user
+  // 3) Toggle bookmark (optimistic + rollback)
   const toggleBookmark = async (dest) => {
     const user = auth.currentUser;
     if (!user) {
@@ -305,18 +286,25 @@ export default function Bookmarks2() {
 
     const isBookmarked = bookmarks.has(dest.id);
 
+    // Optimistic UI
+    setBookmarks((prev) => {
+      const n = new Set(prev);
+      isBookmarked ? n.delete(dest.id) : n.add(dest.id);
+      return n;
+    });
+
     try {
       await setDoc(
         listRef,
         {
-          userId: user.uid,                         // <- add this to satisfy rules on update
+          userId: user.uid,
           updatedAt: serverTimestamp(),
           bookmarks: isBookmarked ? arrayRemove(dest.id) : arrayUnion(dest.id),
         },
         { merge: true }
       );
 
-      // Best-effort secondary writes; do not fail the whole toggle if they’re blocked by rules
+      // secondary best-effort writes
       try {
         await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
       } catch (e) {
@@ -327,7 +315,7 @@ export default function Bookmarks2() {
         try {
           await deleteDoc(bookmarkDocRef);
         } catch (e) {
-          console.warn('delete users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+          console.warn('delete bookmark subdoc skipped:', e.code || e.message);
         }
       } else {
         try {
@@ -350,17 +338,22 @@ export default function Bookmarks2() {
             { merge: true }
           );
         } catch (e) {
-          console.warn('upsert users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+          console.warn('upsert bookmark subdoc skipped:', e.code || e.message);
         }
       }
-      // onSnapshot on userBookmarks keeps UI in sync
     } catch (e) {
       console.error('Toggle bookmark failed:', e.code || e.message);
       alert('Could not update bookmark. Please try again.');
+      // rollback
+      setBookmarks((prev) => {
+        const n = new Set(prev);
+        isBookmarked ? n.add(dest.id) : n.delete(dest.id);
+        return n;
+      });
     }
   };
 
-  // Average ratings loader for current page
+  // Average ratings loader for current visible page
   useEffect(() => {
     let cancelled = false;
     async function loadAverages() {
@@ -369,27 +362,33 @@ export default function Bookmarks2() {
           pageItems.map(async (d) => {
             try {
               const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
-              let sum = 0, count = 0;
+              let sum = 0,
+                count = 0;
               rsnap.forEach((r) => {
                 const v = Number(r.data()?.value) || 0;
-                if (v > 0) { sum += v; count += 1; }
+                if (v > 0) {
+                  sum += v;
+                  count += 1;
+                }
               });
               const avg = count ? sum / count : 0;
               return [d.id, { avg, count }];
             } catch (err) {
-              // Permission denied -> treat as no ratings
               console.warn('ratings read skipped for', d.id, err.code || err.message);
               return [d.id, { avg: 0, count: 0 }];
             }
           })
         );
-        if (!cancelled) setRatingsByDest((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+        if (!cancelled)
+          setRatingsByDest((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
       } catch (e) {
         console.error('Load averages failed', e.code || e.message);
       }
     }
     if (pageItems.length) loadAverages();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [pageItems]);
 
   const avgText = (id) => {
@@ -397,34 +396,42 @@ export default function Bookmarks2() {
     return r && r.count > 0 ? r.avg.toFixed(1) : '—';
   };
 
+  // Open details modal
   const openDetails = async (d) => {
     setSelected(d);
     setModalOpen(true);
 
-    // Load user's rating for this destination
+    // Current user rating
     try {
       const u = auth.currentUser;
-      if (!u) { setUserRating(0); return; }
-      const rref = doc(db, 'destinations', d.id, 'ratings', u.uid);
-      const rsnap = await getDoc(rref);
-      setUserRating(Number(rsnap.data()?.value || 0));
+      if (!u) {
+        setUserRating(0);
+      } else {
+        const rref = doc(db, 'destinations', d.id, 'ratings', u.uid);
+        const rsnap = await getDoc(rref);
+        setUserRating(Number(rsnap.data()?.value || 0));
+      }
     } catch {
       setUserRating(0);
     }
 
-    // Ensure we have averages for this selected item
+    // Ensure average loaded
     if (!ratingsByDest[d.id]) {
       try {
         const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
-        let sum = 0, count = 0;
+        let sum = 0,
+          count = 0;
         rsnap.forEach((r) => {
           const v = Number(r.data()?.value) || 0;
-          if (v > 0) { sum += v; count += 1; }
+          if (v > 0) {
+            sum += v;
+            count += 1;
+          }
         });
         const avg = count ? sum / count : 0;
         setRatingsByDest((m) => ({ ...m, [d.id]: { avg, count } }));
       } catch (e) {
-        console.error('Load selected avg failed', e);
+        console.warn('Load selected avg failed', e);
       }
     }
   };
@@ -435,16 +442,19 @@ export default function Bookmarks2() {
     setUserRating(0);
   };
 
-// NEW: modal bookmark click with optimistic UI + rollback on error
+  // Modal bookmark (same logic, just sets bookmarking state)
   const handleModalBookmarkClick = async () => {
     const user = auth.currentUser;
-    if (!user) { alert('Please sign in to bookmark destinations.'); return; }
+    if (!user) {
+      alert('Please sign in to bookmark destinations.');
+      return;
+    }
     if (!selected) return;
 
     const id = selected.id;
     const wasBookmarked = bookmarks.has(id);
 
-    // Optimistic UI
+    // optimistic
     setBookmarks((prev) => {
       const n = new Set(prev);
       wasBookmarked ? n.delete(id) : n.add(id);
@@ -453,42 +463,49 @@ export default function Bookmarks2() {
 
     setBookmarking(true);
     try {
-      await toggleBookmark(selected); // persists to Firestore
-      // onSnapshot will keep state in sync afterward
+      await toggleBookmark(selected);
     } catch (e) {
-      // Rollback on failure
-      setBookmarks((prev) => {
-        const n = new Set(prev);
-        wasBookmarked ? n.add(id) : n.delete(id);
-        return n;
-      });
-      console.error('Bookmark toggle from modal failed:', e);
-      alert('Could not update bookmark. Please try again.');
+      // rollback handled inside toggleBookmark on error path
     } finally {
       setBookmarking(false);
     }
   };
 
-  // NEW: save rating for current user and refresh average
+  // Rate selected
   const rateSelected = async (value) => {
     const u = auth.currentUser;
-    if (!u) { alert('Please sign in to rate.'); return; }
+    if (!u) {
+      alert('Please sign in to rate.');
+      return;
+    }
     if (!selected) return;
+
     const v = Math.max(1, Math.min(5, Number(value) || 0));
     setSavingRating(true);
     try {
       const ref = doc(db, 'destinations', String(selected.id), 'ratings', u.uid);
-      await setDoc(ref, { value: v, userId: u.uid, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        ref,
+        { value: v, userId: u.uid, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
       setUserRating(v);
 
       // Recompute average
-      const rsnap = await getDocs(collection(db, 'destinations', String(selected.id), 'ratings'));
-      let sum = 0, count = 0;
-      rsnap.forEach((r) => { const val = Number(r.data()?.value) || 0; if (val > 0) { sum += val; count += 1; } });
+      const rsnap = await getDocs(
+        collection(db, 'destinations', String(selected.id), 'ratings')
+      );
+      let sum = 0,
+        count = 0;
+      rsnap.forEach((r) => {
+        const val = Number(r.data()?.value) || 0;
+        if (val > 0) {
+          sum += val;
+          count += 1;
+        }
+      });
       const avg = count ? sum / count : 0;
-
       setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
-      setDestinations((prev) => prev.map((x) => (x.id === selected.id ? { ...x, rating: avg } : x)));
     } catch (e) {
       console.error('Save rating failed:', e.code, e.message);
       alert('Failed to save rating.');
@@ -497,7 +514,7 @@ export default function Bookmarks2() {
     }
   };
 
-  // Add to Trip handler (stub implementation)
+  // Add to trip from modal
   const addToTripFromBookmarks = async (dest) => {
     setAddingTripId(dest.id);
     try {
@@ -506,14 +523,11 @@ export default function Bookmarks2() {
         alert('Please sign in to add to My Trips.');
         return;
       }
-
-      // Persist to itinerary/{uid}/items via Itinerary.js helper
       await addTripForCurrentUser(dest);
-
       setAddedTripId(dest.id);
       setTimeout(() => {
         setAddedTripId(null);
-        navigate('/itinerary'); // Route for “My Trips”
+        navigate('/itinerary');
       }, 600);
     } catch (e) {
       if (e?.message === 'AUTH_REQUIRED') {
@@ -527,232 +541,273 @@ export default function Bookmarks2() {
     }
   };
 
-  return (
-    <div className="App">
-      {isLoading && (
-        <div className="bm2-loading-backdrop" role="status" aria-live="polite">
-          <div className="lb-card">
-            <div className="lb-scene">
-              <svg className="lb-globe" viewBox="0 0 200 200" aria-hidden="true">
-                <defs>
-                  <radialGradient id="lbOcean" cx="50%" cy="45%">
-                    <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="100%" stopColor="#e8f1ff" />
-                  </radialGradient>
-                  <linearGradient id="lbIsland" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" />
-                    <stop offset="100%" stopColor="#16a34a" />
-                  </linearGradient>
-                  <filter id="lbShadow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(2,6,23,.25)" />
-                  </filter>
-                </defs>
-
-                <circle cx="100" cy="100" r="92" fill="url(#lbOcean)" />
-                <circle cx="100" cy="100" r="92" fill="none" stroke="#fff" strokeWidth="8" />
-                <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(2,6,23,.06)" strokeWidth="1" />
-
-                {/* Stylized PH islands (vector, no image) */}
-                <g filter="url(#lbShadow)" fill="url(#lbIsland)">
-                  <path d="M70 40 l18 -10 18 8 -6 22 -14 10 -16 -8 z" />
-                  <path d="M92 63 l6 -6 8 2 5 6 -6 6 -9 -2 z" />
-                  <path d="M102 82 l8 -6 10 2 6 10 -8 8 -12 -3 z" />
-                  <circle cx="96" cy="96" r="3.2" />
-                  <circle cx="108" cy="96" r="3.2" />
-                  <circle cx="100" cy="108" r="3" />
-                  <path d="M120 120 l20 -10 22 12 2 14 -10 12 -22 4 -12 -10 z" />
-                </g>
-
-                <g className="lb-sheen">
-                  <path d="M12,128 C60,152 140,152 188,128" stroke="rgba(37,99,235,.18)" strokeWidth="12" fill="none" strokeLinecap="round" />
-                </g>
-              </svg>
-
-              <div className="lb-orbit" />
-              <div className="lb-plane" />
-            </div>
-
-            <h2 className="lb-title">Discover Philippines</h2>
-            <p className="lb-sub">Loading destinations…</p>
-            <div className="lb-progress"><span /></div>
+  // Loading overlay
+  if (isLoading) {
+    return (
+      <div className="bm2-loading-backdrop" role="status" aria-live="polite">
+        <div className="lb-card">
+          <div className="lb-scene">
+            <svg className="lb-globe" viewBox="0 0 200 200" aria-hidden="true">
+              <defs>
+                <radialGradient id="lbOcean" cx="50%" cy="45%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#e8f1ff" />
+                </radialGradient>
+                <linearGradient id="lbIsland" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" />
+                  <stop offset="100%" stopColor="#16a34a" />
+                </linearGradient>
+                <filter id="lbShadow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow
+                    dx="0"
+                    dy="2"
+                    stdDeviation="2"
+                    floodColor="rgba(2,6,23,.25)"
+                  />
+                </filter>
+              </defs>
+              <circle cx="100" cy="100" r="92" fill="url(#lbOcean)" />
+              <circle
+                cx="100"
+                cy="100"
+                r="92"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="8"
+              />
+              <circle
+                cx="100"
+                cy="100"
+                r="92"
+                fill="none"
+                stroke="rgba(2,6,23,.06)"
+                strokeWidth="1"
+              />
+              <g filter="url(#lbShadow)" fill="url(#lbIsland)">
+                <path d="M70 40 l18 -10 18 8 -6 22 -14 10 -16 -8 z" />
+                <path d="M92 63 l6 -6 8 2 5 6 -6 6 -9 -2 z" />
+                <path d="M102 82 l8 -6 10 2 6 10 -8 8 -12 -3 z" />
+                <circle cx="96" cy="96" r="3.2" />
+                <circle cx="108" cy="96" r="3.2" />
+                <circle cx="100" cy="108" r="3" />
+                <path d="M120 120 l20 -10 22 12 2 14 -10 12 -22 4 -12 -10 z" />
+              </g>
+              <g className="lb-sheen">
+                <path
+                  d="M12,128 C60,152 140,152 188,128"
+                  stroke="rgba(37,99,235,.18)"
+                  strokeWidth="12"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+              </g>
+            </svg>
+            <div className="lb-orbit" />
+            <div className="lb-plane" />
+          </div>
+          <h2 className="lb-title">Discover Philippines</h2>
+          <p className="lb-sub">Loading destinations…</p>
+          <div className="lb-progress">
+            <span />
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      <div className="bp2-page-layout">
-        {/* Filters */}
-        <aside className="bp2-filters">
-          <div className="bp2-filters-header">Filters</div>
+  return (
+    <div className="bp2-page-layout">
+      {/* Filters */}
+      <aside className="bp2-filters">
+        <div className="bp2-filters-header">Filters</div>
 
-          <div className="bp2-filter-group">
-            <label className="bp2-label">Search Destinations</label>
-            <input
-              type="text"
-              className="bp2-input"
-              placeholder="Search by name..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+        <div className="bp2-filter-group">
+          <label className="bp2-label">Search Destinations</label>
+          <input
+            type="text"
+            className="bp2-input"
+            placeholder="Search by name..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
 
-          <div className="bp2-filter-group">
-            <div className="bp2-group-title">Region</div>
-            <div className="bp2-checklist">
-              {regions.map((r) => (
-                <label key={r} className="bp2-check">
-                  <input
-                    type="checkbox"
-                    checked={selectedRegions.has(r)}
-                    onChange={() => toggleSet(setSelectedRegions, r)}
-                  />
-                  <span>{r}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="bp2-filter-group">
-            <div className="bp2-group-title">Price Range</div>
-            <label className="bp2-radio">
-              <input
-                type="radio"
-                name="priceTier"
-                checked={selectedPrice === 'less'}
-                onChange={() => setSelectedPrice(selectedPrice === 'less' ? null : 'less')}
-              />
-              <span>Less Expensive (₱500–2,000)</span>
-            </label>
-            <label className="bp2-radio">
-              <input
-                type="radio"
-                name="priceTier"
-                checked={selectedPrice === 'expensive'}
-                onChange={() =>
-                  setSelectedPrice(selectedPrice === 'expensive' ? null : 'expensive')
-                }
-              />
-              <span>Expensive (₱2,000+)</span>
-            </label>
-          </div>
-
-          <div className="bp2-filter-group">
-            <div className="bp2-group-title">Category</div>
-            <div className="bp2-checklist">
-              {categories.map((c) => (
-                <label key={c} className="bp2-check">
-                  <input
-                    type="checkbox"
-                    checked={selectedCats.has(c)}
-                    onChange={() => toggleSet(setSelectedCats, c)}
-                  />
-                  <span>{c}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <button
-            className="bp2-clear-btn"
-            onClick={() => {
-              setQuery('');
-              setSelectedRegions(new Set());
-              setSelectedPrice(null);
-              setSelectedCats(new Set());
-              setSortBy('name');
-            }}
-          >
-            Clear All Filters
-          </button>
-        </aside>
-
-        {/* Main Content */}
-        <main className="bp2-content">
-          <div className="bp2-header-row">
-            <h1 className="bp2-title">
-              Discover Philippines <span className="bp2-count-link">({filtered.length} destinations)</span>
-            </h1>
-            <div className="bp2-sort">
-              <label htmlFor="bp2-sort-select">Sort by</label>
-              <select
-                id="bp2-sort-select"
-                className="bp2-sort-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="name">Name</option>
-                <option value="rating">Rating</option>
-                <option value="price">Price</option>
-              </select>
-            </div>
-          </div>
-
-          {/* NEW: top pager */}
-          <Pager />
-
-          <div className="grid-container">
-            {pageItems.map((d) => (
-              <div className="grid-card" key={d.id}>
-                <div className="card-image">
-                  <div className="sun-decoration" />
-                  <div className="wave-decoration" />
-                  <button
-                    className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
-                    onClick={() => toggleBookmark(d)}
-                    aria-label="Toggle bookmark"
-                    title="Bookmark"
-                  >
-                    {bookmarks.has(d.id) ? '❤️' : '🤍'}
-                  </button>
-                </div>
-
-                <div className="card-header">
-                  <h2>{d.name}</h2>
-                  <div className="mini-rating" title="Average Rating">
-                    <span>⭐</span> {avgText(d.id)}
-                    </div>
-                </div>
-
-                <div className="bp2-region-line">{d.region}</div>
-                <p className="description">{d.description}</p>
-
-                <div className="tag-container">
-                  {(d.tags || []).map((t, i) => (
-                    <span key={i} className="tag">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="card-footer">
-                  <div className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
-                    {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
-                  </div>
-                  <button className="details-btn" onClick={() => openDetails(d)}>
-                    View Details
-                  </button>
-                </div>
-              </div>
+        <div className="bp2-filter-group">
+          <div className="bp2-group-title">Region</div>
+          <div className="bp2-checklist">
+            {regions.map((r) => (
+              <label key={r} className="bp2-check">
+                <input
+                  type="checkbox"
+                  checked={selectedRegions.has(r)}
+                  onChange={() => toggleSet(setSelectedRegions, r)}
+                />
+                <span>{r}</span>
+              </label>
             ))}
           </div>
+        </div>
 
-          {/* NEW: bottom pager */}
-          <Pager />
-        </main>
-      </div>
+        <div className="bp2-filter-group">
+          <div className="bp2-group-title">Price Range</div>
+          <label className="bp2-radio">
+            <input
+              type="radio"
+              name="priceTier"
+              checked={selectedPrice === 'less'}
+              onChange={() =>
+                setSelectedPrice(selectedPrice === 'less' ? null : 'less')
+              }
+            />
+            <span>Less Expensive (₱500–2,000)</span>
+          </label>
+          <label className="bp2-radio">
+            <input
+              type="radio"
+              name="priceTier"
+              checked={selectedPrice === 'expensive'}
+              onChange={() =>
+                setSelectedPrice(selectedPrice === 'expensive' ? null : 'expensive')
+              }
+            />
+            <span>Expensive (₱2,000+)</span>
+          </label>
+        </div>
 
-      {/* Details Modal */}
+        <div className="bp2-filter-group">
+          <div className="bp2-group-title">Category</div>
+          <div className="bp2-checklist">
+            {categories.map((c) => (
+              <label key={c} className="bp2-check">
+                <input
+                  type="checkbox"
+                  checked={selectedCats.has(c)}
+                  onChange={() => toggleSet(setSelectedCats, c)}
+                />
+                <span>{c}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <button
+          className="bp2-clear-btn"
+          onClick={() => {
+            setQuery('');
+            setSelectedRegions(new Set());
+            setSelectedPrice(null);
+            setSelectedCats(new Set());
+            setSortBy('name');
+          }}
+        >
+          Clear All Filters
+        </button>
+      </aside>
+
+      {/* Main Content */}
+      <main className="bp2-content">
+        <div className="bp2-header-row">
+          <h1 className="bp2-title">
+            Discover Philippines{' '}
+            <span className="bp2-count-link">({filtered.length} destinations)</span>
+          </h1>
+          <div className="bp2-sort">
+            <label htmlFor="bp2-sort-select">Sort by</label>
+            <select
+              id="bp2-sort-select"
+              className="bp2-sort-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="name">Name</option>
+              <option value="rating">Rating</option>
+              <option value="price">Price</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Top pager */}
+        <Pager />
+
+        <div className="grid-container">
+          {pageItems.map((d) => (
+            <div className="grid-card" key={d.id}>
+              <div className="card-image">
+                <div className="sun-decoration" />
+                <div className="wave-decoration" />
+                <button
+                  className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
+                  onClick={() => toggleBookmark(d)}
+                  aria-label="Toggle bookmark"
+                  title="Bookmark"
+                >
+                  {bookmarks.has(d.id) ? '❤️' : '🤍'}
+                </button>
+              </div>
+
+              <div className="card-header">
+                <h2>{d.name}</h2>
+                <div className="mini-rating" title="Average Rating">
+                  <span>⭐</span> {avgText(d.id)}
+                </div>
+              </div>
+
+              <div className="bp2-region-line">{d.region}</div>
+              <p className="description">{d.description}</p>
+
+              <div className="tag-container">
+                {(d.tags || []).map((t, i) => (
+                  <span key={i} className="tag">
+                    {t}
+                  </span>
+                ))}
+              </div>
+
+              <div className="card-footer">
+                <div
+                  className={`price-pill ${
+                    d.priceTier === 'less' ? 'pill-green' : 'pill-gray'
+                  }`}
+                >
+                  {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
+                </div>
+                <button className="details-btn" onClick={() => openDetails(d)}>
+                  View Details
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom pager */}
+        <Pager />
+      </main>
+    </div>
+  );
+
+  // Details Modal
+  return (
+    <>
+      {/* (Main UI above) */}
       {modalOpen && selected && (
         <div
           className="modal-overlay active"
-          onClick={(e) => e.target.classList.contains('modal-overlay') && closeDetails()}
+          onClick={(e) =>
+            e.target.classList.contains('modal-overlay') && closeDetails()
+          }
         >
           <div className="modal-content details-modal">
-            <button className="modal-close-floating" onClick={closeDetails} aria-label="Close">
+            <button
+              className="modal-close-floating"
+              onClick={closeDetails}
+              aria-label="Close"
+            >
               ✕
             </button>
 
             <div className="details-hero">
               <div className="details-hero-art">
+                <div className="hero-island" />
                 <div className="hero-water" />
                 <div className="hero-sand" />
                 <div className="hero-curve" />
@@ -763,7 +818,11 @@ export default function Bookmarks2() {
               <div className="details-head-row">
                 <div className="details-title-col">
                   <h2 className="details-title">{selected.name}</h2>
-                  <a href="#" className="details-region" onClick={(e) => e.preventDefault()}>
+                  <a
+                    href="#"
+                    className="details-region"
+                    onClick={(e) => e.preventDefault()}
+                  >
                     {selected.region}
                   </a>
 
@@ -771,7 +830,7 @@ export default function Bookmarks2() {
                     <span className="star">⭐</span>
                     <span className="avg">
                       {(ratingsByDest[selected.id]?.count ?? 0) > 0
-                        ? (ratingsByDest[selected.id].avg).toFixed(1)
+                        ? ratingsByDest[selected.id].avg.toFixed(1)
                         : '—'}
                     </span>
                     <span className="muted"> (Average Rating)</span>
@@ -791,34 +850,6 @@ export default function Bookmarks2() {
                       ))}
                     </div>
                   </div>
-                </div>
-
-                <div className="details-actions">
-                  <button
-                    className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
-                    onClick={handleModalBookmarkClick}
-                    disabled={bookmarking}
-                    aria-pressed={bookmarks.has(selected.id)}
-                    aria-label={bookmarks.has(selected.id) ? 'Remove bookmark' : 'Add bookmark'}
-                  >
-                    <span className="icon">{bookmarks.has(selected.id) ? '❤️' : '🤍'}</span>
-                    {bookmarks.has(selected.id) ? 'Bookmarked' : 'Bookmark'}
-                  </button>
-                  <button
-                    className={`btn-green ${addedTripId === selected.id ? 'btn-success' : ''}`}  // NEW: success style 
-                    onClick={() => addToTripFromBookmarks(selected)}
-                    disabled={addingTripId === selected.id}
-                    aria-busy={addingTripId === selected.id}
-                  >
-                    <span className="icon">
-                      {addedTripId === selected.id ? '✔' : '＋'}  {/* NEW: + -> ✔ */}
-                    </span>
-                    {addingTripId === selected.id
-                      ? 'Adding…'
-                      : addedTripId === selected.id
-                      ? 'Added!'
-                      : 'Add to Trip'}
-                  </button>
                 </div>
               </div>
 
@@ -869,10 +900,51 @@ export default function Bookmarks2() {
                   </div>
                 </aside>
               </div>
+
+              <div className="details-actions">
+                <button
+                  className={`btn-outline ${
+                    bookmarks.has(selected.id) ? 'active' : ''
+                  }`}
+                  onClick={handleModalBookmarkClick}
+                  disabled={bookmarking}
+                  aria-pressed={bookmarks.has(selected.id)}
+                  aria-label={
+                    bookmarks.has(selected.id) ? 'Remove bookmark' : 'Add bookmark'
+                  }
+                >
+                  <span className="icon">
+                    {bookmarks.has(selected.id) ? '❤️' : '🤍'}
+                  </span>
+                  {bookmarks.has(selected.id) ? 'Bookmarked' : 'Bookmark'}
+                </button>
+
+                <button
+                  className={`btn-green ${
+                    addedTripId === selected.id ? 'btn-success' : ''
+                  }`}
+                  onClick={() => addToTripFromBookmarks(selected)}
+                  disabled={addingTripId === selected.id}
+                  aria-busy={addingTripId === selected.id}
+                >
+                  <span className="icon">
+                    {addedTripId === selected.id ? '✔' : '＋'}
+                  </span>
+                  {addingTripId === selected.id
+                    ? 'Adding…'
+                    : addedTripId === selected.id
+                    ? 'Added!'
+                    : 'Add to Trip'}
+                </button>
+
+                <button className="btn-ghost" onClick={closeDetails}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

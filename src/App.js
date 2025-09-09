@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, BrowserRouter, useLocation, useInRouterContext } from 'react-router-dom';
 import StickyHeader from './header';
 import Login from './login';
 import Register from './register';
@@ -12,17 +12,19 @@ import { ChatbaseAIModal } from './Ai';
 import './App.css';
 import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
+import Itinerary from "./Itinerary";
+import Footer from './footer'; // ensure this exists
 
-function App() {
+// New: place all UI that depends on useLocation in this inner component
+function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
+  // Safe access to pathname when running in tests
   const location = useLocation();
-
-  // Hide StickyHeader on login/register pages
-  const hideHeaderRoutes = ['/', '/register'];
-  const showHeader = !hideHeaderRoutes.includes(location.pathname);
+  const hideHeaderRoutes = ['/', '/register', '/admin/ContentManagement'];
+  const showHeader = !hideHeaderRoutes.includes(location?.pathname || '/');
 
   return (
-    <UserProvider>
+    <UserProvider>  {/* CHANGE THIS FROM AuthProvider TO UserProvider */}
       {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
 
       <Routes>
@@ -33,13 +35,33 @@ function App() {
         <Route path="/bookmarks2" element={<Bookmarks2 />} />
         <Route path="/community" element={<Community />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/itinerary" element={<Itinerary />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
       <AchievementToast />
+
+      {/* Footer: hide on login/register */}
+      {showHeader && <Footer />}
     </UserProvider>
   );
 }
 
-export default App;
+// Replace default export body to mount a Router only if needed
+export default function App() {
+  // Was: typeof check that caused a conditional hook call lint error
+  const inRouter = useInRouterContext(); // safe: returns false if no Router
+
+  if (inRouter) {
+    // Already wrapped (e.g., tests use <MemoryRouter>)
+    return <AppInner />;
+  }
+
+  // Normal app run: provide BrowserRouter
+  return (
+    <BrowserRouter>
+      <AppInner />
+    </BrowserRouter>
+  );
+}
 
