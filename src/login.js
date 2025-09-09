@@ -199,7 +199,7 @@ const Login = () => {
         </div>
       ) : (
       <div className="login-bg">
-        <div className="login-container">
+        <div className="login-container-1">
           <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
           <h2 className="login-title">Welcome Back!</h2>
           <p className="login-subtitle">Sign in to continue your Philippine adventure</p>
