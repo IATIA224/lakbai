@@ -85,13 +85,140 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
   );
 };
 
+// ADD: packing suggestion templates
+const PACKING_TEMPLATES = (() => {
+  const toLines = (arr) => arr.map(i => `• ${i}`).join('\n');
+
+  return {
+    beach: toLines([
+      'Swimwear (multiple sets)',
+      'Rash guard / quick-dry shirt',
+      'Flip-flops or aqua shoes',
+      'Beach towel or sarong',
+      'Snorkeling gear (optional if not renting)',
+      'Waterproof dry bag (phone, wallet, camera)',
+      'Reef-safe sunscreen & after-sun (aloe vera)',
+      'Sunglasses & hat/cap',
+      'Portable hammock or mat',
+      'Light cover-up / beach dress / shorts'
+    ]),
+    caves: toLines([
+      'Headlamp / reliable flashlight (extra batteries)',
+      'Helmet (if required / available)',
+      'Sturdy non-slip footwear',
+      'Gloves for grip (optional)',
+      'Quick-dry clothes (avoid cotton)',
+      'Small waterproof pouch (valuables)',
+      'Insect repellent',
+      'Drinking water & light snacks'
+    ]),
+    cultural: toLines([
+      'Modest clothing (long pants/skirt, sleeves)',
+      'Light scarf / shawl',
+      'Comfortable walking sandals / shoes',
+      'Reusable shopping bag',
+      'Notebook / pen',
+      'Small tokens / gifts (optional)',
+      'Camera / phone (extra storage)',
+      'Offline translation app'
+    ]),
+    historical: toLines([
+      'Lightweight modest clothing',
+      'Comfortable walking shoes',
+      'Sun protection (cap / umbrella / sunscreen)',
+      'Camera / phone (wide-angle if possible)',
+      'Guidebook / printed notes',
+      'Reusable water bottle'
+    ]),
+    islands: toLines([
+      'Dry bag (boat rides splashy)',
+      'Waterproof phone case',
+      'Swimwear & rash guard',
+      'Snorkeling gear (or rent on site)',
+      'Powerbank',
+      'Insect repellent (sandflies / mosquitoes)',
+      'Cash (small bills, fees/vendors)',
+      'Refillable water bottle'
+    ]),
+    landmarks: toLines([
+      'Comfortable casual wear',
+      'Walking shoes / sandals',
+      'Hat / cap',
+      'Camera / phone',
+      'Small umbrella (sudden rain)',
+      'Notebook / pen'
+    ]),
+    mountains: toLines([
+      'Trekking shoes / trail sandals',
+      'Trekking pole (optional)',
+      'Quick-dry clothes + extra layer',
+      'Cap / hat & sunglasses',
+      'Headlamp (sunrise hikes)',
+      'Small backpack (10–20L)',
+      'Snacks (trail mix, energy bars)',
+      'Drinking water (bottles / bladder)',
+      'Raincoat / poncho',
+      'First aid kit + blister patches'
+    ]),
+    museums: toLines([
+      'Smart casual clothing',
+      'Lightweight jacket (strong AC)',
+      'Notebook / sketchpad + pen',
+      'Smartphone / camera (if allowed)',
+      'ID card (entry requirement sometimes)',
+      'Reusable water bottle (may stay outside)'
+    ]),
+    parks: toLines([
+      'Sturdy shoes (trek/hike trails)',
+      'Hat, sunglasses, sunscreen',
+      'Insect repellent',
+      'Light raincoat / poncho',
+      'Binoculars (birdwatching)',
+      'Refillable water bottle & snacks',
+      'Camera with zoom lens',
+      'Picnic mat',
+      'Trash bags (Leave No Trace)'
+    ]),
+    tourist: toLines([
+      'Casual breathable clothing',
+      'Comfortable walking shoes',
+      'Small backpack / daypack',
+      'Sunglasses, hat, sunscreen',
+      'Reusable water bottle',
+      'Portable fan / handkerchief',
+      'Powerbank & cables',
+      'Local SIM / pocket WiFi',
+      'Copies of ID & travel documents',
+      'Cash (small bills) + ATM/credit card'
+    ])
+  };
+})();
+
+// Utility to map a selected category to a template key
+function packingKey(cat = '') {
+  const c = cat.trim().toLowerCase();
+  if (!c) return 'tourist';
+  if (c.includes('beach')) return 'beach';
+  if (c.includes('cave')) return 'caves';
+  if (c.includes('cultur')) return 'cultural';
+  if (c.includes('histor') || c.includes('heritage')) return 'historical';
+  if (c.includes('island')) return 'islands';
+  if (c.includes('landmark')) return 'landmarks';
+  if (c.includes('mountain')) return 'mountains';
+  if (c.includes('museum')) return 'museums';
+  if (c.includes('park') || c.includes('natural') || c.includes('waterfall') || c.includes('lake')) return 'parks';
+  if (c.includes('tour')) return 'tourist';
+  return 'tourist';
+}
+
 const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [], ignoreId = null }) => {
   const [data, setData] = useState(() => {
     const base = {
       name: '',
       category: '',
       description: '',
-      content: '',
+      content: '',                // legacy (kept, not removed)
+      packingSuggestions: '',     // NEW FIELD
       tags: [],
       location: '',
       price: '',
@@ -104,6 +231,8 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     return {
       ...base,
       ...initial,
+      // prefer existing packingSuggestions field; fallback to legacy content
+      packingSuggestions: initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '',
       media: {
         featuredImage: initial?.media?.featuredImage || '',
         gallery: Array.isArray(initial?.media?.gallery) ? initial.media.gallery : [],
@@ -180,15 +309,45 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     inp.click();
   };
 
+  // NEW: track if user manually edited packing suggestions
+  const userEditedPackingRef = useRef(false);
+  const lastAutoRef = useRef('');
+
+  // AUTO-GENERATE packing suggestions when category changes (non-destructive if user edited)
+  useEffect(() => {
+    const key = packingKey(data.category);
+    const template = PACKING_TEMPLATES[key];
+    if (!template) return;
+    const current = data.packingSuggestions?.trim();
+    const lastAuto = lastAutoRef.current;
+    // Replace if empty OR still equal to previous auto template
+    if (!userEditedPackingRef.current && (!current || current === lastAuto)) {
+      setData(d => ({ ...d, packingSuggestions: template }));
+      lastAutoRef.current = template;
+    }
+  }, [data.category]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
+  useEffect(() => {
+    const n = (data.name || '').trim().toLowerCase();
+    if (!n) { setNameError(''); return; }
+    setNameError(normalizedExisting.includes(n) ? 'A destination with this name already exists.' : '');
+  }, [data.name, normalizedExisting]);
+
   const submit = (e) => {
     e?.preventDefault();
     if (!data.name.trim()) return alert('Please enter a destination name');
     if (nameError) return alert(nameError);
-    onSave?.({
+
+    const payload = {
       ...data,
+      // Keep legacy "content" (do not remove) & also store new dedicated field
+      packingSuggestions: data.packingSuggestions,
+      content: data.content || data.packingSuggestions, // legacy fallback
       updatedAt: new Date().toISOString(),
       createdAt: initial?.createdAt || new Date().toISOString(),
-    });
+    };
+    onSave?.(payload);
   };
 
   return (
@@ -267,12 +426,43 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
           </div>
 
           <div className="full">
-            <label>Content</label>
-            <RichTextEditor
-              value={data.content}
-              onChange={(v) => setData({ ...data, content: v })}
-              placeholder="Write rich content..."
+            <label>Packing Suggestions</label>
+            <textarea
+              value={data.packingSuggestions}
+              onChange={(e) => {
+                userEditedPackingRef.current = true;
+                setData({ ...data, packingSuggestions: e.target.value });
+              }}
+              placeholder="Auto-generated based on category (you can edit)..."
+              className="form-input"
+              style={{ minHeight: 220, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}
             />
+            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+              Auto-fills when you pick a category. Click regenerate to refresh.
+              <button
+                type="button"
+                onClick={() => {
+                  const key = packingKey(data.category);
+                  const template = PACKING_TEMPLATES[key];
+                  if (template) {
+                    setData(d => ({ ...d, packingSuggestions: template }));
+                    lastAutoRef.current = template;
+                    userEditedPackingRef.current = false;
+                  }
+                }}
+                style={{
+                  marginLeft: 8,
+                  background: '#eef2f7',
+                  border: '1px solid #d1d5db',
+                  padding: '2px 10px',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  cursor: 'pointer'
+                }}
+              >
+                Regenerate
+              </button>
+            </div>
           </div>
 
           <div className="full">
