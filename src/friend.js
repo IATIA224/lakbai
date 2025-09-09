@@ -12,7 +12,9 @@ import {
   where,
   getDocs,
   onSnapshot,
-  addDoc
+  addDoc,
+  deleteDoc,
+  setDoc
 } from "firebase/firestore";
 
 const FriendPopup = ({ onClose }) => {
@@ -20,6 +22,7 @@ const FriendPopup = ({ onClose }) => {
   const [friendRequests, setFriendRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [removingFriend, setRemovingFriend] = useState(null);
 
   // Helper to fetch profile snapshots for a set of userIds
   const fetchProfiles = async (ids) => {
@@ -47,23 +50,36 @@ const FriendPopup = ({ onClose }) => {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-    const unsub = onSnapshot(doc(db, "users", user.uid), async (snap) => {
+    
+    // Listen for friend requests
+    const userDocUnsub = onSnapshot(doc(db, "users", user.uid), async (snap) => {
       if (!snap.exists()) {
         setFriendRequests([]);
-        setFriends([]);
         return;
       }
       const data = snap.data();
       const reqIds = data.friendRequests || [];
-      const friendIds = data.friends || [];
-      const [reqProfiles, friendProfiles] = await Promise.all([
-        fetchProfiles(reqIds),
-        fetchProfiles(friendIds)
-      ]);
+      const reqProfiles = await fetchProfiles(reqIds);
       setFriendRequests(reqProfiles);
+    });
+    
+    // Listen for friends from subcollection
+    const friendsRef = collection(db, "users", user.uid, "friends");
+    const friendsUnsub = onSnapshot(friendsRef, async (snap) => {
+      if (snap.empty) {
+        setFriends([]);
+        return;
+      }
+      
+      const friendIds = snap.docs.map(doc => doc.id);
+      const friendProfiles = await fetchProfiles(friendIds);
       setFriends(friendProfiles);
     });
-    return () => unsub();
+    
+    return () => {
+      userDocUnsub();
+      friendsUnsub();
+    };
   }, []);
 
   // Send friend request via code
@@ -124,23 +140,37 @@ const FriendPopup = ({ onClose }) => {
     if (!me) return;
     setLoading(true);
     try {
-      // Add each other to friends
-      await updateDoc(doc(db, "users", me.uid), {
-        friends: arrayUnion(requesterId),
-        friendRequests: arrayRemove(requesterId)
+      // Create friend documents in both subcollections
+      const now = Date.now();
+      
+      // Create friend document in my subcollection
+      await setDoc(doc(db, "users", me.uid, "friends", requesterId), {
+        friendId: requesterId,
+        since: now
       });
-      await updateDoc(doc(db, "users", requesterId), {
-        friends: arrayUnion(me.uid)
+      
+      // Create friend document in requester's subcollection
+      await setDoc(doc(db, "users", requesterId, "friends", me.uid), {
+        friendId: me.uid,
+        since: now
+      });
+      
+      // Remove from my friend requests array
+      await updateDoc(doc(db, "users", me.uid), {
+        friendRequests: arrayRemove(requesterId)
       });
 
       // Log the friendship activity
       await addActivity(me.uid, "You added a friend!", "👥");
       await addActivity(requesterId, "You became friends!", "👥");
+      
+      alert("Friend request accepted!");
     } catch (err) {
-      console.error(err);
-      alert("Failed to accept request.");
+      console.error("Error accepting friend request:", err);
+      alert("Failed to accept request: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const declineRequest = async (requesterId) => {
@@ -156,6 +186,37 @@ const FriendPopup = ({ onClose }) => {
       alert("Failed to decline request.");
     }
     setLoading(false);
+  };
+
+  const handleRemoveFriend = async (friendId) => {
+    if (!window.confirm("Are you sure you want to remove this friend?")) return;
+
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setRemovingFriend(friendId);
+
+    try {
+      // Remove from both user's friend lists
+      await deleteDoc(doc(db, "users", user.uid, "friends", friendId));
+      await deleteDoc(doc(db, "users", friendId, "friends", user.uid));
+
+      // Also remove from friend requests if present
+      await updateDoc(doc(db, "users", user.uid), {
+        friendRequests: arrayRemove(friendId)
+      });
+      await updateDoc(doc(db, "users", friendId), {
+        friendRequests: arrayRemove(user.uid)
+      });
+
+      // Local state update
+      setFriends((prev) => prev.filter((friend) => friend.id !== friendId));
+    } catch (err) {
+      console.error("Error removing friend:", err);
+      alert("Failed to remove friend. Please try again.");
+    } finally {
+      setRemovingFriend(null);
+    }
   };
 
   return (
@@ -203,6 +264,13 @@ const FriendPopup = ({ onClose }) => {
                   <div className="friend-meta">
                     <div className="friend-name">{f.name}</div>
                   </div>
+                  <button
+                    className="friend-btn friend-btn-danger"
+                    onClick={() => handleRemoveFriend(f.id)}
+                    disabled={removingFriend === f.id}
+                  >
+                    {removingFriend === f.id ? "Removing..." : "Unfriend"}
+                  </button>
                 </div>
               )))
             }

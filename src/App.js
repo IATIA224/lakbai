@@ -10,7 +10,8 @@ import Community from './community';
 import Profile from './profile';
 import { ChatbaseAIModal } from './Ai';
 import './App.css';
-import { UserProvider } from "./UserContext";
+// import { AuthProvider } from "./AuthContext";  // REMOVE THIS
+import { UserProvider } from "./UserContext";  // ADD THIS
 import AchievementToast from "./AchievementToast";
 import Itinerary from "./Itinerary";
 import DestinationManager from "./DestinationManager";
@@ -27,7 +28,7 @@ function App() {
   const showHeader = !hideHeaderRoutes.includes(location.pathname);
 
   return (
-    <UserProvider>
+    <UserProvider>  {/* CHANGE THIS FROM AuthProvider TO UserProvider */}
       {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
 
       <Routes>
