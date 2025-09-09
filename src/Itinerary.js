@@ -20,6 +20,13 @@ import { onAuthStateChanged } from "firebase/auth";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { unlockAchievement } from "./profile";
+import {
+  ShareItineraryModal, 
+  useFriendsList,
+  useSharedItineraries,
+  shareItinerary as shareItineraryWithFriends,
+  SharedItinerariesTab
+} from './itinerary2';
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -68,20 +75,20 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   const handleSave = async () => {
     try {
       await onSave({
-        ...initial,
+        ...initial, // This ensures we're keeping the ID and other metadata
         ...form,
         budget: Number(form.budget) || 0,
         accomBudget: Number(form.accomBudget) || 0,
         activityBudget: Number(form.activityBudget) || 0,
         transportCost: Number(form.transportCost) || 0,
       });
-      setNotif("Itinerary item created successfully!");
+      setNotif("Itinerary item updated successfully!"); // Changed "created" to "updated"
       setTimeout(() => {
         setNotif("");
         onClose(); // Close the modal after showing popup
       }, 1200); // 1.2 seconds
     } catch (e) {
-      setNotif("Failed to create itinerary item.");
+      setNotif("Failed to update itinerary item."); // Changed "create" to "update"
       setTimeout(() => setNotif(""), 2000);
     }
   };
@@ -501,7 +508,7 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
             })}
             {!items.length && <div className="itn-empty-sm">No destinations available.</div>}
             {items.length > 0 && filtered.length === 0 && (
-              <div className="itn-empty-sm">No matches for “{filter}”.</div>
+              <div className="itn-empty-sm">No matches for "{filter}".</div>
             )}
           </div>
         </div>
@@ -533,6 +540,9 @@ export default function Itinerary() {
   // ADD THESE
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareSelected, setShareSelected] = useState(new Set());
+  const [activeTab, setActiveTab] = useState("personal");
 
   // NEW: current user
   const [user, setUser] = useState(null);
@@ -620,16 +630,34 @@ export default function Itinerary() {
     }
 
     if (!data.name) data.name = "Untitled destination";
-
+    
     try {
-      const colRef = collection(db, "itinerary", user.uid, "items");
-      await addDoc(colRef, { ...data, createdAt: serverTimestamp() });
-
-      // Check if this is the user's first itinerary item
-      const snap = await getDocs(colRef);
-      if (snap.size === 1) {
-        // Unlock "First Step" achievement (id: 1)
-        await unlockAchievement(1, "First Step");
+      // Check if this is an edit (has an id) or a new item
+      if (data.id) {
+        // It's an edit - update the existing document
+        const itemRef = doc(db, "itinerary", user.uid, "items", data.id);
+        await updateDoc(itemRef, { 
+          ...data, 
+          updatedAt: serverTimestamp() 
+        });
+        console.log("Updated existing itinerary item:", data.id);
+      } else {
+        // It's a new item - create a new document
+        const colRef = collection(db, "itinerary", user.uid, "items");
+        await addDoc(colRef, { 
+          ...data, 
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp() 
+        });
+        
+        // Check if this is the user's first itinerary item
+        const snap = await getDocs(colRef);
+        if (snap.size === 1) {
+          // Unlock "First Step" achievement (id: 1)
+          await unlockAchievement(1, "First Step");
+        }
+        
+        console.log("Created new itinerary item");
       }
     } catch (e) {
       console.error("[Itinerary] saveItem write failed:", e);
@@ -692,7 +720,7 @@ export default function Itinerary() {
     }
   };
 
-  // Open export dialog (preselect all)
+  // Open export dialog (preselect all) 
   const openExport = () => {
     setExportSelected(new Set(items.map(i => i.id)));
     setShowExport(true);
@@ -853,13 +881,65 @@ export default function Itinerary() {
     setShowExport(false);
   };
 
+  const friends = useFriendsList(user);
+  const { sharedWithMe, loading: loadingShared } = useSharedItineraries(user);
+
+  const toggleShareItem = (id) => {
+    setShareSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleShareItinerary = async (itemIds, friendIds) => {
+    if (!user) return;
+    try {
+      console.log("Starting share with:", { itemIds, friendIds });
+      
+      // First check that we have the data we need
+      if (!itemIds.length) {
+        alert("Please select at least one destination to share");
+        return;
+      }
+      
+      if (!friendIds.length) {
+        alert("Please select at least one friend to share with");
+        return;
+      }
+      
+      // Get the actual items to be shared
+      const itemsToShare = items.filter(item => itemIds.includes(item.id));
+      
+      if (!itemsToShare.length) {
+        alert("Could not find the selected destinations");
+        return;
+      }
+      
+      // Now call the share function
+      await shareItineraryWithFriends(user, items, itemIds, friendIds);
+      alert(`Itinerary shared with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''}!`);
+    } catch (err) {
+      console.error("Share failed:", err);
+      alert(`Failed to share itinerary: ${err.message || "Unknown error"}`);
+    }
+  };
+
   return (
     <div className="itn-page">
       <div className="itn-hero">
         <div className="itn-hero-title">LakbAI: Your AI Travel Assistant</div>
         <div className="itn-hero-sub">Plan every aspect of your perfect journey</div>
         <div className="itn-hero-actions">
-          <button className="itn-btn ghost">Share Itinerary</button>
+          <button 
+            className="itn-btn ghost" 
+            onClick={() => setShowShareModal(true)} 
+            disabled={!items.length}
+            title={!items.length ? "No itineraries to share" : "Share with friends"}
+          >
+            Share Itinerary
+          </button>
           <button
             className="itn-btn ghost"
             onClick={openExport}
@@ -903,10 +983,9 @@ export default function Itinerary() {
               </>
             ) : (
               <div className="itn-muted">Search for places on the map to start planning.</div>
-            )
+            )}
 
-            /* Search results list */
-            }
+           
             {results.length > 1 && (
               <div className="itn-results">
                 {results.map((r) => (
@@ -932,45 +1011,77 @@ export default function Itinerary() {
         </section>
 
         <section className="itn-right">
-          <div className="itn-panel">
-            <div className="itn-panel-title">Your Detailed Itinerary</div>
-            <div className="itn-head-actions">
-              <button
-                className="itn-btn success"
-                onClick={markAllComplete}
-                disabled={!items.length}
-              >
-                Mark All Complete
-              </button>
-              <button
-                className="itn-btn danger"
-                onClick={clearAll}
-                disabled={!items.length}
-              >
-                Clear All
-              </button>
+          <div className="itn-tabs">
+            <div 
+              className={`itn-tab ${activeTab === 'personal' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('personal')}
+            >
+              My Itineraries
             </div>
-
-            {!items.length ? (
-              <div className="itn-empty">
-                <div className="itn-empty-icon">🧳</div>
-                <div className="itn-empty-title">No destinations planned yet</div>
-                <div className="itn-muted">
-                  Search for places on the map to start building your itinerary!
+            <div 
+              className={`itn-tab ${activeTab === 'shared' ? 'active' : ''}`}
+              onClick={() => setActiveTab('shared')}
+            >
+              Shared With Me {sharedWithMe.length > 0 && `(${sharedWithMe.length})`}
+            </div>
+          </div>
+          
+          <div className="itn-panel">
+            <div className="itn-panel-title">
+              {activeTab === 'personal' ? 'Your Detailed Itinerary' : 'Itineraries Shared With You'}
+            </div>
+            
+            {activeTab === 'personal' ? (
+              <>
+                <div className="itn-head-actions">
+                  <button
+                    className="itn-btn primary"
+                    onClick={() => setShowShareModal(true)}
+                    disabled={!items.length}
+                  >
+                    Share
+                  </button>
+                  <button
+                    className="itn-btn success"
+                    onClick={markAllComplete}
+                    disabled={!items.length}
+                  >
+                    Mark All Complete
+                  </button>
+                  <button
+                    className="itn-btn danger"
+                    onClick={clearAll}
+                    disabled={!items.length}
+                  >
+                    Clear All
+                  </button>
                 </div>
-              </div>
+
+                {!items.length ? (
+                  <div className="itn-empty">
+                    <div className="itn-empty-icon">🧳</div>
+                    <div className="itn-empty-title">No destinations planned yet</div>
+                    <div className="itn-muted">
+                      Search for places on the map to start building your itinerary!
+                    </div>
+                  </div>
+                ) : (
+                  items.map((item, idx) => (
+                    <DestinationCard
+                      key={item.id}
+                      item={item}
+                      index={idx}
+                      onEdit={(it) => setEditing(it)}
+                      onRemove={removeItem}
+                      onToggleStatus={toggleStatus}
+                    />
+                  ))
+                )}
+              </>
             ) : (
-              items.map((item, idx) => (
-                <DestinationCard
-                  key={item.id}
-                  item={item}
-                  index={idx}
-                  onEdit={(it) => setEditing(it)}
-                  onRemove={removeItem}
-                  onToggleStatus={toggleStatus}
-                />
-              )))
-            }
+              <SharedItinerariesTab user={user} />
+            )}
+            
           </div>
         </section>
       </div>
@@ -993,6 +1104,17 @@ export default function Itinerary() {
           onClose={() => setShowExport(false)}
         />
       )}
+
+      {showShareModal && (
+        <ShareItineraryModal
+          items={items}
+          friends={friends}
+          selected={shareSelected}
+          onToggleItem={toggleShareItem}
+          onShare={handleShareItinerary}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1006,7 +1128,7 @@ function Trips() {
     return () => unsub();
   }, []);
 
-  // Call this when the “Add to Trip” button is clicked
+  // Call this when the "Add to Trip" button is clicked
   const addToMyTrips = async (dest) => {
     try {
       await addTripForCurrentUser(dest);
@@ -1028,6 +1150,9 @@ function Trips() {
         onClick={() => addToMyTrips(destination)}
         disabled={addingId === (destination.id || destination.name)}
         aria-busy={addingId === (destination.id || destination.name)}
+
+     
+
       >
         {addingId === (destination.id || destination.name) ? 'Adding…' : '+ Add to Trip'}
       </button>
@@ -1070,21 +1195,10 @@ export async function addTripForCurrentUser(dest) {
 
   try {
     await setDoc(ref, payload, { merge: true });
-    console.log("[Itinerary] Added trip:", { uid: u.uid, id });
-
-    // Check if this is the user's first itinerary item
-    const colRef = collection(db, "itinerary", u.uid, "items");
-    const snap = await getDocs(colRef);
-    if (snap.size === 1) {
-      // Unlock "First Step" achievement (id: 1)
-      await unlockAchievement(1, "First Step");
-    }
-
+    console.log("[Itinerary] Added trip:", payload);
     return id;
-  } catch (e) {
-    console.error("[Itinerary] addTripForCurrentUser failed:", e);
-    throw e;
+  } catch (err) {
+    console.error("[Itinerary] Failed to add trip:", err);
+    throw err;
   }
 }
-
-export { Trips };

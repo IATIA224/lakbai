@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from './firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from './firebase';
 import {
-  doc, getDoc, setDoc, deleteDoc, collection, getDocs,
-  orderBy, query as fsQuery, onSnapshot, addDoc, serverTimestamp,
-  where, limit,
+  deleteDoc, collection, getDocs,
+  orderBy, query as fsQuery, onSnapshot // removed: addDoc, where, limit
 } from 'firebase/firestore';
 import './Styles/bookmark.css';
 import { unlockAchievement } from './profile';
+import { addTripForCurrentUser } from './Itinerary';
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -59,7 +60,11 @@ function Bookmark() {
   useEffect(() => {
     if (!currentUser) { setInTripCount(0); return; }
     const colRef = collection(db, 'itinerary', currentUser.uid, 'items');
-    const unsub = onSnapshot(colRef, (snap) => setInTripCount(snap.size));
+    const unsub = onSnapshot(
+      colRef,
+      (snap) => setInTripCount(snap.size),
+      () => setInTripCount(0)
+    );
     return () => unsub();
   }, [currentUser]);
 
@@ -109,25 +114,22 @@ function Bookmark() {
 
   const handleExploreClick = () => navigate('/bookmarks2'); // ensure this exists
 
-  // Remove bookmark from users/{uid}/bookmarks and keep legacy array in sync
+  // Remove bookmark (include userId to satisfy your rules)
   const removeBookmark = async (destinationId) => {
     try {
-      if (!currentUser) {
-        alert('Please login to manage bookmarks');
-        return;
-      }
-      // Delete per-user bookmark doc
+      if (!currentUser) { alert('Please login to manage bookmarks'); return; }
       await deleteDoc(doc(db, 'users', currentUser.uid, 'bookmarks', destinationId)).catch(() => {});
-
-      // Keep legacy list in sync if present
       const legacyRef = doc(db, 'userBookmarks', currentUser.uid);
       const legacyDoc = await getDoc(legacyRef);
       if (legacyDoc.exists()) {
         const list = legacyDoc.data().bookmarks || [];
         const updated = list.filter((id) => id !== destinationId);
-        await setDoc(legacyRef, { bookmarks: updated, updatedAt: new Date().toISOString() }, { merge: true });
+        await setDoc(
+          legacyRef,
+          { userId: currentUser.uid, bookmarks: updated, updatedAt: serverTimestamp() },
+          { merge: true }
+        );
       }
-
       setItems((prev) => prev.filter((d) => d.id !== destinationId));
     } catch (error) {
       console.error('Error removing bookmark:', error);
@@ -136,20 +138,15 @@ function Bookmark() {
   };
 
   const clearAllBookmarks = async () => {
-    if (!currentUser) {
-      alert('Please login to manage bookmarks');
-      return;
-    }
+    if (!currentUser) { alert('Please login to manage bookmarks'); return; }
     if (!window.confirm('Clear all bookmarks?')) return;
     try {
-      // Clear subcollection
       const colRef = collection(db, 'users', currentUser.uid, 'bookmarks');
       const snap = await getDocs(colRef);
       await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
-      // Clear legacy array
       await setDoc(
         doc(db, 'userBookmarks', currentUser.uid),
-        { bookmarks: [], updatedAt: new Date().toISOString() },
+        { userId: currentUser.uid, bookmarks: [], updatedAt: serverTimestamp() },
         { merge: true }
       );
       setItems([]);
@@ -199,48 +196,17 @@ function Bookmark() {
     return out;
   };
 
+  // Add to Trip — write via Itinerary helper to itinerary/{uid}/items
   const onAddToTrip = async (dest) => {
+    const u = auth.currentUser;
+    if (!u) { alert('Please sign in to add to My Trips.'); return; }
+    setAddingTripId(dest.id);
     try {
-      const u = auth.currentUser;
-      if (!u) { alert('Please sign in to add to My Trips.'); return; }
-
-      const destId = String(dest?.id || dest?.destId || '').trim();
-      if (!destId) { alert('Invalid destination.'); return; }
-
-      setAddingTripId(dest.id);
-
-      // ensure parent user doc (some rulesets require the parent to exist)
-      await setDoc(doc(db, 'users', u.uid), { uid: u.uid, lastTripAdd: serverTimestamp() }, { merge: true });
-
-      const itemsCol = collection(db, 'itinerary', u.uid, 'items');
-
-      // Check if this destination is already in My Trips
-      const existsQ = fsQuery(itemsCol, where('destId', '==', destId), limit(1));
-      const existsSnap = await getDocs(existsQ);
-
-      if (existsSnap.empty) {
-        // Prepare and add
-        const payload = {
-          destId,
-          name: dest?.name || 'Untitled destination',
-          region: dest?.region || dest?.locationRegion || '',
-          categories: (dest?.categories || dest?.tags || []).filter(Boolean),
-          rating: typeof dest?.rating === 'number' ? dest.rating : null,
-          priceTier: dest?.priceTier ?? null,
-          description: dest?.description || '',
-          status: 'Upcoming',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        await addDoc(itemsCol, payload);
-      }
-      // Remove from Bookmarks after being added or if it already exists in My Trips
-      await removeBookmark(dest.id).catch(() => {});
-
+      await addTripForCurrentUser(dest);
       setAddedTripId(dest.id);
       setTimeout(() => setAddedTripId(null), 1200);
     } catch (e) {
-      console.error('Add to trip failed:', e);
+      console.error('Add to trip failed:', e?.code || e?.message, e);
       alert('Failed to add to My Trips.');
     } finally {
       setAddingTripId(null);
@@ -548,8 +514,7 @@ function Bookmark() {
                     disabled={addingTripId === d.id}
                     aria-busy={addingTripId === d.id}
                   >
-                    <span>{addedTripId === d.id ? '✔' : '+'}</span>
-                    {addingTripId === d.id ? ' Adding…' : addedTripId === d.id ? ' Added!' : ' Add to Trip'}
+                    Add to Trip
                   </button>
                   <button className="itn-btn danger" onClick={() => removeBookmark(d.id)}>
                     <span>🗑️</span> Remove

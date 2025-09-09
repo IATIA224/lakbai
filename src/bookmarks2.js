@@ -19,7 +19,7 @@ import {
   arrayRemove,
   deleteDoc,
 } from 'firebase/firestore';
-import { addTripForCurrentUser } from './Itinerary';
+import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
 
 const initialDestinations = [
   {
@@ -202,6 +202,37 @@ export default function Bookmarks2() {
             setBookmarks(new Set()); // fallback to empty set
           }
         );
+
+        try {
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            await setDoc(
+              userRef,
+              {
+                userId: user.uid,                      // <- add this to satisfy rules
+                bookmarks: [],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+        } catch (e) {
+          console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
+        }
+
+        // Subscribe with error handler (avoid crashing on permission-denied)
+        unsubUserDoc = onSnapshot(
+          userRef,
+          (s) => {
+            const ids = (s.exists() ? s.data().bookmarks : []) || [];
+            setBookmarks(new Set(ids));
+          },
+          (err) => {
+            console.warn('userBookmarks listener error:', err.code || err.message);
+            setBookmarks(new Set()); // fallback to empty set
+          }
+        );
       } else {
         setBookmarks(new Set());
         if (unsubUserDoc) unsubUserDoc();
@@ -300,85 +331,66 @@ export default function Bookmarks2() {
       alert('Please sign in to bookmark destinations.');
       return;
     }
+    const listRef = doc(db, 'userBookmarks', user.uid);
+    const userDocRef = doc(db, 'users', user.uid);
+    const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
+
+    const isBookmarked = bookmarks.has(dest.id);
+
     try {
-      // A. Maintain your existing array of ids for bookmark.js
-      const listRef = doc(db, 'userBookmarks', user.uid);
-      const listSnap = await getDoc(listRef);
-      if (!listSnap.exists()) {
-        await setDoc(listRef, { bookmarks: [], createdAt: serverTimestamp() }, { merge: true });
-      }
+      await setDoc(
+        listRef,
+        {
+          userId: user.uid,                         // <- add this to satisfy rules on update
+          updatedAt: serverTimestamp(),
+          bookmarks: isBookmarked ? arrayRemove(dest.id) : arrayUnion(dest.id),
+        },
+        { merge: true }
+      );
 
-      // Check if this is the first bookmark (for achievement)
-      const isFirstBookmark = !listSnap.exists() || !(listSnap.data()?.bookmarks || []).length;
-      const isBookmarked = bookmarks.has(dest.id);
-
-      // B. Also store a full copy under users/{uid}/bookmarks/{destId}
-      const userDocRef = doc(db, 'users', user.uid);
-      const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
-
+      // Best-effort secondary writes; do not fail the whole toggle if they’re blocked by rules
       try {
-        await setDoc(
-          listRef,
-          {
-            userId: user.uid,                         // <- add this to satisfy rules on update
-            updatedAt: serverTimestamp(),
-            bookmarks: isBookmarked ? arrayRemove(dest.id) : arrayUnion(dest.id),
-          },
-          { merge: true }
-        );
-
-        // Best-effort secondary writes; do not fail the whole toggle if they're blocked by rules
-        try {
-          await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
-        } catch (e) {
-          console.warn('users/{uid} timestamp write skipped:', e.code || e.message);
-        }
-
-        if (isBookmarked) {
-          try {
-            await deleteDoc(bookmarkDocRef);
-          } catch (e) {
-            console.warn('delete users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
-          }
-        } else {
-          try {
-            await setDoc(
-              bookmarkDocRef,
-              {
-                destId: dest.id,
-                name: dest.name,
-                region: dest.region || '',
-                rating: dest.rating ?? null,
-                price: dest.price || '',
-                priceTier: dest.priceTier || null,
-                tags: dest.tags || [],
-                categories: dest.categories || [],
-                bestTime: dest.bestTime || '',
-                image: dest.image || '',
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-            
-            // If this is the user's first bookmark, unlock the achievement
-            if (isFirstBookmark) {
-              unlockAchievement(2, "First Bookmark");
-            }
-          } catch (e) {
-            console.warn('set users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
-          }
-        }
-        // onSnapshot on userBookmarks will update local state automatically
+        await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
       } catch (e) {
-        console.error('Toggle bookmark failed:', e.code || e.message);
-        alert('Could not update bookmark. Please try again.');
+        console.warn('users/{uid} timestamp write skipped:', e.code || e.message);
       }
+
+      if (isBookmarked) {
+        try {
+          await deleteDoc(bookmarkDocRef);
+        } catch (e) {
+          console.warn('delete users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+        }
+      } else {
+        try {
+          await setDoc(
+            bookmarkDocRef,
+            {
+              destId: dest.id,
+              name: dest.name,
+              region: dest.region || '',
+              rating: dest.rating ?? null,
+              price: dest.price || '',
+              priceTier: dest.priceTier || null,
+              tags: dest.tags || [],
+              categories: dest.categories || [],
+              bestTime: dest.bestTime || '',
+              image: dest.image || '',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.warn('upsert users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
+        }
+      }
+      // onSnapshot on userBookmarks keeps UI in sync
     } catch (e) {
       console.error('Toggle bookmark failed:', e.code || e.message);
       alert('Could not update bookmark. Please try again.');
     }
-  }; // Add this closing brace
+  };
 
   // Average ratings loader for current page
   useEffect(() => {
@@ -401,10 +413,25 @@ export default function Bookmarks2() {
               console.warn('ratings read skipped for', d.id, err.code || err.message);
               return [d.id, { avg: 0, count: 0 }];
             }
+            try {
+              const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
+              let sum = 0, count = 0;
+              rsnap.forEach((r) => {
+                const v = Number(r.data()?.value) || 0;
+                if (v > 0) { sum += v; count += 1; }
+              });
+              const avg = count ? sum / count : 0;
+              return [d.id, { avg, count }];
+            } catch (err) {
+              // Permission denied -> treat as no ratings
+              console.warn('ratings read skipped for', d.id, err.code || err.message);
+              return [d.id, { avg: 0, count: 0 }];
+            }
           })
         );
         if (!cancelled) setRatingsByDest((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
       } catch (e) {
+        console.error('Load averages failed', e.code || e.message);
         console.error('Load averages failed', e.code || e.message);
       }
     }
@@ -542,7 +569,7 @@ export default function Bookmarks2() {
       setAddedTripId(dest.id);
       setTimeout(() => {
         setAddedTripId(null);
-        navigate('/itinerary'); // Route for “My Trips”
+        navigate('/itinerary'); // Route for "My Trips"
       }, 600);
     } catch (e) {
       if (e?.message === 'AUTH_REQUIRED') {

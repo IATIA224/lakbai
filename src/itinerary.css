@@ -216,3 +216,92 @@
   cursor: pointer;
   margin-left: 4px;
 }
+
+/* Tabs for switching between personal and shared */
+.itn-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 0 12px;
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 1;
+}
+
+.itn-tab {
+  padding: 12px 24px;
+  background: #f8f9ff;
+  border: 1px solid #e4e6f0;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.itn-tab.active {
+  background: #fff;
+  color: var(--brand-primary);
+  font-weight: 700;
+  border-color: #e4e6f0;
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
+}
+
+.itn-tab:hover:not(.active) {
+  background: #f0f0ff;
+}
+
+/* Shared itineraries */
+.itn-shared-group {
+  margin-top: 20px;
+  border: 1px solid #e4e6f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.itn-shared-header {
+  padding: 12px 16px;
+  background: linear-gradient(to right, #f8f9ff, #ffffff);
+  border-bottom: 1px solid #e4e6f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.itn-shared-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.itn-shared-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
+}
+
+.itn-shared-by {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.itn-shared-date {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Section in modals */
+.itn-section {
+  margin-bottom: 20px;
+}
+
+.itn-section h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: var(--brand-primary);
+  font-size: 16px;
+}
