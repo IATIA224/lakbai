@@ -35,10 +35,24 @@ function Bookmark() {
   const [confirmingUnbookmark, setConfirmingUnbookmark] = useState(false);
   const confirmTimerRef = useRef(null);
 
+  // NEW: UI confirm modal for "Clear All"
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [isClearingAll, setIsClearingAll] = useState(false);
+
+  // NEW: app-themed error toast state
+  const [errorMsg, setErrorMsg] = useState('');
+  const errorTimerRef = useRef(null);
+  const showError = (msg) => {
+    setErrorMsg(String(msg || 'Something went wrong.'));
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = setTimeout(() => setErrorMsg(''), 4000);
+  };
+
   // clear pending confirm timer on unmount
   useEffect(() => {
     return () => {
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current); // NEW: clear toast timer
     };
   }, []);
 
@@ -97,7 +111,8 @@ function Bookmark() {
       );
       setItems(rows.filter(Boolean));
     } catch (e) {
-      console.error('Error fetching current user bookmarks:', e);
+      // console.error('Error fetching current user bookmarks:', e);
+      showError('Failed to load your bookmarks.');
       setItems([]);
     }
   };
@@ -132,14 +147,22 @@ function Bookmark() {
       }
       setItems((prev) => prev.filter((d) => d.id !== destinationId));
     } catch (error) {
-      console.error('Error removing bookmark:', error);
-      alert('Failed to remove bookmark. Please try again.');
+      // console.error('Error removing bookmark:', error);
+      showError('Failed to remove bookmark.');
+      alert('Failed to remove bookmark. Please try again.'); // keep existing UX
     }
   };
 
+  // Change Clear All to open modal instead of window.confirm
   const clearAllBookmarks = async () => {
     if (!currentUser) { alert('Please login to manage bookmarks'); return; }
-    if (!window.confirm('Clear all bookmarks?')) return;
+    setConfirmClearOpen(true);
+  };
+
+  // NEW: run actual clear when user confirms in the modal
+  const handleConfirmClear = async () => {
+    if (!currentUser) { setConfirmClearOpen(false); alert('Please login to manage bookmarks'); return; }
+    setIsClearingAll(true);
     try {
       const colRef = collection(db, 'users', currentUser.uid, 'bookmarks');
       const snap = await getDocs(colRef);
@@ -150,9 +173,13 @@ function Bookmark() {
         { merge: true }
       );
       setItems([]);
+      setConfirmClearOpen(false);
     } catch (e) {
-      console.error(e);
+      // console.error(e);
+      showError('Failed to clear bookmarks.');
       alert('Failed to clear bookmarks.');
+    } finally {
+      setIsClearingAll(false);
     }
   };
 
@@ -206,7 +233,8 @@ function Bookmark() {
       setAddedTripId(dest.id);
       setTimeout(() => setAddedTripId(null), 1200);
     } catch (e) {
-      console.error('Add to trip failed:', e?.code || e?.message, e);
+      // console.error('Add to trip failed:', e?.code || e?.message, e);
+      showError('Failed to add to My Trips.');
       alert('Failed to add to My Trips.');
     } finally {
       setAddingTripId(null);
@@ -240,7 +268,8 @@ function Bookmark() {
         const avg = count ? sum / count : 0;
         setRatingsByDest((m) => ({ ...m, [dest.id]: { avg, count } }));
       } catch (e) {
-        console.error('Load selected avg failed', e);
+        // console.error('Load selected avg failed', e);
+        showError('Failed to load ratings.');
       }
     }
   };
@@ -290,7 +319,8 @@ function Bookmark() {
 
       setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
     } catch (e) {
-      console.error('Save rating failed:', e);
+      // console.error('Save rating failed:', e);
+      showError('Failed to save rating.');
       alert('Failed to save rating.');
     } finally {
       setSavingRating(false);
@@ -312,7 +342,8 @@ function Bookmark() {
       setConfirmingUnbookmark(false);
       closeDetails();
     } catch (e) {
-      console.error('Remove bookmark failed:', e);
+      // console.error('Remove bookmark failed:', e);
+      showError('Failed to remove bookmark.');
       setConfirmingUnbookmark(false);
       alert('Failed to remove bookmark. Please try again.');
     }
@@ -342,9 +373,33 @@ function Bookmark() {
       }
       
     } catch (error) {
-      console.error('Error toggling bookmark:', error);
+      // console.error('Error toggling bookmark:', error);
+      showError('Failed to update bookmark.');
     }
   };
+
+  // NEW: transient pop animation state per card
+  const [popIds, setPopIds] = useState({});
+  const triggerCardPop = (id, duration = 180) => {
+    setPopIds((m) => ({ ...m, [id]: true }));
+    setTimeout(() => {
+      setPopIds((m) => {
+        const n = { ...m };
+        delete n[id];
+        return n;
+      });
+    }, duration);
+  };
+
+  // NEW: track cards being removed while waiting for server
+  const [removingIds, setRemovingIds] = useState({});
+  const beginRemove = (id) => setRemovingIds((m) => ({ ...m, [id]: true }));
+  const endRemove = (id) =>
+    setRemovingIds((m) => {
+      const n = { ...m };
+      delete n[id];
+      return n;
+    });
 
   return (
     <div className="App bm-page" aria-busy={loading}>
@@ -389,7 +444,7 @@ function Bookmark() {
         <div className="bm-title-wrap">
           <div className="bm-title-icon">❤️</div>
           <div>
-            <h1 className="bm-title">My Bookmarks</h1>
+            <h1 className="bm-title">Bookmarks</h1>
             <p className="bm-subtitle">Your saved destinations with quick previews and actions</p>
           </div>
         </div>
@@ -441,7 +496,7 @@ function Bookmark() {
 
       {/* Grid */}
       {sorted.length === 0 ? (
-        <section className="bm-empty">
+        <section className="bm-empty" style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.6)', borderRadius: '12px', padding: '16px' }}>
           <div className="bm-empty-heart">
             <span>❤️</span>
           </div>
@@ -457,7 +512,10 @@ function Bookmark() {
       ) : (
         <div className="bookmarks-grid">
           {sorted.map((d) => (
-            <article key={d.id} className="bm-card">
+            <article
+              key={d.id}
+              className={`bm-card ${popIds[d.id] ? 'pop-anim' : ''} ${removingIds[d.id] ? 'removing' : ''}`}
+            >
               {/* Top art */}
               <div className="bm-card-hero">
                 <div className="sun-decoration" />
@@ -465,7 +523,16 @@ function Bookmark() {
                 <div className="bm-saved-badge">Saved {fmtSaved(d.savedAt)}</div>
                 <button
                   className="bm-heart-bubble"
-                  onClick={(e) => { e.stopPropagation(); removeBookmark(d.id); }}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    triggerCardPop(d.id);          // quick bump
+                    beginRemove(d.id);             // start pulse until server finishes
+                    try {
+                      await removeBookmark(d.id);  // wait for server
+                    } finally {
+                      endRemove(d.id);            // stop pulse (card may already unmount)
+                    }
+                  }}
                   aria-label="Remove from bookmarks"
                   title="Remove"
                 >
@@ -494,10 +561,8 @@ function Bookmark() {
                     <div className="bm-pill">{d.bestTime || d.best_time || '—'}</div>
                   </div>
                   <div className="bm-info-item">
-                    <div className="bm-info-label">Price Range:</div>
-                    <div className={`bm-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
-                      {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
-                    </div>
+                    <div className="bm-info-label1">Price:</div>
+                    <div className="bm-pill">{d.price ?? '—'}</div>
                   </div>
                 </div>
 
@@ -519,7 +584,20 @@ function Bookmark() {
                   >
                     Add to Trip
                   </button>
-                  <button className="itn-btn danger" onClick={() => removeBookmark(d.id)}>
+                  <button
+                    className="itn-btn danger"
+                    onClick={async () => {
+                      triggerCardPop(d.id);       // quick bump
+                      beginRemove(d.id);          // start pulse
+                      try {
+                        await removeBookmark(d.id);
+                      } finally {
+                        endRemove(d.id);
+                      }
+                    }}
+                    disabled={removingIds[d.id] === true}
+                    aria-busy={removingIds[d.id] === true}
+                  >
                     <span>🗑️</span> Remove
                   </button>
                 </div>
@@ -598,19 +676,19 @@ function Bookmark() {
                   <h3 className="bm-info-title">Trip Information</h3>
 
                   <div className="bm-info-row">
-                    <div className="bm-info-key">Price Range</div>
+                    <div className="bm-info-key">Price:</div>
                     <div className="bm-info-val">
-                      <span className="chip-green">{selected.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}</span>
+                      <span className="chip-green">{selected.price ?? '—'}</span>
                     </div>
                   </div>
 
                   <div className="bm-info-row">
-                    <div className="bm-info-key">Best Time to Visit</div>
+                    <div className="bm-info-key">Best Time to Visit:</div>
                     <div className="bm-info-val">{selected.bestTime || selected.best_time || '—'}</div>
                   </div>
 
                   <div className="bm-info-row">
-                    <div className="bm-info-key">Categories</div>
+                    <div className="bm-info-key">Categories:</div>
                     <div className="bm-info-val">
                       {(selected.categories || selected.tags || []).map((c, i) => (
                         <span key={i} className="bm-chip soft">{c}</span>
@@ -642,6 +720,89 @@ function Bookmark() {
               </aside>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* NEW: Confirm Clear All modal (matches existing modal theme) */}
+      {confirmClearOpen && (
+        <div className="bm-modal-backdrop" onClick={() => setConfirmClearOpen(false)}>
+          <div
+            className="bm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-all-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 560,
+              background: '#ffffff' // removed glass effect
+            }}
+          >
+            <button className="bm-modal-close" onClick={() => setConfirmClearOpen(false)} aria-label="Close">✕</button>
+            <div
+              className="bm-modal-body"
+              // make it a vertical stack: title -> text -> actions
+              style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+            >
+              <h2
+                id="clear-all-title"
+                className="bm-modal-title"
+                style={{ fontSize: '1.25rem', margin: '0 0 4px', lineHeight: 1.2 }}
+              >
+                Clear all bookmarks?
+              </h2>
+
+              <p className="bm-modal-desc" style={{ margin: 0 }}>
+                This will remove all saved destinations from your bookmarks. You can add them again later from Explore.
+              </p>
+
+              <div className="bm-modal-actions" style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button className="itn-btn" onClick={() => setConfirmClearOpen(false)} disabled={isClearingAll}>
+                  Cancel
+                </button>
+                <button
+                  className="itn-btn danger"
+                  onClick={handleConfirmClear}
+                  disabled={isClearingAll}
+                  aria-busy={isClearingAll}
+                >
+                  {isClearingAll ? 'Clearing…' : 'Clear All'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: themed error toast (click to dismiss) */}
+      {errorMsg && (
+        <div
+          role="alert"
+          className="bm-toast bm-toast-error"
+          onClick={() => setErrorMsg('')}
+          style={{
+            position: 'fixed',
+            right: 16,
+            bottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '12px 14px',
+            borderRadius: 12,
+            // glass effect for toast
+            background: 'rgba(255, 255, 255, 1)',
+
+            color: '#1f2937',
+            border: '1px solid rgba(255,255,255,0.35)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+            zIndex: 1000,
+            cursor: 'pointer',
+            fontWeight: 500
+          }}
+          title="Dismiss"
+        >
+          <span aria-hidden="true">⚠️</span>
+          <span>Error:</span>
+          <span style={{ opacity: 0.95 }}>{errorMsg}</span>
         </div>
       )}
     </div>
