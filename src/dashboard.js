@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
@@ -6,6 +6,42 @@ import './dashboardBanner.css';
 
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
+
+  // Sample trips and bookmarks (replace with Firestore fetch)
+  const [trips, setTrips] = useState([
+    {
+      id: 1,
+      title: "Trip to Philippines",
+      date: "Sep 4 - 5",
+      places: 1,
+      image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
+      user: "https://randomuser.me/api/portraits/men/32.jpg",
+      soon: true
+    },
+    {
+      id: 2,
+      title: "Trip to Tokyo",
+      date: "Sep 2 – Oct 2",
+      places: 1,
+      image: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80",
+      user: "https://randomuser.me/api/portraits/men/32.jpg",
+      soon: false
+    }
+  ]);
+  const [bookmarks, setBookmarks] = useState([
+    {
+      id: 1,
+      title: "El Nido, Palawan",
+      desc: "Perfect for beach lovers",
+      image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80"
+    },
+    {
+      id: 2,
+      title: "Chocolate Hills, Bohol",
+      desc: "Adventure & nature",
+      image: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80"
+    }
+  ]);
 
   const handleLogout = async () => {
     try {
@@ -18,7 +54,12 @@ function Dashboard({ setShowAIModal }) {
 
   return (
     <>
-      <div className="dashboard-banner">
+      <div
+  className="dashboard-banner"
+  style={{
+    background: `url("/dashboardBanner.jpg") center/cover no-repeat`
+  }}
+>
         <h2>Discover the Philippines with AI-Powered Travel Planning</h2>
         <p>
           Get personalized recommendations, smart packing tips, and connect with fellow travelers to explore the beautiful islands of the Philippines.
@@ -48,56 +89,125 @@ function Dashboard({ setShowAIModal }) {
           <span className="dashboard-stat-label">Avg Rating</span>
         </div>
       </div>
+           
+
+      {/* Your trips and bookmarks section */}
+      <div className="dashboard-preview-row">
+        <div className="dashboard-preview-col">
+          <div className="dashboard-preview-title">Your trips</div>
+          <button className="dashboard-preview-btn">+ Plan new trip</button>
+          <div className="dashboard-preview-list">
+            {trips.map(trip => (
+              <div className="dashboard-preview-trip" key={trip.id}>
+                <img src={trip.image} alt={trip.title} className="dashboard-preview-img" />
+                <div className="dashboard-preview-info">
+                  {trip.soon && <span className="dashboard-preview-soon">In 1 day</span>}
+                  <div className="dashboard-preview-trip-title">{trip.title}</div>
+                  <div className="dashboard-preview-trip-meta">
+                    <img src={trip.user} alt="user" className="dashboard-preview-user" />
+                    <span>{trip.date} • {trip.places} place</span>
+                  </div>
+                </div>
+                <span className="dashboard-preview-dots">⋯</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="dashboard-preview-col">
+          <div className="dashboard-preview-title">Bookmarks</div>
+          <button className="dashboard-preview-btn">+ Add new bookmark</button>
+          <div className="dashboard-preview-list">
+            {bookmarks.length === 0 ? (
+              <div className="dashboard-preview-empty">
+                You don’t have any bookmarks yet. <span style={{ color: "#e74c3c" }}>Add a new bookmark.</span>
+              </div>
+            ) : (
+              bookmarks.map(bm => (
+                <div className="dashboard-preview-bookmark" key={bm.id}>
+                  <img src={bm.image} alt={bm.title} className="dashboard-preview-img" />
+                  <div className="dashboard-preview-bookmark-info">
+                    <div className="dashboard-preview-bookmark-title">{bm.title}</div>
+                    <div className="dashboard-preview-bookmark-desc">{bm.desc}</div>
+                  </div>
+                  <span className="dashboard-preview-dots">⋯</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
       <div className="personalized-section-dashboard">
         <div className="personalized-title">
-          <span role="img" aria-label="target">🎯</span> Personalized for You
+          Personalized for You
         </div>
-        <div className="personalized-cards-dashboard">
-          <div className="personalized-card">
-            <div className="personalized-img" style={{ background: '#5ec6fa' }}>
-              <svg width="100%" height="80" viewBox="0 0 200 80">
-                <circle cx="170" cy="20" r="15" fill="#ffe066" />
-                <path d="M20,60 Q60,30 180,60" stroke="#fff" strokeWidth="6" fill="none" />
-              </svg>
-            </div>
-            <div className="personalized-info">
-              <div className="personalized-place">El Nido, Palawan</div>
-              <div className="personalized-desc">Perfect for beach lovers • ₱15,000 budget</div>
-              <div className="personalized-rating">
-                <span style={{ color: '#ffc107', fontWeight: 'bold' }}>★</span> 4.9 <span className="personalized-reviews">(2,341 reviews)</span>
+        <div className="personalized-cards-grid">
+          {/* Example cards, replace with dynamic data if needed */}
+          {[
+            {
+              id: 'el-nido',
+              name: 'El Nido, Palawan',
+              region: 'Region IV-B - MIMAROPA',
+              rating: 4.9,
+              price: '₱15,000',
+              priceTier: 'expensive',
+              description: 'Perfect for beach lovers • ₱15,000 budget',
+              tags: ['Beach', 'Water Sports', 'Island Hopping'],
+              categories: ['Beaches', 'Islands'],
+              bestTime: 'November to May',
+              image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
+            },
+            {
+              id: 'chocolate-hills',
+              name: 'Chocolate Hills, Bohol',
+              region: 'Region VII - Central Visayas',
+              rating: 4.7,
+              price: '₱12,000',
+              priceTier: 'less',
+              description: 'Adventure & nature • ₱12,000 budget',
+              tags: ['Geological Wonder', 'View', 'Photography'],
+              categories: ['Landmarks', 'Natural'],
+              bestTime: 'December to May',
+              image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80'
+            },
+            {
+              id: 'cloud-9',
+              name: 'Cloud 9, Siargao',
+              region: 'CARAGA - Region XIII',
+              rating: 4.8,
+              price: '₱18,000',
+              priceTier: 'expensive',
+              description: 'Surfing paradise • ₱18,000 budget',
+              tags: ['Surfing', 'Beach'],
+              categories: ['Beaches', 'Parks'],
+              bestTime: 'March to October',
+              image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
+            }
+          ].map(card => (
+            <div className="personalized-card-grid" key={card.id}>
+              <div className="personalized-card-image">
+                <img src={card.image} alt={card.name} />
+              </div>
+              <div className="personalized-card-content">
+                <h2>{card.name}</h2>
+                <div className="personalized-card-rating">
+                  <span>⭐</span> {card.rating}
+                </div>
+                <div className="personalized-card-region">{card.region}</div>
+                <p className="personalized-card-desc">{card.description}</p>
+                <div className="personalized-card-tags">
+                  {card.tags.map((tag, i) => (
+                    <span key={i} className="personalized-card-tag">{tag}</span>
+                  ))}
+                </div>
+                <div className="personalized-card-footer">
+                  <span className={`personalized-card-pill ${card.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
+                    {card.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
+                  </span>
+                  <span className="personalized-card-besttime">{card.bestTime}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="personalized-card">
-            <div className="personalized-img" style={{ background: '#98e49c' }}>
-              <svg width="100%" height="80" viewBox="0 0 200 80">
-                <circle cx="50" cy="40" r="18" fill="#b7e4c7" />
-                <circle cx="120" cy="30" r="10" fill="#b7e4c7" />
-                <circle cx="160" cy="50" r="8" fill="#b7e4c7" />
-              </svg>
-            </div>
-            <div className="personalized-info">
-              <div className="personalized-place">Chocolate Hills, Bohol</div>
-              <div className="personalized-desc">Adventure & nature • ₱12,000 budget</div>
-              <div className="personalized-rating">
-                <span style={{ color: '#ffc107', fontWeight: 'bold' }}>★</span> 4.7 <span className="personalized-reviews">(1,892 reviews)</span>
-              </div>
-            </div>
-          </div>
-          <div className="personalized-card">
-            <div className="personalized-img" style={{ background: '#5ec6fa' }}>
-              <svg width="100%" height="80" viewBox="0 0 200 80">
-                <path d="M0,60 Q40,30 80,60 Q120,90 160,60 Q180,40 200,60" stroke="#fff" strokeWidth="6" fill="none" />
-              </svg>
-            </div>
-            <div className="personalized-info">
-              <div className="personalized-place">Cloud 9, Siargao</div>
-              <div className="personalized-desc">Surfing paradise • ₱18,000 budget</div>
-              <div className="personalized-rating">
-                <span style={{ color: '#ffc107', fontWeight: 'bold' }}>★</span> 4.8 <span className="personalized-reviews">(1,567 reviews)</span>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </>
