@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   addDoc, collection, serverTimestamp, getDocs, query, where, doc, getDoc,
-  updateDoc, arrayUnion, arrayRemove, onSnapshot, increment, deleteDoc
+  updateDoc, setDoc, arrayUnion, arrayRemove, onSnapshot, increment, deleteDoc
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "./firebase";
@@ -1124,7 +1125,7 @@ const Community = () => {
   const [reportingPost, setReportingPost] = useState(null);
   const [commentingPost, setCommentingPost] = useState(null); // NEW
   const [editingPost, setEditingPost] = useState(null);
-  // Removed unused deletingPostId and setDeletingPostId state
+  const [deletingPost, setDeletingPost] = useState(null);
   
   // NEW: load current user's friends
   async function loadFriendsForUser(user) {
@@ -1465,7 +1466,7 @@ async function unlockHelloWorldAchievement() {
   const user = auth.currentUser;
   if (!user) return;
   try {
-    await updateDoc(doc(db, "users", user.uid), { "achievements.4": true });
+    await updateDoc(doc(db, "users", user.uid), { ["achievements.4"]: true });
     await addActivity(user.uid, "You posted in the community!", "💬");
     emitAchievement("Hello, World! Achievement Unlocked! 🎉");
   } catch (err) {

@@ -24,7 +24,7 @@ export default function Bookmarks2() {
   const [destinations, setDestinations] = useState([]);
   const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState(new Set());
-  const [setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   // NEW: page loading state
   const [isLoading, setIsLoading] = useState(true);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -65,10 +65,11 @@ const Profile = () => {
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showInfoDelete, setShowInfoDelete] = useState(false);
   const [showShareCode, setShowShareCode] = useState(false);
-  // const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState("");
   const [unlockedAchievements, setUnlockedAchievements] = useState(new Set());
   const [photos, setPhotos] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -239,7 +240,7 @@ const Profile = () => {
   const navigate = useNavigate();
 
   // Achievements data
-  const achievementsData = useMemo(() => [
+  const achievementsData = [
     {
       id: 1,
       category: "Getting Started",
@@ -268,7 +269,8 @@ const Profile = () => {
       id: 4,
       category: "Getting Started",
       title: "Hello, World!",
-      description: "Post your first comment on any itinerary or location.",
+      description:
+        "Post your first comment on any itinerary or location.",
       icon: "💬",
       unlocked: unlockedAchievements.has(4),
     },
@@ -304,12 +306,12 @@ const Profile = () => {
       icon: "✅",
       unlocked: unlockedAchievements.has(8),
     },
-  ], [unlockedAchievements]);
+  ];
 
   // Notification helper
-  // const showAchievementNotification = (message) => {
-  // emitAchievement(message);
-  // };
+  const showAchievementNotification = (message) => {
+    emitAchievement(message);
+  };
 
   // Unlock achievement (generic)
   const unlockAchievement = async (achievementId, achievementName) => {
