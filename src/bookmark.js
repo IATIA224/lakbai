@@ -12,6 +12,9 @@ import { addTripForCurrentUser } from './Itinerary';
 
 function Bookmark() {
   const navigate = useNavigate();
+  
+  // State declarations - added to prevent "setLoading is not a function" errors after auth resolves
+  // These must be declared early in the component to ensure setters are available when auth state changes
   const [items, setItems] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,17 +60,44 @@ function Bookmark() {
   }, []);
 
   useEffect(() => {
+    // Defensive guard: Ensure setLoading is a function to prevent runtime errors after auth resolves
+    if (typeof setLoading !== 'function') {
+      console.warn('setLoading is not a function - useState declaration may be missing or out of scope');
+      return;
+    }
+    
     setLoading(true);
     const unsub = auth.onAuthStateChanged(async (user) => {
+      // Defensive guard: Ensure setCurrentUser is a function
+      if (typeof setCurrentUser !== 'function') {
+        console.warn('setCurrentUser is not a function - useState declaration may be missing or out of scope');
+        return;
+      }
+      
       setCurrentUser(user || null);
       if (user) {
         await fetchBookmarkedDestinations(user.uid);
       } else {
-        setItems([]);
+        // Defensive guard: Ensure setItems is a function
+        if (typeof setItems === 'function') {
+          setItems([]);
+        } else {
+          console.warn('setItems is not a function - useState declaration may be missing or out of scope');
+        }
       }
-      setLoading(false);
+      
+      if (typeof setLoading === 'function') {
+        setLoading(false);
+      }
     });
-    return () => unsub();
+    return () => {
+      // Defensive guard: Ensure unsub is a function before calling
+      if (typeof unsub === 'function') {
+        unsub();
+      } else {
+        console.warn('auth.onAuthStateChanged did not return a valid unsubscribe function');
+      }
+    };
   }, []);
 
   // NEW: live count of itinerary items for current user
