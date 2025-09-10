@@ -152,7 +152,7 @@ export default function Bookmarks2() {
       if (unsubUserDoc) unsubUserDoc();
       unsubAuth();
     };
-  }, []);
+  }, [setCurrentUser]);
 
   // Regions/Categories derived from Firestore data
   const regions = useMemo(
