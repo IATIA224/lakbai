@@ -202,14 +202,15 @@ describe('ItineraryModal', () => {
     // Mock console.error to suppress error messages during testing
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    // Test undefined itinerary - this will cause an error in the component
-    // but we can test that it at least attempts to render
+    // Test undefined itinerary will cause error, so we expect it
+    let didThrow = false;
     try {
       render(<ItineraryModal itinerary={undefined} onClose={mockOnClose} />);
     } catch (error) {
-      // Expected to throw due to accessing undefined.title
+      didThrow = true;
       expect(error.message).toContain('Cannot read properties of undefined');
     }
+    expect(didThrow).toBe(true);
 
     // Test with undefined onClose - this should work fine
     const { getByText } = render(

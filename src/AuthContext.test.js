@@ -10,21 +10,28 @@ jest.mock('./firebase', () => ({
   }
 }));
 
+// Create a proper mock that ensures unsubscribe function is always returned
+let mockUnsubscribe = jest.fn();
+
 jest.mock('firebase/auth', () => ({
   onAuthStateChanged: jest.fn((auth, callback) => {
-    // Mock the unsubscribe function
-    const unsubscribe = jest.fn();
+    // Immediately call callback with null user for initial state
+    if (callback) {
+      setTimeout(() => callback(null), 0);
+    }
     
-    // Call the callback immediately with null (no user)
-    callback(null);
-    
-    return unsubscribe;
+    // Always return the mock unsubscribe function
+    return mockUnsubscribe;
   })
 }));
 
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset the mock unsubscribe function
+    mockUnsubscribe = jest.fn();
+    const { onAuthStateChanged } = require('firebase/auth');
+    onAuthStateChanged.mockReturnValue(mockUnsubscribe);
   });
 
   describe('AuthProvider', () => {
@@ -146,7 +153,7 @@ describe('AuthContext', () => {
     const mockUnsubscribe = jest.fn();
     const { onAuthStateChanged } = require('firebase/auth');
     
-    // Mock onAuthStateChanged to return our mock unsubscribe function
+    // Update the mock to return our mock unsubscribe function
     onAuthStateChanged.mockReturnValue(mockUnsubscribe);
 
     const { unmount } = render(
