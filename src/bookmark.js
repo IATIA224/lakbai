@@ -578,11 +578,40 @@ function Bookmark() {
                   </button>
                   <button
                     className={`itn-btn success ${addedTripId === d.id ? 'btn-success' : ''}`}
-                    onClick={() => onAddToTrip(d)}
+                    onClick={async () => {
+                      setAddingTripId(d.id);
+                      try {
+                        await addTripForCurrentUser(d);
+                        setAddedTripId(d.id);
+                        // Wait for the confirmation state to show (same as before)
+                        setTimeout(async () => {
+                          setAddedTripId(null);
+                          // Remove from bookmarks after confirmation
+                          triggerCardPop(d.id);       // pop effect
+                          beginRemove(d.id);          // start pulse
+                          try {
+                            await removeBookmark(d.id);
+                          } finally {
+                            endRemove(d.id);
+                          }
+                        }, 1200); // matches your confirmation duration
+                      } catch (e) {
+                        showError('Failed to add to My Trips.');
+                        alert('Failed to add to My Trips.');
+                      } finally {
+                        setAddingTripId(null);
+                      }
+                    }}
                     disabled={addingTripId === d.id}
                     aria-busy={addingTripId === d.id}
                   >
-                    Add to Trip
+                    {addedTripId === d.id ? (
+                      <>
+                        <span>✔</span> Added to Trip
+                      </>
+                    ) : (
+                      <>Add to Trip</>
+                    )}
                   </button>
                   <button
                     className="itn-btn danger"
