@@ -72,7 +72,7 @@ export default function Bookmarks2() {
       }
     );
     return () => unsub();
-  }, []);
+  }, [setCurrentUser]);
 
   // 2) Listen to auth and the current user's bookmarks
   useEffect(() => {
@@ -309,20 +309,6 @@ export default function Bookmarks2() {
       try {
         const entries = await Promise.all(
           pageItems.map(async (d) => {
-            try {
-              const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
-              let sum = 0, count = 0;
-              rsnap.forEach((r) => {
-                const v = Number(r.data()?.value) || 0;
-                if (v > 0) { sum += v; count += 1; }
-              });
-              const avg = count ? sum / count : 0;
-              return [d.id, { avg, count }];
-            } catch (err) {
-              // Permission denied -> treat as no ratings
-              console.warn('ratings read skipped for', d.id, err.code || err.message);
-              return [d.id, { avg: 0, count: 0 }];
-            }
             try {
               const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
               let sum = 0, count = 0;
