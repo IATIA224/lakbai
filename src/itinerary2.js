@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   collection,
   doc,
   getDoc,
   getDocs,
   setDoc,
-  addDoc,
+
   deleteDoc,
   updateDoc,
   onSnapshot,
@@ -369,7 +369,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
 
   const [notif, setNotif] = useState("");
 
-  const addActivity = () => {
+  const addActivity = useCallback(() => {
     const v = form.activityDraft.trim();
     if (!v) return;
     setForm((prev) => ({ 
@@ -377,7 +377,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
       activities: [...prev.activities, v], 
       activityDraft: "" 
     }));
-  };
+  }, [form.activityDraft]);
 
   const removeActivity = (i) =>
     setForm((prev) => ({ 
@@ -427,7 +427,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [addActivity, onClose]);
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
@@ -1112,20 +1112,8 @@ export function SharedItinerariesTab({ user }) {
     }
   };
 
-  const [purging, setPurging] = useState(false);
-  const emptyOwned = sharedWithMe.filter(s => s.items.length === 0 && s.sharedBy.id === user?.uid);
-  const purgeAll = async () => {
-    if (!user) return;
-    if (!emptyOwned.length) return;
-    if (!window.confirm(`Delete ${emptyOwned.length} empty shared itinerary shell(s)? This removes them for everyone.`)) return;
-    setPurging(true);
-    try {
-      const res = await cleanEmptySharedItinerariesForUser(user, { maxAgeMs: 0 });
-      if (!res.removed) alert("No empty itineraries removed (maybe already gone).");
-    } finally {
-      setPurging(false);
-    }
-  };
+  // Removed unused variables 'purging', 'setPurging', and 'emptyOwned'
+  // Removed unused purgeAll function to resolve the error.
 
   useEffect(() => {
     // Auto clean once on load
@@ -1134,6 +1122,7 @@ export function SharedItinerariesTab({ user }) {
         if (res.removed) console.log(`[AUTO CLEAN] Removed ${res.removed} empty itineraries`);
       });
     }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading]);
 
   if (loading) {
