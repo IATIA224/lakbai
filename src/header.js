@@ -46,16 +46,7 @@ const StickyHeader = ({ setShowAIModal }) => {
 		}
 	}, [location.pathname]);
 
-	const handleSendMessage = () => {
-		if (inputMessage.trim()) {
-			setMessages([
-				...messages,
-				{ type: "user", text: inputMessage },
-				{ type: "ai", text: "Hello! I'm your AI assistant. How can I help you today?" },
-			]);
-			setInputMessage("");
-		}
-	};
+	// Removed unused handleSendMessage function
 
 	const handleTabClick = (tab) => {
 		if (tab.path) {
