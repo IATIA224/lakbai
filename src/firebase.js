@@ -87,4 +87,8 @@ const rtdb = getDatabase(app); // Add this line
 
 console.log("Firebase project:", getApp().options.projectId);
 
+// Minimal stub for tests; replace with real firebase setup in app code.
+// Removed redundant declaration of 'auth'
+// Removed redundant declaration of 'auth'
+
 export { db, auth, storage, getCurrentUser, rtdb };
