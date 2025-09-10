@@ -29,9 +29,9 @@ function isValidEmail(email) {
 }
 
 // Generate 6-digit OTP
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
+//function generateOTP() {
+//  return Math.floor(100000 + Math.random() * 900000).toString();
+//}
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -253,8 +253,8 @@ const Register = () => {
                 />
                 <span>
                   I agree to the{" "}
-                  <a href="#" className="register-link" onClick={e => { e.preventDefault(); window.tempInfoDelete = window.tempInfoDelete || (() => { const root = document.createElement('div'); document.body.appendChild(root); import('./info_delete').then(({ default: InfoDelete }) => { const close = () => { root.remove(); window.tempInfoDelete = null; }; import('react-dom').then(ReactDOM => { ReactDOM.createRoot(root).render(<InfoDelete onClose={close} />); }); }); }); window.tempInfoDelete(); }}>Terms of Service</a> and{" "}
-                  <a href="#" className="register-link" onClick={e => { e.preventDefault(); setShowPrivacy(true); }}>Privacy Policy</a>
+                  <a href="https://www.messenger.com/t/8823197721118010/" className="register-link" onClick={e => { e.preventDefault(); window.tempInfoDelete = window.tempInfoDelete || (() => { const root = document.createElement('div'); document.body.appendChild(root); import('./info_delete').then(({ default: InfoDelete }) => { const close = () => { root.remove(); window.tempInfoDelete = null; }; import('react-dom').then(ReactDOM => { ReactDOM.createRoot(root).render(<InfoDelete onClose={close} />); }); }); }); window.tempInfoDelete(); }}>Terms of Service</a> and{" "}
+                  <a href="https://www.messenger.com/t/8823197721118010/" className="register-link" onClick={e => { e.preventDefault(); setShowPrivacy(true); }}>Privacy Policy</a>
                 </span>
               </label>
             </div>
