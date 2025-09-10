@@ -26,16 +26,6 @@ if (!uid) {
 // ---------- helpers ----------
 const safeAvg = (arr) => (arr.length ? arr.reduce((a, b) => a + (Number(b) || 0), 0) / arr.length : 0);
 
-async function countFirstMatch(queries) {
-    for (const fn of queries) {
-    try {
-        const n = await fn();
-        if (typeof n === 'number' && n > 0) return n;
-    } catch (_) {}
-    }
-    return 0;
-}
-
 // NEW: total number of destinations in the root 'destinations' collection
 async function countAllDestinations() {
     // Prefer server-side count (no document reads)
