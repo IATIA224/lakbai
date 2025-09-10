@@ -11,7 +11,7 @@ export function UserProvider({ children }) {
     dislikes: [],
     joined: "",
   });
-  // Removed unused localProfile and setLocalProfile
+  const [localProfile, setLocalProfile] = useState(profile);
 
   return (
     <UserContext.Provider value={{ profile, setProfile }}>

@@ -61,21 +61,24 @@
 }
 
 .header-nav .active {
-  color: #6c63ff;
-  font-weight: 600;
-  background: rgba(108, 99, 255, 0.12);
+  color: #2563eb;
+  font-weight: 700;
+  background: none;
   position: relative;
+  box-shadow: none;
 }
 
 .header-nav .active::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: #6c63ff;
-  border-radius: 0 2px 2px 0;
+  left: 12px;
+  right: 12px;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 2px;
+  box-shadow: none;
+  top: auto;
+  width: auto;
 }
 
 .header-right {

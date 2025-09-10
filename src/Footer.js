@@ -1,7 +1,5 @@
 import React from "react";
 import "./footer.css";
-import Bookmarks from "./bookmarks2";
-import Itinerary from "./Itinerary";
 
 const Footer = () => (
   <footer className="global-footer">
@@ -15,28 +13,28 @@ const Footer = () => (
           Create perfect itineraries for your dream trips. Plan, organize, and discover amazing destinations with ease.
         </div>
         <div className="footer-social">
-          <a href="https://twitter.com" target="_blank" rel="noopener noreferrer"><i className="fab fa-twitter"></i></a>
-          <a href="https://facebook.com" target="_blank" rel="noopener noreferrer"><i className="fab fa-facebook"></i></a>
-          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"><i className="fab fa-instagram"></i></a>
-          <a href="https://youtube.com" target="_blank" rel="noopener noreferrer"><i className="fab fa-youtube"></i></a>
+          <a href="#"><i className="fab fa-twitter"></i></a>
+          <a href="#"><i className="fab fa-facebook"></i></a>
+          <a href="#"><i className="fab fa-instagram"></i></a>
+          <a href="#"><i className="fab fa-youtube"></i></a>
         </div>
       </div>
       <div className="footer-links">
         <div className="footer-section">
           <div className="footer-heading">Quick Links</div>
-          <a href="/itinerary">Create Itinerary</a>
-          <a href="/bookmarks2">Browse Destinations</a>
-          <a href="/travel-guides">Travel Guides</a>
-          <a href="/popular-routes">Popular Routes</a>
-          <a href="/travel-tips">Travel Tips</a>
+          <a href="#">Create Itinerary</a>
+          <a href="#">Browse Destinations</a>
+          <a href="#">Travel Guides</a>
+          <a href="#">Popular Routes</a>
+          <a href="#">Travel Tips</a>
         </div>
         <div className="footer-section">
           <div className="footer-heading">Support</div>
-          <a href="/help-center">Help Center</a>
-          <a href="/contact-us">Contact Us</a>
-          <a href="/faq">FAQ</a>
-          <a href="/live-chat">Live Chat</a>
-          <a href="/feedback">Feedback</a>
+          <a href="#">Help Center</a>
+          <a href="#">Contact Us</a>
+          <a href="#">FAQ</a>
+          <a href="#">Live Chat</a>
+          <a href="#">Feedback</a>
         </div>
         <div className="footer-section">
           <div className="footer-heading">Stay Updated</div>
@@ -53,14 +51,12 @@ const Footer = () => (
     <div className="footer-bottom">
       <span>© 2025 LakbAI. All rights reserved.</span>
       <span>
-        <a href="/privacy-policy">Privacy Policy</a> &nbsp;|&nbsp;
-        <a href="/terms-of-service">Terms of Service</a> &nbsp;|&nbsp;
-        <a href="/cookie-policy">Cookie Policy</a> &nbsp;|&nbsp;
-        <a href="/accessibility">Accessibility</a>
+        <a href="#">Privacy Policy</a> &nbsp;|&nbsp;
+        <a href="#">Terms of Service</a> &nbsp;|&nbsp;
+        <a href="#">Cookie Policy</a> &nbsp;|&nbsp;
+        <a href="#">Accessibility</a>
       </span>
     </div>
-    <Bookmarks />
-    <Itinerary />
   </footer>
 );
 

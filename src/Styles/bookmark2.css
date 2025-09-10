@@ -206,9 +206,9 @@
 
 .modal-content {
   background: white;
-  width: 120vw;
   width: auto;             /* let .details-modal control the width */
   max-height: 90vh;
+  height: auto;
   border-radius: 16px;
   overflow: hidden;
   position: relative;
@@ -221,7 +221,7 @@
   background: #fff;
   border-radius: 16px;
   overflow: hidden;
-  width: min(1280px, 98vw); /* wider modal */
+  width: min(1000px, 98vw); /* wider modal */
 }
 
 .modal-overlay.active .modal-content {
@@ -545,6 +545,7 @@
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.06);
   padding: 16px;
+
 }
 
 .bp2-filters-header {
@@ -560,6 +561,7 @@
 .bp2-label { display: block; font-weight: 600; margin-bottom: 6px; color: #374151; }
 .bp2-input {
   width: 100%;
+  box-sizing: border-box;
   height: 38px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
@@ -691,7 +693,7 @@
 }
 .details-hero {
   width: 100%;
-  height: 180px;
+  height: 230px;
   background: #e8f4ff;
   display: flex;
   align-items: center;
@@ -700,7 +702,7 @@
 .details-hero-art {
   position: relative;
   width: 88%;
-  height: 120px;
+  height: 1 0px;
   border-radius: 16px;
   overflow: hidden;
   background: linear-gradient(#bde3ff 0%, #9bd1ff 60%, #7fc6ff 61%, #7fc6ff 100%);
@@ -721,18 +723,34 @@
 }
 
 /* Body */
-.details-body { padding: 20px 0 0 0; }
+.details-body { padding: 40px 40px 40px 40px; height: 520px; overflow-y: auto; }
 .details-head-row {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 16px;
   align-items: start;
   margin-top: 12px;
+
 }
-.details-title { font-size: 28px; font-weight: 800; margin: 0 0 6px; color: #1a1a1a; }
+.details-title { 
+  font-size: 28px; 
+  font-weight: 800; 
+  margin: 0 0 6px; 
+  color: #1a1a1a; 
+  text-align: left;
+}
+
 .details-region {
-  color: #2563eb; text-decoration: none; font-weight: 600; font-size: 14px;
+  color: #2563eb; 
+  text-decoration: none; 
+  font-weight: 600; 
+  font-size: 14px;
+  margin-left: 0; /* Align with bm-modal-title */
+  padding-left: 0; /* Ensure alignment with bm-modal-title */
+  display: flex; /* Ensure proper alignment */
+  align-items: flex-start; /* Align content to the start */
 }
+
 .details-rating-row {
   margin-top: 8px; color: #1f2937; display: flex; align-items: center; gap: 8px;
 }
@@ -764,8 +782,8 @@
   grid-template-columns: 2fr 1fr;
   gap: 20px;
 }
-.section-title { font-weight: 800; margin: 16px 0 8px; color: #1a1a1a; }
-.details-paragraph { color: #4b5563; line-height: 1.6; }
+.section-title { font-weight: 800; margin: 16px 0 8px; color: #1a1a1a; text-align: left;}
+.details-paragraph { color: #4b5563; line-height: 1.6; justify-content: left; text-align: left;}
 .badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .badge {
   background: #eef2f7; color: #475569; border-radius: 999px; padding: 6px 10px; font-weight: 600; font-size: 13px;
@@ -870,15 +888,8 @@
   animation:
     ph3d-plane-flight 4.2s linear infinite,
     ph3d-plane-bob 1.8s ease-in-out infinite;
-  background-image: url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>\
-  <defs><filter id='ds' x='-50%' y='-50%' width='200%' height='200%'>\
-    <feDropShadow dx='0' dy='1.2' stdDeviation='1.2' flood-color='rgba(2,6,23,.35)'/></filter></defs>\
-  <g filter='url(#ds)'>\
-    <path d='M4 30 L34 30 L50 21 L54 23 L43 30 L60 30 L60 34 L43 34 L54 41 L50 43 L34 34 L4 34 Z' fill='white' stroke='%230b5ed7' stroke-width='1.6'/>\
-    <rect x='6' y='31' width='16' height='2' fill='%230b5ed7'/>\
-    <circle cx='11' cy='32' r='1.4' fill='%230b5ed7'/>\
-  </g></svg>");
+  background-image: url("data:image/svg+xml;utf8,");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><filter id='ds' x='-50%' y='-50%' width='200%' height='200%'><feDropShadow dx='0' dy='1.2' stdDeviation='1.2' flood-color='rgba(2,6,23,.35)'/></filter></defs><g filter='url(#ds)'><path d='M4 30 L34 30 L50 21 L54 23 L43 30 L60 30 L60 34 L43 34 L54 41 L50 43 L34 34 L4 34 Z' fill='white' stroke='%230b5ed7' stroke-width='1.6'/><rect x='6' y='31' width='16' height='2' fill='%230b5ed7'/><circle cx='11' cy='32' r='1.4' fill='%230b5ed7'/></g></svg>");
   background-size: 100% 100%;
   background-repeat: no-repeat;
   will-change: transform, offset-distance;
@@ -931,15 +942,7 @@
   offset-path: path("M 84 0 A 84 84 0 1 1 83.99 0");
   offset-rotate: auto;
   animation: lb-plane-flight 4.2s linear infinite, lb-plane-bob 1.8s ease-in-out infinite;
-  background-image: url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>\
-  <defs><filter id='ds' x='-50%' y='-50%' width='200%' height='200%'>\
-  <feDropShadow dx='0' dy='1.2' stdDeviation='1.2' flood-color='rgba(2,6,23,.35)'/></filter></defs>\
-  <g filter='url(#ds)'>\
-    <path d='M4 30 L34 30 L50 21 L54 23 L43 30 L60 30 L60 34 L43 34 L54 41 L50 43 L34 34 L4 34 Z' fill='white' stroke='%230b5ed7' stroke-width='1.6'/>\
-    <rect x='6' y='31' width='16' height='2' fill='%230b5ed7'/>\
-    <circle cx='11' cy='32' r='1.4' fill='%230b5ed7'/>\
-  </g></svg>");
+background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><filter id='ds' x='-50%' y='-50%' width='200%' height='200%'><feDropShadow dx='0' dy='1.2' stdDeviation='1.2' flood-color='rgba(2,6,23,.35)'/></filter></defs><g filter='url(#ds)'><path d='M4 30 L34 30 L50 21 L54 23 L43 30 L60 30 L60 34 L43 34 L54 41 L50 43 L34 34 L4 34 Z' fill='white' stroke='%230b5ed7' stroke-width='1.6'/><rect x='6' y='31' width='16' height='2' fill='%230b5ed7'/><circle cx='11' cy='32' r='1.4' fill='%230b5ed7'/></g></svg>");
   background-size: 100% 100%;
   background-repeat: no-repeat;
   will-change: transform, offset-distance;

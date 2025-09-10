@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from './firebase';
@@ -68,7 +68,7 @@ function Bookmark() {
       setLoading(false);
     });
     return () => unsub();
-  }, [fetchBookmarkedDestinations]);
+  }, []);
 
   // NEW: live count of itinerary items for current user
   useEffect(() => {
@@ -83,7 +83,7 @@ function Bookmark() {
   }, [currentUser]);
 
   // Read ONLY current user's bookmarks collection and merge with destination data if needed
-  const fetchBookmarkedDestinations = useCallback(async (uid) => {
+  const fetchBookmarkedDestinations = async (uid) => {
     try {
       const colRef = collection(db, 'users', uid, 'bookmarks');
       const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc')));
@@ -115,7 +115,7 @@ function Bookmark() {
       showError('Failed to load your bookmarks.');
       setItems([]);
     }
-  }, []); // no dependencies needed
+  };
 
   const toDateSafe = (ts) => {
     try {
@@ -213,6 +213,15 @@ function Bookmark() {
   };
 
   // sanitize object before Firestore write
+  const clean = (obj) => {
+    const out = {};
+    Object.entries(obj || {}).forEach(([k, v]) => {
+      if (v === undefined) return;              // Firestore rejects undefined
+      if (Array.isArray(v)) out[k] = v.filter((x) => x !== undefined && x !== null && x !== '');
+      else out[k] = v;
+    });
+    return out;
+  };
 
   // Add to Trip — write via Itinerary helper to itinerary/{uid}/items
   const onAddToTrip = async (dest) => {
@@ -341,6 +350,33 @@ function Bookmark() {
   };
 
   // Add bookmark or toggle bookmark status
+  const toggleBookmark = async (destinationId) => {
+    try {
+      if (!currentUser) {
+        alert('Please login to manage bookmarks');
+        return;
+      }
+      
+      // Check if this is the first bookmark
+      const userRef = doc(db, 'userBookmarks', currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      const isFirstBookmark = !docSnap.exists() || !(docSnap.data()?.bookmarks || []).length;
+      
+      // Fetch the user's current bookmarks
+      const bookmarks = new Set(docSnap.data()?.bookmarks || []);
+
+      // Regular bookmark logic...
+      
+      // If this is the first bookmark, unlock the achievement
+      if (isFirstBookmark && !bookmarks.has(destinationId)) {
+        await unlockAchievement(2, "First Bookmark");
+      }
+      
+    } catch (error) {
+      // console.error('Error toggling bookmark:', error);
+      showError('Failed to update bookmark.');
+    }
+  };
 
   // NEW: transient pop animation state per card
   const [popIds, setPopIds] = useState({});
@@ -513,7 +549,7 @@ function Bookmark() {
                   </div>
                 </div>
 
-                <a className="bm-region-link" onClick={(e) => e.preventDefault()} title="Region">
+                <a href="#" className="bm-region-link" onClick={(e) => e.preventDefault()} title="Region">
                   {d.region || d.locationRegion}
                 </a>
 
@@ -542,40 +578,11 @@ function Bookmark() {
                   </button>
                   <button
                     className={`itn-btn success ${addedTripId === d.id ? 'btn-success' : ''}`}
-                    onClick={async () => {
-                      setAddingTripId(d.id);
-                      try {
-                        await addTripForCurrentUser(d);
-                        setAddedTripId(d.id);
-                        // Wait for the confirmation state to show (same as before)
-                        setTimeout(async () => {
-                          setAddedTripId(null);
-                          // Remove from bookmarks after confirmation
-                          triggerCardPop(d.id);       // pop effect
-                          beginRemove(d.id);          // start pulse
-                          try {
-                            await removeBookmark(d.id);
-                          } finally {
-                            endRemove(d.id);
-                          }
-                        }, 1200); // matches your confirmation duration
-                      } catch (e) {
-                        showError('Failed to add to My Trips.');
-                        alert('Failed to add to My Trips.');
-                      } finally {
-                        setAddingTripId(null);
-                      }
-                    }}
+                    onClick={() => onAddToTrip(d)}
                     disabled={addingTripId === d.id}
                     aria-busy={addingTripId === d.id}
                   >
-                    {addedTripId === d.id ? (
-                      <>
-                        <span>✔</span> Added to Trip
-                      </>
-                    ) : (
-                      <>Add to Trip</>
-                    )}
+                    Add to Trip
                   </button>
                   <button
                     className="itn-btn danger"
@@ -615,7 +622,7 @@ function Bookmark() {
               <div className="bm-modal-main">
                 <h2 className="bm-modal-title">{selected.name}</h2>
 
-                <a className="bm-modal-region" onClick={(e) => e.preventDefault()}>
+                <a className="bm-modal-region" href="#" onClick={(e) => e.preventDefault()}>
                   {selected.region || selected.locationRegion}
                 </a>
 

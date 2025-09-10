@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./itinerary.css";
@@ -67,11 +67,11 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 
   const [notif, setNotif] = useState("");
 
-  const addActivity = useCallback(() => {
+  const addActivity = () => {
     const v = form.activityDraft.trim();
     if (!v) return;
     setForm((f) => ({ ...f, activities: [...f.activities, v], activityDraft: "" }));
-  }, [form.activityDraft]);
+  };
   const removeActivity = (i) =>
     setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
 
@@ -97,11 +97,9 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   };
 
   // Allow Enter to add activity and Esc to close
-  const onCloseCallback = useCallback(onClose, []);
-
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onCloseCallback();
+      if (e.key === "Escape") onClose();
       if (e.key === "Enter" && document.activeElement?.id === "itn-activity-draft") {
         e.preventDefault();
         addActivity();
@@ -109,7 +107,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [addActivity, onCloseCallback]);
+  }, []);
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
@@ -903,7 +901,7 @@ export default function Itinerary() {
   };
 
   const friends = useFriendsList(user);
-  const { sharedWithMe } = useSharedItineraries(user);
+  const { sharedWithMe, loading: loadingShared } = useSharedItineraries(user);
 
   const toggleShareItem = (id) => {
     setShareSelected(prev => {
@@ -1139,7 +1137,47 @@ export default function Itinerary() {
   );
 }
 
-// Removed the unused Trips function to resolve the error.
+function Trips() {
+  const [user, setUser] = useState(null);
+  const [addingId, setAddingId] = useState(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u || null));
+    return () => unsub();
+  }, []);
+
+  // Call this when the "Add to Trip" button is clicked
+  const addToMyTrips = async (dest) => {
+    try {
+      await addTripForCurrentUser(dest);
+    } catch (e) {
+      if (e.message === "AUTH_REQUIRED") {
+        alert("Please sign in to add to My Trips.");
+      } else {
+        console.error("Add to My Trips failed:", e);
+        alert("Failed to add. Please try again.");
+      }
+    }
+  };
+
+  return (
+    <div>
+      {/* Example usage inside your card/list render:
+      <button
+        className="add-trip-btn"
+        onClick={() => addToMyTrips(destination)}
+        disabled={addingId === (destination.id || destination.name)}
+        aria-busy={addingId === (destination.id || destination.name)}
+
+     
+
+      >
+        {addingId === (destination.id || destination.name) ? 'Adding…' : '+ Add to Trip'}
+      </button>
+      */}
+    </div>
+  );
+}
 
 // Add this named export near the bottom (outside components)
 export async function addTripForCurrentUser(dest) {

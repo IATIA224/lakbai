@@ -10,14 +10,11 @@ import Community from './community';
 import Profile from './profile';
 import { ChatbaseAIModal } from './Ai';
 import './App.css';
-// import { AuthProvider } from "./AuthContext";  // REMOVE THIS
-import { UserProvider } from "./UserContext";  // ADD THIS
+import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
 import Itinerary from "./Itinerary";
-import DestinationManager from "./DestinationManager";
-import UserManagement from "./components/UserManagement";
-import ContentManagement from './ContentManagement';
-import Footer from './Footer';
+import Footer from './Footer'; // FIX: was './footer'
+import ContentManagement from './ContentManagement'; // Adjust path if needed
 
 // New: place all UI that depends on useLocation in this inner component
 function AppInner() {
@@ -40,11 +37,6 @@ function AppInner() {
         <Route path="/community" element={<Community />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/itinerary" element={<Itinerary />} />
-        <Route path="/DestinationManager" element={<DestinationManager />} />
-        <Route path="/UserManagement" element={<UserManagement />} />
-        {/* Admin aliases to match console navigation */}
-        <Route path="/admin/user" element={<UserManagement />} />
-        <Route path="/admin/destinations" element={<DestinationManager />} />
         <Route path="/admin/ContentManagement" element={<ContentManagement />} />
       </Routes>
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import "./EditProfile.css";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "./firebase"; // Make sure db and auth are exported from firebase.js

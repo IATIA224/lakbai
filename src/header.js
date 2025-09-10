@@ -46,7 +46,16 @@ const StickyHeader = ({ setShowAIModal }) => {
 		}
 	}, [location.pathname]);
 
-	// Removed unused handleSendMessage function
+	const handleSendMessage = () => {
+		if (inputMessage.trim()) {
+			setMessages([
+				...messages,
+				{ type: "user", text: inputMessage },
+				{ type: "ai", text: "Hello! I'm your AI assistant. How can I help you today?" },
+			]);
+			setInputMessage("");
+		}
+	};
 
 	const handleTabClick = (tab) => {
 		if (tab.path) {
@@ -72,8 +81,6 @@ const StickyHeader = ({ setShowAIModal }) => {
 							}`}
 							style={{
 								cursor: "pointer",
-								borderBottom:
-									activeTab === tab.label ? "3px solid #2962ff" : "none",
 								color: activeTab === tab.label ? "#2962ff" : "inherit",
 								paddingBottom: "4px",
 								marginRight: "18px",
