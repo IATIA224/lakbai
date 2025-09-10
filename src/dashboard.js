@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
@@ -16,7 +16,7 @@ function Dashboard({ setShowAIModal }) {
   const avgRatingVal = Number.isFinite(stats?.avgRating) ? stats.avgRating : 0;
 
   // Sample trips and bookmarks (replace with Firestore fetch)
-  const [trips, setTrips] = useState([
+  const [trips] = useState([
     {
       id: 1,
       title: "Trip to Philippines",
@@ -36,7 +36,7 @@ function Dashboard({ setShowAIModal }) {
       soon: false
     }
   ]);
-  const [bookmarks, setBookmarks] = useState([
+  const [bookmarks] = useState([
     {
       id: 1,
       title: "El Nido, Palawan",
@@ -151,6 +151,9 @@ function Dashboard({ setShowAIModal }) {
           </div>
         </div>
       </div>
+      <button className="logout-btn" onClick={handleLogout}>
+        Logout
+      </button>
       <div className="personalized-section-dashboard">
         <div className="personalized-title">
           Personalized for You
