@@ -913,7 +913,7 @@ export function useSharedItineraries(user) {
       for (const fn of itemUnsubs.values()) fn();
       itemUnsubs.clear();
     };
-  }, [user]);
+  }, [user, sharedWithMe, setError, setLoading]);
 
   return { sharedWithMe, loading, error };
 }
@@ -921,8 +921,8 @@ export function useSharedItineraries(user) {
 // Make sure useFriendsList is defined BEFORE any component that might use it
 export function useFriendsList(user) {
   const [friends, setFriends] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [ setLoading] = useState(true);
+  const [ setError] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -991,7 +991,7 @@ export function useFriendsList(user) {
     );
     
     return () => unsubscribe();
-  }, [user]);
+  }, [user, setError, setLoading]);
 
   return friends;
 }
