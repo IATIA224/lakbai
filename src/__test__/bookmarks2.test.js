@@ -1,6 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Bookmarks2 from '../bookmarks2';
 import { MemoryRouter } from 'react-router-dom';
+// Add this at the top, after your imports or in a beforeAll
+beforeAll(() => {
+    window.alert = jest.fn();
+});
 
 // --- Mocks ---
 // Use var instead of const for hoisting!
@@ -11,7 +15,7 @@ var mockDeleteDoc = jest.fn();
 var mockGetDocs = jest.fn();
 var mockCollection = jest.fn();
 var mockDoc = jest.fn();
-var mockServerTimestamp = jest.fn();
+var mockServerTimestamp = jest.fn(() => ({}));
 var mockArrayUnion = jest.fn();
 var mockArrayRemove = jest.fn();
 var mockFsQuery = jest.fn();
@@ -20,9 +24,9 @@ var mockFsWhere = jest.fn();
 jest.mock('../Styles/bookmark2.css', () => ({}));
 jest.mock('../firebase', () => ({
 db: {},
-auth: {
+    auth: {
     currentUser: { uid: 'user1' },
-    onAuthStateChanged: jest.fn(), // Add this mock to prevent undefined errors
+    onAuthStateChanged: jest.fn(() => () => {}),
 },
 }));
 jest.mock('../profile', () => ({
