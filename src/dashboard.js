@@ -3,9 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
 import './dashboardBanner.css';
+import useUserDashboardStats from './dashboard-stats-row';
 
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
+
+  // Firestore-backed dashboard stats
+  const { loading: statsLoading, error: statsError, stats } = useUserDashboardStats();
+  const destinationsCount = stats?.destinations ?? 0;
+  const bookmarkedCount = stats?.bookmarked ?? 0;
+  const tripsPlannedCount = stats?.tripsPlanned ?? 0;
+  const avgRatingVal = Number.isFinite(stats?.avgRating) ? stats.avgRating : 0;
 
   // Sample trips and bookmarks (replace with Firestore fetch)
   const [trips, setTrips] = useState([
@@ -55,11 +63,11 @@ function Dashboard({ setShowAIModal }) {
   return (
     <>
       <div
-  className="dashboard-banner"
-  style={{
-    background: `url("/dashboardBanner.jpg") center/cover no-repeat`
-  }}
->
+        className="dashboard-banner"
+        style={{
+          background: `url("/dashboardBanner.jpg") center/cover no-repeat`
+        }}
+      >
         <h2>Discover the Philippines with AI-Powered Travel Planning</h2>
         <p>
           Get personalized recommendations, smart packing tips, and connect with fellow travelers to explore the beautiful islands of the Philippines.
@@ -72,24 +80,31 @@ function Dashboard({ setShowAIModal }) {
         </button>
       </div>
       <div className="dashboard-stats-row">
-        <div className="dashboard-stat">
-          <span className="dashboard-stat-number blue">0</span>
+        <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
+          <span className="dashboard-stat-number blue">
+            {statsLoading ? '–' : destinationsCount}
+          </span>
           <span className="dashboard-stat-label">Destinations</span>
         </div>
-        <div className="dashboard-stat">
-          <span className="dashboard-stat-number green">0</span>
+        <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
+          <span className="dashboard-stat-number green">
+            {statsLoading ? '–' : bookmarkedCount}
+          </span>
           <span className="dashboard-stat-label">Bookmarked</span>
         </div>
-        <div className="dashboard-stat">
-          <span className="dashboard-stat-number purple">0</span>
+        <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
+          <span className="dashboard-stat-number purple">
+            {statsLoading ? '–' : tripsPlannedCount}
+          </span>
           <span className="dashboard-stat-label">Trips Planned</span>
         </div>
-        <div className="dashboard-stat">
-          <span className="dashboard-stat-number orange">0</span>
+        <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
+          <span className="dashboard-stat-number orange">
+            {statsLoading ? '–' : avgRatingVal.toFixed(1)}
+          </span>
           <span className="dashboard-stat-label">Avg Rating</span>
         </div>
       </div>
-           
 
       {/* Your trips and bookmarks section */}
       <div className="dashboard-preview-row">
