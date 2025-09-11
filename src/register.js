@@ -179,6 +179,14 @@ const Register = () => {
     }
   };
 
+  const handleOtpFocus = (idx) => {
+    setFocusedInput(idx);
+  };
+
+  const handleOtpBlur = () => {
+    setFocusedInput(-1);
+  };
+
   const handleOtpKeyDown = (idx, e) => {
     if (e.key === "Backspace" && !otpDigits[idx] && idx > 0) {
       inputsRef.current[idx - 1].focus();
@@ -264,11 +272,236 @@ const Register = () => {
     if (success) navigate("/");
   };
 
-  // ---------------- UI ----------------
+  // CSS-in-JS styles object
+  const otpStyles = {
+    container: {
+      textAlign: 'center',
+      padding: '32px 24px',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      borderRadius: '20px',
+      color: 'white',
+      position: 'relative',
+      overflow: 'hidden'
+    },
+    backgroundPattern: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: `
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%)
+      `,
+      pointerEvents: 'none'
+    },
+    content: {
+      position: 'relative',
+      zIndex: 1
+    },
+    icon: {
+      width: '64px',
+      height: '64px',
+      margin: '0 auto 20px',
+      background: 'rgba(255,255,255,0.2)',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '28px',
+      animation: 'pulse 2s infinite'
+    },
+    title: {
+      margin: '0 0 8px 0',
+      fontSize: '24px',
+      fontWeight: '600',
+      textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    },
+    subtitle: {
+      margin: '0 0 24px 0',
+      fontSize: '16px',
+      opacity: '0.9',
+      lineHeight: '1.5'
+    },
+    email: {
+      color: '#fff',
+      fontWeight: '600',
+      background: 'rgba(255,255,255,0.1)',
+      padding: '2px 8px',
+      borderRadius: '4px'
+    },
+    otpBoxesContainer: {
+      display: 'flex',
+      gap: '12px',
+      justifyContent: 'center',
+      margin: '24px 0',
+      flexWrap: 'wrap'
+    },
+    otpInput: {
+      width: '56px',
+      height: '64px',
+      textAlign: 'center',
+      fontSize: '24px',
+      fontWeight: 'bold',
+      border: '2px solid rgba(255,255,255,0.3)',
+      borderRadius: '12px',
+      background: 'rgba(255,255,255,0.1)',
+      color: 'white',
+      outline: 'none',
+      transition: 'all 0.3s ease',
+      backdropFilter: 'blur(10px)'
+    },
+    otpInputFocused: {
+      borderColor: '#fff',
+      background: 'rgba(255,255,255,0.2)',
+      transform: 'scale(1.05)',
+      boxShadow: '0 4px 15px rgba(255,255,255,0.2)'
+    },
+    timer: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      fontSize: '16px',
+      margin: '16px 0',
+      padding: '12px 16px',
+      background: 'rgba(255,255,255,0.1)',
+      borderRadius: '25px',
+      backdropFilter: 'blur(10px)'
+    },
+    timerIcon: {
+      fontSize: '18px'
+    },
+    errorMessage: {
+      color: '#ffeb3b',
+      fontSize: '14px',
+      margin: '8px 0',
+      padding: '8px 12px',
+      background: 'rgba(255,235,59,0.1)',
+      borderRadius: '8px',
+      border: '1px solid rgba(255,235,59,0.3)'
+    },
+    buttonContainer: {
+      display: 'flex',
+      gap: '12px',
+      marginTop: '24px',
+      flexWrap: 'wrap'
+    },
+    primaryButton: {
+      flex: 1,
+      minWidth: '140px',
+      padding: '14px 24px',
+      background: 'linear-gradient(45deg, #fff, #f0f0f0)',
+      color: '#333',
+      border: 'none',
+      borderRadius: '12px',
+      fontSize: '16px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+    },
+    secondaryButton: {
+      flex: 1,
+      minWidth: '140px',
+      padding: '14px 24px',
+      background: 'rgba(255,255,255,0.1)',
+      color: 'white',
+      border: '2px solid rgba(255,255,255,0.3)',
+      borderRadius: '12px',
+      fontSize: '16px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      backdropFilter: 'blur(10px)'
+    },
+    editButton: {
+      marginTop: '16px',
+      background: 'none',
+      border: 'none',
+      color: 'rgba(255,255,255,0.8)',
+      textDecoration: 'underline',
+      cursor: 'pointer',
+      fontSize: '14px',
+      transition: 'color 0.3s ease'
+    }
+  };
+
+  // Add CSS animations to your register.css file
+  const otpAnimationCSS = `
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .otp-container-animated {
+    animation: slideInUp 0.4s ease-out;
+  }
+
+  .otp-input::placeholder {
+    color: rgba(255,255,255,0.5);
+  }
+
+  .otp-input:focus {
+    animation: inputFocus 0.3s ease;
+  }
+
+  @keyframes inputFocus {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1.05); }
+  }
+
+  .button-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  }
+
+  .secondary-button-hover:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.5);
+  }
+
+  @media (max-width: 480px) {
+    .otp-boxes-responsive {
+      gap: 8px;
+    }
+    
+    .otp-input-responsive {
+      width: 48px;
+      height: 56px;
+      fontSize: 20px;
+    }
+    
+    .button-container-responsive {
+      flex-direction: column;
+    }
+  }
+  `;
+
+  // ...existing state...
+  const [focusedInput, setFocusedInput] = useState(-1);
+
+  // ...existing functions...
+
   return (
     <>
       <Header2 />
       {showPrivacy && <PrivacyPolicy onClose={() => setShowPrivacy(false)} />}
+
+      {/* Add the CSS */}
+      <style>{otpAnimationCSS}</style>
 
       <div className="register-bg">
         <div className="register-container minimized">
@@ -431,94 +664,146 @@ const Register = () => {
           )}
 
           {step === "otp" && (
-            <div className="otp-container">
-              <h3 style={{ marginTop: 0 }}>Verify Your Email</h3>
-              <p style={{ marginTop: 4, fontSize: 14, lineHeight: 1.4 }}>
-                We sent a 6‑digit code to <strong>{email}</strong>. Enter it below to continue.
-              </p>
+            <div className="otp-container-animated" style={otpStyles.container}>
+              <div style={otpStyles.backgroundPattern}></div>
+              <div style={otpStyles.content}>
+                {/* Icon */}
+                <div style={otpStyles.icon}>
+                  📧
+                </div>
 
-              <div
-                className="otp-boxes"
-                style={{ display: "flex", gap: 8, justifyContent: "center", margin: "16px 0" }}
-                onPaste={handleOtpPaste}
-              >
-                {otpDigits.map((d, i) => (
-                  <input
-                    key={i}
-                    ref={el => (inputsRef.current[i] = el)}
-                    value={d}
-                    inputMode="numeric"
-                    maxLength={1}
-                    className="otp-input"
+                {/* Title and subtitle */}
+                <h3 style={otpStyles.title}>Verify Your Email</h3>
+                <p style={otpStyles.subtitle}>
+                  We've sent a 6-digit verification code to<br />
+                  <span style={otpStyles.email}>{email}</span>
+                </p>
+
+                {/* OTP Input Boxes */}
+                <div
+                  style={{
+                    ...otpStyles.otpBoxesContainer,
+                    ...(window.innerWidth <= 480 ? { gap: '8px' } : {})
+                  }}
+                  className="otp-boxes-responsive"
+                  onPaste={handleOtpPaste}
+                >
+                  {otpDigits.map((d, i) => (
+                    <input
+                      key={i}
+                      ref={el => (inputsRef.current[i] = el)}
+                      value={d}
+                      inputMode="numeric"
+                      maxLength={1}
+                      placeholder="●"
+                      className="otp-input otp-input-responsive"
+                      style={{
+                        ...otpStyles.otpInput,
+                        ...(focusedInput === i ? otpStyles.otpInputFocused : {}),
+                        ...(window.innerWidth <= 480 ? {
+                          width: '48px',
+                          height: '56px',
+                          fontSize: '20px'
+                        } : {})
+                      }}
+                      onChange={e => handleOtpChange(i, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(i, e)}
+                      onFocus={() => handleOtpFocus(i)}
+                      onBlur={handleOtpBlur}
+                    />
+                  ))}
+                </div>
+
+                {/* Error Message */}
+                {otpError && (
+                  <div style={otpStyles.errorMessage}>
+                    ⚠️ {otpError}
+                  </div>
+                )}
+
+                {/* Timer */}
+                <div style={otpStyles.timer}>
+                  <span style={otpStyles.timerIcon}>⏱️</span>
+                  <span>Code expires in {minutes}:{seconds}</span>
+                </div>
+
+                {/* Action Buttons */}
+                <div 
+                  style={{
+                    ...otpStyles.buttonContainer,
+                    ...(window.innerWidth <= 480 ? { flexDirection: 'column' } : {})
+                  }}
+                  className="button-container-responsive"
+                >
+                  <button
+                    className="button-hover"
                     style={{
-                      width: 44,
-                      height: 52,
-                      textAlign: "center",
-                      fontSize: 20,
-                      border: "2px solid #d0d5dd",
-                      borderRadius: 8,
-                      outline: "none"
+                      ...otpStyles.primaryButton,
+                      ...(creatingUser ? { opacity: 0.7, cursor: 'not-allowed' } : {})
                     }}
-                    onChange={e => handleOtpChange(i, e.target.value)}
-                    onKeyDown={e => handleOtpKeyDown(i, e)}
-                  />
-                ))}
-              </div>
+                    disabled={creatingUser}
+                    onClick={verifyOtp}
+                  >
+                    {creatingUser ? (
+                      <>
+                        <span style={{ marginRight: '8px' }}>⏳</span>
+                        Creating Account...
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ marginRight: '8px' }}>✅</span>
+                        Verify & Create Account
+                      </>
+                    )}
+                  </button>
 
-              {otpError && (
-                <div style={{ color: "#c24848", fontSize: 13, marginTop: -6 }}>{otpError}</div>
-              )}
+                  <button
+                    className="secondary-button-hover"
+                    style={{
+                      ...otpStyles.secondaryButton,
+                      ...(sendingOtp || resends >= MAX_RESENDS ? { 
+                        opacity: 0.5, 
+                        cursor: 'not-allowed' 
+                      } : {})
+                    }}
+                    disabled={sendingOtp || resends >= MAX_RESENDS}
+                    onClick={resendOtp}
+                  >
+                    {sendingOtp ? (
+                      <>
+                        <span style={{ marginRight: '8px' }}>📤</span>
+                        Sending...
+                      </>
+                    ) : resends >= MAX_RESENDS ? (
+                      <>
+                        <span style={{ marginRight: '8px' }}>🚫</span>
+                        Limit Reached
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ marginRight: '8px' }}>🔄</span>
+                        Resend Code ({MAX_RESENDS - resends} left)
+                      </>
+                    )}
+                  </button>
+                </div>
 
-              <div style={{ fontSize: 13, marginTop: 8 }}>
-                Code expires in: {minutes}:{seconds}
-              </div>
-
-              <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+                {/* Edit Details Button */}
                 <button
-                  className="register-btn"
-                  style={{ flex: 1 }}
-                  disabled={creatingUser}
-                  onClick={verifyOtp}
-                >
-                  {creatingUser ? "Creating..." : "Verify & Create"}
-                </button>
-                <button
-                  className="register-btn"
                   style={{
-                    flex: 1,
-                    background:
-                      resends >= MAX_RESENDS ? "#9ca3af" : "linear-gradient(90deg,#6b7bff,#5a3bff)"
+                    ...otpStyles.editButton,
+                    ':hover': { color: 'white' }
                   }}
-                  disabled={sendingOtp || resends >= MAX_RESENDS}
-                  onClick={resendOtp}
-                >
-                  {sendingOtp
-                    ? "Resending..."
-                    : resends >= MAX_RESENDS
-                    ? "Limit Reached"
-                    : "Resend Code"}
-                </button>
-              </div>
-
-              <div style={{ marginTop: 14 }}>
-                <button
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#555",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                    fontSize: 13
-                  }}
+                  className="edit-details-hover"
                   onClick={() => {
-                    // Restart
                     setStep("form");
                     setGeneratedOtp(null);
                     setOtpDigits(["", "", "", "", "", ""]);
                     setOtpError("");
+                    setFocusedInput(-1);
                   }}
                 >
-                  Edit details
+                  ✏️ Edit Email or Details
                 </button>
               </div>
             </div>
