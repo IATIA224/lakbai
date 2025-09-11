@@ -77,80 +77,52 @@ export default function Bookmarks2() {
   // 2) Listen to auth and the current user's bookmarks
   useEffect(() => {
     let unsubUserDoc = null;
-    const unsubAuth = auth.onAuthStateChanged(async (user) => {
-      setCurrentUser(user || null);
-      if (user) {
-        const userRef = doc(db, 'userBookmarks', user.uid);
+    // Ensure unsubAuth is always a function, even if onAuthStateChanged is mocked or missing
+    const unsubAuth = typeof auth.onAuthStateChanged === 'function'
+      ? auth.onAuthStateChanged(async (user) => {
+          setCurrentUser(user || null);
+          if (user) {
+            const userRef = doc(db, 'userBookmarks', user.uid);
 
-        try {
-          const snap = await getDoc(userRef);
-          if (!snap.exists()) {
-            await setDoc(
+            try {
+              const snap = await getDoc(userRef);
+              if (!snap.exists()) {
+                await setDoc(
+                  userRef,
+                  {
+                    userId: user.uid,
+                    bookmarks: [],
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                  },
+                  { merge: true }
+                );
+              }
+            } catch (e) {
+              console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
+            }
+
+            unsubUserDoc = onSnapshot(
               userRef,
-              {
-                userId: user.uid,                      // <- add this to satisfy rules
-                bookmarks: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
+              (s) => {
+                const ids = (s.exists() ? s.data().bookmarks : []) || [];
+                setBookmarks(new Set(ids));
               },
-              { merge: true }
+              (err) => {
+                console.warn('userBookmarks listener error:', err.code || err.message);
+                setBookmarks(new Set());
+              }
             );
+          } else {
+            setBookmarks(new Set());
+            if (unsubUserDoc) unsubUserDoc();
           }
-        } catch (e) {
-          console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
-        }
+        })
+      : () => {}; // fallback no-op if not a function
 
-        // Subscribe with error handler (avoid crashing on permission-denied)
-        unsubUserDoc = onSnapshot(
-          userRef,
-          (s) => {
-            const ids = (s.exists() ? s.data().bookmarks : []) || [];
-            setBookmarks(new Set(ids));
-          },
-          (err) => {
-            console.warn('userBookmarks listener error:', err.code || err.message);
-            setBookmarks(new Set()); // fallback to empty set
-          }
-        );
-
-        try {
-          const snap = await getDoc(userRef);
-          if (!snap.exists()) {
-            await setDoc(
-              userRef,
-              {
-                userId: user.uid,                      // <- add this to satisfy rules
-                bookmarks: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-          }
-        } catch (e) {
-          console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
-        }
-
-        // Subscribe with error handler (avoid crashing on permission-denied)
-        unsubUserDoc = onSnapshot(
-          userRef,
-          (s) => {
-            const ids = (s.exists() ? s.data().bookmarks : []) || [];
-            setBookmarks(new Set(ids));
-          },
-          (err) => {
-            console.warn('userBookmarks listener error:', err.code || err.message);
-            setBookmarks(new Set()); // fallback to empty set
-          }
-        );
-      } else {
-        setBookmarks(new Set());
-        if (unsubUserDoc) unsubUserDoc();
-      }
-    });
     return () => {
       if (unsubUserDoc) unsubUserDoc();
-      unsubAuth();
+      if (typeof unsubAuth === 'function') unsubAuth();
     };
   }, [setCurrentUser]);
 
@@ -432,6 +404,19 @@ export default function Bookmarks2() {
       const ref = doc(db, 'destinations', String(selected.id), 'ratings', u.uid);
       await setDoc(ref, { value: v, userId: u.uid, updatedAt: serverTimestamp() }, { merge: true });
       setUserRating(v);
+
+      // --- NEW: Write user's rating to users/{uid}/ratings/{destId} ---
+      const userRatingRef = doc(db, 'users', u.uid, 'ratings', String(selected.id));
+      await setDoc(
+        userRatingRef,
+        {
+          destId: String(selected.id),
+          value: v,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      // --- END NEW ---
 
       // Recompute average
       const rsnap = await getDocs(collection(db, 'destinations', String(selected.id), 'ratings'));
