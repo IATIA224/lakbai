@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, useNavigate, useLocation } from "react-router-dom";
+import { MemoryRouter, } from "react-router-dom";
 import StickyHeader from "../header";
 
 // Mock react-router-dom hooks
