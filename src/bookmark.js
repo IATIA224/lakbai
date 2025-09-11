@@ -58,7 +58,7 @@ function Bookmark() {
 
   useEffect(() => {
     setLoading(true);
-    const unsub = auth.onAuthStateChanged(async (user) => {
+    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user || null);
       if (user) {
         await fetchBookmarkedDestinations(user.uid);
@@ -67,19 +67,27 @@ function Bookmark() {
       }
       setLoading(false);
     });
-    return () => unsub();
+    return () => {
+      if (typeof unsubscribeAuth === "function") {
+        unsubscribeAuth();
+      }
+    };
   }, []);
 
   // NEW: live count of itinerary items for current user
   useEffect(() => {
     if (!currentUser) { setInTripCount(0); return; }
     const colRef = collection(db, 'itinerary', currentUser.uid, 'items');
-    const unsub = onSnapshot(
+    const unsubscribeSnapshot = onSnapshot(
       colRef,
       (snap) => setInTripCount(snap.size),
       () => setInTripCount(0)
     );
-    return () => unsub();
+    return () => {
+      if (typeof unsubscribeSnapshot === "function") {
+        unsubscribeSnapshot();
+      }
+    };
   }, [currentUser]);
 
   // Read ONLY current user's bookmarks collection and merge with destination data if needed
@@ -549,7 +557,7 @@ function Bookmark() {
                   </div>
                 </div>
 
-                <a href="#" className="bm-region-link" onClick={(e) => e.preventDefault()} title="Region">
+                <a href="https://maps.google.com" className="bm-region-link" onClick={(e) => e.preventDefault()} title="Region">
                   {d.region || d.locationRegion}
                 </a>
 
@@ -622,7 +630,7 @@ function Bookmark() {
               <div className="bm-modal-main">
                 <h2 className="bm-modal-title">{selected.name}</h2>
 
-                <a className="bm-modal-region" href="#" onClick={(e) => e.preventDefault()}>
+                <a className="bm-modal-region" href="https://maps.google.com" onClick={(e) => e.preventDefault()}>
                   {selected.region || selected.locationRegion}
                 </a>
 
