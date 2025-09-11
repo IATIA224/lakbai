@@ -67,11 +67,11 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 
   const [notif, setNotif] = useState("");
 
-  const addActivity = () => {
+  const addActivity = React.useCallback(() => {
     const v = form.activityDraft.trim();
     if (!v) return;
     setForm((f) => ({ ...f, activities: [...f.activities, v], activityDraft: "" }));
-  };
+  }, [form.activityDraft]);
   const removeActivity = (i) =>
     setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
 
@@ -107,7 +107,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [addActivity, onClose]);
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
