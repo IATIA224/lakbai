@@ -200,6 +200,20 @@
   color: var(--text-500);
 }
 
+/* Collapse empty strength line (removes gap above "Forgot password?") */
+.register-password-strength:empty {
+  display: none;
+  margin-top: 0;
+  min-height: 0;
+}
+
+/* If your login uses a different class, keep this too */
+.login-password-strength:empty {
+  display: none;
+  margin-top: 0;
+  min-height: 0;
+}
+
 /* Options */
 .register-options {
   margin-top: 2px;

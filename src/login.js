@@ -3,36 +3,37 @@ import Header2 from "./header_2";
 import "./login.css";
 import { Link, useNavigate } from "react-router-dom";
 import { auth, db } from "./firebase";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, sendPasswordResetEmail, getRedirectResult } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+
+// Use this path if the image is in public/ as "warning (1).png"
+// If yours is in public/assets/, change to "/assets/warning%20(1).png"
+const ERROR_ICON = "/warning%20(1).png";
+
 // Function to save user data to Firestore
 const saveUserToFirestore = async (user) => {
   if (!user) return;
-
   try {
-    const userRef = doc(db, 'users', user.uid);
+    const userRef = doc(db, "users", user.uid);
 
-    // Always create or update user data
     const userData = {
       uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || '', // <-- user's name from Google/Facebook
-      photoURL: user.photoURL || '',
-      phoneNumber: user.phoneNumber || '',
-      providerId: user.providerData[0]?.providerId || 'email',
-      lastLogin: new Date()
+      email: user.email || "",
+      displayName: user.displayName || "",
+      photoURL: user.photoURL || "",
+      phoneNumber: user.phoneNumber || "",
+      providerId: user.providerData?.[0]?.providerId || "email",
+      lastLogin: new Date(),
     };
 
-    // Save only name and email for Google/Facebook
-    if (user.providerData[0]?.providerId === "google.com" || user.providerData[0]?.providerId === "facebook.com") {
-      userData.name = user.displayName || '';
-      userData.email = user.email || '';
-    }
-
-    // Check if user document already exists
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
+    const snap = await getDoc(userRef); // no .catch here
+    if (!snap || !snap.exists?.()) {
       userData.createdAt = new Date();
     }
 
@@ -42,6 +43,25 @@ const saveUserToFirestore = async (user) => {
     console.error("Error saving user data:", error);
   }
 };
+
+function mapAuthError(code) {
+  switch (code) {
+    case "auth/user-not-found":
+      return "No account found with this email.";
+    case "auth/wrong-password":
+      return "Incorrect password. Please try again.";
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+    case "auth/network-request-failed":
+      return "Network issue. Check your connection and retry.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait a moment and try again.";
+    case "auth/popup-closed-by-user":
+      return "Sign-in popup was closed before finishing.";
+    default:
+      return "Login failed. Please try again.";
+  }
+}
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -53,38 +73,16 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  
-  // Handle redirect result from social logins
+
+  // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
+
+  // REMOVE the entire redirect result useEffect block:
+  // useEffect(() => { ... getRedirectResult ... }, [navigate]);
+
+  // ADD simple mount effect to end loading sooner:
   useEffect(() => {
-    const handleRedirectResult = async () => {
-      try {
-        setLoading(true);
-        const result = await getRedirectResult(auth);
-        
-        if (result) {
-          // User successfully authenticated with a provider
-          const user = result.user;
-          console.log("Social login successful:", user.email);
-          
-          // Save user data to Firestore and wait for it to finish
-          await saveUserToFirestore(user);
-          
-          // Use SPA navigation
-          navigate("/dashboard");
-        }
-      } catch (error) {
-        console.error("Authentication error:", error);
-        setPopup({ 
-          show: true, 
-          type: "error", 
-          message: "Authentication failed. Please try again." 
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    handleRedirectResult();
-  }, [navigate]);
+    setLoading(false);
+  }, []);
 
   const handleSignupClick = () => {
     navigate("/register");
@@ -94,62 +92,53 @@ const Login = () => {
     e.preventDefault();
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Save user data to Firestore
       await saveUserToFirestore(userCredential.user);
-      
-      // Handle remember me
-      if (rememberMe) {
-        localStorage.setItem('rememberedEmail', email);
-      } else {
-        localStorage.removeItem('rememberedEmail');
-      }
-      
-      // Use window.location.href for consistent navigation behavior
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 500);
+
+      if (rememberMe) localStorage.setItem("rememberedEmail", email);
+      else localStorage.removeItem("rememberedEmail");
+
+      // Navigate directly (no timers)
+      navigate("/dashboard");
     } catch (err) {
-      let errorMessage = "Login failed. Please try again.";
-      if (err.code === "auth/user-not-found") {
-        errorMessage = "No account found with this email.";
-      } else if (err.code === "auth/wrong-password") {
-        errorMessage = "Incorrect password.";
-      } else if (err.code === "auth/invalid-email") {
-        errorMessage = "Please enter a valid email address.";
-      }
+      console.error("Email login error:", err);
+      const errorMessage = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: errorMessage });
     }
+    // removed setLoading(false); loading is controlled by mount effect
   };
 
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      provider.addScope('profile');
-      provider.addScope('email');
-      provider.setCustomParameters({ prompt: 'select_account' });
+      provider.addScope("profile");
+      provider.addScope("email");
+      provider.setCustomParameters({ prompt: "select_account" });
       const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      await saveUserToFirestore(user);
+      await saveUserToFirestore(result.user);
       navigate("/dashboard");
     } catch (err) {
-      setPopup({ show: true, type: "error", message: "Google login failed. Please try again." });
+      console.error("Google login error:", err);
+      const msg = mapAuthError(err.code);
+      setPopup({ show: true, type: "error", message: msg });
     }
+    // removed setLoading(false)
   };
 
   const handleFacebookLogin = async () => {
     try {
       const provider = new FacebookAuthProvider();
-      provider.addScope('email');
-      provider.addScope('public_profile');
-      provider.setCustomParameters({ display: 'popup' });
+      provider.addScope("email");
+      provider.addScope("public_profile");
+      provider.setCustomParameters({ display: "popup" });
       const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      await saveUserToFirestore(user);
+      await saveUserToFirestore(result.user);
       navigate("/dashboard");
     } catch (err) {
-      setPopup({ show: true, type: "error", message: "Facebook login failed. Please try again." });
+      console.error("Facebook login error:", err);
+      const msg = mapAuthError(err.code);
+      setPopup({ show: true, type: "error", message: msg });
     }
+    // removed setLoading(false)
   };
 
   const handleClosePopup = () => {
@@ -368,9 +357,16 @@ const Login = () => {
             boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)"
           }}>
             <img
-              src={popup.type === "success" ? "/coconut-tree.png" : "/warning(1).png"}
+              src={
+                popup.type === "success"
+                  ? "/coconut-tree.png"
+                  : ERROR_ICON
+              }
               alt={popup.type === "success" ? "Success" : "Error"}
               style={{ width: 48, marginBottom: 12 }}
+              onError={(e) => {
+                e.currentTarget.src = ERROR_ICON;
+              }}
             />
             <h3 style={{ margin: 0, color: popup.type === "success" ? "#3b5fff" : "#b97b7b" }}>
               {popup.type === "success" ? "Success!" : "Error"}
