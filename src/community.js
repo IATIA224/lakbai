@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   addDoc, collection, serverTimestamp, getDocs, query, where, doc, getDoc,
-  updateDoc, setDoc, arrayUnion, arrayRemove, onSnapshot, increment, deleteDoc
+  updateDoc, setDoc, arrayUnion, arrayRemove, onSnapshot, increment, deleteDoc,
+  documentId
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "./firebase";
@@ -10,6 +11,9 @@ import { CLOUDINARY_CONFIG } from "./profile";
 import FriendPopup from "./friend";
 import "./community.css";
 import { emitAchievement } from "./achievementsBus";
+
+// Simple in-memory cache for user photos to avoid repeated Firestore reads
+const userPhotoCache = new Map();
 
 // Helper to upload images to Cloudinary
 async function uploadToCloudinary(file) {
@@ -481,6 +485,13 @@ function CommentModal({ post, onClose, onCountChange }) {
     return `${d}d ago`;
   };
 
+  // NEW: absolute time formatter
+  const formatAbsolute = (ms) => {
+    if (!ms) return "";
+    const d = new Date(ms);
+    return d.toLocaleString();
+  };
+
   // autosize textarea
   useEffect(() => {
     const el = textareaRef.current;
@@ -507,21 +518,33 @@ function CommentModal({ post, onClose, onCountChange }) {
           return ta - tb;
         });
 
-        // fetch profile pictures for comments missing userPhoto
-        const uidsToFetch = [...new Set(items.filter(c => !c.userPhoto && c.userId).map(c => c.userId))];
+        // fetch profile pictures for comments missing userPhoto (with cache), batched by 10
+        const uidsAll = [...new Set(items.filter(c => !c.userPhoto && c.userId).map(c => c.userId))];
+        const uidsToFetch = uidsAll.filter(uid => !userPhotoCache.has(uid));
         if (uidsToFetch.length) {
           const userCol = collection(db, "users");
-          const snaps = await Promise.all(uidsToFetch.map(uid => getDoc(doc(userCol, uid))));
-          const photoByUid = {};
-          snaps.forEach((s, i) => {
-            if (s.exists()) photoByUid[uidsToFetch[i]] = s.data().profilePicture || null;
-          });
-          items = items.map(c => c.userPhoto ? c : { ...c, userPhoto: photoByUid[c.userId] || null });
+          for (let i = 0; i < uidsToFetch.length; i += 10) {
+            const chunk = uidsToFetch.slice(i, i + 10);
+            const qUsers = query(userCol, where(documentId(), "in", chunk));
+            const snap2 = await getDocs(qUsers);
+            const seen = new Set();
+            snap2.forEach(s => {
+              seen.add(s.id);
+              userPhotoCache.set(s.id, s.data()?.profilePicture || null);
+            });
+            chunk.forEach(uid => {
+              if (!seen.has(uid)) userPhotoCache.set(uid, null);
+            });
+          }
         }
+
+        items = items.map(c =>
+          c.userPhoto ? c : { ...c, userPhoto: userPhotoCache.get(c.userId) ?? null }
+        );
 
         setComments(items);
         setFetching(false);
-        onCountChange?.(items.length); // keep parent count in sync
+        onCountChange?.(items.length);
       },
       (err) => {
         console.error("Comments listener error:", err);
@@ -540,36 +563,50 @@ function CommentModal({ post, onClose, onCountChange }) {
     try {
       const user = auth.currentUser;
       if (!user) {
-        alert("Please sign in to comment.");
+        console.warn("Sign-in required to comment.");
         return;
       }
 
-      // try to attach commenter profile photo
-      let userPhoto = user.photoURL || null;
-      try {
-        const uSnap = await getDoc(doc(db, "users", user.uid));
-        if (uSnap.exists()) userPhoto = uSnap.data().profilePicture || userPhoto;
-      } catch (_) { /* ignore */ }
+      // Quick photo: avoid extra Firestore read on submit
+      const userPhoto = user.photoURL || null;
 
+      // Optimistic UI: append immediately
+      const nowMs = Date.now();
+      const optimistic = {
+        id: `temp-${nowMs}`,
+        postId: post.id,
+        userId: user.uid,
+        userName: user.displayName || "Anonymous",
+        userPhoto,
+        text: text.trim(),
+        hearts: 0,
+        heartedBy: [],
+        createdAtClient: nowMs,
+        pending: true
+      };
+      setComments(prev => [...prev, optimistic]);
+      onCountChange?.((comments?.length || 0) + 1);
+
+      // Firestore write
       await addDoc(collection(db, "comments"), {
         postId: post.id,
         userId: user.uid,
         userName: user.displayName || "Anonymous",
-        userPhoto: userPhoto || null,
+        userPhoto,
         text: text.trim(),
         hearts: 0,
         heartedBy: [],
         createdAt: serverTimestamp()
       });
 
-      // bump post's comment count in Firestore (UI syncs via onCountChange)
-      await updateDoc(doc(db, "community", post.id), { comments: increment(1) });
+      // Bump post's comment count (non-blocking)
+      updateDoc(doc(db, "community", post.id), { comments: increment(1) }).catch(() => {});
 
+      // Reset composer fast
       setText("");
       textareaRef.current?.focus();
     } catch (err) {
       console.error("Failed to post comment:", err);
-      alert("Failed to post comment.");
     } finally {
       setLoading(false);
     }
@@ -578,7 +615,7 @@ function CommentModal({ post, onClose, onCountChange }) {
   async function handleHeart(c) {
     const user = auth.currentUser;
     if (!user) {
-      alert("Please sign in to heart comments.");
+      console.warn("Sign-in required to heart comments.");
       return;
     }
     try {
@@ -590,7 +627,6 @@ function CommentModal({ post, onClose, onCountChange }) {
       );
     } catch (err) {
       console.error("Failed to update heart:", err);
-      alert("Failed to update heart.");
     }
   }
 
@@ -603,29 +639,19 @@ function CommentModal({ post, onClose, onCountChange }) {
 
   // Add delete comment function
   async function handleDeleteComment(commentId) {
-    if (!window.confirm("Are you sure you want to delete this comment?")) {
-      return;
-    }
-    
     try {
       await deleteDoc(doc(db, "comments", commentId));
-      
-      // Update post's comment count
       await updateDoc(doc(db, "community", post.id), { comments: increment(-1) });
-      
-      // Local state update (will be overwritten by onSnapshot, but this makes it feel faster)
       setComments(prev => prev.filter(c => c.id !== commentId));
       onCountChange?.(comments.length - 1);
     } catch (err) {
       console.error("Failed to delete comment:", err);
-      alert("Failed to delete comment.");
     }
   }
   
   // Add edit comment function
   async function handleEditComment(comment) {
     if (editText.trim() === comment.text || !editText.trim() || loading) return;
-    
     setLoading(true);
     try {
       await updateDoc(doc(db, "comments", comment.id), {
@@ -633,13 +659,10 @@ function CommentModal({ post, onClose, onCountChange }) {
         edited: true,
         updatedAt: serverTimestamp()
       });
-      
-      // Reset state
       setEditingComment(null);
       setEditText("");
     } catch (err) {
       console.error("Failed to edit comment:", err);
-      alert("Failed to edit comment.");
     } finally {
       setLoading(false);
     }
@@ -698,7 +721,8 @@ function CommentModal({ post, onClose, onCountChange }) {
                       <span className="cmt-name">{c.userName}</span>
                       <span className="cmt-dot">•</span>
                       <span className="cmt-time">
-                        {timeAgo(c.createdAt?.toMillis?.())}
+                        {timeAgo(c.createdAt?.toMillis?.() ?? c.createdAtClient)}
+                        <span className="cmt-time-abs"> • {formatAbsolute(c.createdAt?.toMillis?.() ?? c.createdAtClient)}</span>
                         {c.edited && <span className="cmt-edited"> (edited)</span>}
                       </span>
                     </div>
@@ -1157,15 +1181,35 @@ const Community = () => {
 
       const authorProfiles = {};
       const requestedByMe = {};
+
       if (authorIds.length > 0) {
         const userCol = collection(db, "users");
-        const authorSnaps = await Promise.all(authorIds.map(uid => getDoc(doc(userCol, uid))));
-        authorSnaps.forEach((snap, i) => {
-          const data = snap.exists() ? snap.data() : {};
-          const uid = authorIds[i];
-          authorProfiles[uid] = data.profilePicture || "/user.png";
-          if (user) requestedByMe[uid] = Array.isArray(data.friendRequests) && data.friendRequests.includes(user.uid);
-        });
+        for (let i = 0; i < authorIds.length; i += 10) {
+          const chunk = authorIds.slice(i, i + 10);
+          const qUsers = query(userCol, where(documentId(), "in", chunk));
+          const snap = await getDocs(qUsers);
+
+          const seen = new Set();
+          snap.forEach((s) => {
+            const data = s.data() || {};
+            const uid = s.id;
+            const photo = data.profilePicture || "/user.png";
+            authorProfiles[uid] = photo;
+            userPhotoCache.set(uid, photo);
+            if (user) {
+              requestedByMe[uid] = Array.isArray(data.friendRequests) && data.friendRequests.includes(user.uid);
+            }
+            seen.add(uid);
+          });
+
+          // Defaults for any IDs not returned (deleted/missing)
+          chunk.forEach(uid => {
+            if (!seen.has(uid)) {
+              authorProfiles[uid] = "/user.png";
+              if (user) requestedByMe[uid] = false;
+            }
+          });
+        }
       }
 
       const postsWithMeta = postsArr.map(post => ({
@@ -1187,11 +1231,28 @@ const Community = () => {
   }
 
   useEffect(() => {
+    let unsubFriends = null;
     const unsub = onAuthStateChanged(auth, (user) => {
       loadPostsForUser(user);
-      loadFriendsForUser(user); // NEW
+
+      if (unsubFriends) {
+        unsubFriends();
+        unsubFriends = null;
+      }
+
+      if (user) {
+        const friendsRef = collection(db, "users", user.uid, "friends");
+        unsubFriends = onSnapshot(friendsRef, (snap) => {
+          setFriends(new Set(snap.docs.map(d => d.id)));
+        });
+      } else {
+        setFriends(new Set());
+      }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      if (unsubFriends) unsubFriends();
+    };
   }, []);
 
   const handleCreate = () => loadPostsForUser(auth.currentUser);
@@ -1300,10 +1361,10 @@ const Community = () => {
             </div>
             <div className="header-actions">
               <button className="btn-friend" onClick={() => setShowFriends(true)}>
-                + Add Friend
+                Friend Settings
               </button>
               <button className="btn-primary" onClick={() => setOpen(true)}>
-                + Share Trip
+                Share Trip
               </button>
             </div>
           </div>

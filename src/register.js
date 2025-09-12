@@ -706,7 +706,7 @@ const Register = () => {
                           fontSize: '20px'
                         } : {})
                       }}
-                      onChange={e => handleOtpChange(i, e.target.value)}
+          n            onChange={e => handleOtpChange(i, e.target.value)}
                       onKeyDown={e => handleOtpKeyDown(i, e)}
                       onFocus={() => handleOtpFocus(i)}
                       onBlur={handleOtpBlur}
