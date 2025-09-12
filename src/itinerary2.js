@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import './itinerary2.css';
+import ItineraryHotelsModal from "./itineraryHotels"; // NEW
 
 // Helper function to ensure collections exist
 async function ensureCollectionExists(path) {
@@ -260,8 +261,15 @@ export function SharedDestinationCard({
   onRemove, 
   onToggleStatus, 
   readOnly = false,
-  isOwner = false // New prop to track if the user is the original owner
+  isOwner = false,
+  setEditing, // <-- ADD THIS
+  setSharedItineraryId, // <-- ADD THIS
+  sharedId // <-- ADD THIS
 }) {
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showHotels, setShowHotels] = useState(false); // NEW
+
   const days =
     item.arrival && item.departure
       ? Math.max(
@@ -272,6 +280,9 @@ export function SharedDestinationCard({
           )
         )
       : 0;
+
+  const activities = item.activities || [];
+  const showToggle = activities.length > 3;
 
   return (
     <div className="itn-card">
@@ -332,15 +343,74 @@ export function SharedDestinationCard({
         <div className="itn-stat orange">
           <div className="itn-stat-title">Activities</div>
           <div className="itn-stat-body">
-            <div>{item.activities?.length || 0} planned</div>
-            {item.activities?.length ? (
-              <div className="itn-muted">{item.activities.slice(0, 3).join(", ")}</div>
+            <div>{activities.length} planned</div>
+            {activities.length ? (
+              <>
+                <div className="itn-muted" style={{ wordBreak: "break-word" }}>
+                  {showAllActivities
+                    ? activities.join(", ")
+                    : activities.slice(0, 3).join(", ")}
+                  {showToggle && !showAllActivities && "…"}
+                </div>
+                {showToggle && (
+                  <button
+                    className="itn-btn ghost"
+                    style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
+                    onClick={() => setShowAllActivities((v) => !v)}
+                  >
+                    {showAllActivities ? "Show Less" : "Show All"}
+                  </button>
+                )}
+              </>
             ) : (
               <div className="itn-muted">—</div>
             )}
           </div>
         </div>
       </div>
+
+      {/* View Summary + View Accredited Hotels buttons */}
+      <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button
+          className="itn-btn ghost"
+          onClick={() => setShowSummary(true)}
+        >
+          View Summary
+        </button>
+        <button
+          className="itn-btn ghost"
+          onClick={() => setShowHotels(true)}
+          title="Show DOT-accredited hotels and accommodations"
+        >
+          View accredited hotels
+        </button>
+      </div>
+
+      {showSummary && (
+        <ItinerarySummaryModal
+          item={item}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
+
+      {showHotels && (
+        <ItineraryHotelsModal
+          open={showHotels}
+          onClose={() => setShowHotels(false)}
+          onSelect={(hotel) => {
+            setShowHotels(false);
+            if (setEditing && setSharedItineraryId) {
+              setEditing({
+                ...item,
+                accomType: hotel.type,
+                accomName: hotel.name,
+                accomNotes: hotel.address,
+              });
+              setSharedItineraryId(sharedId);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -821,82 +891,87 @@ export function useSharedItineraries(user) {
     setError(null);
 
     const sharedRef = collection(db, "sharedItineraries");
-    const q = query(sharedRef, where("sharedWith", "array-contains", user.uid));
+    const qy = query(sharedRef, where("sharedWith", "array-contains", user.uid));
 
-    // Keep track of per-itinerary item listeners
     const itemUnsubs = new Map();
 
     const unSubParent = onSnapshot(
-      q,
+      qy,
       (snap) => {
-        const next = [];
-
-        // Clean up listeners for removed docs
         const currentIds = new Set(snap.docs.map(d => d.id));
         for (const [id, fn] of itemUnsubs.entries()) {
-            if (!currentIds.has(id)) {
-              fn();
-              itemUnsubs.delete(id);
-            }
+          if (!currentIds.has(id)) {
+            try { fn(); } catch {}
+            itemUnsubs.delete(id);
+          }
         }
 
-        snap.docs.forEach(sharedDoc => {
-          const data = sharedDoc.data();
-          // Seed object (items filled/updated by its own listener)
-            let existing = sharedWithMe.find(s => s.id === sharedDoc.id);
-            const base = {
-              id: sharedDoc.id,
-              sharedBy: {
-                id: data.sharedBy,
-                name: data.owner?.name || "Traveler",
-                profilePicture: data.owner?.photoURL || "/user.png"
-              },
-              sharedAt: data.sharedAt?.toDate?.() || new Date(),
-              lastUpdated: data.lastUpdated?.toDate?.() || data.sharedAt?.toDate?.() || new Date(),
-              collaborative: !!data.collaborative,
-              sharedWith: data.sharedWith || [],
-              items: existing?.items || []
-            };
-            next.push(base);
-
-            // Attach / refresh listener for items
-            if (!itemUnsubs.has(sharedDoc.id)) {
-              const itemsRef = collection(db, "sharedItineraries", sharedDoc.id, "items");
-              const itemsUnsub = onSnapshot(itemsRef, itemsSnap => {
-                setSharedWithMe(prev => {
-                  const clone = [...prev];
-                  const idx = clone.findIndex(s => s.id === sharedDoc.id);
-                  const sortedItems = itemsSnap.docs
-                    .map(d => ({
-                      ...d.data(),        // data first
-                      id: d.id            // ENSURE doc id wins
-                    }))
-                    .sort((a,b) => (a.arrival || '').localeCompare(b.arrival || ''));
-                  if (idx >= 0) {
-                    clone[idx] = { ...clone[idx], items: sortedItems, lastUpdated: new Date() };
-                  } else {
-                    clone.push({ ...base, items: sortedItems });
-                  }
-                  return clone;
-                });
-              });
-              itemUnsubs.set(sharedDoc.id, itemsUnsub);
-            }
+        const bases = snap.docs.map((d) => {
+          const data = d.data() || {};
+          return {
+            id: d.id,
+            sharedBy: {
+              id: data.sharedBy,
+              name: data.owner?.name || "Traveler",
+              profilePicture: data.owner?.photoURL || "/user.png",
+            },
+            sharedAt: data.sharedAt?.toDate?.() || new Date(),
+            lastUpdated: data.lastUpdated?.toDate?.() || data.sharedAt?.toDate?.() || new Date(),
+            collaborative: !!data.collaborative,
+            sharedWith: data.sharedWith || [],
+            items: []
+          };
         });
 
-        // Merge structural changes (do not overwrite items already updated by item listeners)
-        setSharedWithMe(prev => {
-          const map = new Map(prev.map(p => [p.id, p]));
-          next.forEach(n => {
-            const existing = map.get(n.id);
-            if (existing) {
-              map.set(n.id, { ...existing, ...n, items: existing.items });
-            } else {
-              map.set(n.id, n);
+        // Attach/refresh item listeners
+        for (const d of snap.docs) {
+          if (itemUnsubs.has(d.id)) continue;
+          const itemsRef = collection(db, "sharedItineraries", d.id, "items");
+          const itemsUnsub = onSnapshot(itemsRef, (itemsSnap) => {
+            const sortedItems = itemsSnap.docs
+              .map(x => ({ ...x.data(), id: x.id }))
+              .sort((a, b) => (a.arrival || "").localeCompare(b.arrival || ""));
+
+            // If no items remain, drop the group immediately (no residue)
+            if (sortedItems.length === 0) {
+              setSharedWithMe(prev => prev.filter(s => s.id !== d.id));
+              return;
             }
+
+            setSharedWithMe(prev => {
+              const arr = prev.slice();
+              const idx = arr.findIndex(s => s.id === d.id);
+              if (idx >= 0) {
+                arr[idx] = { ...arr[idx], items: sortedItems, lastUpdated: new Date() };
+              } else {
+                arr.push({
+                  id: d.id,
+                  sharedBy: { id: "", name: "Traveler", profilePicture: "/user.png" },
+                  sharedAt: new Date(),
+                  lastUpdated: new Date(),
+                  collaborative: true,
+                  sharedWith: [],
+                  items: sortedItems
+                });
+              }
+              return arr;
+            });
           });
-          // Remove stale ones already cleaned above
-          return Array.from(map.values()).sort((a,b)=> b.lastUpdated - a.lastUpdated);
+          itemUnsubs.set(d.id, itemsUnsub);
+        }
+
+        // Merge bases with previous items, but only keep docs in current snapshot
+        setSharedWithMe(prev => {
+          const merged = bases.map(b => {
+            const existing = prev.find(p => p.id === b.id);
+            return { ...b, items: existing?.items || [] };
+          });
+          merged.sort((a, b) => {
+            const ta = a.lastUpdated instanceof Date ? a.lastUpdated.getTime() : new Date(a.lastUpdated).getTime();
+            const tb = b.lastUpdated instanceof Date ? b.lastUpdated.getTime() : new Date(b.lastUpdated).getTime();
+            return tb - ta;
+          });
+          return merged;
         });
 
         setLoading(false);
@@ -909,8 +984,10 @@ export function useSharedItineraries(user) {
     );
 
     return () => {
-      unSubParent();
-      for (const fn of itemUnsubs.values()) fn();
+      try { unSubParent(); } catch {}
+      for (const fn of itemUnsubs.values()) {
+        try { fn(); } catch {}
+      }
       itemUnsubs.clear();
     };
   }, [user]);
@@ -1002,11 +1079,48 @@ export function SharedItinerariesTab({ user }) {
   const [sharedItineraryId, setSharedItineraryId] = useState(null);
   const { sharedWithMe, loading, error } = useSharedItineraries(user);
 
-  // Helper permission check
+  // Only render itineraries that still have items (no residues)
+  const visibleShared = useMemo(
+    () => sharedWithMe.filter(s => Array.isArray(s.items) && s.items.length > 0),
+    [sharedWithMe]
+  );
+
+  const [copyingId, setCopyingId] = useState(null);
+
   const canEditShared = (shared) =>
     !!user &&
     shared.collaborative &&
     (shared.sharedBy.id === user.uid || (shared.sharedWith || []).includes(user.uid));
+
+  // NEW: copy all items from a shared itinerary into the user's personal itinerary
+  const handleCopyToMyItinerary = async (shared) => {
+    if (!user || !shared) return;
+    if (!shared.items || shared.items.length === 0) return;
+    try {
+      setCopyingId(shared.id);
+      const batch = writeBatch(db);
+      for (const it of shared.items) {
+        const { id: sharedItemId, ...payload } = it;
+        const destRef = doc(collection(db, "itinerary", user.uid, "items"));
+        batch.set(destRef, {
+          ...payload,
+          importedAt: serverTimestamp(),
+          isShared: false,
+          sharedFrom: shared.id
+        });
+      }
+      await batch.commit();
+      // Optional: reflect copy on parent doc timestamp
+      await updateDoc(doc(db, "sharedItineraries", shared.id), {
+        lastUpdated: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("Copy to My Itinerary failed:", e);
+      alert("Failed to copy. Please try again.");
+    } finally {
+      setCopyingId(null);
+    }
+  };
 
   const handleToggleStatus = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
@@ -1028,7 +1142,6 @@ export function SharedItinerariesTab({ user }) {
       });
     } catch (e) {
       console.error("Toggle status failed:", e);
-      alert("Failed to toggle status.");
     }
   };
 
@@ -1050,20 +1163,32 @@ export function SharedItinerariesTab({ user }) {
       setSharedItineraryId(null);
     } catch (e) {
       console.error("Edit save failed:", e);
-      alert("Failed to save changes.");
     }
   };
 
+  // UPDATED: removing an item no longer deletes/hides the whole group automatically
   const handleRemoveItem = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
-    if (!shared || !canEditShared(shared)) return;
+    if (!shared || !user) return;
     if (!window.confirm("Remove this destination?")) return;
+
     try {
       await deleteDoc(doc(db, "sharedItineraries", sharedId, "items", itemId));
+
+      // Check remaining items
       const remainingSnap = await getDocs(collection(db, "sharedItineraries", sharedId, "items"));
       if (remainingSnap.empty) {
-        // If last item removed: owner deletes; others leave
-        await leaveOrDeleteSharedItinerary(shared, user);
+        // If owner: delete the whole shared itinerary; else: remove self from sharedWith
+        if (shared.sharedBy.id === user.uid) {
+          await deleteSharedItinerary(sharedId);
+        } else {
+          await updateDoc(doc(db, "sharedItineraries", sharedId), {
+            sharedWith: arrayRemove(user.uid)
+          });
+        }
+        // Optimistically drop from UI now
+        // (Listener also cleans it, but this removes any brief residue)
+        // Note: setSharedWithMe is inside the hook; rely on listener + filter above.
       } else {
         await updateDoc(doc(db, "sharedItineraries", sharedId), {
           lastUpdated: serverTimestamp(),
@@ -1072,7 +1197,6 @@ export function SharedItinerariesTab({ user }) {
       }
     } catch (e) {
       console.error("Remove failed:", e);
-      alert("Failed to remove.");
     }
   };
 
@@ -1080,61 +1204,6 @@ export function SharedItinerariesTab({ user }) {
     setEditing(item);
     setSharedItineraryId(sharedId);
   };
-
-  const handleCopyToMyItinerary = async (shared) => {
-    if (!user) return;
-    try {
-      await setDoc(
-        doc(db, "itinerary", user.uid),
-        { owner: user.uid, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-      const batch = writeBatch(db);
-      shared.items.forEach(it => {
-        const newRef = doc(collection(db, "itinerary", user.uid, "items"));
-        const { id: _sharedItemId, ...rest } = it;
-        batch.set(newRef, {
-          ...rest,
-          fromShared: {
-            sharedItineraryId: shared.id,
-            sharedItemId: _sharedItemId,
-            sharedBy: shared.sharedBy.id
-          },
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-      });
-      await batch.commit();
-      alert(`Copied ${shared.items.length} items to your itinerary`);
-    } catch (e) {
-      console.error("Copy failed:", e);
-      alert("Failed to copy.");
-    }
-  };
-
-  const [purging, setPurging] = useState(false);
-  const emptyOwned = sharedWithMe.filter(s => s.items.length === 0 && s.sharedBy.id === user?.uid);
-  const purgeAll = async () => {
-    if (!user) return;
-    if (!emptyOwned.length) return;
-    if (!window.confirm(`Delete ${emptyOwned.length} empty shared itinerary shell(s)? This removes them for everyone.`)) return;
-    setPurging(true);
-    try {
-      const res = await cleanEmptySharedItinerariesForUser(user, { maxAgeMs: 0 });
-      if (!res.removed) alert("No empty itineraries removed (maybe already gone).");
-    } finally {
-      setPurging(false);
-    }
-  };
-
-  useEffect(() => {
-    // Auto clean once on load
-    if (user && !loading) {
-      cleanEmptySharedItinerariesForUser(user).then(res => {
-        if (res.removed) console.log(`[AUTO CLEAN] Removed ${res.removed} empty itineraries`);
-      });
-    }
-  }, [user, loading]);
 
   if (loading) {
     return (
@@ -1144,22 +1213,18 @@ export function SharedItinerariesTab({ user }) {
       </div>
     );
   }
-  
   if (error) {
     return (
       <div className="itn-error">
         <div>Error loading shared itineraries</div>
         <div>{error.message}</div>
-        <button className="itn-btn" onClick={() => window.location.reload()}>
-          Retry
-        </button>
       </div>
     );
   }
-  
+
   return (
     <>
-      {sharedWithMe.length === 0 ? (
+      {visibleShared.length === 0 ? (
         <div className="itn-empty">
           <div className="itn-empty-icon">🔄</div>
           <div className="itn-empty-title">No shared itineraries</div>
@@ -1168,89 +1233,55 @@ export function SharedItinerariesTab({ user }) {
           </div>
         </div>
       ) : (
-        sharedWithMe.map(shared => (
+        visibleShared.map(shared => (
           <div className="itn-shared-group" key={shared.id}>
             <div className="itn-shared-header">
               <div className="itn-shared-info">
-                <img 
-                  src={shared.sharedBy.profilePicture || "/user.png"} 
+                <img
+                  src={shared.sharedBy.profilePicture || "/user.png"}
                   alt={shared.sharedBy.name}
                   className="itn-shared-avatar"
                 />
                 <div>
                   <div className="itn-shared-by">Shared by {shared.sharedBy.name}</div>
                   <div className="itn-shared-date">
-                    Shared: {new Date(shared.sharedAt).toLocaleDateString()} • 
+                    Shared: {new Date(shared.sharedAt).toLocaleDateString()} •
                     Updated: {new Date(shared.lastUpdated).toLocaleDateString()}
                   </div>
                 </div>
               </div>
-              <div style={{display:"flex",gap:8}}>
-                <button 
+              <div className="itn-actions">
+                <button
                   className="itn-btn primary"
                   onClick={() => handleCopyToMyItinerary(shared)}
+                  disabled={copyingId === shared.id || !shared.items || shared.items.length === 0}
+                  title={!shared.items?.length ? "No destinations to copy" : "Copy to your itinerary"}
                 >
-                  Copy to My Itinerary
+                  {copyingId === shared.id ? "Copying..." : "Copy to My Itinerary"}
                 </button>
-                {shared.items.length === 0 && (
-                  <button
-                    className="itn-btn danger"
-                    onClick={() => {
-                      if (window.confirm(
-                        shared.sharedBy.id === user.uid
-                          ? "Delete this empty shared itinerary for everyone?"
-                          : "Leave this empty shared itinerary?"
-                      )) {
-                        leaveOrDeleteSharedItinerary(shared, user);
-                      }
-                    }}
-                  >
-                    {shared.sharedBy.id === user.uid ? "Delete" : "Leave"}
-                  </button>
-                )}
               </div>
             </div>
-            
-            {shared.items.length === 0 ? (
-              <div className="itn-empty-sm">
-                No destinations in this shared itinerary
-              </div>
-            ) : (
-              shared.items.map((item, idx) => (
-                <SharedDestinationCard
-                  key={item.id}
-                  item={item}
-                  index={idx}
-                  readOnly={!canEditShared(shared)}
-                  isOwner={shared.sharedBy.id === user.uid}
-                  onEdit={() => canEditShared(shared) && handleEditItem(shared.id, item)}
-                  onRemove={() => canEditShared(shared) && handleRemoveItem(shared.id, item.id)}
-                  onToggleStatus={() => canEditShared(shared) && handleToggleStatus(shared.id, item.id)}
-                />
-              ))
-            )}
 
-            {shared.items.length === 0 && shared.sharedBy.id === user?.uid && (
-              <button
-                className="itn-btn danger"
-                style={{ marginLeft: 8 }}
-                onClick={async () => {
-                  if (window.confirm("Delete this empty shared itinerary?")) {
-                    try {
-                      await deleteSharedItinerary(shared.id);
-                    } catch (e) {
-                      alert("Failed to delete.");
-                    }
-                  }
-                }}
-              >
-                Delete
-              </button>
-            )}
+            {/* Render items if any; header remains even if empty */}
+            {(shared.items || []).map((item, idx) => (
+              <SharedDestinationCard
+                key={item.id}
+                item={item}
+                index={idx}
+                readOnly={!canEditShared(shared)}
+                isOwner={shared.sharedBy.id === user.uid}
+                onEdit={() => canEditShared(shared) && handleEditItem(shared.id, item)}
+                onRemove={() => canEditShared(shared) && handleRemoveItem(shared.id, item.id)}
+                onToggleStatus={() => canEditShared(shared) && handleToggleStatus(shared.id, item.id)}
+                setEditing={setEditing} // <-- ADD THIS
+                setSharedItineraryId={setSharedItineraryId} // <-- ADD THIS
+                sharedId={shared.id} // <-- ADD THIS
+              />
+            ))}
           </div>
         ))
       )}
-      
+
       {editing && (
         <SharedEditModal
           initial={editing}
@@ -1260,24 +1291,6 @@ export function SharedItinerariesTab({ user }) {
             setSharedItineraryId(null);
           }}
         />
-      )}
-
-      {sharedWithMe.some(s => s.items.length === 0) && (
-        <div style={{display:"flex",justifyContent:"flex-end",margin:"8px 0 16px"}}>
-          <button
-            className="itn-btn ghost"
-            onClick={async () => {
-              if (!user) return;
-              if (!window.confirm("Clear all empty shared itineraries you are in?")) return;
-              const empties = sharedWithMe.filter(s => s.items.length === 0);
-              for (const sh of empties) {
-                await leaveOrDeleteSharedItinerary(sh, user);
-              }
-            }}
-          >
-            Clear Empty ({sharedWithMe.filter(s=>s.items.length===0).length})
-          </button>
-        </div>
       )}
     </>
   );
@@ -1451,4 +1464,201 @@ export async function clearAllTripDestinations(user, subcolOrOptions = "items") 
       console.error("Global clear trips failed; current user's trips cleared only.", e);
     }
   }
+}
+
+// New ItinerarySummaryModal component
+function ItinerarySummaryModal({ item, onClose }) {
+  let days = "";
+  if (item.arrival && item.departure) {
+    days = Math.max(
+      1,
+      Math.ceil(
+        (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
+    );
+  }
+
+  return (
+    <div className="itn-modal-backdrop" onClick={onClose}>
+      <div
+        className="itn-modal itn-modal-lg"
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
+          borderRadius: 18,
+          boxShadow: "0 8px 32px rgba(108,99,255,0.13)",
+          padding: 0,
+          maxWidth: 520,
+        }}
+      >
+        <div
+          className="itn-modal-header"
+          style={{
+            background: "linear-gradient(90deg, #6c63ff 60%, #a084ee 100%)",
+            color: "#fff",
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
+            padding: "24px 32px 16px 32px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 28, marginRight: 4 }}>📝</span>
+            <span className="itn-modal-title" style={{ fontWeight: 700, fontSize: 22 }}>
+              Itinerary Summary
+            </span>
+          </div>
+          <button className="itn-close" onClick={onClose} style={{ color: "#fff" }}>
+            ×
+          </button>
+        </div>
+        <div
+          className="itn-modal-body"
+          style={{
+            padding: "28px 32px 18px 32px",
+            background: "transparent",
+            maxHeight: 500,
+            overflowY: "auto",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              boxShadow: "0 2px 8px rgba(108,99,255,0.06)",
+              padding: "24px 20px 18px 20px",
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "#6c63ff" }}>
+              {item.name || "—"}
+            </div>
+            <div style={{ color: "#64748b", fontSize: 15, marginBottom: 12 }}>
+              <span style={{ marginRight: 16 }}>
+                <span style={{ fontWeight: 500 }}>Region:</span> {item.region || "—"}
+              </span>
+              <span>
+                <span style={{ fontWeight: 500 }}>Status:</span> {item.status || "—"}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 18,
+                marginBottom: 10,
+                fontSize: 15,
+              }}
+            >
+              <div>
+                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Dates:</span>{" "}
+                {item.arrival || "—"} {item.departure ? `– ${item.departure}` : ""}
+                {days ? (
+                  <span style={{ marginLeft: 8, color: "#888" }}>
+                    ({days} {days === 1 ? "day" : "days"})
+                  </span>
+                ) : ""}
+              </div>
+              <div>
+                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Budget:</span>{" "}
+                <span style={{ fontWeight: 600 }}>${item.budget || 0}</span>
+                <span style={{ color: "#888", fontSize: 13, marginLeft: 8 }}>
+                  (Hotel: ${item.accomBudget || 0} | Activities: ${item.activityBudget || 0})
+                </span>
+              </div>
+            </div>
+            <div style={{ margin: "14px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Accommodation
+              </div>
+              <div style={{ color: "#444", fontSize: 15 }}>
+                {item.accomType || "Not planned"}
+                {item.accomName ? (
+                  <span style={{ color: "#888", marginLeft: 8 }}>
+                    ({item.accomName})
+                  </span>
+                ) : null}
+              </div>
+              {item.accomNotes && (
+                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
+                  {item.accomNotes}
+                </div>
+              )}
+            </div>
+            <div style={{ margin: "18px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Activities
+              </div>
+              <div style={{ minHeight: 28 }}>
+                {Array.isArray(item.activities) && item.activities.length ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {item.activities.map((a, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          display: "inline-block",
+                          background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
+                          color: "#fff",
+                          borderRadius: 16,
+                          padding: "4px 14px",
+                          fontSize: 14,
+                          fontWeight: 500,
+                          boxShadow: "0 1px 4px rgba(108,99,255,0.07)",
+                        }}
+                      >
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: "#888" }}>—</span>
+                )}
+              </div>
+            </div>
+            <div style={{ margin: "18px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Transportation
+              </div>
+              <div style={{ color: "#444", fontSize: 15 }}>
+                {item.transport || "—"}
+                <span style={{ color: "#888", marginLeft: 8 }}>
+                  Cost: ${item.transportCost || 0}
+                </span>
+              </div>
+              {item.transportNotes && (
+                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
+                  {item.transportNotes}
+                </div>
+              )}
+            </div>
+            <div style={{ margin: "18px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Notes
+              </div>
+              <div style={{ color: "#444", fontSize: 15 }}>
+                {item.notes || <span style={{ color: "#888" }}>—</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          className="itn-modal-footer"
+          style={{
+            borderBottomLeftRadius: 18,
+            borderBottomRightRadius: 18,
+            background: "#f8fafc",
+            padding: "18px 32px",
+            textAlign: "right",
+          }}
+        >
+          <button className="itn-btn primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

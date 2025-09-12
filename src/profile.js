@@ -121,11 +121,13 @@ const Profile = () => {
 
       setShareCode(data.shareCode || "");
 
-      const friendsCount = Array.isArray(data.friends)
-        ? data.friends.length
-        : typeof data.friendsCount === "number"
-        ? data.friendsCount
-        : data?.stats?.friends || 0;
+      // Use a single variable; will be overridden by subcollection count below
+      let friendsCount =
+        Array.isArray(data.friends)
+          ? data.friends.length
+          : typeof data.friendsCount === "number"
+          ? data.friendsCount
+          : data?.stats?.friends || 0;
 
       setStats({
         placesVisited: data.stats?.placesVisited || 0,
@@ -171,6 +173,21 @@ const Profile = () => {
           } catch { setActivities([]); }
         })(),
       ]);
+
+      // Replace friends count with subcollection size (authoritative)
+      try {
+        const friendsSnap = await getDocs(collection(db, "users", uid, "friends"));
+        friendsCount = friendsSnap.size;
+      } catch (e) {
+        console.warn("Failed to read friends subcollection count:", e);
+      }
+
+      setStats({
+        placesVisited: data.stats?.placesVisited || 0,
+        photosShared: data.stats?.photosShared || 0,
+        reviewsWritten: data.stats?.reviewsWritten || 0,
+        friends: friendsCount,
+      });
     } catch (error) {
       console.error("Error fetching profile data:", error);
     }
@@ -230,6 +247,15 @@ const Profile = () => {
     });
 
     return () => unsubscribe();
+  }, [userId]);
+
+  // NEW: real-time friends subcollection count (handles unfriend immediately)
+  useEffect(() => {
+    if (!userId) return;
+    const unsub = onSnapshot(collection(db, "users", userId, "friends"), (snap) => {
+      setStats((prev) => ({ ...prev, friends: snap.size }));
+    });
+    return () => unsub();
   }, [userId]);
 
   // After editing profile, refetch using userId (auth.currentUser may still be null briefly on hard refresh)

@@ -1,0 +1,235 @@
+.hotels-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 2vw;
+}
+
+.hotels-modal {
+  width: min(1100px, 98vw);
+  max-height: 94vh;
+  background: #fff;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(80, 70, 180, 0.22), 0 2px 8px rgba(0,0,0,0.08);
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  animation: hotels-modal-in 0.18s cubic-bezier(.4,1.4,.6,1) 1;
+}
+@keyframes hotels-modal-in {
+  from { transform: translateY(40px) scale(.98); opacity: 0.2; }
+  to   { transform: none; opacity: 1; }
+}
+
+.hotels-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 32px 18px 32px;
+  color: #fff;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+  box-shadow: 0 2px 12px rgba(108,99,255,0.07);
+}
+
+.hotels-title {
+  font-weight: 900;
+  font-size: 2rem;
+  letter-spacing: 0.2px;
+  text-shadow: 0 2px 8px rgba(80,70,180,0.08);
+}
+
+.hotels-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 2.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+.hotels-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.hotels-controls {
+  display: flex;
+  gap: 32px;
+  padding: 22px 32px 18px 32px;
+  border-bottom: 1px solid #edf2f7;
+  background: #f6f7fb;
+  flex-wrap: wrap;
+}
+
+.hotels-label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #334155;
+  font-size: 1.1rem;
+  font-weight: 700;
+  min-width: 260px;
+  flex: 1 1 320px;
+}
+
+.hotels-select,
+.hotels-input {
+  padding: 14px 16px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  outline: none;
+  background: #fff;
+  font-size: 1.1rem;
+  transition: border 0.15s;
+}
+.hotels-select:focus,
+.hotels-input:focus {
+  border-color: #a084ee;
+}
+
+.hotels-body {
+  overflow: auto;
+  background: #f8fafc;
+  padding: 0 0 18px 0;
+}
+
+.hotels-info {
+  padding: 38px 32px 32px 32px;
+  color: #475569;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.hotels-error {
+  padding: 38px 32px 32px 32px;
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.hotels-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 24px;
+  display: grid;
+  gap: 22px;
+}
+
+.hotels-item {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 12px rgba(108,99,255,0.07);
+  padding: 22px 24px 18px 24px;
+  border: 1.5px solid #e0e7ff;
+  transition: box-shadow 0.15s, border 0.15s;
+}
+.hotels-item:hover {
+  box-shadow: 0 8px 32px rgba(108,99,255,0.13);
+  border-color: #a084ee;
+  background: #f5f3ff;
+}
+
+.hotels-item-main {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.hotels-name {
+  font-weight: 900;
+  color: #4f46e5;
+  font-size: 1.25rem;
+  margin-bottom: 4px;
+  letter-spacing: 0.1px;
+}
+
+.hotels-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #64748b;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.hotels-badge {
+  display: inline-block;
+  background: #eef2ff;
+  color: #4f46e5;
+  border: 1px solid #e0e7ff;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+}
+
+.hotels-dot {
+  color: #cbd5e1;
+  font-size: 1.2em;
+}
+
+.hotels-address {
+  color: #334155;
+  word-break: break-word;
+  margin-bottom: 10px;
+  font-size: 1.08rem;
+}
+
+.hotels-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  font-size: 1rem;
+  color: #475569;
+  margin-top: 2px;
+}
+.hotels-contact a {
+  color: #6c63ff;
+  text-decoration: none;
+  font-weight: 600;
+}
+.hotels-contact a:hover {
+  text-decoration: underline;
+}
+.hotels-valid {
+  color: #64748b;
+  font-size: 0.98em;
+}
+
+.hotels-item-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 160px;
+}
+
+.hotels-select-btn {
+  padding: 13px 22px;
+  border-radius: 12px;
+  border: 1.5px solid #a084ee;
+  background: linear-gradient(90deg,#a084ee 0%,#6c63ff 100%);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1.08rem;
+  letter-spacing: 0.1px;
+  box-shadow: 0 2px 8px rgba(108,99,255,0.07);
+  transition: background 0.15s, color 0.15s, border 0.15s;
+}
+.hotels-select-btn:hover {
+  background: #fff;
+  color: #6c63ff;
+  border-color: #6c63ff;
+}
