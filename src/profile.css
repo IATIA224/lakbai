@@ -262,23 +262,34 @@
 
 .profile-gallery-scroll {
   display: flex;
-  gap: 18px;
+  gap: 8px; /* Reduced gap for closer spacing */
   overflow-x: auto;
+  overflow-y: hidden; /* Prevent vertical scrolling */
   padding-bottom: 6px;
   margin-bottom: 2px;
-  flex-wrap: nowrap; /* single row */
+  flex-wrap: nowrap; /* Absolutely no wrapping */
   align-items: center;
   max-height: 132px; /* one line only */
+  white-space: nowrap; /* Additional prevention of wrapping */
 }
-.profile-gallery-scroll::-webkit-scrollbar { height: 8px; }
+.profile-gallery-scroll::-webkit-scrollbar { 
+  height: 6px; /* Thinner scrollbar */
+}
 .profile-gallery-scroll::-webkit-scrollbar-thumb {
   background: rgba(0,0,0,0.2);
   border-radius: 999px;
 }
-.profile-gallery-scroll { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.2) transparent; }
+.profile-gallery-scroll { 
+  scrollbar-width: thin; 
+  scrollbar-color: rgba(0,0,0,0.2) transparent; 
+}
 .profile-gallery-photo {
   min-width: 120px;
   min-height: 120px;
+  max-width: 120px; /* Prevent expansion */
+  max-height: 120px; /* Prevent expansion */
+  width: 120px;
+  height: 120px;
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -290,11 +301,14 @@
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0; /* Prevent shrinking */
+  flex-grow: 0; /* Prevent growing */
 }
 .profile-gallery-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  image-orientation: from-image !important;
 }
 .profile-gallery-photo:hover {
   transform: scale(1.06);
@@ -781,3 +795,404 @@ button[aria-label="Close achievements"] {
   border: 1px solid #e5e7eb; color: #64748b; white-space: nowrap;
 }
 .achv-badge.ok { border-color: #6c63ff; color: #6c63ff; }
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .profile-main {
+    max-width: 100%;
+    margin: 16px 0;
+    padding: 0 12px;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px 16px 20px 16px;
+    gap: 16px;
+  }
+
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    margin-right: 0;
+    margin-bottom: 8px;
+  }
+
+  .profile-info {
+    width: 100%;
+  }
+
+  .profile-title-row {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .profile-title-row h2 {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+  }
+
+  .profile-meta {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .profile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .profile-interest {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    margin: 0;
+  }
+
+  .profile-bio {
+    font-size: 1rem;
+    text-align: center;
+  }
+
+  .profile-stats-row {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .profile-stat {
+    padding: 16px 8px 10px 8px;
+    font-size: 0.95rem;
+  }
+
+  .profile-stat span {
+    font-size: 1.6rem;
+  }
+
+  .profile-content-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .profile-content-main {
+    flex: 1;
+    order: 1;
+  }
+
+  .profile-content-side {
+    flex: 1;
+    order: 2;
+    min-width: 100%;
+    max-width: 100%;
+    position: static;
+  }
+
+  /* Reduce card padding and margin to give more space to photos */
+  .profile-card {
+    padding: 14px 16px 8px 16px; /* Reduced bottom padding from 12px to 8px */
+    margin-bottom: 12px; /* Reduced margin */
+    min-height: 140px; /* Slightly increased to accommodate larger photos */
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .profile-card-title {
+    font-size: 1rem;
+    margin-bottom: 8px; /* Reduced margin from 10px to 8px */
+  }
+
+  /* Travel Map - Much wider and taller */
+  .profile-map {
+    height: 140px; /* Increased from 80px */
+    width: 100%;
+    min-width: 100%;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .profile-map-ph {
+    font-size: 2.5rem; /* Larger placeholder text */
+    font-weight: 600;
+  }
+
+  .profile-map-caption {
+    font-size: 1.1rem; /* Larger caption */
+    font-weight: 500;
+  }
+
+  /* Recent Activity - Wider with more spacing */
+  .profile-activity-list {
+    min-height: 120px; /* Minimum height even with no activities */
+    width: 100%;
+  }
+
+  .profile-activity-item {
+    padding: 14px 16px; /* Increased padding */
+    font-size: 1rem; /* Larger text */
+    margin-bottom: 10px; /* More space between items */
+    min-height: 50px; /* Minimum height per item */
+    border-radius: 10px;
+  }
+
+  .profile-activity-icon {
+    font-size: 1.6rem; /* Larger icons */
+    width: 36px;
+    height: 36px;
+    margin-right: 12px;
+  }
+
+  .profile-activity-text {
+    font-size: 1rem;
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  .profile-activity-time {
+    font-size: 0.9rem;
+    min-width: 70px; /* Wider time column */
+    color: #6b7280; /* Fixed color */
+  }
+
+  /* Photo Gallery - Single row with only 4 photos visible on mobile */
+  .profile-gallery-scroll {
+    display: flex !important; /* Force flex layout */
+    flex-direction: row !important; /* Force horizontal */
+    gap: 6px; /* Smaller gap for mobile */
+    padding-bottom: 4px;
+    max-height: 88px;
+    min-height: 88px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+    flex-wrap: nowrap !important; /* Force no wrapping */
+    white-space: nowrap;
+    max-width: calc(4 * 80px + 3 * 6px + 12px); /* 4 photos + 3 gaps + padding */
+  }
+
+  .profile-gallery-photo {
+    min-width: 80px !important;
+    min-height: 80px !important;
+    max-width: 80px !important; /* Prevent expansion */
+    max-height: 80px !important; /* Prevent expansion */
+    width: 80px !important;
+    height: 80px !important;
+    flex-shrink: 0 !important; /* Prevent shrinking */
+    flex-grow: 0 !important; /* Prevent growing */
+    border-radius: 8px;
+    font-size: 2rem;
+  }
+
+  /* Hide photos beyond the 4th one on mobile */
+  .profile-gallery-photo:nth-child(n+5) {
+    display: none;
+  }
+
+  /* Empty state styling for photo gallery */
+  .profile-gallery-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    border: 2px dashed #d1d5db;
+    border-radius: 10px;
+    min-height: 80px;
+    min-width: 200px;
+    flex-shrink: 0;
+    color: #6b7280;
+    font-size: 1rem;
+    font-weight: 500;
+    text-align: center;
+    padding: 16px;
+    gap: 4px;
+    box-sizing: border-box;
+  }
+
+  .profile-gallery-empty::before {
+    content: "📸";
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .profile-gallery-empty-text {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .profile-gallery-actions {
+    gap: 8px !important;
+    margin-top: 8px; /* Reduced from 10px */
+    flex-wrap: wrap;
+  }
+
+  /* ...existing code... */
+}
+
+/* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .profile-main {
+    padding: 0 10px; /* Slightly more padding */
+  }
+
+  .profile-header {
+    padding: 20px 16px 16px 16px;
+    border-radius: 14px;
+  }
+
+  .profile-title-row h2 {
+    font-size: 1.5rem;
+  }
+
+  .profile-stats-row {
+    gap: 6px;
+  }
+
+  .profile-stat {
+    padding: 12px 8px 8px 8px;
+    font-size: 0.9rem;
+  }
+
+  .profile-stat span {
+    font-size: 1.4rem;
+  }
+
+  /* Maintain larger card sizing on small screens */
+  .profile-card {
+    padding: 12px 14px 6px 14px; /* Further reduced bottom padding */
+    margin-bottom: 10px;
+    border-radius: 10px;
+    min-height: 130px; /* Adjusted */
+  }
+
+  .profile-card-title {
+    font-size: 0.95rem;
+    margin-bottom: 6px; /* Further reduced */
+  }
+
+  /* Travel Map - Still large on small screens */
+  .profile-map {
+    height: 120px; /* Still substantial height */
+    border-radius: 10px;
+  }
+
+  .profile-map-ph {
+    font-size: 2.2rem;
+  }
+
+  /* Recent Activity - Maintain good sizing */
+  .profile-activity-list {
+    min-height: 100px;
+  }
+
+  .profile-activity-item {
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    min-height: 45px;
+    margin-bottom: 8px;
+  }
+
+  .profile-activity-icon {
+    font-size: 1.4rem;
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+  }
+
+  .profile-activity-time {
+    font-size: 0.85rem;
+    min-width: 60px;
+  }
+
+  /* Photo Gallery - Single row with only 4 photos on very small screens */
+  .profile-gallery-scroll {
+    gap: 4px; /* Even smaller gap */
+    padding-bottom: 3px;
+    max-height: 83px;
+    min-height: 83px;
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
+    max-width: calc(4 * 75px + 3 * 4px + 12px); /* 4 photos + 3 gaps + padding */
+  }
+
+  .profile-gallery-photo {
+    min-width: 75px !important;
+    min-height: 75px !important;
+    max-width: 75px !important;
+    max-height: 75px !important;
+    width: 75px !important;
+    height: 75px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    border-radius: 6px;
+    font-size: 1.8rem;
+  }
+
+  /* Hide photos beyond the 4th one on very small screens */
+  .profile-gallery-photo:nth-child(n+5) {
+    display: none;
+  }
+
+  .profile-gallery-empty {
+    min-height: 75px;
+    min-width: 180px;
+    font-size: 0.9rem;
+    padding: 12px;
+  }
+
+  .profile-gallery-empty::before {
+    font-size: 1.8rem;
+  }
+
+  .profile-gallery-empty-text {
+    font-size: 0.8rem;
+  }
+
+  /* ...existing code... */
+}
+
+/* Add empty state placeholders */
+.profile-activity-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border: 2px dashed #d5d5db;
+  border-radius: 10px;
+  min-height: 80px;
+  color: #6b7280;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: center;
+  padding: 20px;
+}
+
+.profile-map-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border: 2px dashed #d5d5db;
+  border-radius: inherit;
+  color: #6b7280;
+}
+
+.profile-map-empty-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.profile-map-empty-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+}

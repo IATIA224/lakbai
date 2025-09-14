@@ -32,11 +32,12 @@ export const CLOUDINARY_CONFIG = {
 
 // Helper: fix EXIF orientation + square crop for Cloudinary assets
 const transformCloudinary = (url, { w = 120, h = 120 } = {}) => {
-  if (!url) return url;
+  if (!url) return "/placeholder.png";
+  if (typeof url !== "string") return url;                   // guard against objects
   if (!url.includes("res.cloudinary.com")) return url;
   return url.replace(
     "/upload/",
-    `/upload/c_fill,w_${w},h_${h},q_auto,f_auto,a_auto/`
+    `/upload/c_fill,w_${w},h_${h},q_auto,f_auto,a_auto,g_auto/`
   );
 };
 
@@ -639,18 +640,42 @@ const Profile = () => {
         {/* Profile Header */}
         <div className="profile-header">
           <div className="profile-avatar">
-            <img
-              src={profile?.profilePicture || "/user.png"}
-              alt="Profile"
-              style={{
-                width: 96,
-                height: 96,
-                borderRadius: "50%",
-                objectFit: "cover",
-                background: "#f3f4f6",
-                border: "3px solid #e5e7eb",
-              }}
-            />
+            {profile?.profilePicture && profile.profilePicture !== "/user.png" ? (
+              <img
+                src={profile.profilePicture}
+                alt="Profile"
+                style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: "50%",
+                  objectFit: "cover", // This ensures the image fills the circle properly
+                  objectPosition: "center", // Centers the image within the crop
+                  background: "#f3f4f6",
+                  border: "4px solid #fff", // Match the EditProfile border
+                  boxShadow: "0 2px 12px rgba(108,99,255,0.13)", // Match the CSS
+                  display: "block", // Ensure proper display
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: "50%",
+                  background: "#a084ee",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "2.5rem",
+                  fontWeight: "700",
+                  border: "4px solid #fff",
+                  boxShadow: "0 2px 12px rgba(108,99,255,0.13)",
+                }}
+              >
+                {(profile?.name || "U").charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
           <div className="profile-info">
             <div className="profile-title-row">
@@ -1234,6 +1259,13 @@ const Profile = () => {
           <EditProfile
             onClose={() => setShowEditProfile(false)}
             onProfileUpdate={() => unlockAchievement(5, "Profile Pioneer")}
+            initialData={{
+              name: profile?.name || "",
+              bio: profile?.bio || "",
+              profilePicture: profile?.profilePicture || "/user.png",
+              likes: profile?.likes || [],
+              dislikes: profile?.dislikes || []
+            }}
           />
         </div>
       )}

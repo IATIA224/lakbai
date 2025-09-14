@@ -719,3 +719,458 @@ select.modal-input {
 .cmt-item .action-menu {
   margin-right: 6px;
 }
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .community-bg {
+    padding: 8px 0 16px;
+    min-height: 100vh;
+  }
+
+  .community-container {
+    max-width: 100%;
+    padding: 0 8px;
+    margin: 0;
+  }
+
+  /* Mobile header - more compact */
+  .community-header {
+    padding: 16px 14px;
+    margin-bottom: 16px;
+    border-radius: 14px;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .community-title {
+    font-size: 1.2rem;
+    justify-content: center;
+  }
+
+  .title-emoji {
+    font-size: 1.4rem;
+  }
+
+  .header-actions {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .header-actions .btn-friend,
+  .header-actions .btn-primary {
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    border-radius: 10px;
+    flex: 1;
+    max-width: 140px;
+  }
+
+  /* Facebook-style feed */
+  .community-list {
+    gap: 12px;
+  }
+
+  /* Post cards - mobile optimized */
+  .community-card {
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  /* Post header */
+  .card-head {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .meta .name {
+    font-size: 0.95rem;
+  }
+
+  .meta .sub {
+    font-size: 0.85rem;
+  }
+
+  .add-friend {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+  }
+
+  /* Post content */
+  .card-body p {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+
+  .highlights {
+    font-size: 0.9rem;
+  }
+
+  /* Post images - Facebook style */
+  .community-card .card-banner {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4/3;
+    margin: 10px 0 8px 0;
+    border-radius: 10px;
+  }
+
+  .community-card .card-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+
+  .community-card .card-banner .banner-gradient {
+    min-height: 200px;
+    padding: 12px;
+  }
+
+  .banner-gradient h4 {
+    font-size: 1.1rem;
+  }
+
+  /* Post actions - Facebook style */
+  .card-actions {
+    gap: 12px;
+    padding-top: 8px;
+    margin-top: 8px;
+    justify-content: space-around;
+  }
+
+  .card-actions .act {
+    font-size: 0.9rem;
+    padding: 8px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+  }
+
+  .card-actions .act:hover {
+    background-color: #f5f5f5;
+  }
+
+  .card-actions .act span {
+    font-size: 1.2rem;
+  }
+
+  /* Action menu mobile */
+  .action-dots {
+    font-size: 1.4rem;
+    padding: 6px;
+  }
+
+  .action-dropdown {
+    right: -8px;
+    min-width: 160px;
+  }
+
+  .action-item {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+  }
+
+  /* Modal adjustments */
+  .community-modal {
+    width: 95vw;
+    max-height: 90vh;
+    margin: 16px;
+    border-radius: 16px;
+  }
+
+  .share-modal-header {
+    padding: 16px 14px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .share-modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .modal-form {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .modal-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .modal-input,
+  .modal-textarea {
+    font-size: 1rem;
+    padding: 10px 12px;
+  }
+
+  .modal-textarea {
+    min-height: 80px;
+  }
+
+  .thumbs {
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 6px;
+  }
+
+  .thumb img {
+    height: 70px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-primary,
+  .btn-friend {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 1rem;
+  }
+
+  /* Comments modal - mobile */
+  .cmt-modal {
+    width: 100vw;
+    max-width: 100vw;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  .cmt-header {
+    border-radius: 0;
+    padding: 16px;
+  }
+
+  .cmt-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .cmt-close {
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
+  }
+
+  .cmt-list {
+    max-height: calc(100vh - 200px);
+    padding: 12px 16px;
+  }
+
+  .cmt-item {
+    gap: 10px;
+    padding: 8px 0;
+  }
+
+  .cmt-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .cmt-avatar img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .cmt-meta {
+    font-size: 0.9rem;
+  }
+
+  .cmt-text {
+    font-size: 0.95rem;
+  }
+
+  .cmt-heart {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    height: 28px;
+  }
+
+  .cmt-composer {
+    padding: 12px 16px;
+    border-radius: 0;
+  }
+
+  .cmt-input {
+    font-size: 1rem;
+    padding: 10px 12px;
+    min-height: 40px;
+  }
+
+  .cmt-actions {
+    margin-top: 8px;
+  }
+
+  /* Empty state mobile */
+  .community-empty {
+    padding: 24px 16px;
+    border-radius: 14px;
+  }
+
+  .community-empty .empty-badge {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+
+  .community-empty h3 {
+    font-size: 1.1rem;
+  }
+
+  /* Loading mobile */
+  .cm-loading-card {
+    width: 95vw;
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .cm-loading-title {
+    font-size: 1rem;
+  }
+
+  .cm-spinner {
+    width: 32px;
+    height: 32px;
+  }
+
+  .cm-skeleton-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .cm-skel-card {
+    height: 120px;
+  }
+
+  /* Report success popup mobile */
+  .report-success-popup {
+    margin-bottom: 32px;
+    padding: 18px 24px 16px 24px;
+    min-width: 240px;
+  }
+
+  .report-success-icon {
+    font-size: 2rem;
+  }
+
+  .report-success-title {
+    font-size: 1rem;
+  }
+
+  .report-success-desc {
+    font-size: 0.9rem;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .community-container {
+    padding: 0 4px;
+  }
+
+  .community-header {
+    padding: 12px 10px;
+    margin-bottom: 12px;
+  }
+
+  .community-title {
+    font-size: 1.1rem;
+  }
+
+  .header-actions .btn-friend,
+  .header-actions .btn-primary {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+
+  .community-card {
+    padding: 10px;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .card-body p {
+    font-size: 0.9rem;
+  }
+
+  .card-actions .act {
+    font-size: 0.8rem;
+    padding: 6px 2px;
+  }
+
+  .modal-form {
+    padding: 12px;
+  }
+
+  .thumbs {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  }
+
+  .thumb img {
+    height: 60px;
+  }
+}
+
+/* Smooth scrolling for mobile */
+@media (max-width: 768px) {
+  .community-bg {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  /* Prevent horizontal scroll */
+  .community-container * {
+    box-sizing: border-box;
+  }
+
+  /* Touch-friendly scrolling */
+  .cmt-list,
+  .modal-form {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Hide scrollbars but keep functionality */
+  .cmt-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cmt-list {
+    scrollbar-width: none;
+  }
+
+  /* Better touch targets */
+  .card-actions .act,
+  .cmt-heart,
+  .add-friend,
+  .action-dots {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

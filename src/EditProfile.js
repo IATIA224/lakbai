@@ -88,9 +88,9 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       // Build update object with only changed fields
       const updateData = {};
 
-      // Only update name if it's changed and not empty
+      // Fix: Use 'travelerName' to match what profile.js expects
       if (name && name.trim() !== (initialData.name || "")) {
-        updateData.name = name.trim();
+        updateData.travelerName = name.trim(); // Changed from 'name' to 'travelerName'
       }
 
       // Only update bio if it's changed
@@ -141,10 +141,23 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
           <div className="edit-profile-avatar">
             <label htmlFor="profile-photo-upload" className="edit-profile-avatar-label">
               {photo ? (
-                <img src={photo} alt="Profile" className="edit-profile-avatar-img" />
-              ) : (
+                <img 
+                  src={photo} 
+                  alt="Profile" 
+                  className="edit-profile-avatar-img"
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    background: "#f3f4f6",
+                    border: "3px solid #e5e7eb",
+                    cursor: "pointer"
+                  }}
+                />
+              ) : initialData.profilePicture && initialData.profilePicture !== "/user.png" ? (
                 <img
-                  src="/user.png"
+                  src={initialData.profilePicture}
                   alt="Profile"
                   className="edit-profile-avatar-img"
                   style={{
@@ -152,9 +165,30 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
                     height: 96,
                     borderRadius: "50%",
                     objectFit: "cover",
-                    background: "#f3f4f6"
+                    background: "#f3f4f6",
+                    border: "3px solid #e5e7eb",
+                    cursor: "pointer"
                   }}
                 />
+              ) : (
+                <div
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: "50%",
+                    background: "#a084ee",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "2.5rem",
+                    fontWeight: "700",
+                    border: "3px solid #e5e7eb",
+                    cursor: "pointer"
+                  }}
+                >
+                  {(initialData.name || "U").charAt(0).toUpperCase()}
+                </div>
               )}
               <input
                 id="profile-photo-upload"
