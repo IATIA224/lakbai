@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
-  z-index: 1000;
+  z-index: 100000; /* Higher than header's 99999 */
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -19,6 +19,7 @@
   display: grid;
   grid-template-rows: auto auto 1fr;
   animation: hotels-modal-in 0.18s cubic-bezier(.4,1.4,.6,1) 1;
+  z-index: 100001; /* Higher than backdrop */
 }
 @keyframes hotels-modal-in {
   from { transform: translateY(40px) scale(.98); opacity: 0.2; }
@@ -54,6 +55,7 @@
   padding: 6px 10px;
   border-radius: 10px;
   transition: background 0.15s;
+  z-index: 100002; /* Highest z-index for close button */
 }
 .hotels-close:hover {
   background: rgba(255, 255, 255, 0.18);
@@ -239,6 +241,7 @@
   .hotels-backdrop {
     padding: 2vh 1vw;
     align-items: flex-start;
+    z-index: 100000; /* Ensure it stays above header on mobile */
   }
 
   .hotels-modal {
@@ -246,6 +249,7 @@
     max-height: 96vh;
     border-radius: 16px;
     margin-top: 2vh;
+    z-index: 100001;
   }
 
   .hotels-header {
@@ -262,6 +266,7 @@
   .hotels-close {
     font-size: 1.8rem;
     padding: 4px 8px;
+    z-index: 100002; /* Keep close button accessible */
   }
 
   /* Controls section - stack vertically on mobile */
@@ -371,6 +376,7 @@
 @media (max-width: 480px) {
   .hotels-backdrop {
     padding: 1vh 0.5vw;
+    z-index: 100000;
   }
 
   .hotels-modal {
@@ -378,6 +384,7 @@
     max-height: 98vh;
     border-radius: 12px;
     margin-top: 1vh;
+    z-index: 100001;
   }
 
   .hotels-header {
@@ -393,6 +400,7 @@
   .hotels-close {
     font-size: 1.6rem;
     padding: 2px 6px;
+    z-index: 100002;
   }
 
   .hotels-controls {

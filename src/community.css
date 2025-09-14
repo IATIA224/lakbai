@@ -176,7 +176,7 @@
   position: fixed; inset: 0;
   background: rgba(17, 24, 39, 0.45);
   display: grid; place-items: center;
-  z-index: 9999;
+  z-index: 100000; /* Higher than header's 99999 */
   backdrop-filter: blur(2px);
 }
 .community-modal {
@@ -187,6 +187,7 @@
   border-radius: 14px;
   box-shadow: var(--shadow-strong);
   padding: 0;               /* header will manage top padding */
+  z-index: 100001; /* Higher than backdrop */
 }
 
 /* Gradient header strip */
@@ -196,6 +197,7 @@
   padding: 18px 16px;
   border-radius: 14px 14px 0 0;
   box-shadow: inset 0 -1px 0 rgba(255,255,255,0.25);
+  z-index: 100002; /* Higher than modal content */
 }
 .share-modal-header h3 { margin: 0; font-weight: 800; }
 
@@ -360,13 +362,15 @@ select.modal-input {
   position: fixed; inset: 0;
   background: rgba(2,6,23,.45);
   display:flex; align-items:center; justify-content:center;
-  z-index: 1300; backdrop-filter: blur(2px);
+  z-index: 100000; /* Higher than header */
+  backdrop-filter: blur(2px);
 }
 .cm-loading-card {
   width: min(820px, 92vw);
   background:#fff; border-radius:16px; padding:22px;
   box-shadow:0 12px 40px rgba(0,0,0,.25);
   animation: cm-pop .18s ease-out both;
+  z-index: 100001; /* Higher than backdrop */
 }
 .cm-loading-title { font-weight:800; font-size:18px; color:#0f172a; margin:6px 0 14px; }
 .cm-spinner {
@@ -420,7 +424,7 @@ select.modal-input {
 .report-success-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: 100004; /* Higher than other modals */
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -438,6 +442,7 @@ select.modal-input {
   flex-direction: column;
   align-items: center;
   animation: reportPopIn 0.35s cubic-bezier(.23,1.01,.32,1) both;
+  z-index: 100005; /* Higher than backdrop */
 }
 @keyframes reportPopIn {
   from { opacity: 0; transform: translateY(40px) scale(.96);}
@@ -468,17 +473,21 @@ select.modal-input {
 .cmt-modal {
   padding: 0;
   max-width: 720px;
+  z-index: 100001; /* Higher than backdrop */
 }
 
 .cmt-header {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 100002; /* Higher than modal content */
   border-top-left-radius: 18px;
   border-top-right-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: linear-gradient(90deg, #6c63ff 60%, #a084ee 100%);
+  color: #fff;
+  padding: 18px 16px;
 }
 .cmt-header h3 {
   margin: 0;
@@ -501,6 +510,7 @@ select.modal-input {
   height: 32px;
   cursor: pointer;
   transition: background 0.15s ease;
+  z-index: 100003; /* Highest z-index for close button */
 }
 .cmt-close:hover { background: #ffffff55; }
 
@@ -639,22 +649,6 @@ select.modal-input {
   display: inline-block;
 }
 
-.action-dots {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #64748b;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s;
-}
-
-.action-dots:hover {
-  background-color: #f1f5f9;
-}
-
 .action-dropdown {
   position: absolute;
   right: 0;
@@ -664,7 +658,7 @@ select.modal-input {
   border-radius: 12px;
   overflow: hidden;
   min-width: 140px;
-  z-index: 10;
+  z-index: 100005; /* Higher than other elements */
   animation: dropdownAppear 0.2s ease-out forwards;
 }
 
@@ -891,6 +885,11 @@ select.modal-input {
     max-height: 90vh;
     margin: 16px;
     border-radius: 16px;
+    z-index: 100001; /* Maintain z-index on mobile */
+  }
+
+  .community-modal-backdrop {
+    z-index: 100000; /* Maintain z-index on mobile */
   }
 
   .share-modal-header {
@@ -955,21 +954,20 @@ select.modal-input {
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 100001; /* Maintain z-index on mobile */
   }
 
   .cmt-header {
     border-radius: 0;
     padding: 16px;
-  }
-
-  .cmt-header h3 {
-    font-size: 1.1rem;
+    z-index: 100002; /* Maintain z-index on mobile */
   }
 
   .cmt-close {
     width: 32px;
     height: 32px;
     font-size: 1.2rem;
+    z-index: 100003; /* Maintain z-index on mobile */
   }
 
   .cmt-list {
@@ -1042,43 +1040,21 @@ select.modal-input {
     width: 95vw;
     padding: 16px;
     border-radius: 14px;
+    z-index: 100001; /* Maintain z-index on mobile */
   }
 
-  .cm-loading-title {
-    font-size: 1rem;
-  }
-
-  .cm-spinner {
-    width: 32px;
-    height: 32px;
-  }
-
-  .cm-skeleton-row {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .cm-skel-card {
-    height: 120px;
+  /* Action dropdown mobile */
+  .action-dropdown {
+    z-index: 100005; /* Maintain z-index on mobile */
   }
 
   /* Report success popup mobile */
+  .report-success-backdrop {
+    z-index: 100004; /* Maintain z-index on mobile */
+  }
+
   .report-success-popup {
-    margin-bottom: 32px;
-    padding: 18px 24px 16px 24px;
-    min-width: 240px;
-  }
-
-  .report-success-icon {
-    font-size: 2rem;
-  }
-
-  .report-success-title {
-    font-size: 1rem;
-  }
-
-  .report-success-desc {
-    font-size: 0.9rem;
+    z-index: 100005; /* Maintain z-index on mobile */
   }
 }
 

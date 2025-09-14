@@ -620,3 +620,418 @@
   color: #888;
   font-size: 0.95rem;
 }
+
+/* Mobile responsive styles for dashboard */
+@media (max-width: 768px) {
+  /* Dashboard banner adjustments */
+  .dashboard-banner {
+    margin: 16px 8px;
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+
+  .dashboard-banner h2 {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+  }
+
+  .dashboard-banner p {
+    font-size: 1rem;
+    margin-bottom: 16px;
+  }
+
+  .dashboard-banner-btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+
+  /* Dashboard stats - stack vertically on mobile */
+  .dashboard-stats-row {
+    flex-direction: column;
+    gap: 16px;
+    margin: 24px 8px 0 8px;
+    padding: 0;
+  }
+
+  .dashboard-stat {
+    min-width: auto;
+    padding: 20px 0 16px 0;
+  }
+
+  .dashboard-stat-number {
+    font-size: 1.75rem;
+  }
+
+  .dashboard-stat-label {
+    font-size: 0.9rem;
+  }
+
+  /* Preview row - stack vertically */
+  .dashboard-preview-row {
+    flex-direction: column;
+    gap: 20px;
+    margin: 24px 8px;
+  }
+
+  .dashboard-preview-col {
+    min-width: auto;
+    padding: 18px;
+  }
+
+  .dashboard-preview-title {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+
+  .dashboard-preview-btn {
+    padding: 6px 14px;
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+  }
+
+  .dashboard-preview-img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .dashboard-preview-trip-title,
+  .dashboard-preview-bookmark-title {
+    font-size: 1rem;
+  }
+
+  .dashboard-preview-trip-meta,
+  .dashboard-preview-bookmark-desc {
+    font-size: 0.9rem;
+  }
+
+  /* Personalized section adjustments */
+  .personalized-section-dashboard {
+    margin: 24px 8px 0 8px;
+    padding: 12px;
+  }
+
+  .personalized-title {
+    font-size: 1.1rem;
+    margin-bottom: 14px;
+  }
+
+  /* Grid adjustments for mobile */
+  .personalized-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 0 4px;
+  }
+
+  .grid-card {
+    min-width: auto;
+    max-width: none;
+    width: 100%;
+  }
+
+  .card-image {
+    height: 160px;
+    position: relative;
+  }
+
+  /* IMPORTANT: Ensure bookmark button is visible on mobile */
+  .bookmark-bubble {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    color: #666;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 20;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .bookmark-bubble:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .bookmark-bubble.active {
+    background: #ef4444 !important;
+    color: white !important;
+  }
+
+  .card-content {
+    padding: 14px;
+  }
+
+  .card-header h2 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+
+  .mini-rating {
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+  }
+
+  .bp2-region-line {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+  }
+
+  .description {
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+    line-height: 1.4;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .tag-container {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .tag {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+  }
+
+  .card-footer {
+    margin-top: 6px;
+  }
+
+  .pill {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .details-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  /* Modal adjustments for mobile */
+  .modal-content {
+    width: 95%;
+    max-height: 85vh;
+    border-radius: 12px;
+  }
+
+  .modal-close-floating {
+    top: 12px;
+    right: 12px;
+    font-size: 20px;
+  }
+
+  .details-hero {
+    padding: 20px 0 0 0;
+    min-height: 60px;
+  }
+
+  .details-hero-art {
+    height: 60px;
+  }
+
+  .details-body {
+    padding: 0 16px 16px 16px;
+  }
+
+  .details-head-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .details-title-col {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .details-title {
+    font-size: 1.4rem;
+    margin: 12px 0 0 0;
+  }
+
+  .details-region {
+    font-size: 0.9rem;
+  }
+
+  .details-rating-row {
+    font-size: 0.85rem;
+    gap: 6px;
+    margin: 6px 0 0 0;
+  }
+
+  .details-actions {
+    margin-left: 0;
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-outline,
+  .btn-green {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .section-title {
+    font-size: 1rem;
+    margin-bottom: 6px;
+  }
+
+  .details-paragraph {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+
+  .badge-row {
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .badge {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+  }
+
+  .packing-box {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+  }
+
+  .trip-info-box {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .trip-title {
+    font-size: 1rem;
+    margin-bottom: 10px;
+  }
+
+  .trip-item {
+    margin-bottom: 10px;
+  }
+
+  .trip-label {
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+  }
+
+  .trip-text {
+    font-size: 0.8rem;
+  }
+
+  .pill.small {
+    padding: 3px 8px;
+    font-size: 0.8rem;
+  }
+
+  .badge.purple {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .dashboard-banner {
+    margin: 12px 4px;
+    padding: 20px 12px;
+  }
+
+  .dashboard-banner h2 {
+    font-size: 1.3rem;
+  }
+
+  .dashboard-banner p {
+    font-size: 0.9rem;
+  }
+
+  .dashboard-stats-row {
+    margin: 20px 4px 0 4px;
+    gap: 12px;
+  }
+
+  .dashboard-stat {
+    padding: 16px 0 12px 0;
+  }
+
+  .dashboard-stat-number {
+    font-size: 1.5rem;
+  }
+
+  .dashboard-preview-row {
+    margin: 20px 4px;
+    gap: 16px;
+  }
+
+  .dashboard-preview-col {
+    padding: 14px;
+  }
+
+  .personalized-section-dashboard {
+    margin: 20px 4px 0 4px;
+    padding: 10px;
+  }
+
+  .personalized-cards-grid {
+    gap: 12px;
+    padding: 0 2px;
+  }
+
+  .card-image {
+    height: 140px;
+  }
+
+  /* Smaller bookmark button for very small screens */
+  .bookmark-bubble {
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .card-content {
+    padding: 12px;
+  }
+
+  .card-header h2 {
+    font-size: 1rem;
+  }
+
+  .details-title {
+    font-size: 1.25rem;
+  }
+
+  .details-body {
+    padding: 0 12px 12px 12px;
+  }
+
+  .btn-outline,
+  .btn-green {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+}
