@@ -25,8 +25,12 @@ import {
   useFriendsList,
   useSharedItineraries,
   shareItinerary as shareItineraryWithFriends,
-  SharedItinerariesTab
+  SharedItinerariesTab,
+  // add:
+  deleteTripDestination,
+  clearAllTripDestinations,
 } from './itinerary2';
+import ItineraryHotelsModal from "./itineraryHotels"; // NEW
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -64,11 +68,11 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 
   const [notif, setNotif] = useState("");
 
-  const addActivity = () => {
+  const addActivity = React.useCallback(() => {
     const v = form.activityDraft.trim();
     if (!v) return;
     setForm((f) => ({ ...f, activities: [...f.activities, v], activityDraft: "" }));
-  };
+  }, [form.activityDraft]);
   const removeActivity = (i) =>
     setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
 
@@ -104,14 +108,13 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [addActivity, onClose]);
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
       <div
         className="itn-modal"
         style={{
-          maxWidth: 700,
           boxShadow: "0 8px 32px rgba(108,99,255,0.12)",
           borderRadius: 16,
           padding: 0,
@@ -368,7 +371,10 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   );
 }
 
-function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus }) {
+function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEditing }) {
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showHotels, setShowHotels] = useState(false); // NEW
   const days =
     item.arrival && item.departure
       ? Math.max(
@@ -379,6 +385,9 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus }) {
           )
         )
       : 0;
+
+  const activities = item.activities || [];
+  const showToggle = activities.length > 3;
 
   return (
     <div className="itn-card">
@@ -434,15 +443,71 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus }) {
         <div className="itn-stat orange">
           <div className="itn-stat-title">Activities</div>
           <div className="itn-stat-body">
-            <div>{item.activities?.length || 0} planned</div>
-            {item.activities?.length ? (
-              <div className="itn-muted">{item.activities.slice(0, 3).join(", ")}</div>
+            <div>{activities.length} planned</div>
+            {activities.length ? (
+              <>
+                <div className="itn-muted" style={{ wordBreak: "break-word" }}>
+                  {showAllActivities
+                    ? activities.join(", ")
+                    : activities.slice(0, 3).join(", ")}
+                  {showToggle && !showAllActivities && "…"}
+                </div>
+                {showToggle && (
+                  <button
+                    className="itn-btn ghost"
+                    style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
+                    onClick={() => setShowAllActivities((v) => !v)}
+                  >
+                    {showAllActivities ? "Show Less" : "Show All"}
+                  </button>
+                )}
+              </>
             ) : (
               <div className="itn-muted">—</div>
             )}
           </div>
         </div>
       </div>
+
+      {/* View Summary + View Accredited Hotels buttons */}
+      <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button
+          className="itn-btn ghost"
+          onClick={() => setShowSummary(true)}
+        >
+          View Summary
+        </button>
+        <button
+          className="itn-btn ghost"
+          onClick={() => setShowHotels(true)}
+          title="Show DOT-accredited hotels and accommodations"
+        >
+          View accredited hotels
+        </button>
+      </div>
+
+      {showSummary && (
+        <ItinerarySummaryModal
+          item={item}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
+
+      {showHotels && ( // NEW
+        <ItineraryHotelsModal
+          open={showHotels}
+          onClose={() => setShowHotels(false)}
+          onSelect={(hotel) => {
+            setShowHotels(false);
+            setEditing({
+              ...item,
+              accomType: hotel.type,
+              accomName: hotel.name,
+              accomNotes: hotel.address,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -524,6 +589,204 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
   );
 }
 
+// Update the summary modal to accept a single item
+function ItinerarySummaryModal({ item, onClose }) {
+  // Calculate days
+  let days = "";
+  if (item.arrival && item.departure) {
+    days = Math.max(
+      1,
+      Math.ceil(
+        (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
+    );
+  }
+
+  return (
+    <div className="itn-modal-backdrop" onClick={onClose}>
+      <div
+        className="itn-modal itn-modal-lg"
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
+          borderRadius: 18,
+          boxShadow: "0 8px 32px rgba(108,99,255,0.13)",
+          padding: 0,
+          maxWidth: 520,
+        }}
+      >
+        <div
+          className="itn-modal-header"
+          style={{
+            background: "linear-gradient(90deg, #6c63ff 60%, #a084ee 100%)",
+            color: "#fff",
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
+            padding: "24px 32px 16px 32px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 28, marginRight: 4 }}>📝</span>
+            <span className="itn-modal-title" style={{ fontWeight: 700, fontSize: 22 }}>
+              Itinerary Summary
+            </span>
+          </div>
+          <button className="itn-close" onClick={onClose} style={{ color: "#fff" }}>
+            ×
+          </button>
+        </div>
+        <div
+          className="itn-modal-body"
+          style={{
+            padding: "28px 32px 18px 32px",
+            background: "transparent",
+            maxHeight: 500,
+            overflowY: "auto",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              boxShadow: "0 2px 8px rgba(108,99,255,0.06)",
+              padding: "24px 20px 18px 20px",
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "#6c63ff" }}>
+              {item.name || "—"}
+            </div>
+            <div style={{ color: "#64748b", fontSize: 15, marginBottom: 12 }}>
+              <span style={{ marginRight: 16 }}>
+                <span style={{ fontWeight: 500 }}>Region:</span> {item.region || "—"}
+              </span>
+              <span>
+                <span style={{ fontWeight: 500 }}>Status:</span> {item.status || "—"}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 18,
+                marginBottom: 10,
+                fontSize: 15,
+              }}
+            >
+              <div>
+                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Dates:</span>{" "}
+                {item.arrival || "—"} {item.departure ? `– ${item.departure}` : ""}
+                {days ? (
+                  <span style={{ marginLeft: 8, color: "#888" }}>
+                    ({days} {days === 1 ? "day" : "days"})
+                  </span>
+                ) : ""}
+              </div>
+              <div>
+                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Budget:</span>{" "}
+                <span style={{ fontWeight: 600 }}>${item.budget || 0}</span>
+                <span style={{ color: "#888", fontSize: 13, marginLeft: 8 }}>
+                  (Hotel: ${item.accomBudget || 0} | Activities: ${item.activityBudget || 0})
+                </span>
+              </div>
+            </div>
+            <div style={{ margin: "14px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Accommodation
+              </div>
+              <div style={{ color: "#444", fontSize: 15 }}>
+                {item.accomType || "Not planned"}
+                {item.accomName ? (
+                  <span style={{ color: "#888", marginLeft: 8 }}>
+                    ({item.accomName})
+                  </span>
+                ) : null}
+              </div>
+              {item.accomNotes && (
+                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
+                  {item.accomNotes}
+                </div>
+              )}
+            </div>
+            <div style={{ margin: "18px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Activities
+              </div>
+              <div style={{ minHeight: 28 }}>
+                {Array.isArray(item.activities) && item.activities.length ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {item.activities.map((a, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          display: "inline-block",
+                          background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
+                          color: "#fff",
+                          borderRadius: 16,
+                          padding: "4px 14px",
+                          fontSize: 14,
+                          fontWeight: 500,
+                          boxShadow: "0 1px 4px rgba(108,99,255,0.07)",
+                        }}
+                      >
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: "#888" }}>—</span>
+                )}
+              </div>
+            </div>
+            <div style={{ margin: "18px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Transportation
+              </div>
+              <div style={{ color: "#444", fontSize: 15 }}>
+                {item.transport || "—"}
+                <span style={{ color: "#888", marginLeft: 8 }}>
+                  Cost: ${item.transportCost || 0}
+                </span>
+              </div>
+              {item.transportNotes && (
+                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
+                  {item.transportNotes}
+                </div>
+              )}
+            </div>
+            <div style={{ margin: "18px 0 0 0" }}>
+              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
+                Notes
+              </div>
+              <div style={{ color: "#444", fontSize: 15 }}>
+                {item.notes || <span style={{ color: "#888" }}>—</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          className="itn-modal-footer"
+          style={{
+            borderBottomLeftRadius: 18,
+            borderBottomRightRadius: 18,
+            background: "#f8fafc",
+            padding: "18px 32px",
+            textAlign: "right",
+          }}
+        >
+          <button className="itn-btn primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Itinerary() {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -543,6 +806,7 @@ export default function Itinerary() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareSelected, setShareSelected] = useState(new Set());
   const [activeTab, setActiveTab] = useState("personal");
+  const [showSummary, setShowSummary] = useState(false);
 
   // NEW: current user
   const [user, setUser] = useState(null);
@@ -550,7 +814,9 @@ export default function Itinerary() {
   // NEW: watch auth, then subscribe to user's itinerary
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u || null));
-    return () => unsubAuth();
+    return () => {
+      if (typeof unsubAuth === "function") unsubAuth();
+    };
   }, []);
 
   useEffect(() => {
@@ -668,7 +934,15 @@ export default function Itinerary() {
   // NEW: delete from Firestore
   const removeItem = async (id) => {
     if (!user) return;
+    // delete from itinerary (existing behavior)
     await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
+
+    // also delete from My Trips (all users)
+    try {
+      await removeTripForAllUsers(id);
+    } catch (e) {
+      console.warn("[Trips] Failed to delete from trips across users:", e);
+    }
   };
 
   // NEW: toggle status in Firestore
@@ -710,10 +984,18 @@ export default function Itinerary() {
     if (!user || !items.length) return;
     if (!window.confirm("Remove all destinations from your itinerary?")) return;
     try {
+      // clear itinerary (existing behavior)
       const colRef = collection(db, "itinerary", user.uid, "items");
       const snap = await getDocs(colRef);
       await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
       console.log("[Itinerary] Cleared itinerary for", user.uid);
+
+      // also clear My Trips (all users)
+      try {
+        await clearAllTripsForAllUsers();
+      } catch (e) {
+        console.warn("[Trips] Failed to clear trips across users:", e);
+      }
     } catch (e) {
       console.error("Clear All failed:", e);
       alert("Failed to clear your itinerary. Please try again.");
@@ -882,7 +1164,7 @@ export default function Itinerary() {
   };
 
   const friends = useFriendsList(user);
-  const { sharedWithMe, loading: loadingShared } = useSharedItineraries(user);
+  const { sharedWithMe } = useSharedItineraries(user);
 
   const toggleShareItem = (id) => {
     setShareSelected(prev => {
@@ -935,7 +1217,6 @@ export default function Itinerary() {
           <button 
             className="itn-btn ghost" 
             onClick={() => setShowShareModal(true)} 
-            disabled={!items.length}
             title={!items.length ? "No itineraries to share" : "Share with friends"}
           >
             Share Itinerary
@@ -948,6 +1229,7 @@ export default function Itinerary() {
           >
             Export PDF
           </button>
+          {/* Removed unused View Summary button */}
         </div>
       </div>
 
@@ -984,8 +1266,7 @@ export default function Itinerary() {
             ) : (
               <div className="itn-muted">Search for places on the map to start planning.</div>
             )}
-
-           
+            
             {results.length > 1 && (
               <div className="itn-results">
                 {results.map((r) => (
@@ -1065,7 +1346,7 @@ export default function Itinerary() {
                       Search for places on the map to start building your itinerary!
                     </div>
                   </div>
-                ) : (
+                ) : 
                   items.map((item, idx) => (
                     <DestinationCard
                       key={item.id}
@@ -1074,9 +1355,10 @@ export default function Itinerary() {
                       onEdit={(it) => setEditing(it)}
                       onRemove={removeItem}
                       onToggleStatus={toggleStatus}
+                      setEditing={setEditing} // <-- ADD THIS LINE
                     />
                   ))
-                )}
+                }
               </>
             ) : (
               <SharedItinerariesTab user={user} />
@@ -1115,51 +1397,17 @@ export default function Itinerary() {
           onClose={() => setShowShareModal(false)}
         />
       )}
+
+      {showSummary && (
+        <ItinerarySummaryModal
+          item={items}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </div>
   );
 }
 
-function Trips() {
-  const [user, setUser] = useState(null);
-  const [addingId, setAddingId] = useState(null);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u || null));
-    return () => unsub();
-  }, []);
-
-  // Call this when the "Add to Trip" button is clicked
-  const addToMyTrips = async (dest) => {
-    try {
-      await addTripForCurrentUser(dest);
-    } catch (e) {
-      if (e.message === "AUTH_REQUIRED") {
-        alert("Please sign in to add to My Trips.");
-      } else {
-        console.error("Add to My Trips failed:", e);
-        alert("Failed to add. Please try again.");
-      }
-    }
-  };
-
-  return (
-    <div>
-      {/* Example usage inside your card/list render:
-      <button
-        className="add-trip-btn"
-        onClick={() => addToMyTrips(destination)}
-        disabled={addingId === (destination.id || destination.name)}
-        aria-busy={addingId === (destination.id || destination.name)}
-
-     
-
-      >
-        {addingId === (destination.id || destination.name) ? 'Adding…' : '+ Add to Trip'}
-      </button>
-      */}
-    </div>
-  );
-}
 
 // Add this named export near the bottom (outside components)
 export async function addTripForCurrentUser(dest) {
@@ -1201,4 +1449,19 @@ export async function addTripForCurrentUser(dest) {
     console.error("[Itinerary] Failed to add trip:", err);
     throw err;
   }
+}
+
+// Add these named exports near the bottom (outside components) so "My Trips" UI can call them.
+export async function removeTripForAllUsers(itemId) {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+  // Deletes users/*/trips/<itemId> for every user. Does not touch itinerary/sharedItineraries.
+  await deleteTripDestination(u, itemId);
+}
+
+export async function clearAllTripsForAllUsers() {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+  // Clears users/*/trips for every user. Does not touch itinerary/sharedItineraries.
+  await clearAllTripDestinations(u);
 }

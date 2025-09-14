@@ -1,137 +1,294 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+:root {
+  --header-height: 72px;
+}
+
+/* Force header to top and above everything */
 .sticky-header {
-  position: sticky;
+  position: fixed !important;
   top: 0;
-  z-index: 1000;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  z-index: 99999 !important;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  border-top: none !important;
+}
+
+/* Ensure other header variant also stays on top */
+.header2-sticky {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99998 !important;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
+  border-top: none !important;
+}
+
+/* Prevent content from being hidden under fixed header */
+body > #root,
+main,
+.app,
+.page,
+.page-content {
+  padding-top: var(--header-height) !important;
+}
+
+/* Remove any accidental top borders that could show as a line */
+.sticky-header, .header2-sticky, .login-bg {
+  border-top: none !important;
+  outline: none !important;
+}
+
+/* Slightly smaller header on narrow screens */
+@media (max-width: 600px) {
+  :root { --header-height: 64px; }
+  .sticky-header, .header2-sticky { height: var(--header-height); }
+  body > #root,
+  main,
+  .app,
+  .page,
+  .page-content { padding-top: var(--header-height) !important; }
+}
+
+/* --- General improvements for all screens --- */
+.sticky-header {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 40px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 18px 32px;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  color: #fff;
+  min-height: 64px;
+  box-sizing: border-box;
+  width: 100%;
+  z-index: 100;
+  position: sticky;
+  top: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 48px;
+  gap: 16px;
 }
 
 .logo-icon {
   width: 36px;
   height: 36px;
-  margin-right: 12px;
+  margin-right: 6px;
 }
 
 .logo-text {
-  font-size: 1.7rem;
-  font-weight: 700;
-  color: #6c63ff;
-  letter-spacing: -0.5px;
-  text-shadow: 0 2px 4px rgba(108, 99, 255, 0.1);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-right: 8px;
+  color: #fff;
 }
 
 .header-nav {
   display: flex;
-  gap: 32px;
+  gap: 14px;
   align-items: center;
 }
 
-.header-nav a, .header-nav span {
-  color: #475569;
+.header-nav a,
+.header-nav span {
+  font-size: 1rem;
+  color: #fff;
   text-decoration: none;
-  font-weight: 500;
-  font-size: 15px;
-  transition: all 0.2s ease;
-  padding: 10px 16px;
-  cursor: pointer;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: background 0.15s, color 0.15s;
+  font-weight: 600;
+  background: none;
 }
 
 .header-nav a:hover,
 .header-nav span:hover {
+  background: #ede9fe;
   color: #6c63ff;
-  background: rgba(108, 99, 255, 0.08);
-  font-weight: 600;
 }
 
 .header-nav .active {
+  background: #ede9fe;
   color: #6c63ff;
-  font-weight: 600;
-  background: rgba(108, 99, 255, 0.12);
-  position: relative;
-}
-
-.header-nav .active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: #6c63ff;
-  border-radius: 0 2px 2px 0;
+  font-weight: 700;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
 .ai-assistant-btn {
-  background: linear-gradient(135deg, #6c63ff 0%, #7c3aed 100%);
-  color: #fff;
+  background: #fff;
+  color: #6c63ff;
   border: none;
-  border-radius: 24px;
-  padding: 12px 20px;
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(108, 99, 255, 0.25), 0 2px 4px rgba(108, 99, 255, 0.1);
-  transition: all 0.2s ease;
+  transition: background 0.15s, color 0.15s;
 }
 
 .ai-assistant-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(108, 99, 255, 0.3);
-}
-
-.ai-assistant-btn .dot {
-  width: 8px;
-  height: 8px;
-  background: #4ade80;
-  border-radius: 50%;
-  display: inline-block;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  background: #ede9fe;
+  color: #4f46e5;
 }
 
 .user-icon {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: #eee;
-  border: 2px solid #e2e8f0;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  object-fit: cover;
+  border: 2px solid #ede9fe;
 }
 
-.user-icon:hover {
-  border-color: #6c63ff;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.2);
+/* --- Responsive header for mobile --- */
+@media (max-width: 600px) {
+  .sticky-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 4vw !important;
+    min-height: unset;
+    gap: 8px;
+    box-sizing: border-box;
+    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+    position: relative;
+  }
+  
+  /* Logo and title on the left */
+  .header-left {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    margin-bottom: 0;
+    order: 1;
+    flex: 1;
+  }
+  
+  .logo-icon {
+    width: 26px !important;
+    height: 26px !important;
+    margin-right: 2px !important;
+  }
+  
+  .logo-text {
+    font-size: 1.1rem !important;
+    margin-right: 0 !important;
+    font-weight: 800;
+    color: #fff !important;
+    text-shadow: none;
+  }
+  
+  /* AI Assistant + User on the right */
+  .header-right {
+    flex-direction: row;
+    justify-content: flex-end !important;
+    align-items: center;
+    margin-top: 0 !important;
+    gap: 8px !important;
+    order: 2;
+    flex-shrink: 0;
+  }
+  
+  .ai-assistant-btn {
+    padding: 4px 8px !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+    min-width: 0;
+    height: 26px !important;
+    line-height: 1.1;
+    gap: 3px !important;
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: #6c63ff !important;
+    white-space: nowrap;
+    transform: none;
+  }
+  
+  .ai-assistant-btn:hover {
+    background: rgba(255, 255, 255, 1) !important;
+    color: #4f46e5 !important;
+    transform: none;
+  }
+  
+  .ai-assistant-btn .dot {
+    width: 5px !important;
+    height: 5px !important;
+  }
+  
+  .user-icon {
+    width: 26px !important;
+    height: 26px !important;
+    margin-left: 0;
+    transform: none;
+  }
+  
+  .user-icon:hover {
+    transform: none;
+  }
+  
+  /* Navigation row - below everything, scrollable */
+  .header-nav {
+    display: flex;
+    flex-direction: row;
+    gap: 4px !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    margin-top: 6px;
+    width: 100%;
+    scrollbar-width: none;
+    order: 3;
+    padding-bottom: 2px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+    padding: 4px 4vw 6px 4vw;
+  }
+  
+  .header-nav::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .header-nav a,
+  .header-nav span {
+    font-size: 12px !important;
+    padding: 5px 8px !important;
+    border-radius: 6px;
+    white-space: nowrap;
+    background: none;
+    color: #fff !important;
+    font-weight: 600;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  
+  .header-nav .active {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff !important;
+  }
+  
+  .header-nav a:hover,
+  .header-nav span:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff !important;
+  }
+}
+
+/* Prevent horizontal scroll on mobile */
+body, html {
+  overflow-x: hidden;
 }

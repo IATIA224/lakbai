@@ -580,24 +580,333 @@ textarea.itn-form-input {
   color: #fff;
 }
 
-/* Make form responsive for mobile */
-@media (max-width: 640px) {
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  /* Modal adjustments */
+  .itn-modal {
+    width: 95vw;
+    max-width: none;
+    max-height: 90vh;
+    margin: 8px;
+  }
+
+  .itn-modal-header {
+    padding: 16px 20px;
+  }
+
+  .itn-modal-title {
+    font-size: 16px;
+  }
+
+  /* Share modal grid - stack on mobile */
+  .itn-share-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+    height: auto;
+  }
+
+  .itn-share-column {
+    padding: 20px;
+    height: auto;
+    max-height: 40vh;
+  }
+
+  .itn-share-column:first-child {
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  .itn-share-heading {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .itn-share-list-container {
+    max-height: 25vh;
+  }
+
+  .itn-share-item {
+    padding: 10px 12px;
+    margin: 2px 0;
+  }
+
+  .itn-share-friend-avatar {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+  }
+
+  .itn-share-destination-name,
+  .itn-share-friend-name {
+    font-size: 14px;
+  }
+
+  .itn-share-destination-meta {
+    font-size: 12px;
+  }
+
+  /* Modal footer adjustments */
+  .itn-modal-footer {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+
+  .itn-selection-count {
+    text-align: center;
+    order: 1;
+  }
+
+  .itn-button-group {
+    width: 100%;
+    order: 2;
+  }
+
+  .itn-btn {
+    flex: 1;
+  }
+
+  /* Card adjustments for mobile */
+  .itn-card {
+    margin-bottom: 12px;
+  }
+
+  .itn-card-head {
+    padding: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .itn-card-title {
+    gap: 10px;
+  }
+
+  .itn-step {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+  }
+
+  .itn-name {
+    font-size: 15px;
+  }
+
+  .itn-sub {
+    font-size: 13px;
+  }
+
+  .itn-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .itn-actions .itn-btn {
+    flex: 1;
+    min-width: 70px;
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
+  .itn-badge {
+    order: -1;
+    margin-right: 0;
+    margin-bottom: 6px;
+  }
+
+  /* Stats grid - stack on mobile */
+  .itn-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+  }
+
+  .itn-stat {
+    padding: 12px;
+  }
+
+  .itn-stat-title {
+    font-size: 11px;
+  }
+
+  .itn-stat-body {
+    font-size: 13px;
+  }
+
+  .itn-muted {
+    font-size: 12px;
+  }
+
+  /* Shared group adjustments */
+  .itn-shared-group {
+    margin-top: 16px;
+  }
+
+  .itn-shared-header {
+    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .itn-shared-info {
+    align-self: flex-start;
+  }
+
+  .itn-shared-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .itn-shared-by {
+    font-size: 14px;
+  }
+
+  .itn-shared-date {
+    font-size: 11px;
+  }
+
+  /* Form adjustments */
+  .itn-form-grid {
+    gap: 16px;
+  }
+
   .itn-form-row {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  
-  .itn-shared-edit-modal {
-    width: 95%;
-    max-height: 95vh;
-  }
-  
+
   .itn-shared-edit-header,
   .itn-shared-edit-footer {
     padding: 16px 20px;
   }
-  
+
   .itn-shared-edit-body {
     padding: 20px;
+  }
+
+  .itn-shared-edit-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .itn-shared-edit-footer .itn-btn {
+    width: 100%;
+  }
+
+  /* Input adjustments */
+  .itn-input,
+  .itn-form-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 12px 14px;
+  }
+
+  /* Activities container */
+  .itn-activities-container {
+    min-height: 60px;
+    padding: 10px;
+  }
+
+  .itn-activity-item {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+
+  .itn-activity-remove {
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+  }
+
+  /* Search input */
+  .itn-share-search input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 10px 14px;
+  }
+
+  /* Empty states */
+  .itn-share-empty {
+    padding: 20px 15px;
+  }
+
+  .itn-empty-activities {
+    padding: 15px;
+    font-size: 13px;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .itn-modal {
+    width: 98vw;
+    max-height: 95vh;
+    margin: 4px;
+  }
+
+  .itn-modal-header {
+    padding: 14px 16px;
+  }
+
+  .itn-modal-title {
+    font-size: 15px;
+  }
+
+  .itn-share-column {
+    padding: 16px;
+  }
+
+  .itn-share-list-container {
+    max-height: 30vh;
+  }
+
+  .itn-share-item {
+    padding: 8px 10px;
+  }
+
+  .itn-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .itn-stat {
+    padding: 10px;
+  }
+
+  .itn-card-head {
+    padding: 10px;
+  }
+
+  .itn-actions .itn-btn {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+
+  .itn-shared-edit-body {
+    padding: 16px;
+  }
+
+  .itn-form-label {
+    font-size: 13px;
+  }
+
+  .itn-input,
+  .itn-form-input {
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+  .itn-share-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .itn-share-column:first-child {
+    border-right: 1px solid #eee;
+    border-bottom: none;
+  }
+
+  .itn-share-list-container {
+    max-height: 30vh;
   }
 }

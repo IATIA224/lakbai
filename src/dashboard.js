@@ -3,14 +3,68 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
 import './dashboardBanner.css';
-import DestinationCard from './components/DestinationCard';
-import useUserDashboardStats from './dashboard-stats-row';
+
+// DestinationCard Component - moved to top to avoid conflicts
+function DestinationCard({ 
+  id, 
+  name, 
+  region, 
+  rating, 
+  price, 
+  priceTier, 
+  description, 
+  tags, 
+  image, 
+  isBookmarked, 
+  onBookmarkClick, 
+  onDetails 
+}) {
+  return (
+    <div className="grid-card">
+      <div className="card-image" style={{ backgroundImage: `url(${image})` }}>
+        <div className="sun-decoration"></div>
+        <div className="wave-decoration"></div>
+        <button 
+          className={`bookmark-bubble ${isBookmarked ? 'active' : ''}`}
+          onClick={onBookmarkClick}
+          aria-label="Toggle bookmark"
+          title="Bookmark"
+        >
+          {isBookmarked ? '❤️' : '🤍'}
+        </button>
+      </div>
+      <div className="card-content">
+        <div className="card-header">
+          <h2>{name}</h2>
+          <div className="mini-rating">
+            ⭐ {rating}
+          </div>
+        </div>
+        <div className="bp2-region-line">{region}</div>
+        <p className="description">{description}</p>
+        <div className="tag-container">
+          {tags.map((tag, index) => (
+            <span key={index} className="tag">{tag}</span>
+          ))}
+        </div>
+        <div className="card-footer">
+          <span className={`pill ${priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
+            {price}
+          </span>
+          <button className="details-btn" onClick={onDetails}>
+            View Details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Dashboard({ setShowAIModal }) {
-  // Demo data for missing variables
-  const tripsPlannedCount = 2; // Example value
-  const avgRatingVal = 4.7; // Example value
-  const trips = [
+  const navigate = useNavigate();
+
+  // Sample trips and bookmarks (replace with Firestore fetch)
+  const [trips, setTrips] = useState([
     {
       id: 'trip1',
       title: 'Baguio Adventure',
@@ -29,8 +83,9 @@ function Dashboard({ setShowAIModal }) {
       places: 5,
       soon: false
     }
-  ];
-  const bookmarks = [
+  ]);
+
+  const [bookmarks, setBookmarks] = useState([
     {
       id: 'bm1',
       title: 'Chocolate Hills',
@@ -43,24 +98,27 @@ function Dashboard({ setShowAIModal }) {
       image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80',
       desc: 'Active volcano with a scenic lake.'
     }
-  ];
-  const navigate = useNavigate();
+  ]);
 
-  // Firestore-backed dashboard stats
-  const { loading: statsLoading, error: statsError, stats } = useUserDashboardStats();
-  const destinationsCount = stats?.destinations ?? 0;
-  const bookmarkedCount = stats?.bookmarked ?? 0;
+  // Mock dashboard stats (replace with actual useUserDashboardStats when available)
+  const statsLoading = false;
+  const statsError = null;
+  const destinationsCount = 25;
+  const bookmarkedCount = 8;
+  const tripsPlannedCount = 3;
+  const avgRatingVal = 4.2;
+
   // Demo: local state for bookmarks for personalized cards
   const [personalizedBookmarks, setPersonalizedBookmarks] = useState({});
+
+  // Modal state for personalized details
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
 
   // Handler for toggling bookmark for personalized cards
   const handlePersonalizedBookmark = (id) => {
     setPersonalizedBookmarks((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
-  // Modal state for personalized details
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState(null);
 
   // Handler for view details (open modal)
   const handlePersonalizedDetails = (card) => {
@@ -82,7 +140,7 @@ function Dashboard({ setShowAIModal }) {
       rating: 5.0,
       price: '₱1,800',
       priceTier: 'less',
-      description: 'Ancient rice terraces carved into mountains, often called the “Eighth Wonder of the World.”',
+      description: 'Ancient rice terraces carved into mountains, often called the "Eighth Wonder of the World."',
       tags: ['UNESCO', 'Cultural', 'Hiking'],
       image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
     },
@@ -112,6 +170,7 @@ function Dashboard({ setShowAIModal }) {
 
   return (
     <>
+      {/* Hero Banner */}
       <div
         className="dashboard-banner"
         style={{
@@ -129,6 +188,8 @@ function Dashboard({ setShowAIModal }) {
           Start Planning with AI
         </button>
       </div>
+
+      {/* Dashboard Stats */}
       <div className="dashboard-stats-row">
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number blue">
@@ -160,7 +221,12 @@ function Dashboard({ setShowAIModal }) {
       <div className="dashboard-preview-row">
         <div className="dashboard-preview-col">
           <div className="dashboard-preview-title">Your trips</div>
-          <button className="dashboard-preview-btn">+ Plan new trip</button>
+          <button 
+            className="dashboard-preview-btn"
+            onClick={() => navigate('/itinerary')}
+          >
+            + Plan new trip
+          </button>
           <div className="dashboard-preview-list">
             {trips && trips.map(trip => (
               <div className="dashboard-preview-trip" key={trip.id}>
@@ -170,7 +236,7 @@ function Dashboard({ setShowAIModal }) {
                   <div className="dashboard-preview-trip-title">{trip.title}</div>
                   <div className="dashboard-preview-trip-meta">
                     <img src={trip.user} alt="user" className="dashboard-preview-user" />
-                    <span>{trip.date} • {trip.places} place</span>
+                    <span>{trip.date} • {trip.places} place{trip.places !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
                 <span className="dashboard-preview-dots">⋯</span>
@@ -180,11 +246,16 @@ function Dashboard({ setShowAIModal }) {
         </div>
         <div className="dashboard-preview-col">
           <div className="dashboard-preview-title">Bookmarks</div>
-          <button className="dashboard-preview-btn">+ Add new bookmark</button>
+          <button 
+            className="dashboard-preview-btn"
+            onClick={() => navigate('/bookmarks')}
+          >
+            + Add new bookmark
+          </button>
           <div className="dashboard-preview-list">
             {bookmarks && bookmarks.length === 0 ? (
               <div className="dashboard-preview-empty">
-                You don’t have any bookmarks yet. <span style={{ color: "#e74c3c" }}>Add a new bookmark.</span>
+                You don't have any bookmarks yet. <span style={{ color: "#e74c3c" }}>Add a new bookmark.</span>
               </div>
             ) : (
               bookmarks && bookmarks.map(bm => (
@@ -201,6 +272,8 @@ function Dashboard({ setShowAIModal }) {
           </div>
         </div>
       </div>
+
+      {/* Personalized Section */}
       <div className="personalized-section-dashboard">
         <div className="personalized-title">Personalized for You</div>
         <div className="personalized-cards-grid">
@@ -216,7 +289,7 @@ function Dashboard({ setShowAIModal }) {
         </div>
       </div>
 
-      {/* Details Modal for Personalized Cards (accurate structure from image) */}
+      {/* Details Modal for Personalized Cards */}
       {detailsModalOpen && selectedCard && (
         <div
           className="modal-overlay active"
@@ -228,7 +301,6 @@ function Dashboard({ setShowAIModal }) {
             </button>
             <div className="details-hero">
               <div className="details-hero-art">
-                {/* Decorative hero art, can be replaced with an image or SVG if needed */}
                 <div className="hero-art-bg">
                   <div className="hero-green-bar" />
                   <div className="hero-blue-bar" />
@@ -252,8 +324,11 @@ function Dashboard({ setShowAIModal }) {
                   </div>
                 </div>
                 <div className="details-actions">
-                  <button className="btn-outline active">
-                    <span>❤️</span> Bookmarked
+                  <button 
+                    className={`btn-outline ${personalizedBookmarks[selectedCard.id] ? 'active' : ''}`}
+                    onClick={() => handlePersonalizedBookmark(selectedCard.id)}
+                  >
+                    <span>❤️</span> {personalizedBookmarks[selectedCard.id] ? 'Bookmarked' : 'Bookmark'}
                   </button>
                   <button className="btn-green">
                     <span>＋</span> Add to Trip
@@ -279,7 +354,9 @@ function Dashboard({ setShowAIModal }) {
                   <div className="trip-title">Trip Information</div>
                   <div className="trip-item">
                     <div className="trip-label">Price</div>
-                    <span className={`pill small ${selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>{selectedCard.price}</span>
+                    <span className={`pill small ${selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
+                      {selectedCard.price}
+                    </span>
                   </div>
                   <div className="trip-item">
                     <div className="trip-label">Best Time to Visit</div>
@@ -288,7 +365,6 @@ function Dashboard({ setShowAIModal }) {
                   <div className="trip-item">
                     <div className="trip-label">Categories</div>
                     <div className="badge-row">
-                      {/* Hardcoded for demo, you can add categories to personalizedCards if needed */}
                       <span className="badge purple">Mountains</span>
                       <span className="badge purple">Cultural</span>
                     </div>
