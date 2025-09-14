@@ -960,3 +960,402 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 @keyframes lb-plane-flight { 0%{ offset-distance:0%; } 100%{ offset-distance:100%; } }
 @keyframes lb-plane-bob { 0%,100%{ transform: translate(-50%,-50%) } 50%{ transform: translate(-50%,-52%) } }
 @keyframes lb-progress-move { 0%{ transform: translateX(-110%); width:24%; } 50%{ transform: translateX(10%); width:64%; } 100%{ transform: translateX(120%); width:24%; } }
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .App {
+    padding: 12px 6px; /* Reduced padding */
+    background-color: #f7f8fa;
+  }
+
+  /* Page layout - proper order: title, filters, content */
+  .bp2-page-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Reduced gap */
+    padding: 8px; /* Reduced padding */
+  }
+
+  /* Title section - first */
+  .bp2-header-row {
+    order: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px; /* Reduced gap */
+    padding: 4px 0 6px;
+  }
+
+  .bp2-title {
+    font-size: 1.3rem; /* Reduced size */
+    margin: 0;
+    color: #1e293b;
+    font-weight: 800;
+  }
+
+  .bp2-sort {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .bp2-sort-select {
+    height: 32px; /* Smaller height */
+    font-size: 13px; /* Smaller font */
+    min-width: 120px; /* Smaller width */
+  }
+
+  /* Filters section - second (between title and destinations) */
+  .bp2-filters {
+    order: 2;
+    position: static;
+    width: 100%;
+    padding: 12px; /* Reduced padding */
+    border-radius: 10px; /* Smaller radius */
+    background: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); /* Lighter shadow */
+    border: 1px solid #e2e8f0;
+    margin: 0;
+  }
+
+  /* Content section - third */
+  .bp2-content {
+    order: 3;
+  }
+
+  /* Grid - 1 column on mobile with proper spacing */
+  .grid-container {
+    grid-template-columns: 1fr;
+    gap: 12px; /* Smaller gap to prevent overlap */
+    margin: 0;
+    width: 100%;
+    padding: 0 4px; /* Add padding to prevent edge overlap */
+  }
+
+  .grid-card {
+    min-width: unset;
+    max-width: 100%;
+    width: 100%;
+    margin: 0 auto;
+    height: auto;
+    min-height: 240px; /* Reduced height */
+    position: relative;
+    border-radius: 10px; /* Smaller radius */
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); /* Lighter shadow */
+  }
+
+  /* Card image adjustments - smaller for better spacing */
+  .card-image {
+    height: 120px; /* Reduced height */
+    position: relative;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    overflow: hidden;
+  }
+
+  /* Heart button - smaller and repositioned */
+  .heart-btn {
+    position: absolute;
+    top: 8px; /* Closer to edge */
+    right: 8px; /* Closer to edge */
+    width: 28px; /* Smaller size */
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ef4444;
+    font-size: 14px; /* Smaller icon */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); /* Lighter shadow */
+  }
+
+  .heart-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.05); /* Smaller scale */
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .heart-btn.bookmarked {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+  }
+
+  .heart-btn.bookmarked:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+  }
+
+  /* Remove conflicting styles */
+  .bookmark-bubble {
+    display: none !important;
+  }
+
+  .sun-decoration {
+    width: 20px; /* Smaller */
+    height: 20px;
+    top: 8px;
+    left: 8px;
+  }
+
+  .wave-decoration {
+    height: 16px; /* Smaller */
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+
+  /* Card content adjustments - more compact */
+  .card-header {
+    padding: 12px 14px 4px 14px; /* Reduced padding */
+    gap: 8px;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .card-header h2 {
+    font-size: 1rem; /* Smaller text */
+    line-height: 1.2;
+    margin: 0;
+    flex: 1;
+  }
+
+  .mini-rating {
+    font-size: 0.8rem;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .bp2-region-line {
+    margin: -2px 14px 6px 14px; /* Adjusted margins */
+    font-size: 0.75rem;
+    color: #2563eb;
+  }
+
+  .description {
+    font-size: 0.75rem;
+    margin: 4px 12px 6px 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Reduced lines to save space */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    /* Add standard property for better compatibility */
+    line-clamp: 2;
+  }
+
+  /* Tags - more compact */
+  .tag-container {
+    margin: 6px 14px 8px 14px; /* Reduced margins */
+    gap: 4px;
+  }
+
+  .tag {
+    font-size: 0.65rem; /* Smaller text */
+    padding: 3px 6px; /* Smaller padding */
+    display: inline-block;
+  }
+
+  /* Show only first 3 tags to save space */
+  .tag:nth-child(n+4) {
+    display: none;
+  }
+
+  /* Card footer adjustments - more compact */
+  .card-footer {
+    padding: 0 14px 12px; /* Reduced padding */
+    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .pill-green,
+  .pill-gray {
+    padding: 4px 8px; /* Smaller padding */
+    font-size: 0.7rem; /* Smaller text */
+    border-radius: 6px; /* Smaller radius */
+  }
+
+  /* Much smaller button */
+  .details-btn {
+    flex: 0 0 auto;
+    padding: 6px 12px; /* Much smaller padding */
+    font-size: 0.75rem; /* Smaller text */
+    border-radius: 6px; /* Smaller radius */
+    margin: 0;
+    min-width: auto; /* Remove min-width constraints */
+    height: auto; /* Remove height constraints */
+  }
+
+  /* Filter styling - more compact */
+  .bp2-filters-header {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    text-align: left;
+    color: #1e293b;
+    font-weight: 700;
+  }
+
+  /* More compact horizontal filter layout */
+  .bp2-filter-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .bp2-filter-group {
+    flex: 1;
+    min-width: 100px;
+    margin-bottom: 0;
+  }
+
+  .bp2-filter-group:last-child {
+    flex: 0 0 auto;
+  }
+
+  .bp2-label {
+    font-size: 0.75rem;
+    margin-bottom: 3px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .bp2-input,
+  .bp2-select {
+    height: 32px; /* Smaller height */
+    font-size: 12px; /* Smaller font */
+    padding: 0 8px; /* Smaller padding */
+    width: 100%;
+    border-radius: 5px; /* Smaller radius */
+    border: 1px solid #d1d5db;
+  }
+
+  .bp2-group-title {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .bp2-checklist {
+    max-height: 80px; /* Smaller height */
+    overflow-y: auto;
+  }
+
+  .bp2-check,
+  .bp2-radio {
+    font-size: 0.75rem;
+    margin: 2px 0;
+  }
+
+  .bp2-clear-btn {
+    height: 32px; /* Smaller height */
+    font-size: 0.75rem; /* Smaller text */
+    border-radius: 5px;
+    padding: 0 12px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .bp2-clear-btn:hover {
+    background: #dc2626;
+  }
+
+  /* Pagination adjustments */
+  .bp2-pager {
+    margin: 16px 0 12px; /* Smaller margins */
+    text-align: center;
+  }
+
+  /* Pagination buttons - smaller */
+  .next-page-btn {
+    padding: 6px 12px; /* Smaller padding */
+    font-size: 0.75rem; /* Smaller text */
+    border-radius: 6px; /* Smaller radius */
+  }
+
+  .next-page-btn span {
+    padding: 3px 6px; /* Smaller padding */
+    font-size: 0.75rem; /* Smaller text */
+  }
+
+  /* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .App {
+    padding: 8px 4px; /* Even smaller padding */
+  }
+
+  .bp2-page-layout {
+    padding: 6px;
+    gap: 8px;
+  }
+
+  .bp2-title {
+    font-size: 1.2rem; /* Even smaller */
+  }
+
+  .grid-container {
+    gap: 8px; /* Smaller gap */
+    padding: 0 2px; /* Minimal padding */
+  }
+
+  .grid-card {
+    min-height: 220px; /* Smaller height */
+  }
+
+  .card-image {
+    height: 100px; /* Smaller image */
+  }
+
+  .card-header {
+    padding: 10px 12px 3px 12px;
+  }
+
+  .card-header h2 {
+    font-size: 0.9rem; /* Even smaller */
+  }
+
+  .description {
+    font-size: 0.75rem;
+    margin: 4px 12px 6px 12px;
+  }
+
+  .details-btn {
+    padding: 5px 10px; /* Very small button */
+    font-size: 0.7rem; /* Very small text */
+  }
+
+  .pill-green,
+  .pill-gray {
+    padding: 3px 6px; /* Very small padding */
+    font-size: 0.65rem; /* Very small text */
+  }
+
+  /* Heart button - even smaller */
+  .heart-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    top: 6px;
+    right: 6px;
+  }
+
+  .sun-decoration {
+    width: 16px;
+    height: 16px;
+    top: 6px;
+    left: 6px;
+  }
+}
+}

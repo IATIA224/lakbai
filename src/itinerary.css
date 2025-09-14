@@ -305,3 +305,251 @@
   color: var(--brand-primary);
   font-size: 16px;
 }
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .itn-page { 
+    padding: 0 8px 24px 8px; 
+  }
+
+  .itn-hero {
+    margin: 8px 0;
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+  
+  .itn-hero-title { 
+    font-size: 24px; 
+    line-height: 1.2;
+  }
+  
+  .itn-hero-sub { 
+    font-size: 14px; 
+    margin-top: 4px;
+  }
+  
+  .itn-hero-actions { 
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  
+  .itn-hero-actions .itn-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Stack layout on mobile */
+  .itn-grid-main {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 16px 0 0;
+  }
+  
+  .itn-left {
+    order: 2; /* Move search to bottom on mobile */
+  }
+  
+  .itn-right {
+    order: 1; /* Move itinerary to top on mobile */
+  }
+
+  .itn-left .itn-panel, 
+  .itn-right .itn-panel {
+    padding: 12px;
+    border-radius: 12px;
+  }
+  
+  .itn-panel-title { 
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  /* Search section adjustments */
+  .itn-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .itn-row .itn-btn {
+    width: 100%;
+  }
+
+  .itn-map { 
+    height: 200px;
+    margin-top: 8px;
+  }
+
+  /* Card adjustments */
+  .itn-card {
+    padding: 12px;
+    margin-top: 12px;
+  }
+  
+  .itn-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .itn-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .itn-actions .itn-btn {
+    flex: 1;
+    min-width: 80px;
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  /* Stats grid - 2 columns on mobile */
+  .itn-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .itn-stat {
+    padding: 8px;
+  }
+  
+  .itn-stat-title {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  /* Head actions */
+  .itn-head-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .itn-head-actions .itn-btn {
+    width: 100%;
+  }
+
+  /* Tabs */
+  .itn-tabs {
+    margin: 0 8px;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  
+  .itn-tab {
+    padding: 10px 16px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Modal adjustments */
+  .itn-modal {
+    width: 95vw;
+    max-height: 85vh;
+    margin: 8px;
+  }
+  
+  .itn-modal-header {
+    padding: 16px;
+  }
+  
+  .itn-modal-title {
+    font-size: 16px;
+  }
+  
+  .itn-modal-body {
+    padding: 16px;
+  }
+
+  /* Form adjustments */
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .itn-grid, .itn-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  /* Results */
+  .itn-result {
+    padding: 12px;
+  }
+  
+  .itn-result-title {
+    font-size: 14px;
+  }
+  
+  .itn-result-coords {
+    font-size: 12px;
+  }
+
+  /* Empty state */
+  .itn-empty {
+    padding: 32px 10px;
+  }
+  
+  .itn-empty-icon {
+    font-size: 36px;
+  }
+  
+  .itn-empty-title {
+    font-size: 16px;
+  }
+
+  /* Shared itinerary adjustments */
+  .itn-shared-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .itn-shared-info {
+    width: 100%;
+  }
+  
+  .itn-actions {
+    width: 100%;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .itn-hero-title { 
+    font-size: 20px; 
+  }
+  
+  .itn-step {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .itn-name {
+    font-size: 14px;
+  }
+  
+  .itn-stats {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  
+  .itn-card-title {
+    gap: 8px;
+  }
+  
+  .itn-actions .itn-btn {
+    font-size: 11px;
+    padding: 5px 6px;
+  }
+  
+  .itn-modal {
+    width: 98vw;
+    max-height: 90vh;
+    margin: 4px;
+  }
+}

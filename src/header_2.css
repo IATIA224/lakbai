@@ -1,63 +1,84 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-.header2-sticky {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  width: 100%;
-  background: linear-gradient(90deg, #7b8fff 0%, #7b5fff 100%);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 32px;
-  box-sizing: border-box;
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+/* keep header height fixed at 75px on all viewports */
+:root {
+  --header2-height: 75px;
 }
 
+/* header sits fixed at top and uses the original desktop layout */
+.header2-sticky {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header2-height);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  z-index: 99999 !important;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  border-top: none !important;
+  box-sizing: border-box;
+}
+
+/* push page content down so header does not overlap */
+body > #root,
+main,
+.app,
+.page,
+.page-content {
+  padding-top: var(--header2-height) !important;
+}
+
+/* desktop / default positioning: logo + title left, actions right */
 .header2-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .header2-logo {
   width: 32px;
   height: 32px;
-  margin-right: 6px;
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .header2-title {
-  font-size: 1.3rem;
-  font-weight: bold;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: #fff;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  margin-right: 8px;
+  white-space: nowrap;
 }
 
 .header2-subtitle {
-  color: #e6e6fa;
-  font-size: 0.98rem;
+  color: rgba(230,230,250,0.9);
+  font-size: 0.95rem;
+  margin-left: 8px;
   font-weight: 500;
-  margin-left: 2px;
+  white-space: nowrap;
 }
 
+/* actions aligned to the right */
 .header2-right {
   display: flex;
   align-items: center;
   gap: 14px;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
+/* keep buttons compact and consistent */
 .header2-signin {
   color: #fff;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 500;
-  opacity: 0.85;
-  transition: opacity 0.2s;
-}
-
-.header2-signin:hover {
-  opacity: 1;
+  opacity: 0.95;
+  padding: 6px 8px;
 }
 
 .header2-getstarted {
@@ -74,4 +95,93 @@
 
 .header2-getstarted:hover {
   background: rgba(255,255,255,0.25);
+}
+
+/* ...existing code... */
+
+@media (max-width: 600px) {
+  /* compact stacked header for small screens */
+  .header2-sticky {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding: 10px 12px;
+    gap: 8px;
+    box-sizing: border-box;
+    background: linear-gradient(90deg, #7b8fff 0%, #7b5fff 100%);
+  }
+
+  /* top row: logo + title; keep them left aligned and compact */
+  .header2-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    order: 1;
+    justify-content: flex-start;
+  }
+  .header2-logo {
+    width: 28px;
+    height: 28px;
+    margin-right: 6px;
+  }
+  .header2-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-right: 6px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header2-subtitle {
+    font-size: 0.86rem;
+    color: rgba(230,230,250,0.9);
+    margin-left: 0;
+    opacity: 0.95;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* right row: signin/getstarted compact and aligned right */
+  .header2-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    order: 2;
+    justify-content: flex-end;
+  }
+  .header2-signin {
+    font-size: 0.95rem;
+    padding: 6px 8px;
+    opacity: 0.95;
+  }
+  .header2-getstarted {
+    padding: 6px 10px;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.14);
+  }
+
+  /* keep header compact if viewport very narrow */
+  .header2-sticky .header2-left,
+  .header2-sticky .header2-right {
+    min-height: 36px;
+  }
+
+  /* make nav / other wide elements safe (avoid overflow) */
+  .header2-sticky * {
+    box-sizing: border-box;
+  }
+
+  /* Slightly larger header on very small screens to keep coverage */
+  :root { --header2-height: 116px; } /* small increase for mobile */
+  .header2-sticky { height: var(--header2-height); }
+  body > #root,
+  main,
+  .app,
+  .page,
+  .page-content { padding-top: var(--header2-height) !important; }
 }
