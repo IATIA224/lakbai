@@ -4,7 +4,6 @@ import { db, auth } from './firebase';
 import { useNavigate } from 'react-router-dom';
 import { unlockAchievement } from './profile';
 import {
-  addDoc,
   collection,
   serverTimestamp,
   setDoc,
@@ -12,7 +11,6 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
-  updateDoc,
   query as fsQuery,
   where as fsWhere,
   arrayUnion,
@@ -20,94 +18,6 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
-
-const initialDestinations = [
-  {
-    id: 'boracay',
-    name: 'Boracay Island',
-    region: 'Region VI - Western Visayas',
-    rating: 4.8,
-    price: '₱3,500',
-    priceTier: 'expensive',
-    description:
-      'World-famous white sand beach destination with crystal clear waters and vibrant nightlife. Perfect for water sports, beach relaxation, and island hopping adventures.',
-    tags: ['Beach', 'Water Sports', 'Nightlife', 'Island Hopping'],
-    categories: ['Beaches', 'Islands', 'Tourist'],
-    bestTime: 'November to April',
-  },
-  {
-    id: 'banaue',
-    name: 'Banaue Rice Terraces',
-    region: 'CAR - Cordillera Administrative Region',
-    rating: 4.7,
-    price: '₱1,800',
-    priceTier: 'less',
-    description:
-      'Ancient rice terraces carved into mountains, often called the “Eighth Wonder of the World.”',
-    tags: ['UNESCO', 'Cultural', 'Hiking'],
-    categories: ['Mountains', 'Cultural'],
-    bestTime: 'December to May',
-  },
-  {
-    id: 'palawan-underground',
-    name: 'Palawan Underground River',
-    region: 'Region IV-B - MIMAROPA',
-    rating: 4.6,
-    price: '₱2,500',
-    priceTier: 'expensive',
-    description:
-      'Subterranean river flowing through a spectacular limestone karst landscape.',
-    tags: ['UNESCO', 'Cave', 'Boat Tour'],
-    categories: ['Caves', 'Islands'],
-    bestTime: 'November to May',
-  },
-  {
-    id: 'mayon',
-    name: 'Mayon Volcano',
-    region: 'Region V - Bicol Region',
-    rating: 4.5,
-    price: '₱1,200',
-    priceTier: 'less',
-    description:
-      'Perfect cone-shaped active volcano, considered the most beautiful volcano in the Philippines.',
-    tags: ['Volcano', 'Hiking', 'Photography'],
-    categories: ['Mountains', 'Parks'],
-    bestTime: 'February to April',
-  },
-  {
-    id: 'chocolate-hills',
-    name: 'Chocolate Hills',
-    region: 'Region VII - Central Visayas',
-    rating: 4.4,
-    price: '₱1,300',
-    priceTier: 'less',
-    description:
-      'Unique geological formation of over 1,200 hills that turn chocolate brown in dry season.',
-    tags: ['Geological Wonder', 'View', 'Photography'],
-    categories: ['Landmarks', 'Natural'],
-    bestTime: 'December to May',
-  },
-  {
-    id: 'intramuros',
-    name: 'Intramuros',
-    region: 'NCR - National Capital Region',
-    rating: 4.3,
-    price: '₱800',
-    priceTier: 'less',
-    description:
-      'Historic walled city built during Spanish colonial period. Features museums, churches, and cobbled streets.',
-    tags: ['Historical', 'Colonial', 'Museums'],
-    categories: ['Historical', 'Museums'],
-    bestTime: 'All year',
-  },
-  // Add more items to approach “12 destinations” UI
-  { id: 'el-nido', name: 'El Nido', region: 'Region IV-B - MIMAROPA', rating: 4.8, price: '₱3,200', priceTier: 'expensive', description: 'Dramatic limestone cliffs and turquoise lagoons.', tags: ['Islands', 'Snorkeling', 'Boat Tour'], categories: ['Islands'], bestTime: 'November to May' },
-  { id: 'siargao', name: 'Siargao', region: 'CARAGA - Region XIII', rating: 4.7, price: '₱2,200', priceTier: 'expensive', description: 'Surfing capital with laid-back island vibes.', tags: ['Surfing', 'Beach'], categories: ['Beaches', 'Parks'], bestTime: 'March to October' },
-  { id: 'vigan', name: 'Vigan', region: 'Region I - Ilocos Region', rating: 4.5, price: '₱1,500', priceTier: 'less', description: 'Well-preserved Spanish colonial town.', tags: ['UNESCO', 'Cultural'], categories: ['Historical', 'Cultural'], bestTime: 'December to March' },
-  { id: 'puerto-galera', name: 'Puerto Galera', region: 'Region IV-B - MIMAROPA', rating: 4.2, price: '₱1,600', priceTier: 'less', description: 'Diving spots and beaches close to Manila.', tags: ['Diving', 'Beach'], categories: ['Beaches'], bestTime: 'November to May' },
-  { id: 'pagudpud', name: 'Pagudpud', region: 'Region I - Ilocos Region', rating: 4.4, price: '₱1,400', priceTier: 'less', description: 'Northern white-sand beaches and windmills.', tags: ['Beach', 'View'], categories: ['Beaches'], bestTime: 'December to April' },
-  { id: 'bohol', name: 'Bohol Countryside', region: 'Region VII - Central Visayas', rating: 4.6, price: '₱1,900', priceTier: 'less', description: 'Countryside tour with tarsiers and rivers.', tags: ['River Cruise', 'Wildlife'], categories: ['Natural'], bestTime: 'November to May' },
-];
 
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
@@ -162,87 +72,59 @@ export default function Bookmarks2() {
       }
     );
     return () => unsub();
-  }, []);
+  }, [setCurrentUser]);
 
   // 2) Listen to auth and the current user's bookmarks
   useEffect(() => {
     let unsubUserDoc = null;
-    const unsubAuth = auth.onAuthStateChanged(async (user) => {
-      setCurrentUser(user || null);
-      if (user) {
-        const userRef = doc(db, 'userBookmarks', user.uid);
+    // Ensure unsubAuth is always a function, even if onAuthStateChanged is mocked or missing
+    const unsubAuth = typeof auth.onAuthStateChanged === 'function'
+      ? auth.onAuthStateChanged(async (user) => {
+          setCurrentUser(user || null);
+          if (user) {
+            const userRef = doc(db, 'userBookmarks', user.uid);
 
-        try {
-          const snap = await getDoc(userRef);
-          if (!snap.exists()) {
-            await setDoc(
+            try {
+              const snap = await getDoc(userRef);
+              if (!snap.exists()) {
+                await setDoc(
+                  userRef,
+                  {
+                    userId: user.uid,
+                    bookmarks: [],
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                  },
+                  { merge: true }
+                );
+              }
+            } catch (e) {
+              console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
+            }
+
+            unsubUserDoc = onSnapshot(
               userRef,
-              {
-                userId: user.uid,                      // <- add this to satisfy rules
-                bookmarks: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
+              (s) => {
+                const ids = (s.exists() ? s.data().bookmarks : []) || [];
+                setBookmarks(new Set(ids));
               },
-              { merge: true }
+              (err) => {
+                console.warn('userBookmarks listener error:', err.code || err.message);
+                setBookmarks(new Set());
+              }
             );
+          } else {
+            setBookmarks(new Set());
+            if (unsubUserDoc) unsubUserDoc();
           }
-        } catch (e) {
-          console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
-        }
+        })
+      : () => {}; // fallback no-op if not a function
 
-        // Subscribe with error handler (avoid crashing on permission-denied)
-        unsubUserDoc = onSnapshot(
-          userRef,
-          (s) => {
-            const ids = (s.exists() ? s.data().bookmarks : []) || [];
-            setBookmarks(new Set(ids));
-          },
-          (err) => {
-            console.warn('userBookmarks listener error:', err.code || err.message);
-            setBookmarks(new Set()); // fallback to empty set
-          }
-        );
-
-        try {
-          const snap = await getDoc(userRef);
-          if (!snap.exists()) {
-            await setDoc(
-              userRef,
-              {
-                userId: user.uid,                      // <- add this to satisfy rules
-                bookmarks: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-          }
-        } catch (e) {
-          console.warn('userBookmarks bootstrap skipped:', e.code || e.message);
-        }
-
-        // Subscribe with error handler (avoid crashing on permission-denied)
-        unsubUserDoc = onSnapshot(
-          userRef,
-          (s) => {
-            const ids = (s.exists() ? s.data().bookmarks : []) || [];
-            setBookmarks(new Set(ids));
-          },
-          (err) => {
-            console.warn('userBookmarks listener error:', err.code || err.message);
-            setBookmarks(new Set()); // fallback to empty set
-          }
-        );
-      } else {
-        setBookmarks(new Set());
-        if (unsubUserDoc) unsubUserDoc();
-      }
-    });
     return () => {
       if (unsubUserDoc) unsubUserDoc();
-      unsubAuth();
+      if (typeof unsubAuth === 'function') unsubAuth();
     };
-  }, []);
+  }, [setCurrentUser]);
 
   // Regions/Categories derived from Firestore data
   const regions = useMemo(
@@ -413,20 +295,6 @@ export default function Bookmarks2() {
               console.warn('ratings read skipped for', d.id, err.code || err.message);
               return [d.id, { avg: 0, count: 0 }];
             }
-            try {
-              const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
-              let sum = 0, count = 0;
-              rsnap.forEach((r) => {
-                const v = Number(r.data()?.value) || 0;
-                if (v > 0) { sum += v; count += 1; }
-              });
-              const avg = count ? sum / count : 0;
-              return [d.id, { avg, count }];
-            } catch (err) {
-              // Permission denied -> treat as no ratings
-              console.warn('ratings read skipped for', d.id, err.code || err.message);
-              return [d.id, { avg: 0, count: 0 }];
-            }
           })
         );
         if (!cancelled) setRatingsByDest((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
@@ -536,6 +404,19 @@ export default function Bookmarks2() {
       const ref = doc(db, 'destinations', String(selected.id), 'ratings', u.uid);
       await setDoc(ref, { value: v, userId: u.uid, updatedAt: serverTimestamp() }, { merge: true });
       setUserRating(v);
+
+      // --- NEW: Write user's rating to users/{uid}/ratings/{destId} ---
+      const userRatingRef = doc(db, 'users', u.uid, 'ratings', String(selected.id));
+      await setDoc(
+        userRatingRef,
+        {
+          destId: String(selected.id),
+          value: v,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      // --- END NEW ---
 
       // Recompute average
       const rsnap = await getDocs(collection(db, 'destinations', String(selected.id), 'ratings'));
@@ -869,7 +750,7 @@ export default function Bookmarks2() {
               <div className="details-head-row">
                 <div className="details-title-col">
                   <h2 className="details-title">{selected.name}</h2>
-                  <a href="#" className="details-region" onClick={(e) => e.preventDefault()}>
+                  <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
                     {selected.region}
                   </a>
 

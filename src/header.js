@@ -81,8 +81,6 @@ const StickyHeader = ({ setShowAIModal }) => {
 							}`}
 							style={{
 								cursor: "pointer",
-								borderBottom:
-									activeTab === tab.label ? "3px solid #2962ff" : "none",
 								color: activeTab === tab.label ? "#2962ff" : "inherit",
 								paddingBottom: "4px",
 								marginRight: "18px",
