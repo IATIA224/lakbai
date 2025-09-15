@@ -222,76 +222,75 @@ function Dashboard({ setShowAIModal }) {
           className="modal-overlay active"
           onClick={(e) => e.target.classList.contains('modal-overlay') && closeDetailsModal()}
         >
-          <div className="modal-content details-modal" style={{ maxWidth: 600, width: '90%', borderRadius: 16, overflow: 'hidden', background: '#fff', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-            <button className="modal-close-floating" onClick={closeDetailsModal} aria-label="Close" style={{ position: 'absolute', top: 18, right: 18, fontSize: 24, background: 'none', border: 'none', cursor: 'pointer', zIndex: 2 }}>
+          <div className="modal-content details-modal">
+            <button className="modal-close-floating" onClick={closeDetailsModal} aria-label="Close">
               ✕
             </button>
-            <div className="details-hero" style={{ background: '#f3f7fd', padding: '32px 0 0 0', borderBottom: '1px solid #e5e7eb', minHeight: 90 }}>
-              <div className="details-hero-art" style={{ width: '100%', height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                <div style={{ width: '80%', maxWidth: 320, height: 80, background: 'linear-gradient(180deg,#aee2ff 60%,#6ec1e4 100%)', borderRadius: 24, position: 'relative', overflow: 'hidden', margin: '0 auto' }}>
-                  <div style={{ position: 'absolute', top: 24, left: '12%', width: '76%', height: 6, background: '#22c55e', borderRadius: 3 }} />
-                  <div style={{ position: 'absolute', bottom: 18, left: '12%', width: '76%', height: 18, background: '#4f9cf9', borderRadius: 9 }} />
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: 10, background: '#fcd34d', borderRadius: '0 0 24px 24px' }} />
+            <div className="details-hero">
+              <div className="details-hero-art">
+                {/* Decorative hero art, can be replaced with an image or SVG if needed */}
+                <div className="hero-art-bg">
+                  <div className="hero-green-bar" />
+                  <div className="hero-blue-bar" />
+                  <div className="hero-yellow-bar" />
                 </div>
               </div>
             </div>
-            <div className="details-body" style={{ padding: '0 24px 24px 24px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div className="details-head-row" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 0 }}>
-                <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'space-between', minWidth: 0 }}>
-                  <div className="details-title-col" style={{ minWidth: 220 }}>
-                    <h2 className="details-title" style={{ fontSize: 26, fontWeight: 700, margin: '20px 0 0 0', lineHeight: 1.2 }}>{selectedCard.name}</h2>
-                    <a href="#" className="details-region" style={{ color: '#2563eb', fontWeight: 500, fontSize: 15, textDecoration: 'underline', marginBottom: 8, display: 'inline-block' }} onClick={(e) => e.preventDefault()}>
-                      {selectedCard.region}
-                    </a>
-                    <div className="details-rating-row" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 0 0', fontSize: 15, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 18 }}>⭐</span>
-                      <span style={{ fontWeight: 600 }}>{selectedCard.rating}</span>
-                      <span style={{ color: '#6b7280', marginLeft: 6 }}>(Average Rating)</span>
-                      <span style={{ color: '#6b7280', marginLeft: 18 }}>Your Rating:</span>
-                      <span style={{ color: '#e5e7eb', fontSize: 18, marginLeft: 6 }}>★ ★ ★ ★ ★</span>
-                    </div>
-                  </div>
-                  <div className="details-actions" style={{ display: 'flex', gap: 10, marginLeft: 32, alignItems: 'center' }}>
-                    <button className="btn-outline active" style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#b91c1c', fontWeight: 500, fontSize: 13, borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, width: '107px', height: '51px' }}>
-                      <span style={{ fontSize: 18 }}>❤️</span> Bookmarked
-                    </button>
-                    <button className="btn-green" style={{ background: '#d1fae5', border: '1px solid #a7f3d0', color: '#059669', fontWeight: 500, fontSize: 13, borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, width: '107px', height: '51px'}}>
-                      <span style={{ fontSize: 18 }}>＋</span> Add to Trip
-                    </button>
+            <div className="details-body">
+              <div className="details-head-row">
+                <div className="details-title-col">
+                  <h2 className="details-title">{selectedCard.name}</h2>
+                  <a href="#" className="details-region" onClick={(e) => e.preventDefault()}>
+                    {selectedCard.region}
+                  </a>
+                  <div className="details-rating-row">
+                    <span>⭐</span>
+                    <span>{selectedCard.rating}</span>
+                    <span className="muted">(Average Rating)</span>
+                    <span className="sep">Your Rating:</span>
+                    <span className="your-stars">★ ★ ★ ★ ★</span>
                   </div>
                 </div>
+                <div className="details-actions">
+                  <button className="btn-outline active">
+                    <span>❤️</span> Bookmarked
+                  </button>
+                  <button className="btn-green">
+                    <span>＋</span> Add to Trip
+                  </button>
+                </div>
               </div>
-              <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, marginTop: 24, alignItems: 'start' }}>
-                <div className="details-left" style={{ minWidth: 0 }}>
-                  <div className="section-title" style={{ fontWeight: 700, marginBottom: 8 }}>Description</div>
-                  <p className="details-paragraph" style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 16 }}>{selectedCard.description}</p>
-                  <div className="section-title" style={{ fontWeight: 700, marginBottom: 8 }}>Tags</div>
-                  <div className="badge-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div className="details-grid">
+                <div className="details-left">
+                  <div className="section-title">Description</div>
+                  <p className="details-paragraph">{selectedCard.description}</p>
+                  <div className="section-title">Tags</div>
+                  <div className="badge-row">
                     {(selectedCard.tags || []).map((t, i) => (
-                      <span key={i} className="badge" style={{ background: '#e0e7ef', color: '#2563eb', borderRadius: 8, padding: '4px 12px', fontSize: 14, fontWeight: 500 }}>{t}</span>
+                      <span key={i} className="badge">{t}</span>
                     ))}
                   </div>
-                  <div className="section-title" style={{ fontWeight: 700, marginBottom: 8 }}>Packing Suggestions</div>
-                  <div className="packing-box" style={{ background: '#f3f4f6', borderRadius: 8, padding: '10px 14px', color: '#374151', fontSize: 14, fontWeight: 400 }}>
+                  <div className="section-title">Packing Suggestions</div>
+                  <div className="packing-box">
                     Swimwear, sunscreen, light clothing, waterproof bag, snorkeling gear
                   </div>
                 </div>
-                <aside className="trip-info-box" style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 14px', minWidth: 140 }}>
-                  <div className="trip-title" style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>Trip Information</div>
-                  <div className="trip-item" style={{ marginBottom: 14 }}>
-                    <div className="trip-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 6 }}>Price</div>
-                    <span className={`pill small ${selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`} style={{ background: selectedCard.priceTier === 'less' ? '#bbf7d0' : '#e5e7eb', color: selectedCard.priceTier === 'less' ? '#059669' : '#6b7280', borderRadius: 8, padding: '4px 10px', fontWeight: 500, fontSize: 14 }}>{selectedCard.price}</span>
-                  </div>
-                  <div className="trip-item" style={{ marginBottom: 14 }}>
-                    <div className="trip-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 6 }}>Best Time to Visit</div>
-                    <div className="trip-text" style={{ color: '#475569', fontSize: 14 }}>December to May</div>
+                <aside className="trip-info-box">
+                  <div className="trip-title">Trip Information</div>
+                  <div className="trip-item">
+                    <div className="trip-label">Price</div>
+                    <span className={`pill small ${selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>{selectedCard.price}</span>
                   </div>
                   <div className="trip-item">
-                    <div className="trip-label" style={{ fontWeight: 600, color: '#374151', marginBottom: 6 }}>Categories</div>
-                    <div className="badge-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div className="trip-label">Best Time to Visit</div>
+                    <div className="trip-text">December to May</div>
+                  </div>
+                  <div className="trip-item">
+                    <div className="trip-label">Categories</div>
+                    <div className="badge-row">
                       {/* Hardcoded for demo, you can add categories to personalizedCards if needed */}
-                      <span className="badge purple" style={{ background: '#ede9fe', color: '#6d28d9', borderRadius: 8, padding: '4px 12px', fontSize: 14, fontWeight: 500 }}>Mountains</span>
-                      <span className="badge purple" style={{ background: '#ede9fe', color: '#6d28d9', borderRadius: 8, padding: '4px 12px', fontSize: 14, fontWeight: 500 }}>Cultural</span>
+                      <span className="badge purple">Mountains</span>
+                      <span className="badge purple">Cultural</span>
                     </div>
                   </div>
                 </aside>
