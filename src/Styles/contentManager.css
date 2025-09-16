@@ -575,7 +575,7 @@ body { overflow-y: auto; }
         
         .content-section { margin-bottom: 20px; margin-left: 30px; margin-right: 30px;}
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .title { font-size: 24px; margin: 0; }
+        .title { font-size: 24px; margin: 0; text-align: left; }
         .filters { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
         
         .centered { display: flex; align-items: center; justify-content: center; padding: 24px; }
