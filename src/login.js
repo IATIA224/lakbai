@@ -10,7 +10,7 @@ import {
   FacebookAuthProvider,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp } from "firebase/firestore";
 
 // Use this path if the image is in public/ as "warning (1).png"
 // If yours is in public/assets/, change to "/assets/warning%20(1).png"
@@ -157,7 +157,7 @@ const Login = () => {
       const auditLogsSnap = await getDocs(query(collection(db, "auditLogs"), limit(1)));
       if (auditLogsSnap.empty) {
         await addDoc(collection(db, "auditLogs"), {
-          timestamp: Date.now(),
+          timestamp: serverTimestamp(),
           userName: "system",
           userEmail: "",
           role: "system",
@@ -172,7 +172,7 @@ const Login = () => {
       const deviceInfo = getDeviceInfo();
       const sessionId = generateSessionId();
       await addDoc(collection(db, "auditLogs"), {
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         userName: userCredential.user.displayName || "",
         userEmail: userCredential.user.email,
         userId: userCredential.user.uid,
@@ -190,6 +190,7 @@ const Login = () => {
         location: "",
         session: sessionId,
         target: "user_session",
+        clientTime: Date.now(), // optional
       });
 
       if (rememberMe) localStorage.setItem("rememberedEmail", email);
@@ -224,7 +225,7 @@ const Login = () => {
         const deviceInfo = getDeviceInfo();
         const sessionId = generateSessionId();
         await addDoc(collection(db, "auditLogs"), {
-          timestamp: Date.now(),
+          timestamp: serverTimestamp(),
           userName: failedUserName,
           userEmail: email,
           userId: failedUserId,
@@ -266,7 +267,7 @@ const Login = () => {
       const deviceInfo = getDeviceInfo();
       const sessionId = generateSessionId();
       await addDoc(collection(db, "auditLogs"), {
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         userName: result.user.displayName || "",
         userEmail: result.user.email,
         userId: result.user.uid,
@@ -307,7 +308,7 @@ const Login = () => {
       const deviceInfo = getDeviceInfo();
       const sessionId = generateSessionId();
       await addDoc(collection(db, "auditLogs"), {
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         userName: result.user.displayName || "",
         userEmail: result.user.email,
         userId: result.user.uid,

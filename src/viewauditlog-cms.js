@@ -84,18 +84,13 @@ const sectionTitleStyle = {
 const eventId = log.eventId || log.sequence || log.id || '—';
 const action = log.action || '—';
 const category = (log.category || '').toLowerCase() || '—';
-const targetType = log.targetType || '—';
+const target = log.target || log.targetType || '—'; // <-- Add this line for 'Target'
 const targetId = log.targetId ? `(${log.targetId})` : '';
 const requestMethod = log.method || log.requestMethod || log.reqMethod;
 const requestPath = log.path || log.endpoint || log.requestPath || log.apiPath;
 const request = requestMethod || requestPath
     ? `${requestMethod || 'GET'} ${requestPath || ''}`.trim()
     : (log.request || '—');
-
-const ip = log.sourceIp || log.ip || '—';
-const geo = log.location || (log.geo && (log.geo.city || log.geo.region || log.geo.country)
-    ? [log.geo.city, log.geo.region, log.geo.country].filter(Boolean).join(', ')
-    : null) || '—';
 const device = log.device || 'Desktop';
 const browser = log.browser || (log.userAgent && inferBrowser(log.userAgent)) || '—';
 const os = log.os || (log.userAgent && inferOS(log.userAgent)) || '—';
@@ -183,8 +178,7 @@ return (
                 <InfoLine label="Timestamp:" value={fmtTs(log.timestamp || log.time)} />
                 <InfoLine label="Action:" value={action} />
                 <InfoLine label="Category:" value={category} />
-                <InfoLine label="Target:" value={`${targetType}${targetId ? ' ' + targetId : ''}`} />
-                <InfoLine label="Request:" value={request} />
+                <InfoLine label="Target:" value={`${target}${targetId ? ' ' + targetId : ''}`} /> {/* <-- Show Target */}
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <span style={{ ...labelStyle }}>Outcome:</span>
                 <span
@@ -192,7 +186,7 @@ return (
                     background: outcomeStyle.bg,
                     color: outcomeStyle.fg,
                     borderRadius: 6,
-                    fontSize: FONT.badge, // CHANGED
+                    fontSize: FONT.badge,
                     padding: '4px 10px',
                     fontWeight: 600,
                     lineHeight: 1
@@ -223,8 +217,7 @@ return (
         >
             <div style={cardStyle}>
             <div style={sectionTitleStyle}>Source Information</div>
-            <InfoLine label="IP Address:" value={ip} />
-            <InfoLine label="Location:" value={geo} />
+
             <InfoLine label="Device:" value={device} />
             <InfoLine label="Browser:" value={browser} />
             <InfoLine label="OS:" value={os} />
@@ -247,6 +240,29 @@ return (
             <div style={sectionTitleStyle}>User Agent</div>
             <div style={{ ...monoStyle, color: '#374151', wordBreak: 'break-all' }}>{userAgent}</div>
         </div>
+
+        {/* Row 5: Data Changes (if applicable) */}
+        {log.category === "user management" && log.dataChanges && (
+  <div style={{ display: 'flex', gap: 18, marginTop: 12 }}>
+    <div style={{ flex: 1, background: '#fafbfc', borderRadius: 12, padding: 18, marginBottom: 12 }}>
+      <div style={{ fontWeight: 600, marginBottom: 8 }}>Data Changes</div>
+      <div style={{ display: 'flex', gap: 18 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>Old Values</div>
+          <pre style={{ background: '#f3f4f6', borderRadius: 8, padding: 10, fontSize: 13, color: '#b91c1c', overflowX: 'auto' }}>
+            {JSON.stringify(log.dataChanges.old, null, 2)}
+          </pre>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>New Values</div>
+          <pre style={{ background: '#f3f4f6', borderRadius: 8, padding: 10, fontSize: 13, color: '#166534', overflowX: 'auto' }}>
+            {JSON.stringify(log.dataChanges.new, null, 2)}
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         </div>
     </div>
     </div>

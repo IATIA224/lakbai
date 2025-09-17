@@ -12,6 +12,7 @@ import AddFromCsvCMS from './addfromcsv-cms'; // NEW
 import ReportDetailModal from './reportdetails-cms'; //NEW
 import TakeActionModal from './takeaction-cms'; // NEW
 import AuditLogsCMS from './auditlogs-cms'; // NEW
+import { signOut } from "firebase/auth";
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -583,18 +584,23 @@ useEffect(() => {
 
 useEffect(() => {
     if (active !== 'users') return;
-    (async () => {
     setLoadingUsers(true);
-    try {
-        // Use Firestore from firebase.js
-    const snap = await getDocs(collection(db, 'users'));
-    setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch (e) {
-        setUsers([]);
-    } finally {
+
+    // Use Firestore from firebase.js
+    // Always fetch the latest users from Firestore, not just on mount
+    const unsub = onSnapshot(
+      collection(db, 'users'),
+      (snap) => {
+        setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLoadingUsers(false);
-    }
-    })();
+      },
+      (error) => {
+        setUsers([]);
+        setLoadingUsers(false);
+      }
+    );
+
+    return () => unsub();
 }, [active]);
 
 // NEW: fetch Travel Stats (places, photos, reviews) for users from Firestore
@@ -943,6 +949,7 @@ useEffect(() => {
     setLoadingReports(true);
     let unsub = null;
 
+    // Try both 'report' and 'reports' collections, fallback to empty
     const tryLoadFrom = async (collName) => {
       try {
         const collRef = collection(db, collName);
@@ -952,37 +959,43 @@ useEffect(() => {
         for (const f of fields) {
           try {
             const qref = query(collRef, orderBy(f, 'desc'), limit(200));
+            // Use onSnapshot for live updates
+            unsub = onSnapshot(qref, (snap) => {
+              setReports(snap.docs.map((doc) => normalizeReportDoc(doc)));
+              setLoadingReports(false);
+            });
+            // Initial fetch
             const snap = await getDocs(qref);
             if (!snap.empty) {
               setReports(snap.docs.map((doc) => normalizeReportDoc(doc)));
-              unsub = onSnapshot(qref, (s) => setReports(s.docs.map((doc) => normalizeReportDoc(doc))));
               return true;
             }
-          } catch {
-            // ignore (index may not exist)
+          } catch (err) {
+            // ignore (index may not exist or permission denied)
           }
         }
 
         // Unordered fallback
-        const snap = await getDocs(collRef);
-        if (!snap.empty) {
-          setReports(snap.docs.map((doc) => normalizeReportDoc(doc)));
-          try {
-            unsub = onSnapshot(collRef, (s) => setReports(s.docs.map((doc) => normalizeReportDoc(doc))));
-          } catch {}
-          return true;
-        }
+        try {
+          unsub = onSnapshot(collRef, (snap) => {
+            setReports(snap.docs.map((doc) => normalizeReportDoc(doc)));
+            setLoadingReports(false);
+          });
+          const snap = await getDocs(collRef);
+          if (!snap.empty) {
+            setReports(snap.docs.map((doc) => normalizeReportDoc(doc)));
+            return true;
+          }
+        } catch {}
+
       } catch {}
       return false;
     };
 
     (async () => {
-      try {
-        const ok = (await tryLoadFrom('report')) || (await tryLoadFrom('reports'));
-        if (!ok) {
-          setReports([]); // nothing found
-        }
-      } finally {
+      const ok = (await tryLoadFrom('report')) || (await tryLoadFrom('reports'));
+      if (!ok) {
+        setReports([]); // nothing found or no permission
         setLoadingReports(false);
       }
     })();
@@ -1151,17 +1164,17 @@ useEffect(() => {
   const [viewReportId, setViewReportId] = useState(null);
 
   // Subscribe to the selected report doc while the modal is open
- 
+
   useEffect(() => {
     if (!viewReportId) return;
-   
+  
 
-   
+  
     let unsub;
 
     const trySub = (collName) => {
       try {
-       
+      
         const ref = doc(db, collName, viewReportId);
         return onSnapshot(ref, (snap) => {
           if (snap.exists()) setViewReport(normalizeReportDoc(snap));
@@ -1186,7 +1199,7 @@ useEffect(() => {
     }
     if (Object.keys(updates).length) {
       setUserNameCache((prev) => ({ ...prev, ...updates }));
-       }
+      }
   }, [users, userNameCache]);
 
   // Resolve missing names for Reported User IDs from Firestore
@@ -1281,8 +1294,17 @@ useEffect(() => {
         </nav>
 
         <div className="sidebar-footer">
-        <div className="muted small">jeremyjohnaclan@gmail.com</div>
-        <button className="btn-danger-signout" style={{ marginTop: 8 }}>Sign Out</button>
+        <div className="muted small">{auth.currentUser?.email || 'Not signed in'}</div>
+        <button
+          className="btn-danger-signout"
+          style={{ marginTop: 8 }}
+          onClick={async () => {
+            await signOut(auth);
+            window.location.href = "/admin/login"; // or your login route
+          }}
+        >
+          Sign Out
+        </button>
         </div>
       </aside>
       <main className="main-content">
@@ -1563,38 +1585,38 @@ useEffect(() => {
                                                         boxShadow: 'none'
                                                     }}
                                                     onClick={async () => {
-                                                         if (window.confirm('Delete this destination?')) {
-                                                             // Delete from Firestore
-                                                             try {
-                                                                 await import('firebase/firestore').then(({ deleteDoc, doc }) =>
-                                                                     deleteDoc(doc(db, 'destinations', d.id))
-                                                                 );
-                                                             } catch (err) {
-                                                                 console.error('Firestore delete failed:', err);
-                                                             }
-                                                             // Delete featured image from Cloudinary
-                                                             const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
-                                                             if (featuredId) await deleteCloudinaryImage(featuredId);
+                                                        if (window.confirm('Delete this destination?')) {
+                                                            // Delete from Firestore
+                                                            try {
+                                                                await import('firebase/firestore').then(({ deleteDoc, doc }) =>
+                                                                    deleteDoc(doc(db, 'destinations', d.id))
+                                                                );
+                                                            } catch (err) {
+                                                                console.error('Firestore delete failed:', err);
+                                                            }
+                                                            // Delete featured image from Cloudinary
+                                                            const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
+                                                            if (featuredId) await deleteCloudinaryImage(featuredId);
                                                                 
-                                                             // Delete gallery images from Cloudinary
-                                                             if (Array.isArray(d.media?.gallery)) {
-                                                                 for (const img of d.media.gallery) {
-                                                                     const imgId = getCloudinaryPublicId(img);
-                                                                     if (imgId) await deleteCloudinaryImage(imgId);
-                                                                 }
-                                                             }
-                                                             // Remove from local state
-                                                             setDestinations((s) => s.filter((x) => x.id !== d.id));
-                                                             // Remove from localStorage fallback
-                                                             const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
-                                                             localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
-                                                             // set analytics state
-                                                             setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
-                                                         }
-                                                     }}
-                                                 >
-                                                     Delete
-                                                 </button>
+                                                            // Delete gallery images from Cloudinary
+                                                            if (Array.isArray(d.media?.gallery)) {
+                                                                for (const img of d.media.gallery) {
+                                                                    const imgId = getCloudinaryPublicId(img);
+                                                                    if (imgId) await deleteCloudinaryImage(imgId);
+                                                                }
+                                                            }
+                                                            // Remove from local state
+                                                            setDestinations((s) => s.filter((x) => x.id !== d.id));
+                                                            // Remove from localStorage fallback
+                                                            const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
+                                                            localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
+                                                            // set analytics state
+                                                            setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
+                                                        }
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}

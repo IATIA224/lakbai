@@ -77,7 +77,8 @@ export default function Bookmarks2() {
   // 2) Listen to auth and the current user's bookmarks
   useEffect(() => {
     let unsubUserDoc = null;
-    const unsubAuth = auth.onAuthStateChanged(async (user) => {
+    let unsubAuth = () => {}; // <-- ensure unsubAuth is always a function
+    unsubAuth = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user || null);
       if (user) {
         const userRef = doc(db, 'userBookmarks', user.uid);
@@ -150,7 +151,7 @@ export default function Bookmarks2() {
     });
     return () => {
       if (unsubUserDoc) unsubUserDoc();
-      unsubAuth();
+      if (typeof unsubAuth === 'function') unsubAuth();
     };
   }, [setCurrentUser]);
 
