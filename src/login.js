@@ -10,7 +10,7 @@ import {
   FacebookAuthProvider,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit } from "firebase/firestore";
 
 // Use this path if the image is in public/ as "warning (1).png"
 // If yours is in public/assets/, change to "/assets/warning%20(1).png"
@@ -63,6 +63,62 @@ function mapAuthError(code) {
   }
 }
 
+// Add this helper to get device/browser info
+function getDeviceInfo() {
+  let device = "Unknown";
+  let browser = "Unknown";
+  let os = "Unknown";
+  let userAgent = navigator.userAgent || "";
+
+  // Device
+  if (/Mobi|Android/i.test(userAgent)) device = "Mobile";
+  else if (/Tablet|iPad/i.test(userAgent)) device = "Tablet";
+  else device = "Desktop";
+
+  // Browser
+  if (/chrome|crios|crmo/i.test(userAgent)) browser = "Chrome";
+  else if (/firefox|fxios/i.test(userAgent)) browser = "Firefox";
+  else if (/safari/i.test(userAgent) && !/chrome|crios|crmo/i.test(userAgent)) browser = "Safari";
+  else if (/edg/i.test(userAgent)) browser = "Edge";
+  else if (/opr\//i.test(userAgent)) browser = "Opera";
+  else if (/msie|trident/i.test(userAgent)) browser = "IE";
+
+  // OS
+  if (/windows nt/i.test(userAgent)) os = "Windows";
+  else if (/android/i.test(userAgent)) os = "Android";
+  else if (/iphone|ipad|ipod/i.test(userAgent)) os = "iOS";
+  else if (/macintosh|mac os x/i.test(userAgent)) os = "MacOS";
+  else if (/linux/i.test(userAgent)) os = "Linux";
+
+  return { device, browser, os, userAgent };
+}
+
+// Helper to generate a session ID
+function generateSessionId() {
+  return (
+    "sess_" +
+    Math.random().toString(36).substr(2, 9) +
+    "_" +
+    Date.now().toString(36)
+  );
+}
+
+const MAX_LOGIN_ATTEMPTS = 3;
+const LOGIN_ATTEMPT_KEY = "lakbai_login_attempts";
+
+// Helper to track login attempts in localStorage
+function incrementLoginAttempts(email) {
+  const attempts = JSON.parse(localStorage.getItem(LOGIN_ATTEMPT_KEY) || "{}");
+  attempts[email] = (attempts[email] || 0) + 1;
+  localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify(attempts));
+  return attempts[email];
+}
+function resetLoginAttempts(email) {
+  const attempts = JSON.parse(localStorage.getItem(LOGIN_ATTEMPT_KEY) || "{}");
+  attempts[email] = 0;
+  localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify(attempts));
+}
+
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(localStorage.getItem('rememberedEmail') || "");
@@ -94,17 +150,107 @@ const Login = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await saveUserToFirestore(userCredential.user);
 
+      // Reset login attempts on successful login
+      resetLoginAttempts(email);
+
+      // --- Ensure auditLogs collection exists (create a dummy doc if empty) ---
+      const auditLogsSnap = await getDocs(query(collection(db, "auditLogs"), limit(1)));
+      if (auditLogsSnap.empty) {
+        await addDoc(collection(db, "auditLogs"), {
+          timestamp: Date.now(),
+          userName: "system",
+          userEmail: "",
+          role: "system",
+          action: "init",
+          category: "SYSTEM",
+          outcome: "SUCCESS",
+          details: "Initialized auditLogs collection.",
+        });
+      }
+
+      // --- Add audit log for email login ---
+      const deviceInfo = getDeviceInfo();
+      const sessionId = generateSessionId();
+      await addDoc(collection(db, "auditLogs"), {
+        timestamp: Date.now(),
+        userName: userCredential.user.displayName || "",
+        userEmail: userCredential.user.email,
+        userId: userCredential.user.uid,
+        role: "user",
+        action: "login",
+        category: "AUTHENTICATION",
+        outcome: "SUCCESS",
+        details: "Email/Password login",
+        provider: "email",
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: "",
+        location: "",
+        session: sessionId,
+        target: "user_session",
+      });
+
       if (rememberMe) localStorage.setItem("rememberedEmail", email);
       else localStorage.removeItem("rememberedEmail");
 
-      // Navigate directly (no timers)
       navigate("/dashboard");
     } catch (err) {
+      // Increment failed login attempts
+      const attempts = incrementLoginAttempts(email);
+
+      // Try to get user info for failed login
+      let failedUserName = "";
+      let failedUserId = "";
+      try {
+        // Query Firestore users collection by email
+        const usersRef = collection(db, "users");
+        const q = query(usersRef);
+        const snapshot = await getDocs(q);
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.email === email) {
+            failedUserName = data.displayName || "";
+            failedUserId = data.uid || "";
+          }
+        });
+      } catch (e) {
+        // If lookup fails, leave as blank
+      }
+
+      // If max attempts reached, log to auditLogs
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        const deviceInfo = getDeviceInfo();
+        const sessionId = generateSessionId();
+        await addDoc(collection(db, "auditLogs"), {
+          timestamp: Date.now(),
+          userName: failedUserName,
+          userEmail: email,
+          userId: failedUserId,
+          role: "user",
+          action: "login failed",
+          category: "AUTHENTICATION",
+          outcome: "FAILURE",
+          details: "multiple_failed_attempts",
+          provider: "email",
+          device: deviceInfo.device,
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+          userAgent: deviceInfo.userAgent,
+          ipAddress: "",
+          location: "",
+          session: sessionId,
+          target: "user_session",
+        });
+        // Optionally, reset attempts after logging
+        resetLoginAttempts(email);
+      }
+
       console.error("Email login error:", err);
       const errorMessage = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: errorMessage });
     }
-    // removed setLoading(false); loading is controlled by mount effect
   };
 
   const handleGoogleLogin = async () => {
@@ -115,13 +261,37 @@ const Login = () => {
       provider.setCustomParameters({ prompt: "select_account" });
       const result = await signInWithPopup(auth, provider);
       await saveUserToFirestore(result.user);
+
+      // --- Add audit log for Google login ---
+      const deviceInfo = getDeviceInfo();
+      const sessionId = generateSessionId();
+      await addDoc(collection(db, "auditLogs"), {
+        timestamp: Date.now(),
+        userName: result.user.displayName || "",
+        userEmail: result.user.email,
+        userId: result.user.uid,
+        role: "user",
+        action: "login",
+        category: "AUTHENTICATION",
+        outcome: "SUCCESS",
+        details: "Google login",
+        provider: "google",
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: "",
+        location: "",
+        session: sessionId,
+        target: "user_session",
+      });
+
       navigate("/dashboard");
     } catch (err) {
       console.error("Google login error:", err);
       const msg = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: msg });
     }
-    // removed setLoading(false)
   };
 
   const handleFacebookLogin = async () => {
@@ -132,13 +302,37 @@ const Login = () => {
       provider.setCustomParameters({ display: "popup" });
       const result = await signInWithPopup(auth, provider);
       await saveUserToFirestore(result.user);
+
+      // --- Add audit log for Facebook login ---
+      const deviceInfo = getDeviceInfo();
+      const sessionId = generateSessionId();
+      await addDoc(collection(db, "auditLogs"), {
+        timestamp: Date.now(),
+        userName: result.user.displayName || "",
+        userEmail: result.user.email,
+        userId: result.user.uid,
+        role: "user",
+        action: "login",
+        category: "AUTHENTICATION",
+        outcome: "SUCCESS",
+        details: "Facebook login",
+        provider: "facebook",
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: "",
+        location: "",
+        session: sessionId,
+        target: "user_session",
+      });
+
       navigate("/dashboard");
     } catch (err) {
       console.error("Facebook login error:", err);
       const msg = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: msg });
     }
-    // removed setLoading(false)
   };
 
   const handleClosePopup = () => {
