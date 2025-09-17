@@ -39,17 +39,6 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// EmailJS config
-const EMAILJS_SERVICE_ID = "service_eirmy1z";
-const EMAILJS_TEMPLATE_ID = "template_41aqpwi";
-const EMAILJS_PUBLIC_KEY =
-  process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "QhHif4aSluFwKK-tN";
-
-// OTP lifetime (minutes)
-const OTP_MINUTES = 15; // match email template
-// const OTP_TTL_MS = 5 * 60 * 1000; // OLD
-const OTP_TTL_MS = OTP_MINUTES * 60 * 1000;
-
 // Replace previous placeholder sendOtpEmail with EmailJS version
 async function sendOtpEmail(toEmail, otp) {
   const expireAt = new Date(Date.now() + OTP_TTL_MS);
@@ -136,22 +125,6 @@ const Register = () => {
   const MAX_RESENDS = 3;
 
   // Popup
-
-  // Flow state
-  const [step, setStep] = useState("form"); // form | otp | done
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [creatingUser, setCreatingUser] = useState(false);
-
-  // OTP state
-  const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
-  const [generatedOtp, setGeneratedOtp] = useState(null);
-  const [otpExpiresAt, setOtpExpiresAt] = useState(null);
-  const [otpError, setOtpError] = useState("");
-  const [resends, setResends] = useState(0);
-  const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
-  const MAX_RESENDS = 3;
-
-  // Popup
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [showPrivacy, setShowPrivacy] = useState(false);
 
@@ -168,23 +141,10 @@ const Register = () => {
   }, [step]);
 
   // Countdown
-  const [remaining, setRemaining] = useState(0);
-  useEffect(() => {
-    if (step !== "otp" || !otpExpiresAt) return;
-    const id = setInterval(() => {
-      const diff = otpExpiresAt - Date.now();
-      setRemaining(diff > 0 ? diff : 0);
-    }, 1000);
-    return () => clearInterval(id);
-  }, [step, otpExpiresAt]);
-
-  const minutes = Math.floor(remaining / 60000);
-  const seconds = Math.floor((remaining % 60000) / 1000)
-    .toString()
-    .padStart(2, "0");
+  // (keep only one countdown logic, remove this duplicate block)
 
   // ---------------- Form Submit (Generate OTP) ----------------
-  const inputsRef = useRef([]);
+  // (inputsRef already declared above, remove this duplicate)
 
   // Focus first OTP box when entering OTP step
   useEffect(() => {
@@ -310,101 +270,6 @@ const Register = () => {
     // Create user only now
     try {
       setCreatingUser(true);
-    // Validate
-    if (!agreed) return setPopup({ show: true, type: "error", message: "You must agree to the Terms of Service and Privacy Policy." });
-    if (!isValidEmail(email)) return setPopup({ show: true, type: "error", message: "Please enter a valid email." });
-    if (password.length < 8) return setPopup({ show: true, type: "error", message: "Password must be at least 8 characters long." });
-    if (password !== confirmPassword) return setPopup({ show: true, type: "error", message: "Passwords do not match." });
-    if (!firstName.trim() || !lastName.trim()) return setPopup({ show: true, type: "error", message: "Please enter your first and last name." });
-
-    // Check if email already registered
-    try {
-      setSendingOtp(true);
-      const methods = await fetchSignInMethodsForEmail(auth, email);
-      if (methods && methods.length) {
-        setSendingOtp(false);
-        return setPopup({ show: true, type: "error", message: "This email is already registered. Please sign in instead." });
-      }
-
-      // Generate OTP
-      const code = (Math.floor(100000 + Math.random() * 900000)).toString();
-      setGeneratedOtp(code);
-      setOtpExpiresAt(Date.now() + OTP_TTL_MS);
-      setRemaining(OTP_TTL_MS); // <-- add this line
-      setOtpDigits(["", "", "", "", "", ""]);
-      setResends(0);
-      setOtpError("");
-
-      // Send email
-      await sendOtpEmail(email, code);
-
-      // Move to OTP step
-      setStep("otp");
-    } catch (err) {
-      console.error("OTP send failed:", err);
-      setPopup({ show: true, type: "error", message: "Failed to send OTP. Please try again." });
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  // ---------------- OTP Handlers ----------------
-  const handleOtpChange = (idx, val) => {
-    if (!/^\d?$/.test(val)) return;
-    setOtpDigits(prev => {
-      const next = [...prev];
-      next[idx] = val;
-      return next;
-    });
-    setOtpError("");
-    if (val && inputsRef.current[idx + 1]) {
-      inputsRef.current[idx + 1].focus();
-    }
-  };
-
-  const handleOtpFocus = (idx) => {
-    setFocusedInput(idx);
-  };
-
-  const handleOtpBlur = () => {
-    setFocusedInput(-1);
-  };
-
-  const handleOtpKeyDown = (idx, e) => {
-    if (e.key === "Backspace" && !otpDigits[idx] && idx > 0) {
-      inputsRef.current[idx - 1].focus();
-    }
-    if (e.key === "ArrowLeft" && idx > 0) inputsRef.current[idx - 1].focus();
-    if (e.key === "ArrowRight" && idx < 5) inputsRef.current[idx + 1].focus();
-    if (e.key === "Enter") verifyOtp();
-  };
-
-  const handleOtpPaste = (e) => {
-    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (text.length) {
-      const arr = text.split("");
-      while (arr.length < 6) arr.push("");
-      setOtpDigits(arr);
-      setOtpError("");
-      setTimeout(() => {
-        const firstEmpty = arr.findIndex(c => !c);
-        if (firstEmpty >= 0) inputsRef.current[firstEmpty].focus();
-        else inputsRef.current[5].blur();
-      }, 0);
-    }
-    e.preventDefault();
-  };
-
-  const verifyOtp = async () => {
-    if (creatingUser) return;
-    const entered = otpDigits.join("");
-    if (remaining <= 0) return setOtpError("OTP expired. Please resend.");
-    if (entered.length < 6) return setOtpError("Enter all 6 digits.");
-    if (entered !== generatedOtp) return setOtpError("Incorrect code. Try again.");
-
-    // Create user only now
-    try {
-      setCreatingUser(true);
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await setDoc(doc(db, "users", userCredential.user.uid), {
         firstName,
@@ -413,41 +278,12 @@ const Register = () => {
       });
       await sendEmailVerification(userCredential.user);
       setStep("done");
-      setStep("done");
       setPopup({
         show: true,
         type: "success",
         message: "Account created! Verification email sent. Please verify before logging in."
-        message: "Account created! Verification email sent. Please verify before logging in."
       });
     } catch (err) {
-      console.error("Account creation failed:", err);
-      let msg = "Failed to create account.";
-      if (err.code === "auth/email-already-in-use") msg = "Email already registered. Sign in instead.";
-      setPopup({ show: true, type: "error", message: msg });
-      // Allow user to retry OTP or restart
-    } finally {
-      setCreatingUser(false);
-    }
-  };
-
-  const resendOtp = async () => {
-    if (resends >= MAX_RESENDS) return;
-    try {
-      setSendingOtp(true);
-      const code = (Math.floor(100000 + Math.random() * 900000)).toString();
-      setGeneratedOtp(code);
-      setOtpDigits(["", "", "", "", "", ""]);
-      setOtpExpiresAt(Date.now() + OTP_TTL_MS);
-      setRemaining(OTP_TTL_MS); // <-- add this line
-      setResends(r => r + 1);
-      setOtpError("");
-      await sendOtpEmail(email, code);
-    } catch (e) {
-      console.error("Resend failed:", e);
-      setOtpError("Failed to resend. Try again later.");
-    } finally {
-      setSendingOtp(false);
       console.error("Account creation failed:", err);
       let msg = "Failed to create account.";
       if (err.code === "auth/email-already-in-use") msg = "Email already registered. Sign in instead.";
@@ -480,10 +316,8 @@ const Register = () => {
 
   const handleClosePopup = () => {
     const success = popup.type === "success";
-    const success = popup.type === "success";
     setPopup({ show: false, type: "", message: "" });
-    if (success) navigate("/");
-  };
+  if (success) navigate("/");
 
   // CSS-in-JS styles object
   const otpStyles = {
@@ -1268,7 +1102,6 @@ const Register = () => {
               alt={popup.type === "success" ? "Success" : "Error"}
               style={{ width: 48, marginBottom: 12 }}
               onError={e => { e.currentTarget.src = "/star.png"; }}
-              onError={e => { e.currentTarget.src = "/star.png"; }}
             />
             <h3
               style={{
@@ -1276,6 +1109,7 @@ const Register = () => {
                 color: popup.type === "success" ? "#3b5fff" : "#b97b7b"
               }}
             >
+            </h3>
             <h3
               style={{
                 margin: 0,
@@ -1290,6 +1124,7 @@ const Register = () => {
               onClick={handleClosePopup}
               style={{ width: "100%" }}
             >
+            </button>
             <p style={{ margin: "8px 0 16px" }}>{popup.message}</p>
             <button
               className="register-btn"
@@ -1303,6 +1138,6 @@ const Register = () => {
       )}
     </>
   );
-};
 
+};
 export default Register;
