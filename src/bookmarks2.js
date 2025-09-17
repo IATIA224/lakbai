@@ -116,8 +116,8 @@ export default function Bookmarks2() {
             setBookmarks(new Set());
             if (unsubUserDoc) unsubUserDoc();
           }
-        })
-      : () => {}; // fallback no-op if not a function
+        });
+      // fallback no-op if not a function
 
     return () => {
       if (unsubUserDoc) unsubUserDoc();
