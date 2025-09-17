@@ -21,9 +21,20 @@ const saveUserToFirestore = async (user) => {
   if (!user) return;
   try {
     const userRef = doc(db, "users", user.uid);
+    const userRef = doc(db, "users", user.uid);
 
     const userData = {
       uid: user.uid,
+      email: user.email || "",
+      displayName: user.displayName || "",
+      photoURL: user.photoURL || "",
+      phoneNumber: user.phoneNumber || "",
+      providerId: user.providerData?.[0]?.providerId || "email",
+      lastLogin: new Date(),
+    };
+
+    const snap = await getDoc(userRef); // no .catch here
+    if (!snap || !snap.exists?.()) {
       email: user.email || "",
       displayName: user.displayName || "",
       photoURL: user.photoURL || "",
@@ -136,7 +147,16 @@ const Login = () => {
   // useEffect(() => { ... getRedirectResult ... }, [navigate]);
 
   // ADD simple mount effect to end loading sooner:
+
+  // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
+
+  // REMOVE the entire redirect result useEffect block:
+  // useEffect(() => { ... getRedirectResult ... }, [navigate]);
+
+  // ADD simple mount effect to end loading sooner:
   useEffect(() => {
+    setLoading(false);
+  }, []);
     setLoading(false);
   }, []);
 
@@ -252,11 +272,15 @@ const Login = () => {
       const errorMessage = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: errorMessage });
     }
+    // removed setLoading(false); loading is controlled by mount effect
   };
 
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
+      provider.addScope("profile");
+      provider.addScope("email");
+      provider.setCustomParameters({ prompt: "select_account" });
       provider.addScope("profile");
       provider.addScope("email");
       provider.setCustomParameters({ prompt: "select_account" });
@@ -292,12 +316,19 @@ const Login = () => {
       console.error("Google login error:", err);
       const msg = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: msg });
+      console.error("Google login error:", err);
+      const msg = mapAuthError(err.code);
+      setPopup({ show: true, type: "error", message: msg });
     }
+    // removed setLoading(false)
   };
 
   const handleFacebookLogin = async () => {
     try {
       const provider = new FacebookAuthProvider();
+      provider.addScope("email");
+      provider.addScope("public_profile");
+      provider.setCustomParameters({ display: "popup" });
       provider.addScope("email");
       provider.addScope("public_profile");
       provider.setCustomParameters({ display: "popup" });
@@ -333,7 +364,11 @@ const Login = () => {
       console.error("Facebook login error:", err);
       const msg = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: msg });
+      console.error("Facebook login error:", err);
+      const msg = mapAuthError(err.code);
+      setPopup({ show: true, type: "error", message: msg });
     }
+    // removed setLoading(false)
   };
 
   const handleClosePopup = () => {
@@ -557,8 +592,16 @@ const Login = () => {
                   ? "/coconut-tree.png"
                   : ERROR_ICON
               }
+              src={
+                popup.type === "success"
+                  ? "/coconut-tree.png"
+                  : ERROR_ICON
+              }
               alt={popup.type === "success" ? "Success" : "Error"}
               style={{ width: 48, marginBottom: 12 }}
+              onError={(e) => {
+                e.currentTarget.src = ERROR_ICON;
+              }}
               onError={(e) => {
                 e.currentTarget.src = ERROR_ICON;
               }}
