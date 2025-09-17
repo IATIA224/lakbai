@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Bookmarks2 from '../bookmarks2';
 import { MemoryRouter } from 'react-router-dom';
@@ -26,7 +27,11 @@ jest.mock('../firebase', () => ({
 db: {},
     auth: {
     currentUser: { uid: 'user1' },
-    onAuthStateChanged: jest.fn(() => () => {}),
+    onAuthStateChanged: jest.fn((cb) => {
+      // Optionally call the callback immediately for test
+      // cb({ uid: 'user1' });
+      return () => {}; // Always return a function (unsubscribe)
+    }),
 },
 }));
 jest.mock('../profile', () => ({
@@ -105,6 +110,14 @@ mockGetDocs.mockResolvedValue({
 mockSetDoc.mockResolvedValue();
 mockDeleteDoc.mockResolvedValue();
 }
+
+// Always return a valid object for any extra onSnapshot calls
+mockOnSnapshot.mockImplementation((q, onNext) => {
+    setTimeout(() => {
+        onNext({ docs: [] });
+    }, 0);
+    return jest.fn();
+});
 
 // --- Tests ---
 describe('Bookmarks2', () => {

@@ -53,7 +53,10 @@ const FriendPopup = ({ onClose }) => {
     
     // Listen for friend requests
     const userDocUnsub = onSnapshot(doc(db, "users", user.uid), async (snap) => {
-      if (!snap.exists()) {
+      function exists() {
+        return snap && (typeof snap.exists === "function" ? snap.exists() : !!snap.data());
+      }
+      if (!exists()) {
         setFriendRequests([]);
         return;
       }
@@ -66,11 +69,14 @@ const FriendPopup = ({ onClose }) => {
     // Listen for friends from subcollection
     const friendsRef = collection(db, "users", user.uid, "friends");
     const friendsUnsub = onSnapshot(friendsRef, async (snap) => {
-      if (snap.empty) {
+      function exists() {
+        return snap && (typeof snap.exists === "function" ? snap.exists() : !!snap.data);
+      }
+      if (snap.empty || !exists()) {
         setFriends([]);
         return;
       }
-      
+
       const friendIds = snap.docs.map(doc => doc.id);
       const friendProfiles = await fetchProfiles(friendIds);
       setFriends(friendProfiles);

@@ -13,6 +13,7 @@ import { doc, setDoc } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 
 // ---------------- Helpers ----------------
+// ---------------- Helpers ----------------
 function getPasswordStrength(password) {
   if (!password) return { label: "", color: "" };
   if (password.length < 6) return { label: "Weak", color: "#b97b7b" };
@@ -31,6 +32,9 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// Replace previous placeholder sendOtpEmail with EmailJS version
+
+// ---------------- Component ----------------
 // EmailJS config
 const EMAILJS_SERVICE_ID = "service_eirmy1z";
 const EMAILJS_TEMPLATE_ID = "template_41aqpwi";
@@ -68,6 +72,7 @@ async function sendOtpEmail(toEmail, otp) {
 // ---------------- Component ----------------
 const Register = () => {
   // Form fields
+  // Form fields
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [password, setPassword] = useState("");
@@ -95,9 +100,23 @@ const Register = () => {
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [showPrivacy, setShowPrivacy] = useState(false);
 
+
   const navigate = useNavigate();
   const strength = getPasswordStrength(password);
   const inputsRef = useRef([]);
+
+  // Focus first OTP box when entering OTP step
+  useEffect(() => {
+    if (step === "otp" && inputsRef.current[0]) {
+      inputsRef.current[0].focus();
+    }
+  }, [step]);
+
+  // Countdown
+  // (keep only one countdown logic, remove this duplicate block)
+
+  // ---------------- Form Submit (Generate OTP) ----------------
+  // (inputsRef already declared above, remove this duplicate)
 
   // Focus first OTP box when entering OTP step
   useEffect(() => {
@@ -125,6 +144,7 @@ const Register = () => {
   // ---------------- Form Submit (Generate OTP) ----------------
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (sendingOtp) return;
     if (sendingOtp) return;
 
     // Validate
@@ -503,6 +523,10 @@ const Register = () => {
       {/* Add the CSS */}
       <style>{otpAnimationCSS}</style>
 
+
+      {/* Add the CSS */}
+      <style>{otpAnimationCSS}</style>
+
       <div className="register-bg">
         <div className="register-container minimized">
           <img src="/star.png" alt="Join LakbAI" className="register-logo" />
@@ -706,7 +730,7 @@ const Register = () => {
                           fontSize: '20px'
                         } : {})
                       }}
-          n            onChange={e => handleOtpChange(i, e.target.value)}
+                      onChange={e => handleOtpChange(i, e.target.value)}
                       onKeyDown={e => handleOtpKeyDown(i, e)}
                       onFocus={() => handleOtpFocus(i)}
                       onBlur={handleOtpBlur}
@@ -817,6 +841,7 @@ const Register = () => {
         </div>
       </div>
 
+
       {popup.show && (
         <div className="register-popup-overlay">
           <div className="register-popup">
@@ -832,8 +857,22 @@ const Register = () => {
                 color: popup.type === "success" ? "#3b5fff" : "#b97b7b"
               }}
             >
+            </h3>
+            <h3
+              style={{
+                margin: 0,
+                color: popup.type === "success" ? "#3b5fff" : "#b97b7b"
+              }}
+            >
               {popup.type === "success" ? "Success!" : "Error"}
             </h3>
+            <p style={{ margin: "8px 0 16px" }}>{popup.message}</p>
+            <button
+              className="register-btn"
+              onClick={handleClosePopup}
+              style={{ width: "100%" }}
+            >
+            </button>
             <p style={{ margin: "8px 0 16px" }}>{popup.message}</p>
             <button
               className="register-btn"
@@ -847,6 +886,6 @@ const Register = () => {
       )}
     </>
   );
-};
 
+};
 export default Register;
