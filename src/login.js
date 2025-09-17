@@ -10,7 +10,7 @@ import {
   FacebookAuthProvider,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp } from "firebase/firestore";
 
 // Use this path if the image is in public/ as "warning (1).png"
 // If yours is in public/assets/, change to "/assets/warning%20(1).png"
@@ -136,6 +136,13 @@ const Login = () => {
   // useEffect(() => { ... getRedirectResult ... }, [navigate]);
 
   // ADD simple mount effect to end loading sooner:
+
+  // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
+
+  // REMOVE the entire redirect result useEffect block:
+  // useEffect(() => { ... getRedirectResult ... }, [navigate]);
+
+  // ADD simple mount effect to end loading sooner:
   useEffect(() => {
     setLoading(false);
   }, []);
@@ -157,7 +164,7 @@ const Login = () => {
       const auditLogsSnap = await getDocs(query(collection(db, "auditLogs"), limit(1)));
       if (auditLogsSnap.empty) {
         await addDoc(collection(db, "auditLogs"), {
-          timestamp: Date.now(),
+          timestamp: serverTimestamp(),
           userName: "system",
           userEmail: "",
           role: "system",
@@ -172,7 +179,7 @@ const Login = () => {
       const deviceInfo = getDeviceInfo();
       const sessionId = generateSessionId();
       await addDoc(collection(db, "auditLogs"), {
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         userName: userCredential.user.displayName || "",
         userEmail: userCredential.user.email,
         userId: userCredential.user.uid,
@@ -190,6 +197,7 @@ const Login = () => {
         location: "",
         session: sessionId,
         target: "user_session",
+        clientTime: Date.now(), // optional
       });
 
       if (rememberMe) localStorage.setItem("rememberedEmail", email);
@@ -224,7 +232,7 @@ const Login = () => {
         const deviceInfo = getDeviceInfo();
         const sessionId = generateSessionId();
         await addDoc(collection(db, "auditLogs"), {
-          timestamp: Date.now(),
+          timestamp: serverTimestamp(),
           userName: failedUserName,
           userEmail: email,
           userId: failedUserId,
@@ -251,11 +259,15 @@ const Login = () => {
       const errorMessage = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: errorMessage });
     }
+    // removed setLoading(false); loading is controlled by mount effect
   };
 
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
+      provider.addScope("profile");
+      provider.addScope("email");
+      provider.setCustomParameters({ prompt: "select_account" });
       provider.addScope("profile");
       provider.addScope("email");
       provider.setCustomParameters({ prompt: "select_account" });
@@ -266,7 +278,7 @@ const Login = () => {
       const deviceInfo = getDeviceInfo();
       const sessionId = generateSessionId();
       await addDoc(collection(db, "auditLogs"), {
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         userName: result.user.displayName || "",
         userEmail: result.user.email,
         userId: result.user.uid,
@@ -292,11 +304,15 @@ const Login = () => {
       const msg = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: msg });
     }
+    // removed setLoading(false)
   };
 
   const handleFacebookLogin = async () => {
     try {
       const provider = new FacebookAuthProvider();
+      provider.addScope("email");
+      provider.addScope("public_profile");
+      provider.setCustomParameters({ display: "popup" });
       provider.addScope("email");
       provider.addScope("public_profile");
       provider.setCustomParameters({ display: "popup" });
@@ -307,7 +323,7 @@ const Login = () => {
       const deviceInfo = getDeviceInfo();
       const sessionId = generateSessionId();
       await addDoc(collection(db, "auditLogs"), {
-        timestamp: Date.now(),
+        timestamp: serverTimestamp(),
         userName: result.user.displayName || "",
         userEmail: result.user.email,
         userId: result.user.uid,

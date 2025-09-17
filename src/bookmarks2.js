@@ -77,12 +77,11 @@ export default function Bookmarks2() {
   // 2) Listen to auth and the current user's bookmarks
   useEffect(() => {
     let unsubUserDoc = null;
-    // Ensure unsubAuth is always a function, even if onAuthStateChanged is mocked or missing
-    const unsubAuth = typeof auth.onAuthStateChanged === 'function'
-      ? auth.onAuthStateChanged(async (user) => {
-          setCurrentUser(user || null);
-          if (user) {
-            const userRef = doc(db, 'userBookmarks', user.uid);
+    let unsubAuth = () => {}; // <-- ensure unsubAuth is always a function
+    unsubAuth = auth.onAuthStateChanged(async (user) => {
+      setCurrentUser(user || null);
+      if (user) {
+        const userRef = doc(db, 'userBookmarks', user.uid);
 
             try {
               const snap = await getDoc(userRef);
@@ -117,11 +116,12 @@ export default function Bookmarks2() {
             setBookmarks(new Set());
             if (unsubUserDoc) unsubUserDoc();
           }
-        })
-      : () => {}; // fallback no-op if not a function
+        });
+      // fallback no-op if not a function
 
     return () => {
       if (unsubUserDoc) unsubUserDoc();
+      if (typeof unsubAuth === 'function') unsubAuth();
       if (typeof unsubAuth === 'function') unsubAuth();
     };
   }, [setCurrentUser]);
