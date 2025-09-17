@@ -10,6 +10,8 @@ import { CLOUDINARY_CONFIG } from "./profile";
 import FriendPopup from "./friend";
 import "./community.css";
 import { emitAchievement } from "./achievementsBus";
+import { logCommunityShareAdventure, logCommunityDeleteAdventure } from "./community-log"; // Add this import
+
 
 // Helper to upload images to Cloudinary
 async function uploadToCloudinary(file) {
@@ -96,17 +98,17 @@ function ShareTripModal({ onClose, onCreate }) {
         createdAt: serverTimestamp()
       };
       if (imageUrls.length > 0) postPayload.images = imageUrls;
-      if (visibility === "Friends") postPayload.allowedUids = []; // put friend UIDs here
+      if (visibility === "Friends") postPayload.allowedUids = [];
 
-      console.log("DEBUG: Posting payload (authorId, visibility, createdAt sentinel):", {
-        authorId: postPayload.authorId,
-        visibility: postPayload.visibility,
-        createdAt: "serverTimestamp()",
-        allowedUids: postPayload.allowedUids,
-        imagesCount: postPayload.images?.length || 0
+      const docRef = await addDoc(collection(db, "community"), postPayload);
+
+      // Log the share adventure action
+      await logCommunityShareAdventure({
+        postId: docRef.id,
+        postTitle: postPayload.title,
+        location: postPayload.location,
+        user
       });
-
-      await addDoc(collection(db, "community"), postPayload);
 
       // Unlock Hello World achievement and add activity
       await unlockHelloWorldAchievement();
@@ -1255,15 +1257,23 @@ const Community = () => {
   }
 
   // Add delete post function
-  const handleDeletePost = async (postId) => {
+  const handleDeletePost = async (post) => {
     if (!window.confirm("Are you sure you want to delete this post? This cannot be undone.")) {
       return;
     }
     
     try {
-      await deleteDoc(doc(db, "community", postId));
+      await deleteDoc(doc(db, "community", post.id)); // This deletes the post from Firebase
       // Remove from local state
-      setPosts(prev => prev.filter(p => p.id !== postId));
+      setPosts(prev => prev.filter(p => p.id !== post.id));
+      
+      // Log the delete adventure action
+      await logCommunityDeleteAdventure({
+        postId: post.id,
+        postTitle: post.title || "",
+        location: post.location || "",
+        deletedBy: auth.currentUser
+      });
     } catch (err) {
       console.error("Failed to delete post:", err);
       alert("Failed to delete post. Please try again.");
@@ -1346,7 +1356,7 @@ const Community = () => {
                       <PostActionMenu 
                         post={post} 
                         onEdit={() => setEditingPost(post)} 
-                        onDelete={() => handleDeletePost(post.id)}
+                        onDelete={() => handleDeletePost(post)}
                       />
                       <button
                         className="add-friend"
@@ -1413,8 +1423,9 @@ const Community = () => {
                     <button
                       className="act"
                       onClick={() => setCommentingPost(post)}
+                      data-testid={`comments-modal}`}
                     >
-                      <span>💬</span> {post.comments || 0}
+                      <span data-testid={`comments-icon`}>💬</span> {post.comments || 0}
                     </button>
                     <button className="act"><span>📌</span> Save</button>
                   </footer>

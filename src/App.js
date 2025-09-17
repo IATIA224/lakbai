@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, BrowserRouter, useLocation, useInRouterContext } from 'react-router-dom';
 import StickyHeader from './header';
 import Login from './login';
@@ -14,6 +14,7 @@ import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
 import Itinerary from "./Itinerary";
 import Footer from './Footer'; // FIX: was './footer'
+import LoginCMS from './login-cms'; // Adjust path if needed
 import ContentManagement from './ContentManagement'; // Adjust path if needed
 
 // New: place all UI that depends on useLocation in this inner component
@@ -21,11 +22,11 @@ function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
   // Safe access to pathname when running in tests
   const location = useLocation();
-  const hideHeaderRoutes = ['/', '/register', '/admin/ContentManagement'];
+  const hideHeaderRoutes = ['/', '/register', '/admin/ContentManagement', '/admin/login'];
   const showHeader = !hideHeaderRoutes.includes(location?.pathname || '/');
 
   return (
-    <UserProvider>  {/* CHANGE THIS FROM AuthProvider TO UserProvider */}
+    <UserProvider>
       {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
 
       <Routes>
@@ -38,12 +39,11 @@ function AppInner() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/itinerary" element={<Itinerary />} />
         <Route path="/admin/ContentManagement" element={<ContentManagement />} />
+        <Route path="/admin/login" element={<LoginCMS />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
       <AchievementToast />
-
-      {/* Footer: hide on login/register */}
       {showHeader && <Footer />}
     </UserProvider>
   );
@@ -66,4 +66,5 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
 

@@ -3,6 +3,7 @@ import axios from "axios";
 import "./EditProfile.css";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "./firebase"; // Make sure db and auth are exported from firebase.js
+import { getByTestId } from "@testing-library/react";
 
 const interestsList = [
   { icon: "🏄‍♂️", label: "Surfer", color: "#e0f7fa" },
@@ -157,6 +158,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
                 />
               )}
               <input
+                data-testid="photo-input"
                 id="profile-photo-upload"
                 type="file"
                 accept="image/*"
@@ -209,6 +211,10 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
                 <div
                   key={interest.label}
                   className="edit-profile-interest"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={interest.label}
+                  data-testid={"button-Surfer"}
                   style={{
                     background: bgColor,
                     cursor: "pointer",
@@ -226,6 +232,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
                     userSelect: "none"
                   }}
                   onClick={() => handleInterestClick(idx)}
+                  onKeyPress={e => { if (e.key === "Enter" || e.key === " ") handleInterestClick(idx); }}
                 >
                   <span className="edit-profile-interest-icon">{interest.icon}</span>
                   <span className="edit-profile-interest-label">{interest.label}</span>

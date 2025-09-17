@@ -21,7 +21,7 @@ const InfoDelete = ({ onClose }) => {
       await deleteDoc(doc(db, "users", user.uid));
       // Delete Auth user
       await deleteUser(user);
-      setPopup({ show: true, type: "success", message: "Account deleted successfully." });
+      setPopup({ show: true, getByTestId: "success-popup", type: "success", message: "Account deleted successfully." });
     } catch (err) {
       setPopup({ show: true, type: "error", message: err.message });
     }
@@ -132,7 +132,7 @@ const InfoDelete = ({ onClose }) => {
         </div>
         {popup.show && (
           <div className="info-popup-overlay">
-            <div className="info-popup">
+            <div className="info-popup" data-testid="success-popup">
               <img
                 src={popup.type === "success" ? "/star.png" : "/warning (1).png"}
                 alt={popup.type === "success" ? "Success" : "Error"}
