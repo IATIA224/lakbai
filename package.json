@@ -10,6 +10,7 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.11.0",
     "cloudinary-react": "^1.8.1",
+    "cors": "^2.8.5",
     "docx": "^9.5.1",
     "firebase": "^11.10.0",
     "firebase-admin": "^13.4.0",
@@ -29,6 +30,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "prestart": "node scripts/sync-cloudinary-images.js",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
