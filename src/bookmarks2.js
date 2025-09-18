@@ -19,14 +19,13 @@ import {
 } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
-import destImages from "./dest-images.json";
 
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
   const [destinations, setDestinations] = useState([]);
   const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState(new Set());
-  const [currentUser, setCurrentUser] = useState(null);
+  const [ setCurrentUser] = useState(null);
   // NEW: page loading state
   const [isLoading, setIsLoading] = useState(true);
   const [cloudImages, setCloudImages] = useState([]);
@@ -778,60 +777,91 @@ export default function Bookmarks2() {
             </button>
 
             <div className="details-hero">
-              <div className="details-hero-art">
-                <div className="hero-water" />
-                <div className="hero-sand" />
-                <div className="hero-curve" />
-              </div>
-            </div>
-
-            <div className="details-body">
-              <div className="details-head-row">
-                <div className="details-title-col">
-                  <h2 className="details-title">{selected.name}</h2>
-                  <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
-                    {selected.region}
-                  </a>
-
-                  <div className="details-rating-row">
-                    <span className="star">⭐</span>
-                    <span className="avg">
-                      {(ratingsByDest[selected.id]?.count ?? 0) > 0
-                        ? (ratingsByDest[selected.id].avg).toFixed(1)
-                        : '—'}
-                    </span>
-                    <span className="muted"> (Average Rating)</span>
-                    <span className="muted sep">Your Rating:</span>
-                    <div className="your-stars">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          className={`star-btn ${userRating >= n ? 'filled' : ''}`}
-                          onClick={() => rateSelected(n)}
-                          disabled={savingRating}
-                          aria-label={`${n} star${n > 1 ? 's' : ''}`}
-                          title={`${n} star${n > 1 ? 's' : ''}`}
+                      <div className="details-hero-image">
+                      {cloudImages.length === 0 ? (
+                        <div style={{ width: "100%", height: 240, background: "#e0e7ef", borderRadius: 16  }} />
+                      ) : getImageForDestination(cloudImages, selected.name) ? (
+                        <img
+                        src={getImageForDestination(cloudImages, selected.name)}
+                        alt={selected.name}
+                        style={{
+                          width: "100%",
+                          height: 240,
+                          objectFit: "cover",
+                          objectPosition: "center", // always show bottom part
+                          borderRadius: "16px 16px 0 0",
+                          marginBottom: 8,
+                          background: "#e0e7ef"
+                        }}
+                        />
+                      ) : (
+                        <div
+                        style={{
+                          width: "100%",
+                          height: 180,
+                          borderRadius: 12,
+                          background: "#e0e7ef",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#94a3b8",
+                          fontSize: 48,
+                          marginBottom: 8
+                        }}
                         >
-                          ★
-                        </button>
-                      ))}
+                        🏝️
+                        </div>
+                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="details-actions">
-                  <button
-                    className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
-                    onClick={handleModalBookmarkClick}
-                    disabled={bookmarking}
-                    aria-pressed={bookmarks.has(selected.id)}
-                    aria-label={bookmarks.has(selected.id) ? 'Remove bookmark' : 'Add bookmark'}
-                  >
-                    <span className="icon">{bookmarks.has(selected.id) ? '❤️' : '🤍'}</span>
-                    {bookmarks.has(selected.id) ? 'Bookmarked' : 'Bookmark'}
-                  </button>
-                  <button
-                    className={`btn-green ${addedTripId === selected.id ? 'btn-success' : ''}`}  // NEW: success style 
+                    <div className="details-body">
+                      <div className="details-head-row">
+                      <div className="details-title-col">
+                        <h2 className="details-title">{selected.name}</h2>
+                        <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
+                        {selected.region}
+                        </a>
+
+                        <div className="details-rating-row">
+                        <span className="star">⭐</span>
+                        <span className="avg">
+                          {(ratingsByDest[selected.id]?.count ?? 0) > 0
+                          ? (ratingsByDest[selected.id].avg).toFixed(1)
+                          : '—'}
+                        </span>
+                        <span className="muted"> (Average Rating)</span>
+                        <span className="muted sep">Your Rating:</span>
+                        <div className="your-stars">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            className={`star-btn ${userRating >= n ? 'filled' : ''}`}
+                            onClick={() => rateSelected(n)}
+                            disabled={savingRating}
+                            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                            title={`${n} star${n > 1 ? 's' : ''}`}
+                          >
+                            ★
+                          </button>
+                          ))}
+                        </div>
+                        </div>
+                      </div>
+
+                      <div className="details-actions">
+                        <button
+                        className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
+                        onClick={handleModalBookmarkClick}
+                        disabled={bookmarking}
+                        aria-pressed={bookmarks.has(selected.id)}
+                        aria-label={bookmarks.has(selected.id) ? 'Remove bookmark' : 'Add bookmark'}
+                        >
+                        <span className="icon">{bookmarks.has(selected.id) ? '❤️' : '🤍'}</span>
+                        {bookmarks.has(selected.id) ? 'Bookmarked' : 'Bookmark'}
+                        </button>
+                        <button
+                        className={`btn-green ${addedTripId === selected.id ? 'btn-success' : ''}`}  // NEW: success style 
                     onClick={() => addToTripFromBookmarks(selected)}
                     disabled={addingTripId === selected.id}
                     aria-busy={addingTripId === selected.id}
