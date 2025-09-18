@@ -693,36 +693,44 @@
 }
 .details-hero {
   width: 100%;
-  height: 230px;
+  height: 240px;
   background: #e8f4ff;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
 }
+
 .details-hero-art {
   position: relative;
-  width: 88%;
-  height: 1 0px;
-  border-radius: 16px;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px 16px 0 0;
   overflow: hidden;
   background: linear-gradient(#bde3ff 0%, #9bd1ff 60%, #7fc6ff 61%, #7fc6ff 100%);
   box-shadow: inset 0 -8px 0 rgba(255,255,255,0.6);
-}
-.hero-water {
-  position: absolute; left: 8%; right: 8%; bottom: 10%;
-  height: 28px; background: #23a7ff; border-radius: 999px;
-  filter: blur(0.2px);
-}
-.hero-sand {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 12px;
-  background: #f3d19c;
-}
-.hero-curve {
-  position: absolute; left: 10%; right: 10%; top: 28%;
-  height: 6px; border-radius: 999px; background: #2cbd6d;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
-/* Body */
+.details-hero-art img {
+  width: 100vw;              /* Make image wide enough to always cover */
+  min-width: 100%;
+  height: 100%;
+  object-fit: cover;         /* Ensures the image covers the area */
+  object-position: center;   /* Always show the bottom of the image */
+  border-radius: 16px 16px 0 0;          /* No border radius for flush fit */
+  display: block;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  top: auto;
+  transform: translateX(-50%);
+}
+
 .details-body { padding: 40px 40px 40px 40px; height: 520px; overflow-y: auto; }
 .details-head-row {
   display: grid;
@@ -1289,6 +1297,7 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
     padding: 3px 6px; /* Smaller padding */
     font-size: 0.75rem; /* Smaller text */
   }
+}
 
   /* Very small screens (phones in portrait) */
 @media (max-width: 480px) {
@@ -1357,5 +1366,4 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
     top: 6px;
     left: 6px;
   }
-}
 }
