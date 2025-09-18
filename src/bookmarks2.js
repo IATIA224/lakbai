@@ -18,6 +18,8 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
+import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
+import destImages from "./dest-images.json";
 
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
@@ -27,6 +29,7 @@ export default function Bookmarks2() {
   const [currentUser, setCurrentUser] = useState(null);
   // NEW: page loading state
   const [isLoading, setIsLoading] = useState(true);
+  const [cloudImages, setCloudImages] = useState([]);
 
   // UI state
   const [query, setQuery] = useState('');
@@ -511,6 +514,10 @@ export default function Bookmarks2() {
     return '—';
   };
 
+  useEffect(() => {
+    fetchCloudinaryImages().then(setCloudImages);
+  }, []);
+
   return (
     <div className="App">
       {isLoading && (
@@ -677,8 +684,40 @@ export default function Bookmarks2() {
             {pageItems.map((d) => (
               <div className="grid-card" key={d.id}>
                 <div className="card-image">
-                  <div className="sun-decoration" />
-                  <div className="wave-decoration" />
+                  {cloudImages.length === 0 ? (
+                    <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
+                  ) : getImageForDestination(cloudImages, d.name) ? (
+                    <img
+                      src={getImageForDestination(cloudImages, d.name)}
+                      alt={d.name}
+                      className="destination-img"
+                      style={{
+                        width: "100%",
+                        height: 200,
+                        objectFit: "cover",
+                        borderRadius: "12px 12px 0 0",
+                        marginBottom: 6,
+                        background: "#e0e7ef"
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        borderRadius: "12px 12px 0 0",
+                        background: "#e0e7ef",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#94a3b8",
+                        fontSize: 32,
+                        marginBottom: 6
+                      }}
+                    >
+                      🏝️
+                    </div>
+                  )}
                   <button
                     className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
                     onClick={() => toggleBookmark(d)}
