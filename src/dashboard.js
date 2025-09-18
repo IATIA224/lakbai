@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from './firebase';
+
 import { signOut } from 'firebase/auth';
+import { 
+  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc 
+} from 'firebase/firestore';
+import { db, auth } from './firebase';
 import './dashboardBanner.css';
 
 // DestinationCard Component - moved to top to avoid conflicts
@@ -85,20 +89,54 @@ function Dashboard({ setShowAIModal }) {
     }
   ]);
 
-  const [bookmarks, setBookmarks] = useState([
-    {
-      id: 'bm1',
-      title: 'Chocolate Hills',
-      image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80',
-      desc: 'Unique geological formation in Bohol.'
-    },
-    {
-      id: 'bm2',
-      title: 'Taal Volcano',
-      image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80',
-      desc: 'Active volcano with a scenic lake.'
-    }
-  ]);
+  const [bookmarks, setBookmarks] = useState([]);
+  const [bookmarksLoading, setBookmarksLoading] = useState(true);
+
+  // Fetch 2 most recent bookmarks for the current user
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setBookmarksLoading(true);
+        try {
+          const colRef = collection(db, 'users', user.uid, 'bookmarks');
+          const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc'), limit(2)));
+          const rows = await Promise.all(
+            snap.docs.map(async (b) => {
+              const data = b.data() || {};
+              // Prefer data stored on the bookmark doc
+              if (data.name && data.description) {
+                return {
+                  id: b.id,
+                  ...data,
+                  savedAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+                };
+              }
+              // Fallback: merge with source destination doc
+              const dref = doc(db, 'destinations', b.id);
+              const ddoc = await getDoc(dref);
+              return {
+                id: b.id,
+                ...(ddoc.exists() ? ddoc.data() : {}),
+                ...data,
+                savedAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+              };
+            })
+          );
+          setBookmarks(rows.filter(Boolean));
+        } catch (e) {
+          setBookmarks([]);
+        } finally {
+          setBookmarksLoading(false);
+        }
+      } else {
+        setBookmarks([]);
+        setBookmarksLoading(false);
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, []);
 
   // Mock dashboard stats (replace with actual useUserDashboardStats when available)
   const statsLoading = false;
@@ -253,17 +291,19 @@ function Dashboard({ setShowAIModal }) {
             + Add new bookmark
           </button>
           <div className="dashboard-preview-list">
-            {bookmarks && bookmarks.length === 0 ? (
+            {bookmarksLoading ? (
+              <div className="dashboard-preview-empty">Loading bookmarks…</div>
+            ) : bookmarks.length === 0 ? (
               <div className="dashboard-preview-empty">
                 You don't have any bookmarks yet. <span style={{ color: "#e74c3c" }}>Add a new bookmark.</span>
               </div>
             ) : (
-              bookmarks && bookmarks.map(bm => (
+              bookmarks.map(bm => (
                 <div className="dashboard-preview-bookmark" key={bm.id}>
-                  <img src={bm.image} alt={bm.title} className="dashboard-preview-img" />
+                  <img src={bm.image} alt={bm.title || bm.name} className="dashboard-preview-img" />
                   <div className="dashboard-preview-bookmark-info">
-                    <div className="dashboard-preview-bookmark-title">{bm.title}</div>
-                    <div className="dashboard-preview-bookmark-desc">{bm.desc}</div>
+                    <div className="dashboard-preview-bookmark-title">{bm.title || bm.name}</div>
+                    <div className="dashboard-preview-bookmark-desc">{bm.desc || bm.description}</div>
                   </div>
                   <span className="dashboard-preview-dots">⋯</span>
                 </div>
