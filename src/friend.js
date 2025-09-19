@@ -194,7 +194,7 @@ const FriendPopup = ({ onClose }) => {
     setLoading(false);
   };
 
-  const handleRemoveFriend = async (friendId) => {
+  const handleRemoveFriend = async  (friendId) => {
     if (!window.confirm("Are you sure you want to remove this friend?")) return;
 
     const user = auth.currentUser;
