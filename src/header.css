@@ -1,7 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --header-height: 72px;
+  /* increased header height by 5% */
+  --header-height: calc(72px * 1.05);
 }
 
 /* Force header to top and above everything */
@@ -45,7 +46,8 @@ main,
 
 /* Slightly smaller header on narrow screens */
 @media (max-width: 600px) {
-  :root { --header-height: 64px; }
+  /* keep mobile value also 5% larger than original */
+  :root { --header-height: calc(64px * 1.05); }
   .sticky-header, .header2-sticky { height: var(--header-height); }
   body > #root,
   main,
