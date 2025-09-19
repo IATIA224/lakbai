@@ -50,13 +50,10 @@ const FriendPopup = ({ onClose }) => {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-    
-    // Listen for friend requests
+
+    // Listen for friend requests (document snapshot)
     const userDocUnsub = onSnapshot(doc(db, "users", user.uid), async (snap) => {
-      function exists() {
-        return snap && (typeof snap.exists === "function" ? snap.exists() : !!snap.data());
-      }
-      if (!exists()) {
+      if (!snap || !snap.exists()) {
         setFriendRequests([]);
         return;
       }
@@ -65,23 +62,21 @@ const FriendPopup = ({ onClose }) => {
       const reqProfiles = await fetchProfiles(reqIds);
       setFriendRequests(reqProfiles);
     });
-    
-    // Listen for friends from subcollection
+
+    // Listen for friends from subcollection (collection snapshot)
     const friendsRef = collection(db, "users", user.uid, "friends");
     const friendsUnsub = onSnapshot(friendsRef, async (snap) => {
-      function exists() {
-        return snap && (typeof snap.exists === "function" ? snap.exists() : !!snap.data);
-      }
-      if (snap.empty || !exists()) {
+      // For collection snapshots, use snap.empty to check no docs
+      if (!snap || snap.empty) {
         setFriends([]);
         return;
       }
 
-      const friendIds = snap.docs.map(doc => doc.id);
+      const friendIds = snap.docs.map(d => d.id);
       const friendProfiles = await fetchProfiles(friendIds);
       setFriends(friendProfiles);
     });
-    
+
     return () => {
       userDocUnsub();
       friendsUnsub();
@@ -146,34 +141,57 @@ const FriendPopup = ({ onClose }) => {
     if (!me) return;
     setLoading(true);
     try {
-      // Create friend documents in both subcollections
       const now = Date.now();
-      
-      // Create friend document in my subcollection
+
+      // Create friend documents in both subcollections
       await setDoc(doc(db, "users", me.uid, "friends", requesterId), {
         friendId: requesterId,
         since: now
       });
-      
-      // Create friend document in requester's subcollection
       await setDoc(doc(db, "users", requesterId, "friends", me.uid), {
         friendId: me.uid,
         since: now
       });
-      
-      // Remove from my friend requests array
-      await updateDoc(doc(db, "users", me.uid), {
-        friendRequests: arrayRemove(requesterId)
-      });
 
-      // Log the friendship activity
+      // Robustly remove requesterId from my friendRequests field (handles string or object entries)
+      const myRef = doc(db, "users", me.uid);
+      const mySnap = await getDoc(myRef);
+      if (mySnap.exists()) {
+        const data = mySnap.data();
+        const arr = data.friendRequests || [];
+        const newArr = arr.filter((item) => {
+          if (typeof item === "string") return item !== requesterId;
+          if (item && typeof item === "object") {
+            return (item.id !== requesterId) && (item.uid !== requesterId);
+          }
+          return true;
+        });
+        await updateDoc(myRef, { friendRequests: newArr });
+      } else {
+        // fallback attempts (harmless if not needed)
+        await updateDoc(myRef, { friendRequests: arrayRemove(requesterId) }).catch(()=>{});
+        await updateDoc(myRef, { friendRequests: arrayRemove({ id: requesterId }) }).catch(()=>{});
+      }
+
+      // Optimistically update local UI: remove request and add to friends list
+      setFriendRequests((prev) => prev.filter((p) => p.id !== requesterId));
+      const profile = (await fetchProfiles([requesterId]))[0];
+      if (profile) {
+        setFriends((prev) => {
+          // avoid duplicates
+          const without = prev.filter((f) => f.id !== profile.id);
+          return [...without, profile];
+        });
+      }
+
+      // Log activity
       await addActivity(me.uid, "You added a friend!", "👥");
       await addActivity(requesterId, "You became friends!", "👥");
-      
+
       alert("Friend request accepted!");
     } catch (err) {
       console.error("Error accepting friend request:", err);
-      alert("Failed to accept request: " + err.message);
+      alert("Failed to accept request: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -184,14 +202,33 @@ const FriendPopup = ({ onClose }) => {
     if (!me) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", me.uid), {
-        friendRequests: arrayRemove(requesterId)
-      });
+      // Robustly remove requesterId from my friendRequests field
+      const myRef = doc(db, "users", me.uid);
+      const mySnap = await getDoc(myRef);
+      if (mySnap.exists()) {
+        const data = mySnap.data();
+        const arr = data.friendRequests || [];
+        const newArr = arr.filter((item) => {
+          if (typeof item === "string") return item !== requesterId;
+          if (item && typeof item === "object") {
+            return (item.id !== requesterId) && (item.uid !== requesterId);
+          }
+          return true;
+        });
+        await updateDoc(myRef, { friendRequests: newArr });
+      } else {
+        await updateDoc(myRef, { friendRequests: arrayRemove(requesterId) }).catch(()=>{});
+        await updateDoc(myRef, { friendRequests: arrayRemove({ id: requesterId }) }).catch(()=>{});
+      }
+
+      // Optimistically update local UI
+      setFriendRequests((prev) => prev.filter((p) => p.id !== requesterId));
     } catch (err) {
       console.error(err);
       alert("Failed to decline request.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleRemoveFriend = async  (friendId) => {
