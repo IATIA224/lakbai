@@ -145,7 +145,6 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (sendingOtp) return;
-    if (sendingOtp) return;
 
     // Validate
     if (!agreed) return setPopup({ show: true, type: "error", message: "You must agree to the Terms of Service and Privacy Policy." });
@@ -154,7 +153,6 @@ const Register = () => {
     if (password !== confirmPassword) return setPopup({ show: true, type: "error", message: "Passwords do not match." });
     if (!firstName.trim() || !lastName.trim()) return setPopup({ show: true, type: "error", message: "Please enter your first and last name." });
 
-    // Check if email already registered
     try {
       setSendingOtp(true);
       const methods = await fetchSignInMethodsForEmail(auth, email);
@@ -167,7 +165,7 @@ const Register = () => {
       const code = (Math.floor(100000 + Math.random() * 900000)).toString();
       setGeneratedOtp(code);
       setOtpExpiresAt(Date.now() + OTP_TTL_MS);
-      setRemaining(OTP_TTL_MS); // <-- add this line
+      setRemaining(OTP_TTL_MS);
       setOtpDigits(["", "", "", "", "", ""]);
       setResends(0);
       setOtpError("");

@@ -75,7 +75,7 @@ const InfoDelete = ({ onClose }) => {
         <div className="info-modal-content">
           <div className="info-alert">
             <span className="info-alert-icon">&#9432;</span>
-            <span>Please log in to manage your account settings or delete your account.</span>
+            <span>Please log in to manage your account settings or delete your account</span>
           </div>
           <form className="info-form" onSubmit={handleEmailDelete}>
             <label className="info-label">
