@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, BrowserRouter, useLocation, useInRouterContext } from 'react-router-dom';
+import { Routes, Route, BrowserRouter, useLocation, useInRouterContext, Navigate } from 'react-router-dom';
 import StickyHeader from './header';
 import Login from './login';
 import Register from './register';
@@ -23,7 +23,7 @@ function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
   // Safe access to pathname when running in tests
   const location = useLocation();
-  const hideHeaderRoutes = ['/', '/register', '/admin/ContentManagement', '/admin/login'];
+  const hideHeaderRoutes = ['/', '/register', '/ContentManagement', '/admin/login'];
   const showHeader = !hideHeaderRoutes.includes(location?.pathname || '/');
 
   return (
@@ -31,7 +31,7 @@ function AppInner() {
       {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
 
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/dashboard"
@@ -46,8 +46,16 @@ function AppInner() {
         <Route path="/community" element={<Community />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/itinerary" element={<Itinerary />} />
-        <Route path="/admin/ContentManagement" element={<ContentManagement />} />
+        <Route
+          path="/ContentManagement"
+          element={
+            <ProtectedRoute>
+              <ContentManagement />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/admin/login" element={<LoginCMS />} />
+        <Route path="*" element={<Navigate to="/admin/login" replace />} /> {/* Redirect all unknown routes to /admin/login */}
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
