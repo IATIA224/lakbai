@@ -816,7 +816,7 @@
 .modal-overlay { backdrop-filter: blur(2px); }
 
 /* Filters/UI polish to match screenshot spacing */
-.bp2-page-layout { padding-top: 16px; }
+.bp2-page-layout { padding-top: 54px; }
 .bp2-filters { border: 1px solid #eef2f7; }
 .bp2-sort label { color: #6b7280; }
 
