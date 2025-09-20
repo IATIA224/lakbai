@@ -182,12 +182,12 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
       setLoading(true);
       if (db && useFirestore) {
         try {
+          // --- CHANGED: Remove limit(pageSize) to fetch all logs ---
           const baseQ = query(
             collection(db, 'auditLogs'),
-            orderBy('timestamp', 'desc'),
-            limit(pageSize)
+            orderBy('timestamp', 'desc')
+            // No limit here!
           );
-          // live snapshot
           unsub = onSnapshot(
             baseQ,
             (snap) => {
@@ -208,8 +208,9 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
           return;
         } catch {
           try {
+            // --- CHANGED: Remove limit(pageSize) to fetch all logs ---
             const snap = await getDocs(
-              query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(pageSize))
+              query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'))
             );
             if (!cancelled) {
               setLogs(
