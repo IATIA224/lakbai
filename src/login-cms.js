@@ -4,7 +4,7 @@ import { getFirestore, setDoc, getDoc, doc, collection, addDoc, serverTimestamp 
 import ContentManagement from "./ContentManagement";
 import "./Styles/login-cms.css";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { useNavigate } from "react-router-dom"; // Add this import at the top
+import { useNavigate } from "react-router-dom";
 
 export default function LoginCMS() {
     const [email, setEmail] = useState("");
@@ -17,7 +17,7 @@ export default function LoginCMS() {
 
     const auth = getAuth();
     const db = getFirestore();
-    const navigate = useNavigate(); // Add this line
+    const navigate = useNavigate();
 
     // Only check admin after login
     const handleSignIn = async (e) => {
@@ -60,7 +60,7 @@ export default function LoginCMS() {
             });
 
             setIsAdmin(true);
-            navigate("/admin/ContentManagement", { replace: true }); // Redirect after successful login
+            navigate("/ContentManagement", { replace: true }); // Redirect after successful login
         } catch (err) {
             setError(
                 err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credentials"
