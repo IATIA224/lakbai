@@ -301,8 +301,14 @@ const Login = () => {
       navigate("/dashboard");
     } catch (err) {
       console.error("Google login error:", err);
-      const msg = mapAuthError(err.code);
-      setPopup({ show: true, type: "error", message: msg });
+      if (
+        err.code !== "auth/popup-closed-by-user" &&
+        err.code !== "auth/cancelled-popup-request"
+      ) {
+        const msg = mapAuthError(err.code);
+        setPopup({ show: true, type: "error", message: msg });
+      }
+      // If popup was closed/cancelled by user, do nothing
     }
     // removed setLoading(false)
   };
@@ -346,8 +352,14 @@ const Login = () => {
       navigate("/dashboard");
     } catch (err) {
       console.error("Facebook login error:", err);
-      const msg = mapAuthError(err.code);
-      setPopup({ show: true, type: "error", message: msg });
+      if (
+        err.code !== "auth/popup-closed-by-user" &&
+        err.code !== "auth/cancelled-popup-request"
+      ) {
+        const msg = mapAuthError(err.code);
+        setPopup({ show: true, type: "error", message: msg });
+      }
+      // If popup was closed/cancelled by user, do nothing
     }
   };
 
