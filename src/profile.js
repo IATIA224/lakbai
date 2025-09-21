@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-g";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import EditProfile from "./EditProfile";
@@ -163,6 +163,7 @@ const Profile = () => {
       ]);
 
       // Replace friends count with subcollection size (authoritative)
+      let friendsCount = undefined; // <-- define before use to avoid no-undef
       try {
         const friendsSnap = await getDocs(collection(db, "users", uid, "friends"));
         friendsCount = friendsSnap.size;
