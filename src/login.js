@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   FacebookAuthProvider,
   sendPasswordResetEmail,
+  signInWithRedirect,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -423,100 +424,106 @@ const Login = () => {
     setResetEmail("");
   };
 
+  // wherever the component returns JSX, ensure it returns one root element:
   return (
     <>
-      <Header2 />
-      {loading ? (
-        <div className="login-bg" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <img src="/coconut-tree.png" alt="Loading" className="login-logo" style={{ width: 60, height: 60 }} />
-            <p>Loading...</p>
+      {/* page content */}
+      <div className="login-container">
+        <Header2 />
+        {loading ? (
+          <div className="login-bg" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <img src="/coconut-tree.png" alt="Loading" className="login-logo" style={{ width: 60, height: 60 }} />
+              <p>Loading...</p>
+            </div>
           </div>
-        </div>
-      ) : (
-      <div className="login-bg">
-        <div className="login-container-1">
-          <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
-          <h2 className="login-title">Welcome Back!</h2>
-          <p className="login-subtitle">Sign in to continue your Philippine adventure</p>
-          <form className="login-form" onSubmit={handleEmailLogin}>
-            <label className="login-label">
-              Email Address
-              <input 
-                type="email" 
-                className="login-input" 
-                placeholder="your@email.com" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
-            <label className="login-label">
-              Password
-              <div className="login-password-wrapper">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  className="login-input"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+        ) : (
+        <div className="login-bg">
+          <div className="login-container-1">
+            <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
+            <h2 className="login-title">Welcome Back!</h2>
+            <p className="login-subtitle">Sign in to continue your Philippine adventure</p>
+            <form className="login-form" onSubmit={handleEmailLogin}>
+              <label className="login-label">
+                Email Address
+                <input 
+                  type="email" 
+                  className="login-input" 
+                  placeholder="your@email.com" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <span
-                  className="login-eye"
-                  onClick={() => setShowPassword((v) => !v)}
-                  tabIndex={0}
-                  role="button"
-                  aria-label="Show password"
-                >
-                  <img
-                    src={showPassword ? "/show.png" : "/hide.png"}
-                    alt={showPassword ? "Hide password" : "Show password"}
-                    style={{ width: 20, height: 20 }}
-                  />
-                </span>
-              </div>
-            </label>
-            <div className="login-options">
-              <label className="login-remember">
-                <input 
-                  type="checkbox" 
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                /> Remember me
               </label>
-              <span className="login-forgot" onClick={handleForgotPassword} style={{ cursor: "pointer" }}>Forgot password?</span>
+              <label className="login-label">
+                Password
+                <div className="login-password-wrapper">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="login-input"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <span
+                    className="login-eye"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Show password"
+                  >
+                    <img
+                      src={showPassword ? "/show.png" : "/hide.png"}
+                      alt={showPassword ? "Hide password" : "Show password"}
+                      style={{ width: 20, height: 20 }}
+                    />
+                  </span>
+                </div>
+              </label>
+              <div className="login-options">
+                <label className="login-remember">
+                  <input 
+                    type="checkbox" 
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  /> Remember me
+                </label>
+                <span className="login-forgot" onClick={handleForgotPassword} style={{ cursor: "pointer" }}>Forgot password?</span>
+              </div>
+              <button className="login-btn" type="submit">
+                Sign In to LakbAI
+              </button>
+            </form>
+            <div className="login-divider">
+              <span>Or continue with</span>
             </div>
-            <button className="login-btn" type="submit">
-              Sign In to LakbAI
-            </button>
-          </form>
-          <div className="login-divider">
-            <span>Or continue with</span>
-          </div>
-          <div className="login-socials">
-            <button className="login-social-btn" onClick={handleGoogleLogin} type="button" disabled={isSigningIn}>
-              <span className="login-social-icon-wrapper">
-                <img src="/google.png" alt="Google" className="login-social-icon" />
+            <div className="login-socials">
+              <button className="login-social-btn" onClick={handleGoogleLogin} type="button" disabled={isSigningIn}>
+                <span className="login-social-icon-wrapper">
+                  <img src="/google.png" alt="Google" className="login-social-icon" />
+                </span>
+                {isSigningIn ? "Signing in…" : "Sign in with Google"}
+              </button>
+              <button className="login-social-btn" onClick={handleFacebookLogin} type="button">
+                <span className="login-social-icon-wrapper">
+                  <img src="/facebook.png" alt="Facebook" className="login-social-icon" />
+                </span>
+                Facebook
+              </button>
+            </div>
+            <div className="login-signup">
+              Don’t have an account?{" "}
+              <span style={{color: "#3b5fff", cursor: "pointer"}} onClick={handleSignupClick}>
+                Sign up for free
               </span>
-              {isSigningIn ? "Signing in…" : "Sign in with Google"}
-            </button>
-            <button className="login-social-btn" onClick={handleFacebookLogin} type="button">
-              <span className="login-social-icon-wrapper">
-                <img src="/facebook.png" alt="Facebook" className="login-social-icon" />
-              </span>
-              Facebook
-            </button>
-          </div>
-          <div className="login-signup">
-            Don’t have an account?{" "}
-            <span style={{color: "#3b5fff", cursor: "pointer"}} onClick={handleSignupClick}>
-              Sign up for free
-            </span>
+            </div>
           </div>
         </div>
+        )}
       </div>
-      )}
+
+      {/* modals / toasts / other siblings must be inside this fragment */}
       {forgotPopup.show && (
         <div className="login-popup-overlay" style={{
           position: "fixed",
