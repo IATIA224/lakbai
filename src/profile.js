@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-g";
+// fix: use react-leaflet, not "react-g"
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import EditProfile from "./EditProfile";
