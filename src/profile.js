@@ -637,6 +637,27 @@ const Profile = () => {
     return cards;
   }, [recentCompletedAchievements, achievementsData]);
 
+  // Sync unlocked achievements from Firestore
+  useEffect(() => {
+    if (!userId) {
+      setUnlockedAchievements(new Set());
+      return;
+    }
+    const userRef = doc(db, "users", userId);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (!docSnap.exists()) {
+        setUnlockedAchievements(new Set());
+        return;
+      }
+      const achievements = docSnap.data().achievements || {};
+      const unlocked = Object.entries(achievements)
+        .filter(([_, v]) => v === true)
+        .map(([k]) => Number(k));
+      setUnlockedAchievements(new Set(unlocked));
+    });
+    return () => unsubscribe();
+  }, [userId]);
+
   return (
     <>
       <div className="profile-main">
