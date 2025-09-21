@@ -11,6 +11,8 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { useUser } from './UserContext';
 
 // Use this path if the image is in public/ as "warning (1).png"
 // If yours is in public/assets/, change to "/assets/warning%20(1).png"
@@ -128,7 +130,9 @@ const Login = () => {
   const [forgotPopup, setForgotPopup] = useState({ show: false });
   const [resetEmail, setResetEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const navigate = useNavigate();
+  const { setUser } = useUser();
 
   // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
 
@@ -263,14 +267,16 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (isSigningIn) return; // prevent duplicate popups
+    setIsSigningIn(true);
+    const provider = new GoogleAuthProvider();
+    provider.addScope("profile");
+    provider.addScope("email");
+    provider.setCustomParameters({ prompt: "select_account" });
+    provider.addScope("profile");
+    provider.addScope("email");
+    provider.setCustomParameters({ prompt: "select_account" });
     try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope("profile");
-      provider.addScope("email");
-      provider.setCustomParameters({ prompt: "select_account" });
-      provider.addScope("profile");
-      provider.addScope("email");
-      provider.setCustomParameters({ prompt: "select_account" });
       const result = await signInWithPopup(auth, provider);
       await saveUserToFirestore(result.user);
 
@@ -298,17 +304,36 @@ const Login = () => {
         target: "user_session",
       });
 
-      navigate("/dashboard");
+      // New code block start
+      const user = result.user;
+      const token = await user.getIdToken();
+      localStorage.setItem('token', token);
+
+      // update your context/state so ProtectedRoute sees the user
+      if (setUser) setUser({ uid: user.uid, email: user.email });
+
+      // finally navigate to protected page
+      navigate('/dashboard', { replace: true });
+      // New code block end
     } catch (err) {
       console.error("Google login error:", err);
-      if (
-        err.code !== "auth/popup-closed-by-user" &&
-        err.code !== "auth/cancelled-popup-request"
-      ) {
+      // common popup-related errors
+      if (err.code === "auth/cancelled-popup-request" || err.code === "auth/popup-closed-by-user") {
+        console.warn("Google sign-in popup canceled/closed", err);
+      } else if (err.code === "auth/operation-not-supported-in-this-environment") {
+        // environment blocks popups (e.g., in an iframe) - fallback to redirect
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectErr) {
+          console.error("Redirect fallback failed", redirectErr);
+        }
+      } else {
         const msg = mapAuthError(err.code);
         setPopup({ show: true, type: "error", message: msg });
       }
       // If popup was closed/cancelled by user, do nothing
+    } finally {
+      setIsSigningIn(false);
     }
     // removed setLoading(false)
   };
@@ -470,11 +495,11 @@ const Login = () => {
             <span>Or continue with</span>
           </div>
           <div className="login-socials">
-            <button className="login-social-btn" onClick={handleGoogleLogin} type="button">
+            <button className="login-social-btn" onClick={handleGoogleLogin} type="button" disabled={isSigningIn}>
               <span className="login-social-icon-wrapper">
                 <img src="/google.png" alt="Google" className="login-social-icon" />
               </span>
-              Google
+              {isSigningIn ? "Signing in…" : "Sign in with Google"}
             </button>
             <button className="login-social-btn" onClick={handleFacebookLogin} type="button">
               <span className="login-social-icon-wrapper">

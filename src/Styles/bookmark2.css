@@ -22,7 +22,7 @@
   gap: 18px;
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22);
   padding: 18px 28px;
   margin-bottom: 40px;
   margin-left: auto;
@@ -70,7 +70,7 @@
   background-color: white;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22);
   transition: transform 0.2s ease;
   display: flex;
   flex-direction: column;
@@ -288,6 +288,7 @@
   padding: 20px;
   border-radius: 12px;
   margin-bottom: 16px;
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22);
 }
 
 .info-box h3 {
@@ -543,7 +544,7 @@
   top: 100px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22);
   padding: 16px;
 
 }
@@ -1366,4 +1367,32 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
     top: 6px;
     left: 6px;
   }
+}
+
+/* Make container shadows more noticeable */
+.search-filter-wrapper {
+  /* ...existing styles... */
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
+}
+
+.grid-card {
+  /* ...existing styles... */
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
+}
+
+.info-box {
+  /* ...existing styles... */
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
+}
+
+.bp2-filters {
+  /* ...existing styles... */
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
+}
+
+/* Modal content */
+.modal-content,
+.details-modal {
+  /* ...existing styles... */
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
 }
