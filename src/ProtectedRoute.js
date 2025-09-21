@@ -1,9 +1,35 @@
-import { Navigate } from "react-router-dom";
-import { auth } from "./firebase";
+import React, { useEffect, useState } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-const ProtectedRoute = ({ children }) => {
-  const user = auth.currentUser;
-  return user ? children : <Navigate to="/login" replace />;
-};
+export default function ProtectedRoute({ children }) {
+  const [checking, setChecking] = useState(true);
+  const [authed, setAuthed] = useState(false);
+  const location = useLocation();
 
-export default ProtectedRoute;
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setAuthed(true);
+        try {
+          const token = await user.getIdToken();
+          localStorage.setItem('token', token);
+        } catch (e) {
+          console.warn('Failed to get token', e);
+        }
+      } else {
+        setAuthed(false);
+        localStorage.removeItem('token');
+      }
+      setChecking(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  if (checking) return null; // or a small spinner
+  if (!authed && !localStorage.getItem('token')) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+}

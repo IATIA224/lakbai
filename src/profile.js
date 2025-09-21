@@ -80,11 +80,12 @@ const Profile = () => {
   const [mapZoom, setMapZoom] = useState(6);
   const [searchMarker, setSearchMarker] = useState(null);
   const [activities, setActivities] = useState([]);
+  // initialize friends as 0 so UI shows 0 immediately on refresh
   const [stats, setStats] = useState({
     placesVisited: 0,
     photosShared: 0,
     reviewsWritten: 0,
-    friends: 0,
+    friends: 0, // show 0 immediately, update later when authoritative count arrives
   });
   const [shareCode, setShareCode] = useState("");
 
@@ -122,28 +123,14 @@ const Profile = () => {
 
       setShareCode(data.shareCode || "");
 
-      // Use a single variable; will be overridden by subcollection count below
-      let friendsCount =
-        Array.isArray(data.friends)
-          ? data.friends.length
-          : typeof data.friendsCount === "number"
-          ? data.friendsCount
-          : data?.stats?.friends || 0;
-
-      setStats({
+      // DON'T set friends from the user doc here (may be stale).
+      // Preserve current friends value (initially 0) and update other stats immediately.
+      setStats((prev) => ({
         placesVisited: data.stats?.placesVisited || 0,
         photosShared: data.stats?.photosShared || 0,
         reviewsWritten: data.stats?.reviewsWritten || 0,
-        friends: friendsCount,
-      });
-
-      const achievementsObj = data.achievements || {};
-      const unlocked = new Set(
-        Object.entries(achievementsObj)
-          .filter(([_, v]) => v === true)
-          .map(([id]) => Number(id))
-      );
-      setUnlockedAchievements(unlocked);
+        friends: prev.friends ?? 0,
+      }));
 
       // Heavy reads in parallel (photos, map, activities)
       await Promise.all([
@@ -183,12 +170,12 @@ const Profile = () => {
         console.warn("Failed to read friends subcollection count:", e);
       }
 
-      setStats({
-        placesVisited: data.stats?.placesVisited || 0,
-        photosShared: data.stats?.photosShared || 0,
-        reviewsWritten: data.stats?.reviewsWritten || 0,
-        friends: friendsCount,
-      });
+      setStats((prev) => ({
+        placesVisited: data.stats?.placesVisited || prev.placesVisited || 0,
+        photosShared: data.stats?.photosShared || prev.photosShared || 0,
+        reviewsWritten: data.stats?.reviewsWritten || prev.reviewsWritten || 0,
+        friends: typeof friendsCount === "number" ? friendsCount : prev.friends ?? 0,
+      }));
     } catch (error) {
       console.error("Error fetching profile data:", error);
     }
@@ -224,7 +211,6 @@ const Profile = () => {
   // Real-time listener now depends on userId (not auth.currentUser?.uid)
   useEffect(() => {
     if (!userId) return;
-
     const userRef = doc(db, "users", userId);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (!docSnap.exists()) return;
@@ -239,24 +225,26 @@ const Profile = () => {
         dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev?.dislikes || [],
       }));
 
-      const friendsCount =
-        Array.isArray(data.friends) ? data.friends.length
-        : typeof data.friendsCount === "number" ? data.friendsCount
-        : data?.stats?.friends || 0;
-
-      setStats((prev) => ({ ...prev, friends: friendsCount }));
+      // do NOT set friends here — preserve null/authoritative value from friends listener
+      setStats((prev) => ({
+        placesVisited: data.stats?.placesVisited ?? prev.placesVisited,
+        photosShared: data.stats?.photosShared ?? prev.photosShared,
+        reviewsWritten: data.stats?.reviewsWritten ?? prev.reviewsWritten,
+        friends: prev.friends,
+      }));
     });
 
     return () => unsubscribe();
   }, [userId]);
 
-  // NEW: real-time friends subcollection count (handles unfriend immediately)
+  // authoritative friends count from the friends subcollection
   useEffect(() => {
     if (!userId) return;
-    const unsub = onSnapshot(collection(db, "users", userId, "friends"), (snap) => {
+    const friendsCol = collection(db, "users", userId, "friends");
+    const unsubscribe = onSnapshot(friendsCol, (snap) => {
       setStats((prev) => ({ ...prev, friends: snap.size }));
     });
-    return () => unsub();
+    return () => unsubscribe();
   }, [userId]);
 
   // After editing profile, refetch using userId (auth.currentUser may still be null briefly on hard refresh)
@@ -412,7 +400,9 @@ const Profile = () => {
 
         const photoDocRef = await addDoc(collection(db, "photos"), photoData);
         const newPhoto = { id: photoDocRef.id, ...photoData };
-        const updatedPhotos = [...photos, newPhoto];
+
+        // Prepend the new photo so the preview shows the most recent first
+        const updatedPhotos = [newPhoto, ...(photos || [])];
 
         setPhotos(updatedPhotos);
         setStats((prevStats) => ({
@@ -565,9 +555,20 @@ const Profile = () => {
 
   // Only keep newest first and a preview of 6
   const sortedPhotos = useMemo(() => {
-    const ts = (p) =>
-      p?.createdAt?.toMillis?.() ??
-      (typeof p?.createdAt === "number" ? p.createdAt : p?.uploadedAt ?? 0);
+    const ts = (p) => {
+      if (!p) return 0;
+      // Firestore Timestamp
+      if (p?.createdAt?.toMillis) return p.createdAt.toMillis();
+      // numeric timestamps
+      if (typeof p?.createdAt === "number") return p.createdAt;
+      if (typeof p?.uploadedAt === "number") return p.uploadedAt;
+      // ISO string timestamp (e.g. new Date().toISOString())
+      if (p?.timestamp) {
+        const parsed = typeof p.timestamp === "number" ? p.timestamp : Date.parse(p.timestamp);
+        if (!Number.isNaN(parsed)) return parsed;
+      }
+      return 0;
+    };
     return [...(photos || [])].sort((a, b) => ts(b) - ts(a));
   }, [photos]);
 
@@ -722,10 +723,14 @@ const Profile = () => {
             <span>{stats.reviewsWritten}</span>
             <div>Reviews Written</div>
           </div>
-          <div className="profile-stat">
-            <span>{stats.friends}</span>
-            <div>Friends</div>
-          </div>
+
+          {/* show Friends only after the friends listener has provided a value */}
+          {stats.friends !== null && (
+            <div className="profile-stat">
+              <span>{stats.friends}</span>
+              <div>Friends</div>
+            </div>
+          )}
         </div>
 
         <div className="profile-content-row">
@@ -986,6 +991,7 @@ const Profile = () => {
                   <div
                     style={{
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
                       width: 120,
@@ -1000,15 +1006,19 @@ const Profile = () => {
                       border: "2px dashed rgba(255,255,255,0.3)",
                     }}
                   >
-                    <div style={{ fontSize: 24, marginRight: 8 }}>📸</div>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>📸</div>
                     <div
                       style={{
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: 500,
                         lineHeight: 1.2,
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                        width: "100%",
+                        maxWidth: "96px",
                       }}
                     >
-                      Upload your first photo!
+                      Upload your first<br />photo!
                     </div>
                   </div>
                 )}

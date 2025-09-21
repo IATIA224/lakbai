@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, BrowserRouter, useLocation, useInRouterContext, Navigate } from 'react-router-dom';
 import StickyHeader from './header';
 import Login from './login';
@@ -13,24 +13,37 @@ import './App.css';
 import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
 import Itinerary from "./Itinerary";
-import Footer from './Footer'; // FIX: was './footer'
-import LoginCMS from './login-cms'; // Adjust path if needed
-import ContentManagement from './ContentManagement'; // Adjust path if needed
-import ProtectedRoute from "./ProtectedRoute"; // Add this import
+import Footer from './Footer';
+import LoginCMS from './login-cms';
+import ContentManagement from './ContentManagement';
+import ProtectedRoute from "./ProtectedRoute";
 
 // New: place all UI that depends on useLocation in this inner component
 function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
-  // Safe access to pathname when running in tests
   const location = useLocation();
-  const hideHeaderRoutes = ['/', '/register', '/ContentManagement', '/admin/login'];
-  const showHeader = !hideHeaderRoutes.includes(location?.pathname || '/');
+
+  // normalize path to avoid flashes on refresh (trailing slash, case, query/hash)
+  const normalizePath = (p = '/') => {
+    const noQuery = String(p).split('?')[0].split('#')[0];
+    const trimmed = noQuery.replace(/\/+$/, '');
+    return (trimmed === '' ? '/' : trimmed).toLowerCase();
+  };
+
+  const hideHeaderRoutes = [
+    '/', '/login', '/register', '/contentmanagement', '/admin/login'
+  ];
+
+  const currentPath = normalizePath(location?.pathname || '/');
+  const showHeader = !hideHeaderRoutes.includes(currentPath);
 
   return (
     <UserProvider>
       {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
 
       <Routes>
+        {/* ensure root opens login first */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -41,11 +54,46 @@ function AppInner() {
             </ProtectedRoute>
           }
         />
-        <Route path="/bookmark" element={<Bookmark />} />
-        <Route path="/bookmarks2" element={<Bookmarks2 />} />
-        <Route path="/community" element={<Community />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/itinerary" element={<Itinerary />} />
+        <Route
+          path="/bookmark"
+          element={
+            <ProtectedRoute>
+              <Bookmark />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookmarks2"
+          element={
+            <ProtectedRoute>
+              <Bookmarks2 />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/community"
+          element={
+            <ProtectedRoute>
+              <Community />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/itinerary"
+          element={
+            <ProtectedRoute>
+              <Itinerary />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/ContentManagement"
           element={
@@ -55,7 +103,7 @@ function AppInner() {
           }
         />
         <Route path="/admin/login" element={<LoginCMS />} />
-        <Route path="*" element={<Navigate to="/admin/login" replace />} /> {/* Redirect all unknown routes to /admin/login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
