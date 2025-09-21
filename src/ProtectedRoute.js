@@ -1,35 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import React, { useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
 
 export default function ProtectedRoute({ children }) {
-  const [checking, setChecking] = useState(true);
-  const [authed, setAuthed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const location = useLocation();
 
+  // track real auth state (handles async init)
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setAuthed(true);
-        try {
-          const token = await user.getIdToken();
-          localStorage.setItem('token', token);
-        } catch (e) {
-          console.warn('Failed to get token', e);
-        }
-      } else {
-        setAuthed(false);
-        localStorage.removeItem('token');
-      }
-      setChecking(false);
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
     });
-    return unsubscribe;
+    return () => unsub();
   }, []);
 
-  if (checking) return null; // or a small spinner
-  if (!authed && !localStorage.getItem('token')) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  // remove hash fragment from URL so `/#/dashboard` can't be used to bypass routes
+  useEffect(() => {
+    if (window.location.hash) {
+      const clean = window.location.pathname + window.location.search;
+      // replaceState avoids a navigation and cleans the URL shown to user
+      window.history.replaceState(null, "", clean);
+    }
+    // run only once when route changes
+  }, [location.pathname, location.search]);
+
+  if (loading) {
+    // render nothing (or a small loader) while auth initializes to avoid flashes
+    return null;
   }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return children;
 }
