@@ -17,8 +17,14 @@ import Footer from './Footer';
 import LoginCMS from './login-cms';
 import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
+import Destinations from './bookmarks2'; // <-- Add this import at the top
 
 // New: place all UI that depends on useLocation in this inner component
+function isAuthenticated() {
+  // Example: check for a token in localStorage (customize as needed)
+  return !!localStorage.getItem('token');
+}
+
 function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
   const location = useLocation();
@@ -31,7 +37,7 @@ function AppInner() {
   };
 
   const hideHeaderRoutes = [
-    '/', '/login', '/register', '/contentmanagement', '/admin/login'
+    '/', '/login', '/register', '/ContentManagement', '/admin/login'
   ];
 
   const currentPath = normalizePath(location?.pathname || '/');
@@ -43,7 +49,16 @@ function AppInner() {
 
       <Routes>
         {/* ensure root opens login first */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/"
+          element={
+            isAuthenticated() ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -99,6 +114,14 @@ function AppInner() {
           element={
             <ProtectedRoute>
               <ContentManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/destinations"
+          element={
+            <ProtectedRoute>
+              <Destinations />
             </ProtectedRoute>
           }
         />
