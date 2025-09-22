@@ -320,14 +320,19 @@ function Bookmark() {
       // Save under the destination's ratings subcollection (canonical for averages)
       await setDoc(
         doc(db, 'destinations', String(selected.id), 'ratings', u.uid),
-        { value: v, userId: u.uid, updatedAt: serverTimestamp() },
+        { value: v, userId: u.uid, updatedAt: serverTimestamp(), name: selected.name || '' }, // <-- add name
         { merge: true }
       );
 
-      // Optional: also keep a user copy (not used for averages)
+      // Also keep a user copy (for user profile/achievements)
       await setDoc(
         doc(db, 'users', u.uid, 'ratings', String(selected.id)),
-        { value: v, updatedAt: serverTimestamp() },
+        {
+          value: v,
+          updatedAt: serverTimestamp(),
+          name: selected.name || '', // <-- add name
+          destId: String(selected.id)
+        },
         { merge: true }
       );
 
@@ -344,7 +349,6 @@ function Bookmark() {
 
       setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
     } catch (e) {
-      // console.error('Save rating failed:', e);
       showError('Failed to save rating.');
       alert('Failed to save rating.');
     } finally {
