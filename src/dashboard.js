@@ -207,9 +207,9 @@ function Dashboard({ setShowAIModal }) {
         </div>
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number orange">
-            {statsLoading ? '–' : stats.avgRating?.toFixed(1)}
+            {statsLoading ? '–' : stats.ratedCount}
           </span>
-          <span className="dashboard-stat-label">Avg Rating</span>
+          <span className="dashboard-stat-label">Rated Destinations</span>
         </div>
       </div>
 
