@@ -11,12 +11,11 @@
   top: 0;
   left: 0;
   right: 0;
-  height: var(--header2-height);
+  height: 75px;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
   z-index: 99999 !important;
   background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);

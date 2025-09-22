@@ -573,64 +573,66 @@ const Register = () => {
                 />
               </label>
 
-              <label className="register-label">
-                Password
-                <div className="register-password-wrapper">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    className="register-input"
-                    placeholder="Create a strong password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    maxLength={30}
-                  />
-                  <span
-                    className="register-eye"
-                    onClick={() => setShowPassword(v => !v)}
-                    tabIndex={0}
-                    role="button"
-                    aria-label="Show password"
-                  >
-                    <img
-                      src={showPassword ? "/hide.png" : "/show.png"}
-                      alt={showPassword ? "Hide password" : "Show password"}
-                      style={{ width: 20, height: 20 }}
+              {/* Password and Confirm Password side by side */}
+              <div className="register-row register-row--password">
+                <label className="register-label">
+                  Password
+                  <div className="register-password-wrapper">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      className="register-input"
+                      placeholder="Create a strong password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      autoComplete="new-password"
+                      maxLength={30}
                     />
-                  </span>
-                </div>
-                <div className="register-password-strength" style={{ color: strength.color }}>
-                  {strength.label}
-                </div>
-              </label>
-
-              <label className="register-label">
-                Confirm Password
-                <div className="register-password-wrapper">
-                  <input
-                    type={showConfirm ? "text" : "password"}
-                    className="register-input"
-                    placeholder="Confirm your password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    maxLength={30}
-                  />
-                  <span
-                    className="register-eye"
-                    onClick={() => setShowConfirm(v => !v)}
-                    tabIndex={0}
-                    role="button"
-                    aria-label="Show password"
-                  >
-                    <img
-                      src={showConfirm ? "/hide.png" : "/show.png"}
-                      alt={showConfirm ? "Hide password" : "Show password"}
-                      style={{ width: 20, height: 20 }}
+                    <span
+                      className="register-eye"
+                      onClick={() => setShowPassword(v => !v)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label="Show password"
+                    >
+                      <img
+                        src={showPassword ? "/hide.png" : "/show.png"}
+                        alt={showPassword ? "Hide password" : "Show password"}
+                        style={{ width: 20, height: 20 }}
+                      />
+                    </span>
+                  </div>
+                  <div className="register-password-strength" style={{ color: strength.color }}>
+                    {strength.label}
+                  </div>
+                </label>
+                <label className="register-label">
+                  Confirm Password
+                  <div className="register-password-wrapper">
+                    <input
+                      type={showConfirm ? "text" : "password"}
+                      className="register-input"
+                      placeholder="Confirm your password"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      maxLength={30}
                     />
-                  </span>
-                </div>
-              </label>
+                    <span
+                      className="register-eye"
+                      onClick={() => setShowConfirm(v => !v)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label="Show password"
+                    >
+                      <img
+                        src={showConfirm ? "/hide.png" : "/show.png"}
+                        alt={showConfirm ? "Hide password" : "Show password"}
+                        style={{ width: 20, height: 20 }}
+                      />
+                    </span>
+                  </div>
+                </label>
+              </div>
 
               <div className="register-options">
                 <label className="register-checkbox">
