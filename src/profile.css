@@ -6,7 +6,7 @@
 
 .profile-main {
   max-width: 1200px;
-  margin: 32px auto;
+  margin: 110px auto;
   padding: 0 16px;
 }
 
@@ -825,7 +825,7 @@ button[aria-label="Close achievements"] {
 @media (max-width: 768px) {
   .profile-main {
     max-width: 100%;
-    margin: 16px 0;
+    margin: 156px 0;
     padding: 0 12px;
   }
 
