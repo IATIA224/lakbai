@@ -25,6 +25,7 @@ import { v4 as uuidv4 } from "uuid"; // Install with: npm install uuid
 import { useUser } from "./UserContext";
 import { emitAchievement } from "./achievementsBus";
 import { onAuthStateChanged } from "firebase/auth";
+import { getUserDashboardStats } from "./dashboard-stats-row"; // <-- Add this import
 
 export const CLOUDINARY_CONFIG = {
   cloudName: "dxvewejox",
@@ -658,6 +659,42 @@ const Profile = () => {
     return () => unsubscribe();
   }, [userId]);
 
+  // Fetch reviews written count for current user
+  useEffect(() => {
+    const fetchReviewsWritten = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        // Count the number of docs in users/{uid}/ratings
+        const ratingsSnap = await getDocs(collection(db, "users", user.uid, "ratings"));
+        setStats((prev) => ({
+          ...prev,
+          reviewsWritten: ratingsSnap.size,
+        }));
+      } catch (e) {
+        // fallback to 0 if error
+        setStats((prev) => ({
+          ...prev,
+          reviewsWritten: 0,
+        }));
+      }
+    };
+    fetchReviewsWritten();
+  }, [userId]);
+
+  // Add this useEffect in Profile component
+  useEffect(() => {
+    if (!userId) return;
+    const ratingsCol = collection(db, "users", userId, "ratings");
+    const unsubscribe = onSnapshot(ratingsCol, (snap) => {
+      setStats((prev) => ({
+        ...prev,
+        reviewsWritten: snap.size,
+      }));
+    });
+    return () => unsubscribe();
+  }, [userId]);
+
   return (
     <>
       <div className="profile-main">
@@ -744,7 +781,7 @@ const Profile = () => {
           </div>
           <div className="profile-stat">
             <span>{stats.reviewsWritten}</span>
-            <div>Reviews Written</div>
+            <div>Rated Destinations</div>
           </div>
 
           {/* show Friends only after the friends listener has provided a value */}

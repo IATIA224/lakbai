@@ -9,6 +9,7 @@ import {
 import './Styles/bookmark.css';
 import { unlockAchievement } from './profile';
 import { addTripForCurrentUser } from './Itinerary';
+import destImages from './dest-images.json'; // <-- Add this import at the top
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -99,22 +100,29 @@ function Bookmark() {
         snap.docs.map(async (b) => {
           const data = b.data() || {};
           // Prefer data stored on the bookmark doc
+          let merged = {};
           if (data.name && data.description) {
-            return {
+            merged = {
               id: b.id,
               ...data,
               savedAt: toDateSafe(data.createdAt || data.updatedAt),
             };
+          } else {
+            // Fallback: merge with source destination doc
+            const dref = doc(db, 'destinations', b.id);
+            const ddoc = await getDoc(dref);
+            merged = {
+              id: b.id,
+              ...(ddoc.exists() ? ddoc.data() : {}),
+              ...data,
+              savedAt: toDateSafe(data.createdAt || data.updatedAt),
+            };
           }
-          // Fallback: merge with source destination doc
-          const dref = doc(db, 'destinations', b.id);
-          const ddoc = await getDoc(dref);
-          return {
-            id: b.id,
-            ...(ddoc.exists() ? ddoc.data() : {}),
-            ...data,
-            savedAt: toDateSafe(data.createdAt || data.updatedAt),
-          };
+          // Attach image from dest-images.json if available and not already present
+          if (!merged.image) {
+            merged.image = getImageForDestination(merged.name);
+          }
+          return merged;
         })
       );
       setItems(rows.filter(Boolean));
@@ -195,9 +203,18 @@ function Bookmark() {
   const stats = useMemo(() => {
     const total = items.length;
     const regions = new Set(items.map((d) => d.region || d.locationRegion || '').filter(Boolean));
-    const avg = total === 0 ? 0 : items.reduce((s, d) => s + (Number(d.rating) || 0), 0) / total;
-    return { total, regions: regions.size, avgRating: Number(avg.toFixed(1)), inTrip: inTripCount }; // <- use live count
-  }, [items, inTripCount]);
+    // Compute average rating from ratingsByDest for all bookmarks that have a rating
+    const rated = items
+      .map((d) => ratingsByDest[d.id]?.avg)
+      .filter((v) => typeof v === 'number' && !isNaN(v));
+    const avgRating = rated.length === 0 ? 0 : rated.reduce((s, v) => s + v, 0) / rated.length;
+    return {
+      total,
+      regions: regions.size,
+      avgRating: Number(avgRating.toFixed(1)),
+      inTrip: inTripCount
+    };
+  }, [items, inTripCount, ratingsByDest]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -303,14 +320,19 @@ function Bookmark() {
       // Save under the destination's ratings subcollection (canonical for averages)
       await setDoc(
         doc(db, 'destinations', String(selected.id), 'ratings', u.uid),
-        { value: v, userId: u.uid, updatedAt: serverTimestamp() },
+        { value: v, userId: u.uid, updatedAt: serverTimestamp(), name: selected.name || '' }, // <-- add name
         { merge: true }
       );
 
-      // Optional: also keep a user copy (not used for averages)
+      // Also keep a user copy (for user profile/achievements)
       await setDoc(
         doc(db, 'users', u.uid, 'ratings', String(selected.id)),
-        { value: v, updatedAt: serverTimestamp() },
+        {
+          value: v,
+          updatedAt: serverTimestamp(),
+          name: selected.name || '', // <-- add name
+          destId: String(selected.id)
+        },
         { merge: true }
       );
 
@@ -327,7 +349,6 @@ function Bookmark() {
 
       setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
     } catch (e) {
-      // console.error('Save rating failed:', e);
       showError('Failed to save rating.');
       alert('Failed to save rating.');
     } finally {
@@ -408,6 +429,44 @@ function Bookmark() {
       delete n[id];
       return n;
     });
+
+  // Helper to get image URL by destination name
+  const getImageForDestination = (name) => {
+    if (!name) return undefined;
+    const found = destImages.find(img => img.name.trim().toLowerCase() === name.trim().toLowerCase());
+    return found ? found.url : undefined;
+  };
+
+  // Fetch and attach ratings for all bookmarks after loading items
+  useEffect(() => {
+    // Only run if there are items and not all ratings loaded
+    const fetchAllRatings = async () => {
+      const idsToFetch = items
+        .map((d) => d.id)
+        .filter((id) => !(ratingsByDest[id] && typeof ratingsByDest[id].avg === 'number'));
+      if (idsToFetch.length === 0) return;
+      const updates = {};
+      for (const id of idsToFetch) {
+        try {
+          const rsnap = await getDocs(collection(db, 'destinations', id, 'ratings'));
+          let sum = 0, count = 0;
+          rsnap.forEach((r) => {
+            const v = Number(r.data()?.value) || 0;
+            if (v > 0) { sum += v; count += 1; }
+          });
+          const avg = count ? sum / count : 0;
+          updates[id] = { avg, count };
+        } catch {
+          updates[id] = { avg: 0, count: 0 };
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setRatingsByDest((prev) => ({ ...prev, ...updates }));
+      }
+    };
+    if (items.length > 0) fetchAllRatings();
+    // eslint-disable-next-line
+  }, [items]);
 
   return (
     <div className="App bm-page" aria-busy={loading}>
@@ -526,19 +585,33 @@ function Bookmark() {
             >
               {/* Top art */}
               <div className="bm-card-hero">
-                <div className="sun-decoration" />
-                <div className="wave-decoration" />
+                {d.image && (
+                  <img
+                    src={d.image}
+                    alt={d.name}
+                    className="bm-card-img"
+                    style={{
+                      width: '100%',
+                      height: 180,
+                      objectFit: 'cover',
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                      marginBottom: 8,
+                      background: '#eee'
+                    }}
+                  />
+                )}
                 <div className="bm-saved-badge">Saved {fmtSaved(d.savedAt)}</div>
                 <button
                   className="bm-heart-bubble"
                   onClick={async (e) => {
                     e.stopPropagation();
-                    triggerCardPop(d.id);          // quick bump
-                    beginRemove(d.id);             // start pulse until server finishes
+                    triggerCardPop(d.id);
+                    beginRemove(d.id);
                     try {
-                      await removeBookmark(d.id);  // wait for server
+                      await removeBookmark(d.id);
                     } finally {
-                      endRemove(d.id);            // stop pulse (card may already unmount)
+                      endRemove(d.id);
                     }
                   }}
                   aria-label="Remove from bookmarks"

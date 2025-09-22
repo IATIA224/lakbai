@@ -17,8 +17,21 @@ import Footer from './Footer';
 import LoginCMS from './login-cms';
 import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
+import Destinations from './bookmarks2'; // <-- Add this import at the top
 
 // New: place all UI that depends on useLocation in this inner component
+function isAuthenticated() {
+  // Only treat as authenticated if token is a non-empty string
+  const token = localStorage.getItem('token');
+  return typeof token === 'string' && token.trim().length > 0;
+}
+
+// Add a separate admin authentication check
+function isAdminAuthenticated() {
+  const adminToken = localStorage.getItem('adminToken');
+  return typeof adminToken === 'string' && adminToken.trim().length > 0;
+}
+
 function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
   const location = useLocation();
@@ -31,19 +44,30 @@ function AppInner() {
   };
 
   const hideHeaderRoutes = [
-    '/', '/login', '/register', '/contentmanagement', '/admin/login'
+    '/', '/login', '/register', '/admin/login'
   ];
 
   const currentPath = normalizePath(location?.pathname || '/');
-  const showHeader = !hideHeaderRoutes.includes(currentPath);
+  // Hide header for all /admin routes
+  const isAdminRoute = currentPath.startsWith('/admin');
+  const showHeader = !hideHeaderRoutes.includes(currentPath) && !isAdminRoute;
 
   return (
     <UserProvider>
       {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
 
       <Routes>
-        {/* ensure root opens login first */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* User routes */}
+        <Route
+          path="/"
+          element={
+            isAuthenticated() ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -94,15 +118,11 @@ function AppInner() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/ContentManagement"
-          element={
-            <ProtectedRoute>
-              <ContentManagement />
-            </ProtectedRoute>
-          }
-        />
+        {/* Admin routes */}
         <Route path="/admin/login" element={<LoginCMS />} />
+        <Route path="/admin/ContentManagement" element={<ContentManagement />} />
+        {/* Fallback for unknown user routes */}
+        <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
