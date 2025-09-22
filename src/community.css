@@ -41,7 +41,7 @@
 .community-bg {
   background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
   min-height: 100vh;
-  padding: 16px 0 32px;
+  padding: 120px 0 32px;
 }
 
 /* Keep content readable on gradient */
