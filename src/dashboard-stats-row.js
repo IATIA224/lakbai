@@ -14,12 +14,12 @@ const db = getFirestore();
 
 /**
  * Fetch dashboard stats for the given user.
- * Returns: { destinations, bookmarked, tripsPlanned, avgRating }
+ * Returns: { destinations, bookmarked, tripsPlanned, avgRating, ratedCount }
  */
 export async function getUserDashboardStats(uidInput) {
 const uid = uidInput || getAuth()?.currentUser?.uid;
 if (!uid) {
-    return { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0 };
+    return { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0, ratedCount: 0 };
 }
 
 // ---------- helpers ----------
@@ -57,6 +57,17 @@ async function countActualTrips() {
     }
 }
 const tripsPlanned = await countActualTrips();
+
+// --- Count of destinations rated by current user ---
+async function countRatedDestinations() {
+    try {
+        const qs = await getDocs(collection(db, 'users', uid, 'ratings'));
+        return qs.size;
+    } catch (_) {
+        return 0;
+    }
+}
+const ratedCount = await countRatedDestinations();
 
 // --- Average rating logic remains unchanged ---
 async function computeAvgRating() {
@@ -136,7 +147,7 @@ async function computeAvgRating() {
 }
 const avgRating = await computeAvgRating();
 
-return { destinations, bookmarked, tripsPlanned, avgRating: Number(avgRating.toFixed(2)) };
+return { destinations, bookmarked, tripsPlanned, avgRating: Number(avgRating.toFixed(2)), ratedCount };
 }
 
 /**
@@ -146,7 +157,7 @@ return { destinations, bookmarked, tripsPlanned, avgRating: Number(avgRating.toF
  *   // or useUserDashboardStats(uid)
  */
 export function useUserDashboardStats(uid) {
-const [state, setState] = useState({ loading: true, error: null, stats: { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0 } });
+const [state, setState] = useState({ loading: true, error: null, stats: { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0, ratedCount: 0 } });
 
 const stableUid = useMemo(() => uid || getAuth()?.currentUser?.uid || null, [uid]);
 
@@ -158,11 +169,11 @@ useEffect(() => {
         const stats = await getUserDashboardStats(stableUid);
         if (!cancelled) setState({ loading: false, error: null, stats });
     } catch (e) {
-        if (!cancelled) setState({ loading: false, error: e, stats: { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0 } });
+        if (!cancelled) setState({ loading: false, error: e, stats: { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0, ratedCount: 0 } });
     }
     }
     if (stableUid) run();
-    else setState({ loading: false, error: null, stats: { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0 } });
+    else setState({ loading: false, error: null, stats: { destinations: 0, bookmarked: 0, tripsPlanned: 0, avgRating: 0, ratedCount: 0 } });
     return () => { cancelled = true; };
 }, [stableUid]);
 

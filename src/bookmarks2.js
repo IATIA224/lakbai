@@ -405,10 +405,16 @@ export default function Bookmarks2() {
     setSavingRating(true);
     try {
       const ref = doc(db, 'destinations', String(selected.id), 'ratings', u.uid);
-      await setDoc(ref, { value: v, userId: u.uid, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(ref, {
+        value: v,
+        userId: u.uid,
+        updatedAt: serverTimestamp(),
+        name: selected.name || '', // <-- add name
+      }, { merge: true });
+
       setUserRating(v);
 
-      // --- NEW: Write user's rating to users/{uid}/ratings/{destId} ---
+      // --- Write user's rating to users/{uid}/ratings/{destId} ---
       const userRatingRef = doc(db, 'users', u.uid, 'ratings', String(selected.id));
       await setDoc(
         userRatingRef,
@@ -416,6 +422,7 @@ export default function Bookmarks2() {
           destId: String(selected.id),
           value: v,
           updatedAt: serverTimestamp(),
+          name: selected.name || '', // <-- add name
         },
         { merge: true }
       );

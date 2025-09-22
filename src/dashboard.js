@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import './dashboardBanner.css';
+import useUserDashboardStats from './dashboard-stats-row'; // <-- Add this import at the top
 
 // DestinationCard Component - moved to top to avoid conflicts
 function DestinationCard({ 
@@ -156,13 +157,8 @@ function Dashboard({ setShowAIModal }) {
     };
   }, []);
 
-  // Mock dashboard stats (replace with actual useUserDashboardStats when available)
-  const statsLoading = false;
-  const statsError = null;
-  const destinationsCount = 25;
-  const bookmarkedCount = 8;
-  const tripsPlannedCount = 3;
-  const avgRatingVal = 4.2;
+  // Use the custom hook for live stats
+  const { loading: statsLoading, error: statsError, stats } = useUserDashboardStats();
 
   // Demo: local state for bookmarks for personalized cards
   const [personalizedBookmarks, setPersonalizedBookmarks] = useState({});
@@ -249,27 +245,27 @@ function Dashboard({ setShowAIModal }) {
       <div className="dashboard-stats-row">
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number blue">
-            {statsLoading ? '–' : destinationsCount}
+            {statsLoading ? '–' : stats.destinations}
           </span>
           <span className="dashboard-stat-label">Destinations</span>
         </div>
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number green">
-            {statsLoading ? '–' : bookmarkedCount}
+            {statsLoading ? '–' : stats.bookmarked}
           </span>
           <span className="dashboard-stat-label">Bookmarked</span>
         </div>
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number purple">
-            {statsLoading ? '–' : tripsPlannedCount}
+            {statsLoading ? '–' : stats.tripsPlanned}
           </span>
           <span className="dashboard-stat-label">Trips Planned</span>
         </div>
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number orange">
-            {statsLoading ? '–' : avgRatingVal.toFixed(1)}
+            {statsLoading ? '–' : stats.ratedCount}
           </span>
-          <span className="dashboard-stat-label">Avg Rating</span>
+          <span className="dashboard-stat-label">Rated Destinations</span>
         </div>
       </div>
 
