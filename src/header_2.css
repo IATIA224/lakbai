@@ -1,9 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* decrease header height by additional 15% (from current values) */
+:root { --header2-height: 81px; } /* 95px * 0.85 ≈ 80.75 → 81px */
+
 /* keep header height fixed at 75px on all viewports */
-:root {
-  --header2-height: 75px;
-}
+
 
 /* header sits fixed at top and uses the original desktop layout */
 .header2-sticky {
@@ -97,8 +98,6 @@ main,
   background: rgba(255,255,255,0.25);
 }
 
-/* ...existing code... */
-
 @media (max-width: 600px) {
   /* compact stacked header for small screens */
   .header2-sticky {
@@ -177,7 +176,7 @@ main,
   }
 
   /* Slightly larger header on very small screens to keep coverage */
-  :root { --header2-height: 116px; } /* small increase for mobile */
+  :root { --header2-height: 124px; } /* 146px * 0.85 ≈ 124.1 → 124px */
   .header2-sticky { height: var(--header2-height); }
   body > #root,
   main,

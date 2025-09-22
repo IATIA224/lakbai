@@ -9,8 +9,11 @@ import {
   GoogleAuthProvider,
   FacebookAuthProvider,
   sendPasswordResetEmail,
+  signInWithRedirect,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { useUser } from './UserContext';
 
 // Use this path if the image is in public/ as "warning (1).png"
 // If yours is in public/assets/, change to "/assets/warning%20(1).png"
@@ -63,6 +66,62 @@ function mapAuthError(code) {
   }
 }
 
+// Add this helper to get device/browser info
+function getDeviceInfo() {
+  let device = "Unknown";
+  let browser = "Unknown";
+  let os = "Unknown";
+  let userAgent = navigator.userAgent || "";
+
+  // Device
+  if (/Mobi|Android/i.test(userAgent)) device = "Mobile";
+  else if (/Tablet|iPad/i.test(userAgent)) device = "Tablet";
+  else device = "Desktop";
+
+  // Browser
+  if (/chrome|crios|crmo/i.test(userAgent)) browser = "Chrome";
+  else if (/firefox|fxios/i.test(userAgent)) browser = "Firefox";
+  else if (/safari/i.test(userAgent) && !/chrome|crios|crmo/i.test(userAgent)) browser = "Safari";
+  else if (/edg/i.test(userAgent)) browser = "Edge";
+  else if (/opr\//i.test(userAgent)) browser = "Opera";
+  else if (/msie|trident/i.test(userAgent)) browser = "IE";
+
+  // OS
+  if (/windows nt/i.test(userAgent)) os = "Windows";
+  else if (/android/i.test(userAgent)) os = "Android";
+  else if (/iphone|ipad|ipod/i.test(userAgent)) os = "iOS";
+  else if (/macintosh|mac os x/i.test(userAgent)) os = "MacOS";
+  else if (/linux/i.test(userAgent)) os = "Linux";
+
+  return { device, browser, os, userAgent };
+}
+
+// Helper to generate a session ID
+function generateSessionId() {
+  return (
+    "sess_" +
+    Math.random().toString(36).substr(2, 9) +
+    "_" +
+    Date.now().toString(36)
+  );
+}
+
+const MAX_LOGIN_ATTEMPTS = 3;
+const LOGIN_ATTEMPT_KEY = "lakbai_login_attempts";
+
+// Helper to track login attempts in localStorage
+function incrementLoginAttempts(email) {
+  const attempts = JSON.parse(localStorage.getItem(LOGIN_ATTEMPT_KEY) || "{}");
+  attempts[email] = (attempts[email] || 0) + 1;
+  localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify(attempts));
+  return attempts[email];
+}
+function resetLoginAttempts(email) {
+  const attempts = JSON.parse(localStorage.getItem(LOGIN_ATTEMPT_KEY) || "{}");
+  attempts[email] = 0;
+  localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify(attempts));
+}
+
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(localStorage.getItem('rememberedEmail') || "");
@@ -72,7 +131,16 @@ const Login = () => {
   const [forgotPopup, setForgotPopup] = useState({ show: false });
   const [resetEmail, setResetEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const navigate = useNavigate();
+  const { setUser } = useUser();
+
+  // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
+
+  // REMOVE the entire redirect result useEffect block:
+  // useEffect(() => { ... getRedirectResult ... }, [navigate]);
+
+  // ADD simple mount effect to end loading sooner:
 
   // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
 
@@ -94,12 +162,104 @@ const Login = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await saveUserToFirestore(userCredential.user);
 
+      // Reset login attempts on successful login
+      resetLoginAttempts(email);
+
+      // --- Ensure auditLogs collection exists (create a dummy doc if empty) ---
+      const auditLogsSnap = await getDocs(query(collection(db, "auditLogs"), limit(1)));
+      if (auditLogsSnap.empty) {
+        await addDoc(collection(db, "auditLogs"), {
+          timestamp: serverTimestamp(),
+          userName: "system",
+          userEmail: "",
+          role: "system",
+          action: "init",
+          category: "SYSTEM",
+          outcome: "SUCCESS",
+          details: "Initialized auditLogs collection.",
+        });
+      }
+
+      // --- Add audit log for email login ---
+      const deviceInfo = getDeviceInfo();
+      const sessionId = generateSessionId();
+      await addDoc(collection(db, "auditLogs"), {
+        timestamp: serverTimestamp(),
+        userName: userCredential.user.displayName || "",
+        userEmail: userCredential.user.email,
+        userId: userCredential.user.uid,
+        role: "user",
+        action: "login",
+        category: "AUTHENTICATION",
+        outcome: "SUCCESS",
+        details: "Email/Password login",
+        provider: "email",
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: "",
+        location: "",
+        session: sessionId,
+        target: "user_session",
+        clientTime: Date.now(), // optional
+      });
+
       if (rememberMe) localStorage.setItem("rememberedEmail", email);
       else localStorage.removeItem("rememberedEmail");
 
-      // Navigate directly (no timers)
       navigate("/dashboard");
     } catch (err) {
+      // Increment failed login attempts
+      const attempts = incrementLoginAttempts(email);
+
+      // Try to get user info for failed login
+      let failedUserName = "";
+      let failedUserId = "";
+      try {
+        // Query Firestore users collection by email
+        const usersRef = collection(db, "users");
+        const q = query(usersRef);
+        const snapshot = await getDocs(q);
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.email === email) {
+            failedUserName = data.displayName || "";
+            failedUserId = data.uid || "";
+          }
+        });
+      } catch (e) {
+        // If lookup fails, leave as blank
+      }
+
+      // If max attempts reached, log to auditLogs
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        const deviceInfo = getDeviceInfo();
+        const sessionId = generateSessionId();
+        await addDoc(collection(db, "auditLogs"), {
+          timestamp: serverTimestamp(),
+          userName: failedUserName,
+          userEmail: email,
+          userId: failedUserId,
+          role: "user",
+          action: "login failed",
+          category: "AUTHENTICATION",
+          outcome: "FAILURE",
+          details: "multiple_failed_attempts",
+          provider: "email",
+          device: deviceInfo.device,
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+          userAgent: deviceInfo.userAgent,
+          ipAddress: "",
+          location: "",
+          session: sessionId,
+          target: "user_session",
+        });
+        // Optionally, reset attempts after logging
+        resetLoginAttempts(email);
+      }
+
       console.error("Email login error:", err);
       const errorMessage = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: errorMessage });
@@ -108,18 +268,73 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (isSigningIn) return; // prevent duplicate popups
+    setIsSigningIn(true);
+    const provider = new GoogleAuthProvider();
+    provider.addScope("profile");
+    provider.addScope("email");
+    provider.setCustomParameters({ prompt: "select_account" });
+    provider.addScope("profile");
+    provider.addScope("email");
+    provider.setCustomParameters({ prompt: "select_account" });
     try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope("profile");
-      provider.addScope("email");
-      provider.setCustomParameters({ prompt: "select_account" });
       const result = await signInWithPopup(auth, provider);
       await saveUserToFirestore(result.user);
-      navigate("/dashboard");
+
+      // --- Add audit log for Google login ---
+      const deviceInfo = getDeviceInfo();
+      const sessionId = generateSessionId();
+      await addDoc(collection(db, "auditLogs"), {
+        timestamp: serverTimestamp(),
+        userName: result.user.displayName || "",
+        userEmail: result.user.email,
+        userId: result.user.uid,
+        role: "user",
+        action: "login",
+        category: "AUTHENTICATION",
+        outcome: "SUCCESS",
+        details: "Google login",
+        provider: "google",
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: "",
+        location: "",
+        session: sessionId,
+        target: "user_session",
+      });
+
+      // New code block start
+      const user = result.user;
+      const token = await user.getIdToken();
+      localStorage.setItem('token', token);
+
+      // update your context/state so ProtectedRoute sees the user
+      if (setUser) setUser({ uid: user.uid, email: user.email });
+
+      // finally navigate to protected page
+      navigate('/dashboard', { replace: true });
+      // New code block end
     } catch (err) {
       console.error("Google login error:", err);
-      const msg = mapAuthError(err.code);
-      setPopup({ show: true, type: "error", message: msg });
+      // common popup-related errors
+      if (err.code === "auth/cancelled-popup-request" || err.code === "auth/popup-closed-by-user") {
+        console.warn("Google sign-in popup canceled/closed", err);
+      } else if (err.code === "auth/operation-not-supported-in-this-environment") {
+        // environment blocks popups (e.g., in an iframe) - fallback to redirect
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectErr) {
+          console.error("Redirect fallback failed", redirectErr);
+        }
+      } else {
+        const msg = mapAuthError(err.code);
+        setPopup({ show: true, type: "error", message: msg });
+      }
+      // If popup was closed/cancelled by user, do nothing
+    } finally {
+      setIsSigningIn(false);
     }
     // removed setLoading(false)
   };
@@ -130,15 +345,48 @@ const Login = () => {
       provider.addScope("email");
       provider.addScope("public_profile");
       provider.setCustomParameters({ display: "popup" });
+      provider.addScope("email");
+      provider.addScope("public_profile");
+      provider.setCustomParameters({ display: "popup" });
       const result = await signInWithPopup(auth, provider);
       await saveUserToFirestore(result.user);
+
+      // --- Add audit log for Facebook login ---
+      const deviceInfo = getDeviceInfo();
+      const sessionId = generateSessionId();
+      await addDoc(collection(db, "auditLogs"), {
+        timestamp: serverTimestamp(),
+        userName: result.user.displayName || "",
+        userEmail: result.user.email,
+        userId: result.user.uid,
+        role: "user",
+        action: "login",
+        category: "AUTHENTICATION",
+        outcome: "SUCCESS",
+        details: "Facebook login",
+        provider: "facebook",
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: "",
+        location: "",
+        session: sessionId,
+        target: "user_session",
+      });
+
       navigate("/dashboard");
     } catch (err) {
       console.error("Facebook login error:", err);
-      const msg = mapAuthError(err.code);
-      setPopup({ show: true, type: "error", message: msg });
+      if (
+        err.code !== "auth/popup-closed-by-user" &&
+        err.code !== "auth/cancelled-popup-request"
+      ) {
+        const msg = mapAuthError(err.code);
+        setPopup({ show: true, type: "error", message: msg });
+      }
+      // If popup was closed/cancelled by user, do nothing
     }
-    // removed setLoading(false)
   };
 
   const handleClosePopup = () => {
@@ -176,100 +424,106 @@ const Login = () => {
     setResetEmail("");
   };
 
+  // wherever the component returns JSX, ensure it returns one root element:
   return (
     <>
-      <Header2 />
-      {loading ? (
-        <div className="login-bg" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <img src="/coconut-tree.png" alt="Loading" className="login-logo" style={{ width: 60, height: 60 }} />
-            <p>Loading...</p>
+      {/* page content */}
+      <div className="login-container">
+        <Header2 />
+        {loading ? (
+          <div className="login-bg" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <img src="/coconut-tree.png" alt="Loading" className="login-logo" style={{ width: 60, height: 60 }} />
+              <p>Loading...</p>
+            </div>
           </div>
-        </div>
-      ) : (
-      <div className="login-bg">
-        <div className="login-container-1">
-          <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
-          <h2 className="login-title">Welcome Back!</h2>
-          <p className="login-subtitle">Sign in to continue your Philippine adventure</p>
-          <form className="login-form" onSubmit={handleEmailLogin}>
-            <label className="login-label">
-              Email Address
-              <input 
-                type="email" 
-                className="login-input" 
-                placeholder="your@email.com" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
-            <label className="login-label">
-              Password
-              <div className="login-password-wrapper">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  className="login-input"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+        ) : (
+        <div className="login-bg">
+          <div className="login-container-1">
+            <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
+            <h2 className="login-title">Welcome Back!</h2>
+            <p className="login-subtitle">Sign in to continue your Philippine adventure</p>
+            <form className="login-form" onSubmit={handleEmailLogin}>
+              <label className="login-label">
+                Email Address
+                <input 
+                  type="email" 
+                  className="login-input" 
+                  placeholder="your@email.com" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <span
-                  className="login-eye"
-                  onClick={() => setShowPassword((v) => !v)}
-                  tabIndex={0}
-                  role="button"
-                  aria-label="Show password"
-                >
-                  <img
-                    src={showPassword ? "/show.png" : "/hide.png"}
-                    alt={showPassword ? "Hide password" : "Show password"}
-                    style={{ width: 20, height: 20 }}
-                  />
-                </span>
-              </div>
-            </label>
-            <div className="login-options">
-              <label className="login-remember">
-                <input 
-                  type="checkbox" 
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                /> Remember me
               </label>
-              <span className="login-forgot" onClick={handleForgotPassword} style={{ cursor: "pointer" }}>Forgot password?</span>
+              <label className="login-label">
+                Password
+                <div className="login-password-wrapper">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="login-input"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <span
+                    className="login-eye"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Show password"
+                  >
+                    <img
+                      src={showPassword ? "/show.png" : "/hide.png"}
+                      alt={showPassword ? "Hide password" : "Show password"}
+                      style={{ width: 20, height: 20 }}
+                    />
+                  </span>
+                </div>
+              </label>
+              <div className="login-options">
+                <label className="login-remember">
+                  <input 
+                    type="checkbox" 
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  /> Remember me
+                </label>
+                <span className="login-forgot" onClick={handleForgotPassword} style={{ cursor: "pointer" }}>Forgot password?</span>
+              </div>
+              <button className="login-btn" type="submit">
+                Sign In to LakbAI
+              </button>
+            </form>
+            <div className="login-divider">
+              <span>Or continue with</span>
             </div>
-            <button className="login-btn" type="submit">
-              Sign In to LakbAI
-            </button>
-          </form>
-          <div className="login-divider">
-            <span>Or continue with</span>
-          </div>
-          <div className="login-socials">
-            <button className="login-social-btn" onClick={handleGoogleLogin} type="button">
-              <span className="login-social-icon-wrapper">
-                <img src="/google.png" alt="Google" className="login-social-icon" />
+            <div className="login-socials">
+              <button className="login-social-btn" onClick={handleGoogleLogin} type="button" disabled={isSigningIn}>
+                <span className="login-social-icon-wrapper">
+                  <img src="/google.png" alt="Google" className="login-social-icon" />
+                </span>
+                {isSigningIn ? "Signing in…" : "Sign in with Google"}
+              </button>
+              <button className="login-social-btn" onClick={handleFacebookLogin} type="button">
+                <span className="login-social-icon-wrapper">
+                  <img src="/facebook.png" alt="Facebook" className="login-social-icon" />
+                </span>
+                Facebook
+              </button>
+            </div>
+            <div className="login-signup">
+              Don’t have an account?{" "}
+              <span style={{color: "#3b5fff", cursor: "pointer"}} onClick={handleSignupClick}>
+                Sign up for free
               </span>
-              Google
-            </button>
-            <button className="login-social-btn" onClick={handleFacebookLogin} type="button">
-              <span className="login-social-icon-wrapper">
-                <img src="/facebook.png" alt="Facebook" className="login-social-icon" />
-              </span>
-              Facebook
-            </button>
-          </div>
-          <div className="login-signup">
-            Don’t have an account?{" "}
-            <span style={{color: "#3b5fff", cursor: "pointer"}} onClick={handleSignupClick}>
-              Sign up for free
-            </span>
+            </div>
           </div>
         </div>
+        )}
       </div>
-      )}
+
+      {/* modals / toasts / other siblings must be inside this fragment */}
       {forgotPopup.show && (
         <div className="login-popup-overlay" style={{
           position: "fixed",

@@ -74,7 +74,7 @@ const ChatbaseAIModal = ({ onClose }) => (
     position: "fixed",
     top: 0, left: 0, right: 0, bottom: 0,
     background: "rgba(0,0,0,0.25)",
-    zIndex: 2000,
+    zIndex: 100000, // Higher than header's 99999
     display: "flex",
     alignItems: "center",
     justifyContent: "center"
@@ -88,7 +88,8 @@ const ChatbaseAIModal = ({ onClose }) => (
       maxWidth: "700px",
       minHeight: "700px",
       position: "relative",
-      padding: "32px"
+      padding: "32px",
+      zIndex: 100001 // Higher than modal overlay
     }}>
       <button
         onClick={onClose}
@@ -104,7 +105,7 @@ const ChatbaseAIModal = ({ onClose }) => (
           height: "32px",
           fontSize: "1.2rem",
           cursor: "pointer",
-          zIndex: 10,
+          zIndex: 100002, // Highest z-index for close button
           boxShadow: "0 2px 8px rgba(60,60,120,0.12)"
         }}
         aria-label="Close"

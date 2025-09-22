@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
-  z-index: 1000;
+  z-index: 100000; /* Higher than header's 99999 */
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -11,7 +11,7 @@
 
 .hotels-modal {
   width: min(1100px, 98vw);
-  max-height: 94vh;
+  max-height: 88vh; /* Increased from 94vh */
   background: #fff;
   border-radius: 22px;
   overflow: hidden;
@@ -19,6 +19,7 @@
   display: grid;
   grid-template-rows: auto auto 1fr;
   animation: hotels-modal-in 0.18s cubic-bezier(.4,1.4,.6,1) 1;
+  z-index: 100001; /* Higher than backdrop */
 }
 @keyframes hotels-modal-in {
   from { transform: translateY(40px) scale(.98); opacity: 0.2; }
@@ -54,6 +55,7 @@
   padding: 6px 10px;
   border-radius: 10px;
   transition: background 0.15s;
+  z-index: 100002; /* Highest z-index for close button */
 }
 .hotels-close:hover {
   background: rgba(255, 255, 255, 0.18);
@@ -95,9 +97,9 @@
 }
 
 .hotels-body {
-  overflow: auto;
-  background: #f8fafc;
-  padding: 0 0 18px 0;
+  max-height: 600px; /* Increased from 320px */
+  overflow-y: auto;
+  padding: 0 8px 8px 8px;
 }
 
 .hotels-info {
@@ -116,23 +118,25 @@
 }
 
 .hotels-list {
-  list-style: none;
   margin: 0;
-  padding: 0 24px;
-  display: grid;
-  gap: 22px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .hotels-item {
+  background: #f8f9fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.98rem;
   display: flex;
-  gap: 32px;
   align-items: flex-start;
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 2px 12px rgba(108,99,255,0.07);
-  padding: 22px 24px 18px 24px;
-  border: 1.5px solid #e0e7ff;
-  transition: box-shadow 0.15s, border 0.15s;
+  justify-content: space-between;
+  min-height: 56px;
+  box-sizing: border-box;
 }
 .hotels-item:hover {
   box-shadow: 0 8px 32px rgba(108,99,255,0.13);
@@ -141,25 +145,23 @@
 }
 
 .hotels-item-main {
+  flex: 1;
   min-width: 0;
-  flex: 1 1 0;
 }
 
 .hotels-name {
-  font-weight: 900;
-  color: #4f46e5;
-  font-size: 1.25rem;
-  margin-bottom: 4px;
-  letter-spacing: 0.1px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 2px;
 }
 
 .hotels-meta {
+  font-size: 0.92rem;
+  color: #6b7280;
+  margin-bottom: 2px;
   display: flex;
+  gap: 6px;
   align-items: center;
-  gap: 12px;
-  color: #64748b;
-  font-size: 1rem;
-  margin-bottom: 10px;
   flex-wrap: wrap;
 }
 
@@ -181,19 +183,18 @@
 }
 
 .hotels-address {
-  color: #334155;
-  word-break: break-word;
-  margin-bottom: 10px;
-  font-size: 1.08rem;
+  font-size: 0.92rem;
+  color: #374151;
+  margin-bottom: 2px;
 }
 
 .hotels-contact {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 18px;
-  font-size: 1rem;
-  color: #475569;
+  font-size: 0.9rem;
+  color: #64748b;
   margin-top: 2px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .hotels-contact a {
   color: #6c63ff;
@@ -216,22 +217,19 @@
 }
 
 .hotels-select-btn {
-  padding: 13px 22px;
-  border-radius: 12px;
-  border: 1.5px solid #a084ee;
-  background: linear-gradient(90deg,#a084ee 0%,#6c63ff 100%);
+  background: #6c63ff;
   color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.95rem;
   cursor: pointer;
-  font-weight: 800;
-  font-size: 1.08rem;
-  letter-spacing: 0.1px;
-  box-shadow: 0 2px 8px rgba(108,99,255,0.07);
-  transition: background 0.15s, color 0.15s, border 0.15s;
+  margin-left: 8px;
+  margin-top: 8px;
+  transition: background 0.15s;
 }
 .hotels-select-btn:hover {
-  background: #fff;
-  color: #6c63ff;
-  border-color: #6c63ff;
+  background: #4f46e5;
 }
 
 /* Mobile responsive adjustments */
@@ -239,6 +237,7 @@
   .hotels-backdrop {
     padding: 2vh 1vw;
     align-items: flex-start;
+    z-index: 100000; /* Ensure it stays above header on mobile */
   }
 
   .hotels-modal {
@@ -246,6 +245,7 @@
     max-height: 96vh;
     border-radius: 16px;
     margin-top: 2vh;
+    z-index: 100001;
   }
 
   .hotels-header {
@@ -262,6 +262,7 @@
   .hotels-close {
     font-size: 1.8rem;
     padding: 4px 8px;
+    z-index: 100002; /* Keep close button accessible */
   }
 
   /* Controls section - stack vertically on mobile */
@@ -371,6 +372,7 @@
 @media (max-width: 480px) {
   .hotels-backdrop {
     padding: 1vh 0.5vw;
+    z-index: 100000;
   }
 
   .hotels-modal {
@@ -378,6 +380,7 @@
     max-height: 98vh;
     border-radius: 12px;
     margin-top: 1vh;
+    z-index: 100001;
   }
 
   .hotels-header {
@@ -393,6 +396,7 @@
   .hotels-close {
     font-size: 1.6rem;
     padding: 2px 6px;
+    z-index: 100002;
   }
 
   .hotels-controls {

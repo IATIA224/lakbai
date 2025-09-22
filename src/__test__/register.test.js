@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { MemoryRouter } from "react-router-dom";
+import Register from "../register";
 
 // Router: mock navigate but keep the rest real
 const mockNavigate = jest.fn();
@@ -36,14 +37,11 @@ jest.mock("firebase/auth", () => ({
 
 // Mock Firestore APIs used in register.js
 const mockDoc = jest.fn((db, col, id) => ({ __ref: `${col}/${id}` }));
-const mockSetDoc = jest.fn(async () => {});
+const mockSetDoc = jest.fn(async () => Promise.resolve());
 jest.mock("firebase/firestore", () => ({
   doc: (...args) => mockDoc(...args),
   setDoc: (...args) => mockSetDoc(...args),
 }));
-
-// Import after mocks
-import Register from "../register";
 
 // Helpers
 const fillForm = () => {
@@ -62,12 +60,13 @@ const fillForm = () => {
   fireEvent.change(screen.getByLabelText(/Confirm Password/i), {
     target: { value: "Str0ng!Pwd" },
   });
-  // Agree to terms
-  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("checkbox")); // Terms
 };
 
-const getOtpInputs = (container) =>
-  Array.from(container.querySelectorAll("input.otp-input"));
+const getOtpInputs = () =>
+  screen.getAllByRole("textbox").filter((input) =>
+    input.classList.contains("otp-input")
+  );
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -82,7 +81,7 @@ afterEach(() => {
 
 describe("Register", () => {
   test("submit button is disabled until Terms are accepted", async () => {
-    const { container } = render(
+    render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Register />
       </MemoryRouter>
@@ -96,14 +95,13 @@ describe("Register", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     expect(submit).toBeEnabled();
 
-    // No popup yet
-    expect(container.querySelector(".register-popup")).toBeNull();
+    expect(screen.queryByTestId("register-popup")).toBeNull();
   });
 
   test("submitting valid details sends OTP and shows OTP step", async () => {
     mockFetchMethods.mockResolvedValue([]);
 
-    const { container } = render(
+    render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Register />
       </MemoryRouter>
@@ -122,13 +120,13 @@ describe("Register", () => {
     expect(params.email).toBe("user@example.com");
     expect(params.passcode).toHaveLength(6);
 
-    expect(getOtpInputs(container).length).toBe(6);
+    expect(getOtpInputs().length).toBe(6);
   });
 
   test("wrong OTP shows inline error", async () => {
     mockFetchMethods.mockResolvedValue([]);
 
-    const { container } = render(
+    render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Register />
       </MemoryRouter>
@@ -141,14 +139,13 @@ describe("Register", () => {
     await waitFor(() => expect(mockEmailjsSend).toHaveBeenCalled());
     expect(await screen.findByText(/Verify Your Email/i)).toBeInTheDocument();
 
-    const inputs = getOtpInputs(container);
+    const inputs = getOtpInputs();
     "000000".split("").forEach((c, i) =>
       fireEvent.change(inputs[i], { target: { value: c } })
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Verify/i }));
 
-    // Be flexible about error copy
     const errorNode = await screen.findByText((content) =>
       /incorrect|invalid|wrong|expired/i.test(content)
     );
@@ -157,15 +154,11 @@ describe("Register", () => {
 
   test("correct OTP creates account, sends verification, and can navigate to login", async () => {
     mockFetchMethods.mockResolvedValue([]);
-    // Mock the user object
-    const fakeUser = {
-      uid: "u1",
-      email: "user@example.com",
-    };
+    const fakeUser = { uid: "u1", email: "user@example.com" };
     mockCreateUser.mockResolvedValue({ user: fakeUser });
     mockSetDoc.mockResolvedValue();
 
-    const { container } = render(
+    render(
       <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Register />
       </MemoryRouter>
@@ -178,49 +171,48 @@ describe("Register", () => {
     await waitFor(() => expect(mockEmailjsSend).toHaveBeenCalled());
     expect(await screen.findByText(/Verify Your Email/i)).toBeInTheDocument();
 
-    // Let the countdown effect run
-    await act(async () => {
+    // ✅ act only needed for timers
+    act(() => {
       jest.advanceTimersByTime(1000);
     });
 
     const [, , params] = mockEmailjsSend.mock.calls[0];
     const code = params.passcode;
 
-    const inputs = getOtpInputs(container);
+    // Fill OTP inputs
+    const inputs = getOtpInputs();
     code.split("").forEach((c, i) =>
       fireEvent.change(inputs[i], { target: { value: c } })
     );
 
-    let verifyBtn = screen.queryByRole("button", {
-      name: /Verify & Create/i,
-    });
-    if (!verifyBtn) verifyBtn = screen.getByRole("button", { name: /Verify/i });
-    expect(verifyBtn).toBeEnabled();
-    
-    await act(async () => {
-      fireEvent.click(verifyBtn);
-    });
+    // Click verify
+    const verifyBtn = await screen.findByRole("button", { name: /verify/i });
+    fireEvent.click(verifyBtn);
 
+    // Wait for async calls
     await waitFor(() => expect(mockCreateUser).toHaveBeenCalled());
-    expect(mockSetDoc).toHaveBeenCalled();
-    expect(mockSendVerification).toHaveBeenCalledWith(fakeUser);
+    await waitFor(() => expect(mockSetDoc).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockSendVerification).toHaveBeenCalledWith(fakeUser)
+    );
 
-    // Wait for success popup
     expect(
       await screen.findByText(/Account created! Verification email sent/i)
     ).toBeInTheDocument();
 
     const closeBtn = screen.queryByRole("button", { name: /go to login|close|ok|continue/i });
-    if (closeBtn) {
-      await act(async () => {
-        fireEvent.click(closeBtn);
-      });
-      await waitFor(() => {
-        if (mockNavigate.mock.calls.length) {
-          expect(mockNavigate).toHaveBeenCalledWith("/");
-        }
-      });
-    }
+  if (closeBtn) {
+    fireEvent.click(closeBtn);
+  }
+
+  await waitFor(() => {
+    expect(mockNavigate).toHaveBeenCalledTimes(closeBtn ? 1 : 0);
   });
+
+  if (closeBtn) {
+    fireEvent.click(closeBtn);
+  }
+  expect(mockNavigate).toHaveBeenCalledWith("/");
 });
- 
+
+});

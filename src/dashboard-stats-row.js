@@ -7,7 +7,6 @@ getDoc,
 getDocs,
 query,
 where,
-getCountFromServer,       // <-- add
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
@@ -26,101 +25,40 @@ if (!uid) {
 // ---------- helpers ----------
 const safeAvg = (arr) => (arr.length ? arr.reduce((a, b) => a + (Number(b) || 0), 0) / arr.length : 0);
 
-async function countFirstMatch(queries) {
-    for (const fn of queries) {
-    try {
-        const n = await fn();
-        if (typeof n === 'number' && n > 0) return n;
-    } catch (_) {}
-    }
-    return 0;
-}
-
-// NEW: total number of destinations in the root 'destinations' collection
-async function countAllDestinations() {
-    // Prefer server-side count (no document reads)
-    try {
-    const agg = await getCountFromServer(collection(db, 'destinations'));
-    return agg.data().count || 0;
-    } catch (_) {}
-    // Fallback: client-side count (reads documents)
+// --- ACTUAL number of destinations available on destination tab ---
+async function countActualDestinations() {
     try {
     const qs = await getDocs(collection(db, 'destinations'));
     return qs.size;
-    } catch (_) {}
+    } catch (_) {
     return 0;
+    }
 }
+const destinations = await countActualDestinations();
 
-// Replace previous "authored/owned by user" logic with global total
-const destinations = await countAllDestinations();
-
-// Bookmarked by user (support multiple shapes)
-async function countBookmarks() {
-    // A) users/{uid}/bookmarks subcollection (authoritative)
+// --- ACTUAL number of bookmarked destinations for current user ---
+async function countActualBookmarks() {
     try {
     const qs = await getDocs(collection(db, 'users', uid, 'bookmarks'));
-    // Return size even if 0 to avoid false positives from fallbacks
-    return qs.size;                           // CHANGED: always return, do not fall through
-    } catch (_) {}
-
-    // Fallbacks (kept, only used if the subcollection read fails)
-    try {
-    const snap = await getDoc(doc(db, 'userBookmarks', uid));
-    if (snap.exists()) {
-        const d = snap.data() || {};
-        const arr = Array.isArray(d.destinations) ? d.destinations
-                    : Array.isArray(d.items) ? d.items
-                    : [];
-        if (arr.length) return arr.length;
-    }
-    } catch (_) {}
-
-    try {
-    const sub = await getDocs(collection(db, 'userBookmarks', uid, 'items'));
-    if (!sub.empty) return sub.size;
-    } catch (_) {}
-
-    try {
-    const rows = await getDocs(query(collection(db, 'userBookmarks'), where('userId', '==', uid)));
-    if (!rows.empty) return rows.size;
-    } catch (_) {}
-
-    try {
-    const rows = await getDocs(query(collection(db, 'bookmarks'), where('userId', '==', uid)));
-    if (!rows.empty) return rows.size;
-    } catch (_) {}
-
+    return qs.size;
+    } catch (_) {
     return 0;
+    }
 }
-const bookmarked = await countBookmarks();
+const bookmarked = await countActualBookmarks();
 
-// Trips planned by user
-async function countTrips() {
-    // A) users/{uid}/trips subcollection (screenshot shows 'trips' alongside bookmarks/ratings)
+// --- ACTUAL number of trips planned from My Trips of current user ---
+async function countActualTrips() {
     try {
     const qs = await getDocs(collection(db, 'users', uid, 'trips'));
-    if (!qs.empty) return qs.size;
-    } catch (_) {}
-
-    const candidates = [
-    ['Trips', 'userId'],
-    ['Trips', 'ownerId'],
-    ['itinerary', 'userId'],
-    ['itinerary', 'ownerId'],
-    ['itineraries', 'userId'],
-    ['tripPlans', 'userId'],
-    ];
-    for (const [coll, field] of candidates) {
-    try {
-        const qs = await getDocs(query(collection(db, coll), where(field, '==', uid)));
-        if (!qs.empty) return qs.size;
-    } catch (_) {}
-    }
+    return qs.size;
+    } catch (_) {
     return 0;
+    }
 }
-const tripsPlanned = await countTrips();
+const tripsPlanned = await countActualTrips();
 
-// Average rating given by the user or of user's destinations/bookmarks
+// --- Average rating logic remains unchanged ---
 async function computeAvgRating() {
     // A) users/{uid}/ratings subcollection
     try {

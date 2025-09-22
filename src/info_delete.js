@@ -21,7 +21,7 @@ const InfoDelete = ({ onClose }) => {
       await deleteDoc(doc(db, "users", user.uid));
       // Delete Auth user
       await deleteUser(user);
-      setPopup({ show: true, type: "success", message: "Account deleted successfully." });
+      setPopup({ show: true, getByTestId: "success-popup", type: "success", message: "Account deleted successfully." });
     } catch (err) {
       setPopup({ show: true, type: "error", message: err.message });
     }
@@ -75,7 +75,7 @@ const InfoDelete = ({ onClose }) => {
         <div className="info-modal-content">
           <div className="info-alert">
             <span className="info-alert-icon">&#9432;</span>
-            <span>Please log in to manage your account settings or delete your account.</span>
+            <span>Please log in to manage your account settings or delete your account</span>
           </div>
           <form className="info-form" onSubmit={handleEmailDelete}>
             <label className="info-label">
@@ -132,7 +132,7 @@ const InfoDelete = ({ onClose }) => {
         </div>
         {popup.show && (
           <div className="info-popup-overlay">
-            <div className="info-popup">
+            <div className="info-popup" data-testid="success-popup">
               <img
                 src={popup.type === "success" ? "/star.png" : "/warning (1).png"}
                 alt={popup.type === "success" ? "Success" : "Error"}
