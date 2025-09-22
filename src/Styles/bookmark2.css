@@ -1028,6 +1028,7 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
   /* Content section - third */
   .bp2-content {
     order: 3;
+    padding-top: 0%;
   }
 
   /* Grid - 1 column on mobile with proper spacing */
