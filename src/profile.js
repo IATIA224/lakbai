@@ -25,6 +25,7 @@ import { v4 as uuidv4 } from "uuid"; // Install with: npm install uuid
 import { useUser } from "./UserContext";
 import { emitAchievement } from "./achievementsBus";
 import { onAuthStateChanged } from "firebase/auth";
+import { getUserDashboardStats } from "./dashboard-stats-row"; // <-- Add this import
 
 export const CLOUDINARY_CONFIG = {
   cloudName: "dxvewejox",
