@@ -18,6 +18,8 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
+import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
+
 
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
@@ -27,6 +29,7 @@ export default function Bookmarks2() {
   const [currentUser, setCurrentUser] = useState(null);
   // NEW: page loading state
   const [isLoading, setIsLoading] = useState(true);
+  const [cloudImages, setCloudImages] = useState([]);
 
   // UI state
   const [query, setQuery] = useState('');
@@ -77,12 +80,11 @@ export default function Bookmarks2() {
   // 2) Listen to auth and the current user's bookmarks
   useEffect(() => {
     let unsubUserDoc = null;
-    // Ensure unsubAuth is always a function, even if onAuthStateChanged is mocked or missing
-    const unsubAuth = typeof auth.onAuthStateChanged === 'function'
-      ? auth.onAuthStateChanged(async (user) => {
-          setCurrentUser(user || null);
-          if (user) {
-            const userRef = doc(db, 'userBookmarks', user.uid);
+    let unsubAuth = () => {}; // <-- ensure unsubAuth is always a function
+    unsubAuth = auth.onAuthStateChanged(async (user) => {
+      setCurrentUser(user || null);
+      if (user) {
+        const userRef = doc(db, 'userBookmarks', user.uid);
 
             try {
               const snap = await getDoc(userRef);
@@ -117,11 +119,12 @@ export default function Bookmarks2() {
             setBookmarks(new Set());
             if (unsubUserDoc) unsubUserDoc();
           }
-        })
-      : () => {}; // fallback no-op if not a function
+        });
+      // fallback no-op if not a function
 
     return () => {
       if (unsubUserDoc) unsubUserDoc();
+      if (typeof unsubAuth === 'function') unsubAuth();
       if (typeof unsubAuth === 'function') unsubAuth();
     };
   }, [setCurrentUser]);
@@ -511,6 +514,10 @@ export default function Bookmarks2() {
     return '—';
   };
 
+  useEffect(() => {
+    fetchCloudinaryImages().then(setCloudImages);
+  }, []);
+
   return (
     <div className="App">
       {isLoading && (
@@ -677,8 +684,40 @@ export default function Bookmarks2() {
             {pageItems.map((d) => (
               <div className="grid-card" key={d.id}>
                 <div className="card-image">
-                  <div className="sun-decoration" />
-                  <div className="wave-decoration" />
+                  {cloudImages.length === 0 ? (
+                    <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
+                  ) : getImageForDestination(cloudImages, d.name) ? (
+                    <img
+                      src={getImageForDestination(cloudImages, d.name)}
+                      alt={d.name}
+                      className="destination-img"
+                      style={{
+                        width: "100%",
+                        height: 200,
+                        objectFit: "cover",
+                        borderRadius: "12px 12px 0 0",
+                        marginBottom: 6,
+                        background: "#e0e7ef"
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        borderRadius: "12px 12px 0 0",
+                        background: "#e0e7ef",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#94a3b8",
+                        fontSize: 32,
+                        marginBottom: 6
+                      }}
+                    >
+                      🏝️
+                    </div>
+                  )}
                   <button
                     className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
                     onClick={() => toggleBookmark(d)}
@@ -739,60 +778,91 @@ export default function Bookmarks2() {
             </button>
 
             <div className="details-hero">
-              <div className="details-hero-art">
-                <div className="hero-water" />
-                <div className="hero-sand" />
-                <div className="hero-curve" />
-              </div>
-            </div>
-
-            <div className="details-body">
-              <div className="details-head-row">
-                <div className="details-title-col">
-                  <h2 className="details-title">{selected.name}</h2>
-                  <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
-                    {selected.region}
-                  </a>
-
-                  <div className="details-rating-row">
-                    <span className="star">⭐</span>
-                    <span className="avg">
-                      {(ratingsByDest[selected.id]?.count ?? 0) > 0
-                        ? (ratingsByDest[selected.id].avg).toFixed(1)
-                        : '—'}
-                    </span>
-                    <span className="muted"> (Average Rating)</span>
-                    <span className="muted sep">Your Rating:</span>
-                    <div className="your-stars">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          className={`star-btn ${userRating >= n ? 'filled' : ''}`}
-                          onClick={() => rateSelected(n)}
-                          disabled={savingRating}
-                          aria-label={`${n} star${n > 1 ? 's' : ''}`}
-                          title={`${n} star${n > 1 ? 's' : ''}`}
+                      <div className="details-hero-image">
+                      {cloudImages.length === 0 ? (
+                        <div style={{ width: "100%", height: 240, background: "#e0e7ef", borderRadius: 16  }} />
+                      ) : getImageForDestination(cloudImages, selected.name) ? (
+                        <img
+                        src={getImageForDestination(cloudImages, selected.name)}
+                        alt={selected.name}
+                        style={{
+                          width: "100%",
+                          height: 240,
+                          objectFit: "cover",
+                          objectPosition: "center", // always show bottom part
+                          borderRadius: "16px 16px 0 0",
+                          marginBottom: 8,
+                          background: "#e0e7ef"
+                        }}
+                        />
+                      ) : (
+                        <div
+                        style={{
+                          width: "100%",
+                          height: 180,
+                          borderRadius: 12,
+                          background: "#e0e7ef",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#94a3b8",
+                          fontSize: 48,
+                          marginBottom: 8
+                        }}
                         >
-                          ★
-                        </button>
-                      ))}
+                        🏝️
+                        </div>
+                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="details-actions">
-                  <button
-                    className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
-                    onClick={handleModalBookmarkClick}
-                    disabled={bookmarking}
-                    aria-pressed={bookmarks.has(selected.id)}
-                    aria-label={bookmarks.has(selected.id) ? 'Remove bookmark' : 'Add bookmark'}
-                  >
-                    <span className="icon">{bookmarks.has(selected.id) ? '❤️' : '🤍'}</span>
-                    {bookmarks.has(selected.id) ? 'Bookmarked' : 'Bookmark'}
-                  </button>
-                  <button
-                    className={`btn-green ${addedTripId === selected.id ? 'btn-success' : ''}`}  // NEW: success style 
+                    <div className="details-body">
+                      <div className="details-head-row">
+                      <div className="details-title-col">
+                        <h2 className="details-title">{selected.name}</h2>
+                        <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
+                        {selected.region}
+                        </a>
+
+                        <div className="details-rating-row">
+                        <span className="star">⭐</span>
+                        <span className="avg">
+                          {(ratingsByDest[selected.id]?.count ?? 0) > 0
+                          ? (ratingsByDest[selected.id].avg).toFixed(1)
+                          : '—'}
+                        </span>
+                        <span className="muted"> (Average Rating)</span>
+                        <span className="muted sep">Your Rating:</span>
+                        <div className="your-stars">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            className={`star-btn ${userRating >= n ? 'filled' : ''}`}
+                            onClick={() => rateSelected(n)}
+                            disabled={savingRating}
+                            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                            title={`${n} star${n > 1 ? 's' : ''}`}
+                          >
+                            ★
+                          </button>
+                          ))}
+                        </div>
+                        </div>
+                      </div>
+
+                      <div className="details-actions">
+                        <button
+                        className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
+                        onClick={handleModalBookmarkClick}
+                        disabled={bookmarking}
+                        aria-pressed={bookmarks.has(selected.id)}
+                        aria-label={bookmarks.has(selected.id) ? 'Remove bookmark' : 'Add bookmark'}
+                        >
+                        <span className="icon">{bookmarks.has(selected.id) ? '❤️' : '🤍'}</span>
+                        {bookmarks.has(selected.id) ? 'Bookmarked' : 'Bookmark'}
+                        </button>
+                        <button
+                        className={`btn-green ${addedTripId === selected.id ? 'btn-success' : ''}`}  // NEW: success style 
                     onClick={() => addToTripFromBookmarks(selected)}
                     disabled={addingTripId === selected.id}
                     aria-busy={addingTripId === selected.id}

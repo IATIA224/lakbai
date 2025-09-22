@@ -11,6 +11,8 @@ import { CLOUDINARY_CONFIG } from "./profile";
 import FriendPopup from "./friend";
 import "./community.css";
 import { emitAchievement } from "./achievementsBus";
+import { logCommunityShareAdventure, logCommunityDeleteAdventure } from "./community-log"; // Add this import
+
 
 // Simple in-memory cache for user photos to avoid repeated Firestore reads
 const userPhotoCache = new Map();
@@ -100,17 +102,17 @@ function ShareTripModal({ onClose, onCreate }) {
         createdAt: serverTimestamp()
       };
       if (imageUrls.length > 0) postPayload.images = imageUrls;
-      if (visibility === "Friends") postPayload.allowedUids = []; // put friend UIDs here
+      if (visibility === "Friends") postPayload.allowedUids = [];
 
-      console.log("DEBUG: Posting payload (authorId, visibility, createdAt sentinel):", {
-        authorId: postPayload.authorId,
-        visibility: postPayload.visibility,
-        createdAt: "serverTimestamp()",
-        allowedUids: postPayload.allowedUids,
-        imagesCount: postPayload.images?.length || 0
+      const docRef = await addDoc(collection(db, "community"), postPayload);
+
+      // Log the share adventure action
+      await logCommunityShareAdventure({
+        postId: docRef.id,
+        postTitle: postPayload.title,
+        location: postPayload.location,
+        user
       });
-
-      await addDoc(collection(db, "community"), postPayload);
 
       // Unlock Hello World achievement and add activity
       await unlockHelloWorldAchievement();
@@ -437,18 +439,25 @@ function CommentActionMenu({ comment, onEdit, onDelete }) {
     <div className="action-menu" ref={dropdownRef}>
       <button 
         className="action-dots" 
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={() => setShowDropdown(!showDropdown)}  // <-- Add this line
         aria-label="Comment options"
+        aria-haspopup="true"
+        aria-expanded={showDropdown}
+        type="button"
       >
-        •••
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="5" cy="12" r="2" fill="currentColor" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+          <circle cx="19" cy="12" r="2" fill="currentColor" />
+        </svg>
       </button>
       
       {showDropdown && (
-        <div className="action-dropdown">
-          <div className="action-item" onClick={() => { onEdit(); setShowDropdown(false); }}>
+        <div className="action-dropdown" role="menu">
+          <div className="action-item" role="menuitem" tabIndex={0} onClick={() => { onEdit(); setShowDropdown(false); }}>
             <span className="action-item-icon">✏️</span> Edit
           </div>
-          <div className="action-item delete" onClick={() => { onDelete(); setShowDropdown(false); }}>
+          <div className="action-item delete" role="menuitem" tabIndex={0} onClick={() => { onDelete(); setShowDropdown(false); }}>
             <span className="action-item-icon">🗑️</span> Delete
           </div>
         </div>
@@ -760,11 +769,22 @@ function CommentModal({ post, onClose, onCountChange }) {
                   </div>
                   
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <CommentActionMenu
-                      comment={c}
-                      onEdit={() => setEditingComment(c)}
-                      onDelete={() => handleDeleteComment(c.id)}
+                    <CommentActionMenu 
+                      comment={c} 
+                      onEdit={() => setEditingComment(c)} 
+                      onDelete={() => handleDeleteComment(c.id)} 
                     />
+                    {/* Report button for comments by other users */}
+                    {auth.currentUser && auth.currentUser.uid !== c.userId && (
+                      <button
+                        type="button"
+                        className="report-btn"
+                        onClick={() => setReportingComment(c)}
+                        title="Report this comment"
+                      >
+                        Report
+                      </button>
+                    )}
                     <button
                       type="button"
                       className={`cmt-heart ${c.heartedBy?.includes(auth.currentUser?.uid) ? "is-on" : ""}`}
@@ -1316,15 +1336,23 @@ const Community = () => {
   }
 
   // Add delete post function
-  const handleDeletePost = async (postId) => {
+  const handleDeletePost = async (post) => {
     if (!window.confirm("Are you sure you want to delete this post? This cannot be undone.")) {
       return;
     }
     
     try {
-      await deleteDoc(doc(db, "community", postId));
+      await deleteDoc(doc(db, "community", post.id)); // This deletes the post from Firebase
       // Remove from local state
-      setPosts(prev => prev.filter(p => p.id !== postId));
+      setPosts(prev => prev.filter(p => p.id !== post.id));
+      
+      // Log the delete adventure action
+      await logCommunityDeleteAdventure({
+        postId: post.id,
+        postTitle: post.title || "",
+        location: post.location || "",
+        deletedBy: auth.currentUser
+      });
     } catch (err) {
       console.error("Failed to delete post:", err);
       alert("Failed to delete post. Please try again.");
@@ -1407,7 +1435,7 @@ const Community = () => {
                       <PostActionMenu 
                         post={post} 
                         onEdit={() => setEditingPost(post)} 
-                        onDelete={() => handleDeletePost(post.id)}
+                        onDelete={() => handleDeletePost(post)}
                       />
                       <button
                         className="add-friend"
@@ -1452,12 +1480,7 @@ const Community = () => {
                   )}
 
                   <div className="card-body">
-                    <p>{post.details}</p>
-                    {post.highlights && (
-                      <div className="highlights">
-                        <strong>Highlights: </strong>{post.highlights}
-                      </div>
-                    )}
+                    <ReadMore text={post.details} maxChars={280} />
                   </div>
 
                   <footer className="card-actions">
@@ -1474,8 +1497,9 @@ const Community = () => {
                     <button
                       className="act"
                       onClick={() => setCommentingPost(post)}
+                      data-testid={`comments-modal}`}
                     >
-                      <span>💬</span> {post.comments || 0}
+                      <span data-testid={`comments-icon`}>💬</span> {post.comments || 0}
                     </button>
                     <button className="act"><span>📌</span> Save</button>
                   </footer>
@@ -1548,4 +1572,38 @@ async function addActivity(userId, text, icon = "🔵") {
   } catch (error) {
     console.error("Error adding activity:", error);
   }
+}
+
+// New helper to truncate long post/comment text with "Read more"
+function ReadMore({ text, maxChars = 300 }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return null;
+  if (text.length <= maxChars) return <p className="card-body-text">{text}</p>;
+  return (
+    <div className="card-body-text">
+      {expanded ? text : text.slice(0, maxChars) + "…"}
+      <button
+        type="button"
+        className="readmore-btn"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
+        {expanded ? "Show less" : "Read more"}
+      </button>
+    </div>
+  );
+}
+
+// New mobile-specific loader: bouncing dots animation
+function BouncingDotsLoader({ text = "Loading community feed…" }) {
+  return (
+    <div className="bouncing-dots-loader" role="status" aria-live="polite" aria-busy="true">
+      <div className="dots-container">
+        <div className="dot dot-1" aria-hidden="true"></div>
+        <div className="dot dot-2" aria-hidden="true"></div>
+        <div className="dot dot-3" aria-hidden="true"></div>
+      </div>
+      <div className="loader-text">{text}</div>
+    </div>
+  );
 }

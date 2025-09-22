@@ -6,14 +6,17 @@ import {
   orderBy,
   limit,
   getDocs,
-  onSnapshot
+  onSnapshot,
+  addDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import ViewAuditLogModal from './viewauditlog-cms'; // NEW
 
 // Colors & badge presets (tuned to screenshot)
 const CATEGORY_STYLES = {
   AUTHENTICATION: { bg: '#e0f2fe', fg: '#0369a1' },
-  'USER MANAGEMENT': { bg: '#d1fae5', fg: '#065f46' },
+  'USER MANAGEMENT': { bg: '#d1fae5', fg: '#065f46' }, // green background
+  'CONTENT DELETION': { bg: '#fee2e2', fg: '#b91c1c' }, // <-- Red background for CONTENT DELETION
   'CONTENT CREATION': { bg: '#ede9fe', fg: '#5b21b6' },
   MODERATION: { bg: '#fef3c7', fg: '#b45309' },
   'DATA ACCESS': { bg: '#cffafe', fg: '#155e75' },
@@ -100,21 +103,15 @@ function Badge({ text, palette, mono = false }) {
   );
 }
 
-function tiny(date) {
-  if (!date) return '';
-  const d = new Date(date);
-  return (
-    d.toLocaleDateString(undefined, {
-      month: 'numeric',
-      day: 'numeric',
-      year: 'numeric'
-    }) +
-    ' ' +
-    d.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit'
-    })
-  );
+function tiny(ts) {
+  if (!ts) return '';
+  // Firestore Timestamp object
+  if (ts.toDate) return ts.toDate().toLocaleString();
+  // Milliseconds number fallback
+  if (typeof ts === "number") return new Date(ts).toLocaleString();
+  // ISO string fallback
+  if (typeof ts === "string") return new Date(ts).toLocaleString();
+  return '';
 }
 
 function exportCsv(rows) {
@@ -126,8 +123,6 @@ function exportCsv(rows) {
     'action',
     'category',
     'targetType',
-    'targetId',
-    'sourceIp',
     'userAgent',
     'outcome',
     'details'
@@ -158,190 +153,6 @@ function exportCsv(rows) {
   URL.revokeObjectURL(a.href);
 }
 
-// Fallback sample data (mirrors screenshot)
-const SAMPLE = [
-  {
-    id: '1',
-    timestamp: Date.now() - 1000 * 60 * 2,
-    userName: 'Sarah Johnson',
-    userEmail: 'sarah.johnson@email.com',
-    role: 'user',
-    action: 'login',
-    category: 'AUTHENTICATION',
-    targetType: 'user_session',
-    targetId: 'session_789',
-    sourceIp: '192.168.1.105',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: ''
-  },
-  {
-    id: '2',
-    timestamp: Date.now() - 1000 * 60 * 6,
-    userName: 'David Rodriguez',
-    userEmail: 'david.rodriguez@email.com',
-    role: 'user',
-    action: 'login failed',
-    category: 'AUTHENTICATION',
-    targetType: 'user_session',
-    targetId: 'session_123',
-    sourceIp: '203.45.6789',
-    userAgent: 'Mobile • Safari 17.1',
-    outcome: 'FAILURE',
-    details: 'multiple_failed_attempts'
-  },
-  {
-    id: '3',
-    timestamp: Date.now() - 1000 * 60 * 18,
-    userName: 'System Administrator',
-    userEmail: 'admin@admincms.com',
-    role: 'admin',
-    action: 'user update',
-    category: 'USER MANAGEMENT',
-    targetType: 'user_profile',
-    targetId: '2',
-    sourceIp: '10.0.0.5',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: 'profile_edit'
-  },
-  {
-    id: '4',
-    timestamp: Date.now() - 1000 * 60 * 24,
-    userName: 'Emma Wilson',
-    userEmail: 'emma.wilson@email.com',
-    role: 'user',
-    action: 'photo upload',
-    category: 'CONTENT CREATION',
-    targetType: 'photo',
-    targetId: 'photo_456',
-    sourceIp: '172.16.25.41',
-    userAgent: 'Tablet • Safari 17.1',
-    outcome: 'SUCCESS',
-    details: ''
-  },
-  {
-    id: '5',
-    timestamp: Date.now() - 1000 * 60 * 36,
-    userName: 'Content Moderator',
-    userEmail: 'moderator@ltravelcms.com',
-    role: 'moderator',
-    action: 'content delete',
-    category: 'MODERATION',
-    targetType: 'post',
-    targetId: 'post_123',
-    sourceIp: '192.168.100.50',
-    userAgent: 'Desktop • Firefox 118.0',
-    outcome: 'SUCCESS',
-    details: 'post_removed'
-  },
-  {
-    id: '6',
-    timestamp: Date.now() - 1000 * 60 * 46,
-    userName: 'Lisa Kim',
-    userEmail: 'lisa.kim@email.com',
-    role: 'user',
-    action: 'data export',
-    category: 'DATA ACCESS',
-    targetType: 'user_data',
-    targetId: '5',
-    sourceIp: '198.61.100.42',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: 'data_export privacy_request'
-  },
-  {
-    id: '7',
-    timestamp: Date.now() - 1000 * 60 * 55,
-    userName: 'System Process',
-    userEmail: 'system@system',
-    role: 'system',
-    action: 'config change',
-    category: 'SYSTEM ADMINISTRATION',
-    targetType: 'system_settings',
-    targetId: 'rate_limiting',
-    sourceIp: '127.0.0.1',
-    userAgent: 'Server • System Process',
-    outcome: 'SUCCESS',
-    details: 'system_config'
-  },
-  {
-    id: '8',
-    timestamp: Date.now() - 1000 * 60 * 65,
-    userName: 'Mike Chen',
-    userEmail: 'mike.chen@email.com',
-    role: 'user',
-    action: 'suspicious activity',
-    category: 'SECURITY',
-    targetType: 'api_endpoint',
-    targetId: 'GET /admin/users',
-    sourceIp: '45.76.123.89',
-    userAgent: 'Unknown • Command Line Tool',
-    outcome: 'FAILURE',
-    details: 'unauthorized_access suspicious_user_agent'
-  },
-  {
-    id: '9',
-    timestamp: Date.now() - 1000 * 60 * 72,
-    userName: 'System Administrator',
-    userEmail: 'admin@admincms.com',
-    role: 'admin',
-    action: 'permission change',
-    category: 'ACCESS CONTROL',
-    targetType: 'user_permissions',
-    targetId: '3',
-    sourceIp: '10.0.0.5',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: 'permission_elevation'
-  },
-  {
-    id: '10',
-    timestamp: Date.now() - 1000 * 60 * 82,
-    userName: 'Anonymous User',
-    userEmail: 'anonymous@anonymous',
-    role: 'anonymous',
-    action: 'rate limit exceeded',
-    category: 'SECURITY',
-    targetType: 'api_endpoint',
-    targetId: 'POST /auth/login',
-    sourceIp: '185.220.101.42',
-    userAgent: 'Desktop • Chrome 91.0',
-    outcome: 'FAILURE',
-    details: 'rate_limit_exceeded brute_force_attempt'
-  },
-  {
-    id: '11',
-    timestamp: Date.now() - 1000 * 60 * 92,
-    userName: 'David Rodriguez',
-    userEmail: 'david.rodriguez@email.com',
-    role: 'user',
-    action: 'review create',
-    category: 'CONTENT CREATION',
-    targetType: 'review',
-    targetId: 'review_789',
-    sourceIp: '203.45.6789',
-    userAgent: 'Mobile • Safari 17.1',
-    outcome: 'SUCCESS',
-    details: ''
-  },
-  {
-    id: '12',
-    timestamp: Date.now() - 1000 * 60 * 102,
-    userName: 'System Administrator',
-    userEmail: 'admin@admincms.com',
-    role: 'admin',
-    action: 'backup create',
-    category: 'SYSTEM MAINTENANCE',
-    targetType: 'database',
-    targetId: 'db_backup_20231116',
-    sourceIp: '10.0.0.5',
-    userAgent: 'Server • Admin Interface',
-    outcome: 'SUCCESS',
-    details: 'system_backup'
-  }
-];
-
 export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
   const db = useMemo(() => {
     try {
@@ -371,55 +182,50 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
       setLoading(true);
       if (db && useFirestore) {
         try {
+          // --- CHANGED: Remove limit(pageSize) to fetch all logs ---
           const baseQ = query(
             collection(db, 'auditLogs'),
-            orderBy('timestamp', 'desc'),
-            limit(pageSize)
+            orderBy('timestamp', 'desc')
+            // No limit here!
           );
-            // live snapshot
           unsub = onSnapshot(
             baseQ,
             (snap) => {
               if (cancelled) return;
-              if (snap.empty) {
-                setLogs(SAMPLE); // fallback
-              } else {
-                setLogs(
-                  snap.docs.map((d) => ({
-                    id: d.id,
-                    ...d.data()
-                  }))
-                );
-              }
+              setLogs(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...d.data()
+                }))
+              );
               setLoading(false);
             },
             () => {
-              setLogs(SAMPLE);
+              setLogs([]);
               setLoading(false);
             }
           );
           return;
         } catch {
           try {
+            // --- CHANGED: Remove limit(pageSize) to fetch all logs ---
             const snap = await getDocs(
-              query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(pageSize))
+              query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'))
             );
             if (!cancelled) {
-              if (snap.empty) setLogs(SAMPLE);
-              else
-                setLogs(
-                  snap.docs.map((d) => ({
-                    id: d.id,
-                    ...d.data()
-                  }))
-                );
+              setLogs(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...d.data()
+                }))
+              );
             }
           } catch {
-            if (!cancelled) setLogs(SAMPLE);
+            if (!cancelled) setLogs([]);
           }
         }
       } else {
-        setLogs(SAMPLE);
+        setLogs([]);
       }
       setLoading(false);
     }
@@ -430,9 +236,10 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
     };
   }, [db, useFirestore, pageSize]);
 
+  // Only use real categories from logs
   const categoriesList = useMemo(
-    () => ['All', ...Array.from(new Set(SAMPLE.map((l) => l.category))).sort()],
-    []
+    () => ['All', ...Array.from(new Set(logs.map((l) => l.category))).sort()],
+    [logs]
   );
   const rolesList = ['All', 'admin', 'moderator', 'user', 'system', 'anonymous'];
   const outcomesList = ['All', 'SUCCESS', 'FAILURE'];
@@ -624,9 +431,9 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             top: 0,
             zIndex: 10,
             display: 'grid',
-            gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // CHANGED
+            gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // Balanced columns
             background: 'linear-gradient(90deg,#f1f5f9,#f8fafc)',
-            fontSize: FS.tableHeader,                      // CHANGED
+            fontSize: FS.tableHeader,
             fontWeight: 700,
             letterSpacing: .5,
             color: '#475569',
@@ -651,7 +458,9 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
           <div style={{ padding: 40, textAlign: 'center', fontSize: 14 }}>No logs found.</div>
         ) : (
           filtered.map((l, i) => {
-            const catSty = CATEGORY_STYLES[l.category] || CATEGORY_STYLES['SYSTEM ADMINISTRATION'];
+            // Normalize category to uppercase for style lookup and display
+            const categoryKey = (l.category || '').toUpperCase();
+            const catSty = CATEGORY_STYLES[categoryKey] || CATEGORY_STYLES['SYSTEM ADMINISTRATION'];
             const outSty = OUTCOME_STYLES[l.outcome] || OUTCOME_STYLES.SUCCESS;
             const roleSty = ROLE_STYLES[l.role] || ROLE_STYLES.user;
             const icon = ACTION_ICONS[l.action] || '🗂️';
@@ -661,13 +470,13 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 key={l.id || i}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // CHANGED
-                  fontSize: FS.tableCell,                // CHANGED
-                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'), // CHANGED subtle
+                  gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // Balanced columns
+                  fontSize: FS.tableCell,
+                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
                   borderBottom: '1px solid #eef2f6',
                   transition: 'background .15s'
                 }}
-                onMouseEnter={e=>e.currentTarget.style.background = isFailure ? '#ffe2e2' : '#e8f2ff'}  // CHANGED
+                onMouseEnter={e=>e.currentTarget.style.background = isFailure ? '#ffe2e2' : '#e8f2ff'}
                 onMouseLeave={e=>e.currentTarget.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa')}
               >
                 <div style={{ padding:'16px 20px', fontWeight: W.primary }}>{tiny(l.timestamp)}</div> {/* CHANGED padding */}
@@ -688,7 +497,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                     {l.userEmail && (
                       <>
                         {' • '}
-                        <span style={{ fontWeight: W.secondary }}>{l.userEmail}</span>            // CHANGED
+                        <span style={{ fontWeight: W.secondary }}>{l.userEmail}</span>
                       </>
                     )}
                   </div>
@@ -716,47 +525,22 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 </div>
                 {/* Category */}
                 <div style={{ padding: '12px 14px' }}>
-                  <Badge text={l.category} palette={catSty} />
+                  <Badge text={categoryKey} palette={catSty} />
                 </div>
                 {/* Target */}
                 <div style={{ padding: '12px 14px' }}>
-                  <div style={{ fontWeight: W.primary, color: '#334155' }}>
-                    {l.targetType}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: '#64748b',
-                      fontWeight: W.secondary,             // CHANGED
-                      marginTop: 2
-                    }}
-                  >
-                    {l.targetId}
-                  </div>
+                  {l.target || '—'}
                 </div>
                 {/* Source */}
-                <div style={{ padding: '12px 14px' }}>
-                  <div style={{ fontWeight: W.primary, color: '#334155' }}>
-                    {l.sourceIp}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: '#be123c',
-                      fontWeight: W.subtle,                // CHANGED
-                      marginTop: 4,
-                      lineHeight: 1.2
-                    }}
-                  >
-                    {l.userAgent}
-                  </div>
+                <div style={{ padding: '12px 14px', wordBreak: 'break-all', fontSize: 12 }}>
+                  {l.userAgent || '—'}
                 </div>
                 {/* Outcome */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Badge text={l.outcome} palette={outSty} />
                 </div>
                 {/* Actions */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <button
                     style={{
                       background: '#e0e7ff',
@@ -818,3 +602,33 @@ function ghostBtn(){
     cursor:'pointer'
   };
 }
+
+// NEW: log sample (for testing)
+async function logSample(user) {
+  const db = getFirestore();
+  await addDoc(collection(db, "auditLogs"), {
+    timestamp: Date.now(),
+    userName: user.displayName || "",
+    userEmail: user.email,
+    role: "admin", // or "user"
+    action: "login",
+    category: "AUTHENTICATION",
+    outcome: "SUCCESS",
+    details: "",
+  });
+}
+async function logSample1(user) {
+  const db = getFirestore();
+  await addDoc(collection(db, "auditLogs"), {
+  timestamp: Date.now(),
+  userName: user.displayName || "",
+  userEmail: user.email,
+  role: "admin", // or "user"
+  action: "logout",
+  category: "AUTHENTICATION",
+  outcome: "SUCCESS",
+  details: "",
+});
+}
+
+<AuditLogsCMS useFirestore={true} pageSize={200} />

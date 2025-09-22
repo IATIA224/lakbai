@@ -22,19 +22,27 @@
 }
 
 .profile-avatar {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: #a084ee;
-  color: #fff;
-  font-size: 2.5rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 24px;
-  border: 4px solid #fff;
-  box-shadow: 0 2px 12px rgba(108,99,255,0.13);
+  width: 96px !important;
+  height: 96px !important;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: linear-gradient(180deg, #7c5cff, #a084ee) !important;
+  color: #fff !important;
+  font-size: 2.2rem !important;
+  font-weight: 700 !important;
+  box-shadow: 0 6px 18px rgba(99,102,241,0.12) !important;
+  object-fit: cover !important;
+}
+
+.profile-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
 }
 
 .profile-info {
@@ -142,7 +150,7 @@
   padding: 22px 0 12px 0;
   text-align: center;
   font-size: 1.1rem;
-  box-shadow: 0 2px 12px rgba(108,99,255,0.07);
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
 }
 .profile-stat span {
   display: block;
@@ -179,7 +187,7 @@
 .profile-card {
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(108,99,255,0.07);
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
   padding: 22px 22px 18px 22px;
   margin-bottom: 0;
 }
@@ -194,7 +202,7 @@
 }
 
 .profile-map {
-  background: #e6f0ff;
+  background: #ffffff;
   border-radius: 12px;
   height: 160px;
   position: relative;
@@ -202,6 +210,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
 }
 .profile-map-ph {
   font-size: 2.5rem;
@@ -236,11 +245,15 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px 0;
 }
 .profile-activity-item {
   display: flex;
   align-items: center;
-  background: #f7f8fa;
+  background: #2b3e65;
   border-radius: 8px;
   padding: 12px 14px;
   gap: 12px;
@@ -271,6 +284,10 @@
   align-items: center;
   max-height: 132px; /* one line only */
   white-space: nowrap; /* Additional prevention of wrapping */
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px 0;
 }
 .profile-gallery-scroll::-webkit-scrollbar { 
   height: 6px; /* Thinner scrollbar */
@@ -358,18 +375,26 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px 0;
 }
 .profile-action-btn {
-  width: 100%;
+  width: calc(100% - 32px); /* Reduce width for left/right margin */
+  margin: 0 auto 12px auto;  /* Center and add bottom margin */
   padding: 13px 0;
   border: none;
   border-radius: 8px;
   font-size: 1.08rem;
   font-weight: 600;
-  margin-bottom: 0;
   cursor: pointer;
   transition: background 0.18s, color 0.18s;
   color: #fff;
+  display: block;
+}
+.profile-action-btn:hover {
+  background: #6c63ff;
 }
 .profile-action-btn.plan { background: #2563eb; }
 .profile-action-btn.plan:hover { background: #1d4ed8; }
@@ -813,10 +838,8 @@ button[aria-label="Close achievements"] {
   }
 
   .profile-avatar {
-    width: 80px;
-    height: 80px;
-    margin-right: 0;
-    margin-bottom: 8px;
+    width: 80px !important;
+    height: 80px !important;
   }
 
   .profile-info {
@@ -1031,11 +1054,64 @@ button[aria-label="Close achievements"] {
     flex-wrap: wrap;
   }
 
+  .profile-content-side,
+  .profile-card,
+  .profile-map,
+  .profile-activity-list,
+  .profile-gallery-scroll {
+     width: 100% !important;
+     max-width: 100% !important;
+     margin-left: 0 !important;
+     margin-right: 0 !important;
+     left: auto !important;
+     right: auto !important;
+     box-sizing: border-box;
+  }
+
+  .profile-content-side {
+     min-width: 100% !important;
+     max-width: 100% !important;
+     position: static;
+  }
+
+  .profile-card {
+     min-width: 100% !important;
+     max-width: 100% !important;
+  }
+
+  .profile-map {
+     min-width: 100% !important;
+     max-width: 100% !important;
+  }
+
+  .profile-activity-list {
+     min-width: 100% !important;
+     max-width: 100% !important;
+  }
+
+  .profile-gallery-scroll {
+     min-width: 100% !important;
+     max-width: 100% !important;
+  }
+
   /* ...existing code... */
 }
 
 /* Very small screens (phones in portrait) */
 @media (max-width: 480px) {
+  .profile-content-side,
+  .profile-card,
+  .profile-map,
+  .profile-activity-list,
+  .profile-gallery-scroll {
+    width: 100%;
+    max-width: 95vw;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    position: static;
+  }
+
   .profile-main {
     padding: 0 10px; /* Slightly more padding */
   }
@@ -1195,4 +1271,36 @@ button[aria-label="Close achievements"] {
   font-size: 0.9rem;
   font-weight: 500;
   text-align: center;
+}
+
+@media (max-width: 768px) {
+  /* Keep only these: */
+  .profile-map,
+  .profile-activity-list,
+  .profile-gallery-scroll {
+    /* reduced from 105% → 90% (≈ 15% smaller) */
+    width: 89% !important;
+    max-width: 80% !important;
+    margin-left: auto !important;   /* center the smaller placeholder */
+    margin-right: auto !important;
+    box-sizing: border-box;
+    padding-left: 5% !important;
+    padding-right: 5% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Keep only these: */
+  .profile-map,
+  .profile-activity-list,
+  .profile-gallery-scroll {
+    /* reduced from 105vw → 90vw (≈ 15% smaller on very small screens) */
+    width: 90vw !important;
+    max-width: 87vw !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }

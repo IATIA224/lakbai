@@ -30,7 +30,7 @@
 .bm-card {
   background: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
   overflow: hidden;
   width: 430px;
   height: 500px;
@@ -84,6 +84,7 @@
 .bm-info-box {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   background: #f3f4f6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
 }
 .bm-info-item { display: flex; gap: 8px; align-items: center; }
 .bm-info-label { color: #334155; font-weight: 600; font-size: .88rem;}
@@ -505,7 +506,7 @@
   align-items: center;
   gap: 12px;
   border: 1px solid #eef2f7;
-  box-shadow: 0 10px 24px rgba(0,0,0,.06);
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
 }
 .bm-stat-icon {
   width: 44px;
@@ -586,7 +587,7 @@
   width: min(880px, 92vw);
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.35);
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
   overflow: hidden;
   position: relative;
 }
@@ -678,7 +679,9 @@
 .bm-pack-card { background:#f8fafc; border-radius:10px; padding:12px; color:#334155; }
 
 /* Aside info panel */
-.bm-info-panel { background:#f8fafc; border-radius:12px; padding:16px; }
+.bm-info-panel { background:#f8fafc; border-radius:12px; padding:16px; 
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
+}
 .bm-info-title { margin:4px 0 12px; font-size:18px; color:#0f172a; }
 .bm-info-row { display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:left; padding:8px 0; text-align: left;}
 .bm-info-key { color:#334155; font-weight:600;}

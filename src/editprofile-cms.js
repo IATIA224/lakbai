@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { getFirestore, collection, query, where, getCountFromServer, getDocs, doc, getDoc, collectionGroup, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getCountFromServer, getDocs, doc, getDoc, collectionGroup, orderBy, limit, addDoc } from 'firebase/firestore';
 // Cloudinary (unsigned) – same keys used elsewhere in the app
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -654,6 +654,46 @@ async function loadUserAchievementsFromFirebase(userObj) {
   return out;
 }
 
+// Helper to get device/browser info
+function getDeviceInfo() {
+  let device = "Unknown";
+  let browser = "Unknown";
+  let os = "Unknown";
+  let userAgent = navigator.userAgent || "";
+
+  // Device
+  if (/Mobi|Android/i.test(userAgent)) device = "Mobile";
+  else if (/Tablet|iPad/i.test(userAgent)) device = "Tablet";
+  else device = "Desktop";
+
+  // Browser
+  if (/chrome|crios|crmo/i.test(userAgent)) browser = "Chrome";
+  else if (/firefox|fxios/i.test(userAgent)) browser = "Firefox";
+  else if (/safari/i.test(userAgent) && !/chrome|crios|crmo/i.test(userAgent)) browser = "Safari";
+  else if (/edg/i.test(userAgent)) browser = "Edge";
+  else if (/opr\//i.test(userAgent)) browser = "Opera";
+  else if (/msie|trident/i.test(userAgent)) browser = "IE";
+
+  // OS
+  if (/windows nt/i.test(userAgent)) os = "Windows";
+  else if (/android/i.test(userAgent)) os = "Android";
+  else if (/iphone|ipad|ipod/i.test(userAgent)) os = "iOS";
+  else if (/macintosh|mac os x/i.test(userAgent)) os = "MacOS";
+  else if (/linux/i.test(userAgent)) os = "Linux";
+
+  return { device, browser, os, userAgent };
+}
+
+// Helper to generate a session ID
+function generateSessionId() {
+  return (
+    "sess_" +
+    Math.random().toString(36).substr(2, 9) +
+    "_" +
+    Date.now().toString(36)
+  );
+}
+
 export default function EditProfileCMS({
   open = false,
   user,
@@ -694,6 +734,13 @@ export default function EditProfileCMS({
   // NEW: loading flags
   const [achievementsLoading, setAchievementsLoading] = useState(false);
   const [activityLoading, setActivityLoading] = useState(false);
+
+  // Store initial values for audit logging
+  const initialValuesRef = useRef({
+    travelerName: user?.travelerName || user?.name || '',
+    photoURL: user?.photoURL || user?.avatar || user?.avatarUrl || user?.profilePhoto || '',
+    travelerBio: user?.travelerBio || user?.bio || '',
+  });
 
   useEffect(() => { 
     // normalize initialTab in case 'travel' was passed
@@ -812,7 +859,7 @@ export default function EditProfileCMS({
 
   if (!open || !user) return null;
 
-  const save = () => {
+  const save = async () => {
     const payload = {
       email: form.email,
       travelerName: form.travelerName,
@@ -828,6 +875,51 @@ export default function EditProfileCMS({
     const pwd = String(form.password || '');
     if (pwd && pwd !== '••••••••') {
       payload.password = pwd;
+    }
+
+    // --- AUDIT LOGGING ---
+    const db = getFirestore();
+    const changes = {};
+    const oldVals = {};
+    const newVals = {};
+
+    // Compare fields for changes
+    ["travelerName", "photoURL", "travelerBio"].forEach((field) => {
+      if (payload[field] !== initialValuesRef.current[field]) {
+        changes[field] = true;
+        oldVals[field] = initialValuesRef.current[field];
+        newVals[field] = payload[field];
+      }
+    });
+
+    // If any of the tracked fields changed, write audit log
+    if (Object.keys(changes).length > 0) {
+      const deviceInfo = getDeviceInfo();
+      const sessionId = generateSessionId();
+      await addDoc(collection(db, "auditLogs"), {
+        timestamp: Date.now(),
+        userName: user?.travelerName || user?.name || "",
+        userEmail: user?.email || "",
+        userId: user?.uid || user?.id || "",
+        role: user?.role || "user",
+        action: "user update",
+        category: "user management",
+        outcome: "SUCCESS",
+        details: "Updated user profile",
+        provider: user?.provider || "",
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: "",
+        location: "",
+        session: sessionId,
+        target: `user_profile${user?.id ? ` (${user.id})` : ""}`,
+        dataChanges: {
+          old: oldVals,
+          new: newVals,
+        },
+      });
     }
 
     onSave?.(payload);

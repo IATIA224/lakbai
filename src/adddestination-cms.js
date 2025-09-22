@@ -3,8 +3,8 @@ import './Styles/contentManager.css';
 import { CloudinaryContext, Image } from './cloudinary';
 
 // Cloudinary config (same defaults used elsewhere)
-const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
-const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
+const CLOUDINARY_UPLOAD_PRESET = "lakbai_preset";
+const CLOUDINARY_CLOUD_NAME = "dcv3eqmde";
 
 // Helper to get Cloudinary publicId from URL
 function getCloudinaryPublicId(url) {
@@ -208,7 +208,35 @@ function packingKey(cat = '') {
   if (c.includes('museum')) return 'museums';
   if (c.includes('park') || c.includes('natural') || c.includes('waterfall') || c.includes('lake')) return 'parks';
   if (c.includes('tour')) return 'tourist';
-  return 'tourist';
+  return 'tourist'
+}
+
+// Add this simple toast utility at the top (before your component)
+function showToast(msg, type = "error", duration = 5500) {
+  const toast = document.createElement("div");
+  toast.textContent = msg;
+  toast.style.cssText = `
+    position: fixed;
+    z-index: 9999;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%);
+    background: ${type === "error" ? "#f87171" : "#34d399"};
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 15px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = 1; }, 10);
+  setTimeout(() => {
+    toast.style.opacity = 0;
+    setTimeout(() => document.body.removeChild(toast), 350);
+  }, duration);
 }
 
 const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [], ignoreId = null }) => {
@@ -273,6 +301,21 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     inp.onchange = async () => {
       const f = inp.files?.[0];
       if (!f) return;
+      const destName = (data.name || '').trim();
+      if (!destName) {
+        showToast('Please enter the destination name first.');
+        return;
+      }
+      const imageName = f.name.replace(/\.[^/.]+$/, "");
+      if (imageName.toLowerCase() !== destName.toLowerCase()) {
+        showToast(
+          `Image file name must match the destination name.\n\n` +
+          `Destination: "${destName}"\n` +
+          `Image file: "${f.name}"\n\n` +
+          `Please rename your image file to "${destName}" before uploading.`
+        );
+        return;
+      }
       setUploading(true);
 
       const formData = new FormData();
@@ -280,13 +323,16 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
       formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
       try {
+        // Upload to Cloudinary
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
           method: 'POST',
           body: formData,
         });
+        if (!res.ok) throw new Error('Cloudinary upload failed');
         const dataRes = await res.json();
         if (!dataRes.secure_url) throw new Error('Cloudinary upload failed');
 
+        // Update local state
         setData((d) => {
           const newGallery = [...(d.media.gallery || []), dataRes.secure_url];
           const newFeatured = d.media.featuredImage || dataRes.secure_url;
@@ -299,6 +345,19 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             },
           };
         });
+
+        // Write to dest-images.json via backend API
+        // Use the file name (without extension) as the image name
+        const imageName = f.name.replace(/\.[^/.]+$/, "");
+        await fetch("http://localhost:4000/api/update-dest-image?folder=destinations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: imageName, // image file name without extension
+            url: dataRes.secure_url
+          })
+        });
+
       } catch (err) {
         console.error('Cloudinary error:', err);
         alert('Image upload failed');
