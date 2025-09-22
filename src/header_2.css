@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* decrease header height by additional 15% (from current values) */
-:root { --header2-height: 81px; } /* 95px * 0.85 ≈ 80.75 → 81px */
 
 /* keep header height fixed at 75px on all viewports */
 
