@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { signOut } from 'firebase/auth';
 import { 
-  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc 
+  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc, onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import './dashboardBanner.css';
@@ -67,40 +67,43 @@ function DestinationCard({
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
 
-  // Fetch trips from Firestore for the current user
+  // Fetch trips from Firestore (itinerary/{userId}/items) for the current user, real-time
   const [trips, setTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
   useEffect(() => {
-    let unsubscribe;
-    const fetchTrips = async (user) => {
-      setTripsLoading(true);
-      try {
-        const colRef = collection(db, 'users', user.uid, 'itinerary');
-        const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc')));
-        const rows = snap.docs.map((doc) => {
-          const data = doc.data() || {};
-          return {
-            id: doc.id,
-            ...data,
-          };
-        });
-        setTrips(rows);
-      } catch (e) {
-        setTrips([]);
-      } finally {
-        setTripsLoading(false);
-      }
-    };
-    unsubscribe = auth.onAuthStateChanged((user) => {
+    let unsubscribeAuth;
+    let unsubscribeTrips;
+    setTripsLoading(true);
+    unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
-        fetchTrips(user);
+        const colRef = collection(db, 'itinerary', user.uid, 'items');
+        unsubscribeTrips = onSnapshot(
+          fsQuery(colRef, orderBy('createdAt', 'desc')),
+          (snap) => {
+            const rows = snap.docs.map((doc) => {
+              const data = doc.data() || {};
+              return {
+                id: doc.id,
+                ...data,
+              };
+            });
+            setTrips(rows);
+            setTripsLoading(false);
+          },
+          (error) => {
+            setTrips([]);
+            setTripsLoading(false);
+          }
+        );
       } else {
         setTrips([]);
         setTripsLoading(false);
+        if (unsubscribeTrips) unsubscribeTrips();
       }
     });
     return () => {
-      if (typeof unsubscribe === 'function') unsubscribe();
+      if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
+      if (typeof unsubscribeTrips === 'function') unsubscribeTrips();
     };
   }, []);
 
