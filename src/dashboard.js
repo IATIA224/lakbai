@@ -67,27 +67,42 @@ function DestinationCard({
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
 
-  // Sample trips and bookmarks (replace with Firestore fetch)
-  const [trips, setTrips] = useState([
-    {
-      id: 'trip1',
-      title: 'Baguio Adventure',
-      image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
-      user: '/user.png',
-      date: 'Sep 15',
-      places: 3,
-      soon: true
-    },
-    {
-      id: 'trip2',
-      title: 'Palawan Escape',
-      image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80',
-      user: '/user.png',
-      date: 'Oct 2',
-      places: 5,
-      soon: false
-    }
-  ]);
+  // Fetch trips from Firestore for the current user
+  const [trips, setTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(true);
+  useEffect(() => {
+    let unsubscribe;
+    const fetchTrips = async (user) => {
+      setTripsLoading(true);
+      try {
+        const colRef = collection(db, 'users', user.uid, 'itinerary');
+        const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc')));
+        const rows = snap.docs.map((doc) => {
+          const data = doc.data() || {};
+          return {
+            id: doc.id,
+            ...data,
+          };
+        });
+        setTrips(rows);
+      } catch (e) {
+        setTrips([]);
+      } finally {
+        setTripsLoading(false);
+      }
+    };
+    unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        fetchTrips(user);
+      } else {
+        setTrips([]);
+        setTripsLoading(false);
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, []);
 
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarksLoading, setBookmarksLoading] = useState(true);
@@ -266,27 +281,40 @@ function Dashboard({ setShowAIModal }) {
             + Plan new trip
           </button>
           <div className="dashboard-preview-list">
-            {trips && trips.map(trip => (
-              <div className="dashboard-preview-trip" key={trip.id}>
-                <img src={trip.image} alt={trip.title} className="dashboard-preview-img" />
-                <div className="dashboard-preview-info">
-                  {trip.soon && <span className="dashboard-preview-soon">In 1 day</span>}
-                  <div className="dashboard-preview-trip-title">{trip.title}</div>
-                  <div className="dashboard-preview-trip-meta">
-                    <img src={trip.user} alt="user" className="dashboard-preview-user" />
-                    <span>{trip.date} • {trip.places} place{trip.places !== 1 ? 's' : ''}</span>
+            {tripsLoading ? (
+              <div className="dashboard-preview-empty">Loading trips…</div>
+            ) : trips && trips.length > 0 ? (
+              trips.map(trip => (
+                <div className="dashboard-preview-trip" key={trip.id || trip.name}>
+                  <img src={trip.image || '/placeholder.png'} alt={trip.name || trip.title} className="dashboard-preview-img" />
+                  <div className="dashboard-preview-info">
+                    {trip.status === 'Upcoming' && trip.arrival && (
+                      <span className="dashboard-preview-soon">Upcoming</span>
+                    )}
+                    <div className="dashboard-preview-trip-title">{trip.name || trip.title}</div>
+                    <div className="dashboard-preview-trip-meta">
+                      <span>
+                        {trip.arrival ? `${trip.arrival}` : ''}
+                        {trip.departure ? ` – ${trip.departure}` : ''}
+                        {trip.activities && Array.isArray(trip.activities)
+                          ? ` • ${trip.activities.length} activit${trip.activities.length === 1 ? 'y' : 'ies'}`
+                          : ''}
+                      </span>
+                    </div>
                   </div>
+                  <span className="dashboard-preview-dots">⋯</span>
                 </div>
-                <span className="dashboard-preview-dots">⋯</span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="dashboard-preview-empty">No trips found. Start planning your first trip!</div>
+            )}
           </div>
         </div>
         <div className="dashboard-preview-col">
           <div className="dashboard-preview-title">Bookmarks</div>
           <button 
             className="dashboard-preview-btn"
-            onClick={() => navigate('/bookmarks')}
+            onClick={() => navigate('/bookmarks2')}
           >
             + Add new bookmark
           </button>
