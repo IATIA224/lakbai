@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { collectionGroup, getDocs, query, where, orderBy, limit, getDoc, doc, collection } from 'firebase/firestore';
 import { db } from './firebase';
 import { CloudinaryContext, Image } from './cloudinary';
+import { useUserDashboardStats } from './dashboard-stats-row';
 
 // Cloudinary (same defaults as elsewhere)
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -47,6 +48,8 @@ export default function ViewProfileCMS({
 }) {
   const [tab, setTab] = useState('overview');
   const uid = user?.id || user?.uid || user?.userId || null;
+
+  const { stats: dashboardStats } = useUserDashboardStats(uid);
 
   // Local state for Activity + Photos
   const [loadingActivity, setLoadingActivity] = useState(false);
@@ -411,7 +414,7 @@ export default function ViewProfileCMS({
                     }}>
                       {cell(placesCount, 'Places on Trips', '#2563eb')}
                       {cell(s.photos, 'Photos Shared', '#16a34a')}
-                      {cell(s.reviews, 'Reviews Written', '#7c3aed')}
+                      {cell(dashboardStats.ratedCount, 'Rated Destinations', '#7c3aed')}
                       {cell(s.friends, 'Friends', '#f97316')}
                     </div>
                   );
