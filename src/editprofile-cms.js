@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { getFirestore, collection, query, where, getCountFromServer, getDocs, doc, getDoc, collectionGroup, orderBy, limit, addDoc } from 'firebase/firestore';
+import { listenUserStats } from './user-stats-cms';
+
 // Cloudinary (unsigned) – same keys used elsewhere in the app
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -218,7 +220,6 @@ async function trySubcollectionCounts(db, paths) {
 async function loadUserStatsFromFirebase(userObj) {
   if (!userObj) return null;
   const uid = userObj.id || userObj.uid;
-  if (!uid) return null;
 
   const db = getFirestore();
 
@@ -702,6 +703,7 @@ export default function EditProfileCMS({
   onSave
 }) {
   const providerLabel = useMemo(() => resolveAuthProvider(user), [user]);
+  const uid = user?.id || user?.uid || user?.userId || null;
 
   // Only expose these tabs (Travel removed)
   const TABS = ['basic', 'profile', 'settings'];
@@ -711,16 +713,18 @@ export default function EditProfileCMS({
     password: '••••••••',
     provider: providerLabel,
     travelerName: user?.travelerName || user?.name || '',
-    // profile fields
     photoURL: user?.photoURL || user?.avatar || user?.avatarUrl || user?.profilePhoto || '',
     travelerBio: user?.travelerBio || user?.bio || '',
-    // NEW: settings field (map Firebase -> UI)
     status: toUiStatus(user?.status || 'active'),
     stats: {
       places: user?.stats?.places ?? user?.placesCount ?? 0,
       photos: user?.stats?.photos ?? user?.photosCount ?? 0,
       reviews: user?.stats?.reviews ?? user?.reviewsCount ?? 0,
-      friends: user?.stats?.friends ?? user?.friendsCount ?? 0
+      friends: user?.stats?.friends ?? user?.friendsCount ?? 0,
+      // Add these for direct Firebase stats
+      placesOnTrips: 0,
+      photosShared: 0,
+      ratedDestinations: 0,
     },
     interests: normalizeInterests(user || {}),
   }), [user, providerLabel]);
@@ -734,6 +738,7 @@ export default function EditProfileCMS({
   // NEW: loading flags
   const [achievementsLoading, setAchievementsLoading] = useState(false);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Store initial values for audit logging
   const initialValuesRef = useRef({
@@ -743,28 +748,60 @@ export default function EditProfileCMS({
   });
 
   useEffect(() => { 
-    // normalize initialTab in case 'travel' was passed
     setTab(TABS.includes(initialTab) ? initialTab : 'basic'); 
   }, [initialTab]);
   useEffect(() => { setForm(seeded); }, [seeded]);
 
-  // Refresh Travel Statistics from Firebase whenever modal opens or user changes
+  // Fetch Travel Statistics directly from Firebase
   useEffect(() => {
     let alive = true;
     (async () => {
       if (!open || !user) return;
+      setStatsLoading(true);
       try {
-        const stats = await loadUserStatsFromFirebase(user);
-        if (alive && stats) {
-          setForm((f) => ({ ...f, stats: { ...f.stats, ...stats } }));
+        const db = getFirestore();
+        // Places on Trips
+        let placesOnTrips = 0;
+        try {
+          const tripsSnap = await getDocs(collection(db, 'users', uid, 'trips'));
+          placesOnTrips = tripsSnap.size;
+        } catch {}
+        // Photos Shared (sum of photos subcollection and stats.photosShared field)
+        let photosShared = 0;
+        try {
+          const photosSnap = await getDocs(collection(db, 'users', uid, 'photos'));
+          photosShared = photosSnap.size;
+        } catch {}
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        const stats = userDoc.exists() ? userDoc.data().stats || {} : {};
+        if (typeof stats.photosShared === 'number') {
+          photosShared += stats.photosShared;
+        }
+        // Rated Destinations
+        let ratedDestinations = 0;
+        try {
+          const ratingsSnap = await getDocs(collection(db, 'users', uid, 'ratings'));
+          ratedDestinations = ratingsSnap.size;
+        } catch {}
+        if (alive) {
+          setForm((f) => ({
+            ...f,
+            stats: {
+              ...f.stats,
+              placesOnTrips,
+              photosShared,
+              ratedDestinations,
+            }
+          }));
         }
       } catch (e) {
-        // keep seeded values if counting fails
-        console.warn('Failed to load user travel stats:', e?.message);
+        console.warn('Failed to load travel statistics:', e?.message);
+      } finally {
+        if (alive) setStatsLoading(false);
       }
     })();
     return () => { alive = false; };
-  }, [open, user]);
+  }, [open, user, uid]);
 
   // Load Travel Interests from Firebase when modal opens or user changes
   useEffect(() => {
@@ -856,6 +893,28 @@ export default function EditProfileCMS({
     })();
     return () => { alive = false; };
   }, [open, user]);
+
+  // NEW: Sync travel stats in real-time (listen for changes)
+  useEffect(() => {
+    let unsubscribe;
+    if (open && user?.uid) {
+      unsubscribe = listenUserStats(user.uid, (stats) => {
+        setForm((f) => ({
+          ...f,
+          stats: {
+            ...f.stats,
+            placesOnTrips: stats.placesOnTrips,
+            photosShared: stats.photosShared,
+            ratedDestinations: stats.ratedDestinations,
+            friends: stats.friends,
+          }
+        }));
+      });
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [open, user?.uid]);
 
   if (!open || !user) return null;
 
@@ -1042,21 +1101,40 @@ export default function EditProfileCMS({
 
                 {/* Travel Statistics */}
                 {card('Travel Statistics', (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
-                    {[
-                        ['Places Visited', 'places'],
-                        ['Photos Shared', 'photos'],
-                        ['Reviews Written', 'reviews'],
-                        ['Total Friends', 'friends'],
-                    ].map(([label, key]) => (
-                        <div key={key}>
-                        <div className="muted small" style={{ marginBottom: 6 }}>{label}</div>
-                        <input className="form-input" min={0}
-                            value={form.stats[key]}
-                            onChange={(e) => setForm((f) => ({ ...f, stats: { ...f.stats, [key]: Number(e.target.value || 0) } }))} />
-                        </div>
-                    ))}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
+                    {/* Places on Trips */}
+                    <div>
+                      <div className="muted small" style={{ marginBottom: 6 }}>Places on Trips</div>
+                      <input className="form-input" min={0}
+                        value={form.stats.placesOnTrips}
+                        onChange={(e) => setForm((f) => ({ ...f, stats: { ...f.stats, placesOnTrips: Number(e.target.value || 0) } }))}
+                      />
                     </div>
+                    {/* Photos Shared */}
+                    <div>
+                      <div className="muted small" style={{ marginBottom: 6 }}>Photos Shared</div>
+                      <input className="form-input" min={0}
+                        value={form.stats.photosShared}
+                        onChange={(e) => setForm((f) => ({ ...f, stats: { ...f.stats, photosShared: Number(e.target.value || 0) } }))}
+                      />
+                    </div>
+                    {/* Rated Destinations */}
+                    <div>
+                      <div className="muted small" style={{ marginBottom: 6 }}>Rated Destinations</div>
+                      <input className="form-input" min={0}
+                        value={form.stats.ratedDestinations}
+                        onChange={(e) => setForm((f) => ({ ...f, stats: { ...f.stats, ratedDestinations: Number(e.target.value || 0) } }))}
+                      />
+                    </div>
+                    {/* Total Friends */}
+                    <div>
+                      <div className="muted small" style={{ marginBottom: 6 }}>Total Friends</div>
+                      <input className="form-input" min={0}
+                        value={form.stats.friends}
+                        onChange={(e) => setForm((f) => ({ ...f, stats: { ...f.stats, friends: Number(e.target.value || 0) } }))}
+                      />
+                    </div>
+                  </div>
                 ))}
 
                 {/* Travel Interests */}
@@ -1374,4 +1452,55 @@ const Spinner = ({ size = 24, color = '#2563eb', style = {} }) => {
       }}
     />
   );
-};
+}
+
+/**
+ * Fetches travel statistics for all users:
+ * - Places on Trips: users/{uid}/trips
+ * - Photos Shared: users/{uid}/photos and stats.photosShared
+ * - Rated Destinations: users/{uid}/ratings
+ * Returns: Array of { uid, placesOnTrips, photosShared, ratedDestinations }
+ */
+export async function fetchAllUsersTravelStats() {
+  const db = getFirestore();
+  const usersSnap = await getDocs(collection(db, 'users'));
+  const results = [];
+
+  for (const userDoc of usersSnap.docs) {
+    const uid = userDoc.id;
+    // Places on Trips
+    let placesOnTrips = 0;
+    try {
+      const tripsSnap = await getDocs(collection(db, 'users', uid, 'trips'));
+      placesOnTrips = tripsSnap.size;
+    } catch {}
+
+    // Photos Shared (sum of photos subcollection and stats.photosShared field)
+    let photosShared = 0;
+    try {
+      const photosSnap = await getDocs(collection(db, 'users', uid, 'photos'));
+      photosShared = photosSnap.size;
+    } catch {}
+    // Add stats.photosShared field if present
+    const stats = userDoc.data().stats || {};
+    if (typeof stats.photosShared === 'number') {
+      photosShared += stats.photosShared;
+    }
+
+    // Rated Destinations
+    let ratedDestinations = 0;
+    try {
+      const ratingsSnap = await getDocs(collection(db, 'users', uid, 'ratings'));
+      ratedDestinations = ratingsSnap.size;
+    } catch {}
+
+    results.push({
+      uid,
+      placesOnTrips,
+      photosShared,
+      ratedDestinations,
+    });
+  }
+
+  return results;
+}
