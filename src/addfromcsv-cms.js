@@ -241,6 +241,10 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     setBusy(false);
   };
 
+  // NEW: alert message state
+  const [alertMsg, setAlertMsg] = useState('');
+  const [alertType, setAlertType] = useState('success'); // 'success' or 'error'
+
   // NEW: when modal closes (open -> false), clear previous content
   useEffect(() => {
     if (!open) resetModal();
@@ -395,15 +399,23 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
           body: JSON.stringify(newImages)
         });
 
+        setAlertType('success');
+        setAlertMsg(`Imported ${created.length} destination(s).`);
         onImported?.(created);
-        alert(`Imported ${created.length} destination(s).`);
-        onClose?.();
+        setTimeout(() => {
+          setAlertMsg('');
+          onClose?.();
+        }, 2500);
       } else {
-        alert('No rows were imported.');
+        setAlertType('error');
+        setAlertMsg('No rows were imported.');
+        setTimeout(() => setAlertMsg(''), 2500);
       }
     } catch (e) {
       console.error(e);
-      alert('Import failed.');
+      setAlertType('error');
+      setAlertMsg('Import failed.');
+      setTimeout(() => setAlertMsg(''), 2500);
     } finally {
       setBusy(false);
     }
@@ -532,6 +544,28 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
               <div className="muted small" style={{ marginTop: 6 }}>
                 Scroll to view all rows.
               </div>
+            </div>
+          )}
+
+          {alertMsg && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 24,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: alertType === 'success' ? '#d1fae5' : '#fee2e2',
+                color: alertType === 'success' ? '#065f46' : '#991b1b',
+                border: `1px solid ${alertType === 'success' ? '#10b981' : '#f87171'}`,
+                borderRadius: 8,
+                padding: '10px 24px',
+                fontWeight: 600,
+                zIndex: 9999,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+              }}
+              role="alert"
+            >
+              {alertMsg}
             </div>
           )}
         </div>
