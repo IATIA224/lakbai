@@ -271,6 +271,10 @@ function ContentManagement() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
+  // DELETE User confirmation modal state
+  const [deleteUserConfirmOpen, setDeleteUserConfirmOpen] = useState(false);
+  const [deleteUserTarget, setDeleteUserTarget] = useState(null);
+
   // NEW: per-user travel stats loaded from Firestore
   const [userStats, setUserStats] = useState({});
 
@@ -2098,9 +2102,9 @@ useEffect(() => {
                                 boxShadow: 'none'
                               }}
                               onClick={() => {
-                                setDeleteTarget(u);
-                                setDeleteConfirmOpen(true);
-                            }}
+                                setDeleteUserTarget(u);
+                                setDeleteUserConfirmOpen(true);
+                              }}
                             >
                               Delete
                             </button>
@@ -2115,7 +2119,7 @@ useEffect(() => {
           </div>
         )} {/* end users tab */}
       </main>
-        {deleteConfirmOpen && deleteTarget && (
+  {deleteConfirmOpen && deleteTarget && (
   <div
     style={{
       position: 'fixed',
@@ -2186,6 +2190,70 @@ useEffect(() => {
           onClick={() => {
             setDeleteConfirmOpen(false);
             setDeleteTarget(null);
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+{deleteUserConfirmOpen && deleteUserTarget && (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.45)',
+      zIndex: 2000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
+    onClick={(e) => { if (e.target === e.currentTarget) setDeleteUserConfirmOpen(false); }}
+  >
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        padding: 32,
+        minWidth: 340,
+        maxWidth: '90vw',
+        textAlign: 'center'
+      }}
+    >
+      <h3 style={{ marginBottom: 16 }}>Delete User</h3>
+      <div style={{ marginBottom: 18 }}>
+        Are you sure you want to delete <b>{deleteUserTarget.travelerName || deleteUserTarget.name || 'this user'}</b>?
+      </div>
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+        <button
+          className="btn-danger"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={async () => {
+            // Delete user from Firestore
+            try {
+              await deleteDoc(doc(db, 'users', deleteUserTarget.id));
+            } catch (err) {
+              console.error('Firestore user delete failed:', err);
+            }
+            // Remove from local state
+            setUsers((s) => s.filter((x) => x.id !== deleteUserTarget.id));
+            // Remove from localStorage fallback
+            const stored = JSON.parse(localStorage.getItem('users') || '[]');
+            localStorage.setItem('users', JSON.stringify(stored.filter((x) => x.id !== deleteUserTarget.id)));
+            setDeleteUserConfirmOpen(false);
+            setDeleteUserTarget(null);
+          }}
+        >
+          Yes
+        </button>
+        <button
+          className="btn-secondary"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={() => {
+            setDeleteUserConfirmOpen(false);
+            setDeleteUserTarget(null);
           }}
         >
           Cancel
