@@ -778,6 +778,7 @@
   .bm-page {
     padding: 16px 8px;
     min-height: 100vh;
+    margin-top: 0; /* Remove extra top margin */
   }
 
   /* Header improvements */
@@ -1139,6 +1140,7 @@
 
   .bm-page {
     padding: 12px 4px;
+    margin-top: 0; /* Remove extra top margin */
   }
 
   .bm-title {
@@ -1301,4 +1303,21 @@
     width: 44px;
     height: 44px;
   }
+}
+
+/* Backdrop for View Details modal above header */
+.bm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 48, 80, 0.55);
+  z-index: 100000; /* Higher than header */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Modal above backdrop */
+.bm-modal {
+  z-index: 100001;
+  position: relative;
 }

@@ -31,6 +31,7 @@ import {
   clearAllTripDestinations,
 } from './itinerary2';
 import ItineraryHotelsModal from "./itineraryHotels"; // NEW
+import ItineraryCostEstimationModal from "./itineraryCostEstimation"; // <-- fix casing here
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -111,7 +112,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   }, [addActivity, onClose]);
 
   return (
-    <div className="itn-modal-backdrop" onClick={onClose}>
+    <div className="itn-modal-backdrop">
       <div
         className="itn-modal"
         style={{
@@ -374,7 +375,8 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEditing }) {
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [showHotels, setShowHotels] = useState(false); // NEW
+  const [showHotels, setShowHotels] = useState(false);
+  const [showCostEstimation, setShowCostEstimation] = useState(false); // <-- Add state
   const days =
     item.arrival && item.departure
       ? Math.max(
@@ -469,13 +471,20 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
         </div>
       </div>
 
-      {/* View Summary + View Accredited Hotels buttons */}
+      {/* View Summary + View Cost Estimation + View Accredited Hotels buttons */}
       <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button
           className="itn-btn ghost"
           onClick={() => setShowSummary(true)}
         >
           View Summary
+        </button>
+        <button
+          className="itn-btn ghost"
+          onClick={() => setShowCostEstimation(true)}
+          title="Estimate transportation cost"
+        >
+          Estimate Transport Cost
         </button>
         <button
           className="itn-btn ghost"
@@ -493,7 +502,13 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
         />
       )}
 
-      {showHotels && ( // NEW
+      {showCostEstimation && (
+        <ItineraryCostEstimationModal
+          onClose={() => setShowCostEstimation(false)}
+        />
+      )}
+
+      {showHotels && (
         <ItineraryHotelsModal
           open={showHotels}
           onClose={() => setShowHotels(false)}

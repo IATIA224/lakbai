@@ -19,6 +19,7 @@ import {
 import { db } from "./firebase";
 import './itinerary2.css';
 import ItineraryHotelsModal from "./itineraryHotels"; // NEW
+import ItineraryCostEstimationModal from "./itineraryCostEstimation";
 
 // Helper function to ensure collections exist
 async function ensureCollectionExists(path) {
@@ -85,8 +86,8 @@ export function ShareItineraryModal({ items, friends, selected, onToggleItem, on
   };
   
   return (
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="itn-modal-backdrop">
+      <div className="itn-modal">
         <div className="itn-modal-header">
           <div className="itn-modal-title">
             <span role="img" aria-label="share">🔗</span> 
@@ -269,6 +270,7 @@ export function SharedDestinationCard({
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showHotels, setShowHotels] = useState(false); // NEW
+  const [showCostEstimation, setShowCostEstimation] = useState(false);
 
   const days =
     item.arrival && item.departure
@@ -379,6 +381,13 @@ export function SharedDestinationCard({
         </button>
         <button
           className="itn-btn ghost"
+          onClick={() => setShowCostEstimation(true)}
+          title="Estimate transportation cost"
+        >
+          Estimate Transport Cost
+        </button>
+        <button
+          className="itn-btn ghost"
           onClick={() => setShowHotels(true)}
           title="Show DOT-accredited hotels and accommodations"
         >
@@ -409,6 +418,12 @@ export function SharedDestinationCard({
               setSharedItineraryId(sharedId);
             }
           }}
+        />
+      )}
+
+      {showCostEstimation && (
+        <ItineraryCostEstimationModal
+          onClose={() => setShowCostEstimation(false)}
         />
       )}
     </div>
