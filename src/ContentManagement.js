@@ -1316,6 +1316,26 @@ useEffect(() => {
     })();
   }, [reports, userNameCache]);
 
+  const filteredDestinations = destinations.filter((d) => {
+    // Status filter
+    const statusMatch =
+      !statusFilter ||
+      (d.status && d.status.toLowerCase() === statusFilter.toLowerCase());
+
+    // Category filter
+    const categoryMatch =
+      !categoryFilter ||
+      (d.category && d.category.toLowerCase() === categoryFilter.toLowerCase());
+
+    // Search filter
+    const searchMatch =
+      !searchDest ||
+      (d.name && d.name.toLowerCase().includes(searchDest.toLowerCase())) ||
+      (d.description && d.description.toLowerCase().includes(searchDest.toLowerCase()));
+
+    return statusMatch && categoryMatch && searchMatch;
+  });
+
   return (
     <div className="cms-root">
       <aside className="sidebar">
@@ -1571,7 +1591,7 @@ useEffect(() => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {destinations.map((d, i) => (
+                                    {filteredDestinations.map((d, i) => (
                                         <tr key={d.id || i} style={{
                                             background: i % 2 === 0 ? '#fff' : '#f9fafb',
                                             borderBottom: '1px solid #f1f5f9'
