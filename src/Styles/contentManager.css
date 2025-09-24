@@ -27,9 +27,9 @@ body{margin:0;background:var(--bg);color:#0f172a;font-size:14px}
 .page-wrap{padding:28px 36px 56px}
 
 /* Section header */
-.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.section-header .title{font-size:20px;color:#0f172a;margin:0}
-.section-header .muted{color:var(--muted);margin-top:6px}
+.section-header{display:flex;justify-content:space-between;align-items:left;margin-bottom:18px}
+.section-header .title{font-size:24px;color:#0f172a;margin:0;text-align: left;}
+.section-header .muted{color:var(--muted);margin-top:4px}
 
 /* Two-column grid used on settings page */
 .grid.two-col{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;align-items:start}
@@ -559,7 +559,7 @@ body { overflow-y: auto; }
         }
         
         /* Added styles to match class names used in ContentManagement.js */
-        .dashboard { padding: 24px 0; }
+        .dashboard { padding: 28px 0; }
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px; }
         .stat-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
         .recent-activity { margin-top: 24px; }
@@ -568,7 +568,7 @@ body { overflow-y: auto; }
         .activity-icon { font-size: 18px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; }
         .activity-body { flex: 1; }
         
-        .page-wrap { padding: 24px; }
+        .page-wrap { padding: 28px; }
         .cms-root { display: flex; min-height: 100vh; background: #f8fafc; }
         .sidebar { width: 220px; padding: 20px; box-sizing: border-box; min-height: 100vh; }
         .main-content { flex: 1; padding: 24px; }
