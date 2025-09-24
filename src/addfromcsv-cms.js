@@ -1,7 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { db } from './firebase';
 import { addDoc, collection, serverTimestamp, setDoc, doc } from 'firebase/firestore'; // Add setDoc and doc imports
+import { getDocs } from 'firebase/firestore';
 
+async function getExistingDestinationNames() {
+  const snap = await getDocs(collection(db, 'destinations'));
+  const names = new Set();
+  snap.forEach(doc => {
+    const data = doc.data();
+    if (data?.name) names.add(String(data.name).trim().toLowerCase());
+  });
+  return names;
+}
 // ---- Parsing helpers ----
 function parseCsv(text) {
   // Robust CSV parser with quotes support
@@ -355,8 +365,31 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     if (missingColumns.length) return alert('Please include all required columns before importing.');
     if (rowIssues.length) return alert('Please fill all required cells before importing.');
 
+    const duplicateNames = findDuplicateNames(rows);
+    if (duplicateNames.length) {
+      setAlertType('error');
+      setAlertMsg(`Duplicate destination names found: ${duplicateNames.join(', ')}`);
+      setTimeout(() => setAlertMsg(''), 3500);
+      return;
+    }
+
     setBusy(true);
     try {
+      // Firebase duplicate check
+      const existingNames = await getExistingDestinationNames();
+      const importedNames = rows.map(r =>
+        String(r.name || r.destinationname || r.title || '').trim().toLowerCase()
+      ).filter(Boolean);
+
+      const firebaseDuplicates = importedNames.filter(n => existingNames.has(n));
+      if (firebaseDuplicates.length) {
+        setAlertType('error');
+        setAlertMsg(`Destination names already exist: ${firebaseDuplicates.join(', ')}`);
+        setTimeout(() => setAlertMsg(''), 3500);
+        setBusy(false);
+        return;
+      }
+
       // Map rows to destination docs
       const toCreate = [];
       for (const raw of rows) {
@@ -420,6 +453,17 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
       setBusy(false);
     }
   };
+
+  function findDuplicateNames(rows) {
+    const nameCount = {};
+    rows.forEach(r => {
+      const name = String(r.name || r.destinationname || r.title || '').trim().toLowerCase();
+      if (name) nameCount[name] = (nameCount[name] || 0) + 1;
+    });
+    return Object.entries(nameCount)
+      .filter(([_, count]) => count > 1)
+      .map(([name]) => name);
+  }
 
   const disableImport = busy || rows.length === 0 || missingColumns.length > 0 || rowIssues.length > 0;
 
@@ -549,20 +593,20 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
           {alertMsg && (
             <div
-              style={{
-                position: 'absolute',
-                top: 24,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: alertType === 'success' ? '#d1fae5' : '#fee2e2',
-                color: alertType === 'success' ? '#065f46' : '#991b1b',
-                border: `1px solid ${alertType === 'success' ? '#10b981' : '#f87171'}`,
-                borderRadius: 8,
-                padding: '10px 24px',
-                fontWeight: 600,
-                zIndex: 9999,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
-              }}
+                style={{
+                  position: 'absolute',
+                  top: 24,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: alertType === 'success' ? '#d1fae5' : '#fee2e2',
+                  color: alertType === 'success' ? '#065f46' : '#991b1b',
+                  border: `1px solid ${alertType === 'success' ? '#10b981' : '#f87171'}`,
+                  borderRadius: 8,
+                  padding: '10px 24px',
+                  fontWeight: 600,
+                  zIndex: 9999,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+                }}
               role="alert"
             >
               {alertMsg}
