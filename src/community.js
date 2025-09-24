@@ -106,6 +106,32 @@ function ShareTripModal({ onClose, onCreate }) {
 
       const docRef = await addDoc(collection(db, "community"), postPayload);
 
+      // --- NEW: Update user's photosShared and photos count ---
+      if (imageUrls.length > 0) {
+        const userDocRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userDocRef);
+        let stats = userSnap.exists() ? userSnap.data().stats || {} : {};
+
+        // If stats field does not exist, create it
+        if (!userSnap.exists() || !userSnap.data().stats) {
+          await updateDoc(userDocRef, {
+            stats: {
+              photosShared: imageUrls.length,
+              photos: imageUrls.length,
+              friends: stats.friends ?? 0,
+              places: stats.places ?? 0,
+              reviews: stats.reviews ?? 0
+            }
+          });
+        } else {
+          const newCount = (stats.photosShared ?? stats.photos ?? 0) + imageUrls.length;
+          await updateDoc(userDocRef, {
+            "stats.photosShared": newCount,
+            "stats.photos": newCount
+          });
+        }
+      }
+
       // Log the share adventure action
       await logCommunityShareAdventure({
         postId: docRef.id,

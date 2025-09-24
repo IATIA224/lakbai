@@ -1301,68 +1301,68 @@ useEffect(() => {
           onClick={async () => {
             await signOut(auth);
             window.location.href = "/admin/login"; // or your login route
-          }}
-        >
-          Sign Out
-        </button>
-        </div>
-      </aside>
-      <main className="main-content">
-        <div className="page-wrap">
+            }}
+          >
+            Sign Out
+          </button>
+          </div>
+          </aside>
+          <main className="main-content">
+          <div className="page-wrap">
 
-        {active === 'dashboard' && (
+          {active === 'dashboard' && (
             <div className="dashboard">
-            <header style={{ marginBottom: 18 }}>
-                <h1 style={{ margin: 0 }}>Dashboard</h1>
-                <p className="muted">LakbAI - content management overview</p>
+            <header style={{ marginBottom: 18, textAlign: 'left', alignItems: 'flex-start', justifyContent: 'flex-start' }}>
+              <h1 className='title' style={{ textAlign: 'left' }}>Dashboard</h1>
+              <p className="muted" style={{ textAlign: 'left', marginTop: 4 }}>LakbAI - content management overview</p>
             </header>
 
             <div className="stats-grid" style={{ marginBottom: 20 }}>
-                <div className="stat-card content-card gradient-1" style={{ padding: 20 }}>
-                  <div style={{ fontWeight: 700, color: '#fff' }}>Total Destinations</div>
-                  <div className="stat-value" style={{ color: '#fff' }}>
-                    {Number(analytics.totalDestinations || 0).toLocaleString()}
-                  </div>
-                  <div className="muted" style={{ opacity: 0.9 }}>Active travel destinations</div>
+              <div className="stat-card content-card gradient-1" style={{ padding: 20 }}>
+                <div style={{ fontWeight: 700, color: '#fff' }}>Total Destinations</div>
+                <div className="stat-value" style={{ color: '#fff' }}>
+                {Number(analytics.totalDestinations || 0).toLocaleString()}
                 </div>
+                <div className="muted" style={{ opacity: 0.9 }}>Active travel destinations</div>
+              </div>
 
-                <div className="stat-card content-card gradient-2" style={{ padding: 20 }}>
-                  <div style={{ fontWeight: 700, color: '#fff' }}>Total Users</div>
-                  <div className="stat-value" style={{ color: '#fff' }}>
-                    {Number(analytics.totalUsers || 0).toLocaleString()}
-                  </div>
-                  <div className="muted" style={{ opacity: 0.9 }}>Registered travelers</div>
+              <div className="stat-card content-card gradient-2" style={{ padding: 20 }}>
+                <div style={{ fontWeight: 700, color: '#fff' }}>Total Users</div>
+                <div className="stat-value" style={{ color: '#fff' }}>
+                {Number(analytics.totalUsers || 0).toLocaleString()}
                 </div>
+                <div className="muted" style={{ opacity: 0.9 }}>Registered travelers</div>
+              </div>
 
-                <div className="stat-card content-card gradient-3" style={{ padding: 20 }}>
-                <div style={{ fontWeight: 700, color: '#fff' }}>Total Reports</div>
-                <div className="stat-value" style={{ color: '#fff' }}>{analytics.totalArticles}</div>
-                <div className="muted" style={{ opacity: 0.9 }}>Reported Contents</div>
-                </div>
+              <div className="stat-card content-card gradient-3" style={{ padding: 20 }}>
+              <div style={{ fontWeight: 700, color: '#fff' }}>Total Reports</div>
+              <div className="stat-value" style={{ color: '#fff' }}>{analytics.totalArticles}</div>
+              <div className="muted" style={{ opacity: 0.9 }}>Reported Contents</div>
+              </div>
 
-                <div className="stat-card content-card gradient-4" style={{ padding: 20 }}>
-                <div style={{ fontWeight: 700, color: '#fff' }}>Published Content</div>
-                <div className="stat-value" style={{ color: '#fff' }}>{analytics.publishedContent}</div>
-                <div className="muted" style={{ opacity: 0.9 }}>Live content pieces</div>
-                </div>
+              <div className="stat-card content-card gradient-4" style={{ padding: 20 }}>
+              <div style={{ fontWeight: 700, color: '#fff' }}>Published Content</div>
+              <div className="stat-value" style={{ color: '#fff' }}>{analytics.publishedContent}</div>
+              <div className="muted" style={{ opacity: 0.9 }}>Live content pieces</div>
+              </div>
 
               </div>
-                <div style={{ marginTop: 8 }}>
-                  <AuditLogsCMS useFirestore={true} pageSize={50} />
-                </div>
+              <div style={{ marginTop: 8 }}>
+                <AuditLogsCMS useFirestore={true} pageSize={50} />
+              </div>
             </div>
-        )}
-        </div>
+          )}
+          </div>
 
-        {active === 'destinations' && (
+          {active === 'destinations' && (
             <div className="content-section">
-                <div className="section-header" style={{ alignItems: 'flex-start' }}>
-                    <div>
-                        <h2 className="title">Destinations</h2>
-                        <p className="muted">Manage your destinations content</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        {/* NEW: Add from CSV button (left of Add New destination) */}
+              <div className="section-header" style={{ alignItems: 'flex-start' }}>
+                <div>
+                  <h2 className="title">Destinations</h2>
+                  <p className="muted">Manage your destinations content</p>
+                </div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  {/* NEW: Add from CSV button (left of Add New destination) */}
                         <button
                           className="btn-secondary"
                           onClick={() => setAddCsvOpen(true)}
