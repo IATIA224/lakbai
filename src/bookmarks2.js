@@ -902,7 +902,7 @@ export default function Bookmarks2() {
 
                   <div className="section-title">Packing Suggestions</div>
                   <div className="packing-box">
-                    Swimwear, sunscreen, light clothing, waterproof bag, snorkeling gear
+                    {selected.packingSuggestions || "No packing suggestions available."}
                   </div>
                 </div>
 
