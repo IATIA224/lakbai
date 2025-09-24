@@ -7,6 +7,7 @@ app.use(express.json());
 app.use(cors());
 
 const DEST_IMAGES_PATH = path.join(__dirname, "../src/dest-images.json");
+const appendDestImages = require('../src/api/appendDestImages');
 
 app.post("/api/update-dest-image", (req, res) => {
   const { name, url } = req.body;
@@ -22,6 +23,17 @@ app.post("/api/update-dest-image", (req, res) => {
 
   fs.writeFileSync(DEST_IMAGES_PATH, JSON.stringify(images, null, 2));
   res.json({ success: true });
+});
+
+app.post("/api/appendDestImages", (req, res) => {
+  const images = req.body;
+  if (!Array.isArray(images)) return res.status(400).json({ error: "Payload must be an array" });
+  try {
+    appendDestImages(images);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.listen(4000, () => console.log("Update dest-image API running on port 4000"));
