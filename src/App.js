@@ -18,6 +18,7 @@ import LoginCMS from './login-cms';
 import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
 import Destinations from './bookmarks2'; // <-- Add this import at the top
+import { ToastContainer } from 'react-toastify';
 
 // New: place all UI that depends on useLocation in this inner component
 function isAuthenticated() {
@@ -129,6 +130,7 @@ function AppInner() {
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
       <AchievementToast />
       {showHeader && <Footer />}
+      <ToastContainer />
     </UserProvider>
   );
 }
