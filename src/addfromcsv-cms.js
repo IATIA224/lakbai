@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { db } from './firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, setDoc, doc } from 'firebase/firestore'; // Add setDoc and doc imports
 
 // ---- Parsing helpers ----
 function parseCsv(text) {
@@ -90,7 +90,7 @@ function toCamelKey(s) {
 const REQUIRED = {
   name: 'Destination Name',
   region: 'Region',
-  category: 'Category',
+  categories: 'Categories',
   description: 'Description',
   tags: 'Tags',
   location: 'Location',
@@ -103,7 +103,7 @@ const REQUIRED = {
 const ALIASES = {
   name: ['name', 'destinationname', 'destination', 'title'],
   region: ['region', 'province', 'area', 'state'],
-  category: ['category', 'type', 'segment'],
+  categories: ['category', 'type', 'segment'],
   description: ['description', 'summary', 'details'],
   tags: ['tags', 'keywords', 'labels'],
   location: ['location', 'city', 'place'],
@@ -188,21 +188,27 @@ function rowToDestination(raw) {
 
   const priceNum = parsePrice(priceRaw);
 
+  const categoriesRaw = g(ALIASES.categories, '');
+  const categories = String(categoriesRaw)
+    .split(/[|,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   const dest = {
     name: String(name).trim(),
-    category: g(ALIASES.category, ''),
+    categories, // now an array
     description: g(ALIASES.description, ''),
     content: raw.content || raw.body || raw.html || '',
     tags,
     location: g(ALIASES.location, ''),
     region: g(ALIASES.region, ''),
-    // Keep legacy field plus new numeric price
-    priceRange: priceRaw,          // legacy (not removed)
-    price: priceNum,               // NEW numeric field
+    priceRange: priceRaw,
+    price: priceNum,
     bestTime: g(ALIASES.bestTime, ''),
     rating,
     media: {
-      featuredImage: raw.featuredimage || raw.image || raw.cover || '',
+      // Use aliases to get the image URL from the CSV/excel file
+      featuredImage: getFirstValue(raw, ALIASES.image),
       gallery
     },
     status,
@@ -329,8 +335,8 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
   const downloadTemplate = () => {
     const template =
-      'Destination Name,Region,Category,Description,Content,Tags,Location,Price,Best Time to Visit,Rating,Status,Featured Image,Gallery\n' + // UPDATED (Price column)
-      'Boracay,Aklan,Beach,"White sand beach","<p>Paradise</p>","beach, island",Aklan,1500,Dec-May,5,published,https://res.cloudinary.com/.../boracay.jpg,https://.../1.jpg|https://.../2.jpg';
+      'Destination Name,Region,Categories,Description,Content,Tags,Location,Price,Best Time to Visit,Rating,Status,Featured Image,Gallery\n' + // UPDATED (Price column)
+      'Boracay,Aklan,"Beach","White sand beach","<p>Paradise</p>","beach, island",Aklan,1500,Dec-May,5,published,https://res.cloudinary.com/.../boracay.jpg,https://.../1.jpg|https://.../2.jpg';
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -358,19 +364,37 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         return;
       }
 
-      // Create in Firestore (destinations)
+      // Create in Firestore (destinations) using name as ID
       const now = new Date();
       const created = [];
       for (const item of toCreate) {
         try {
-          const ref = await addDoc(collection(db, 'destinations'), item);
-          created.push({ ...item, id: ref.id, createdAt: now, updatedAt: now });
+          // Use destination name as ID (slugify for safety)
+          const id = String(item.name)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with dash
+            .replace(/^-+|-+$/g, '');    // trim dashes
+          await setDoc(doc(db, 'destinations', id), item);
+          created.push({ ...item, id, createdAt: now, updatedAt: now });
         } catch (e) {
           console.warn('Failed to create a row:', e?.message);
         }
       }
 
       if (created.length) {
+        // Collect new images
+        const newImages = created.map(d => ({
+          name: d.name,
+          url: d.media?.featuredImage || ''
+        })).filter(img => img.name && img.url);
+
+        // Send to backend API (example)
+        fetch('http://localhost:4000/api/appendDestImages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newImages)
+        });
+
         onImported?.(created);
         alert(`Imported ${created.length} destination(s).`);
         onClose?.();
@@ -404,7 +428,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         {/* Body */}
         <div style={{ padding: 20, display: 'grid', gap: 12 }}>
           <div className="muted" style={{ fontSize: 13 }}>
-            Required columns: Destination Name, Region, Category, Description, Tags, Location, Best Time to Visit, Price, Image URL
+            Required columns: Destination Name, Region, Categories, Description, Tags, Location, Best Time to Visit, Price, Image URL
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
