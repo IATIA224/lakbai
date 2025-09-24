@@ -202,6 +202,14 @@ export default function Bookmarks2() {
     </div>
   );
 
+  // All categories (from Firestore + CMS) for filter list
+  const allCategories = useMemo(() => {
+  const set = new Set();
+  categories.forEach((c) => set.add(c));
+  (categoriesMemo || []).forEach((c) => set.add(c));
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}, [categories, categoriesMemo]);
+  
   // Helpers
   const toggleSet = (setter, value) =>
     setter((prev) => {
@@ -648,11 +656,11 @@ export default function Bookmarks2() {
               <span>Expensive (₱2,000+)</span>
             </label>
           </div>
-
+                
           <div className="bp2-filter-group">
             <div className="bp2-group-title">Category</div>
             <div className="bp2-checklist">
-              {categories.map((c) => (
+              {allCategories.map((c) => (
                 <label key={c} className="bp2-check">
                   <input
                     type="checkbox"
