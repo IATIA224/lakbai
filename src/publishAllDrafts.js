@@ -12,14 +12,6 @@ export async function publishAllDrafts() {
             batchPromises.push(
                 updateDoc(doc(db, 'destinations', docSnap.id), {
                     status: 'published',
-                    statusDisplay: 'PUBLISHED', // add a display field if needed
-                    updatedAt: new Date()
-                })
-            );
-            // Also update the main status field to 'PUBLISHED' for UI compatibility
-            batchPromises.push(
-                updateDoc(doc(db, 'destinations', docSnap.id), {
-                    status: 'PUBLISHED',
                     updatedAt: new Date()
                 })
             );
