@@ -30,6 +30,7 @@ export default function Bookmarks2() {
   // NEW: page loading state
   const [isLoading, setIsLoading] = useState(true);
   const [cloudImages, setCloudImages] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   // UI state
   const [query, setQuery] = useState('');
@@ -134,7 +135,7 @@ export default function Bookmarks2() {
     () => [...new Set(destinations.map((d) => d.region).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [destinations]
   );
-  const categories = useMemo(() => {
+  const categoriesMemo = useMemo(() => {
     const s = new Set();
     destinations.forEach((d) => (d.categories || []).forEach((c) => s.add(c)));
     return [...s].sort((a, b) => a.localeCompare(b));
@@ -523,6 +524,21 @@ export default function Bookmarks2() {
 
   useEffect(() => {
     fetchCloudinaryImages().then(setCloudImages);
+  }, []);
+
+  // Fetch categories from Firestore (collection: 'categories')
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const snap = await getDocs(collection(db, 'categories'));
+        const cats = snap.docs.map(doc => doc.data().name).filter(Boolean);
+        setCategories(cats.sort((a, b) => a.localeCompare(b)));
+      } catch (e) {
+        console.warn('Failed to load categories:', e.message);
+        setCategories([]);
+      }
+    }
+    fetchCategories();
   }, []);
 
   return (
