@@ -1351,3 +1351,53 @@ select.modal-input {
     display: none;
   }
 }
+
+/* Responsive loading overlay for mobile */
+@media (max-width: 600px) {
+  .cm-loading-backdrop {
+    width: 100vw;
+    height: 100vh;
+    padding: 0;
+    margin: 0;
+    left: 0;
+    top: 0;
+    position: fixed;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cm-loading-card {
+    width: 92vw;
+    max-width: 92vw;
+    min-width: 0;
+    padding: 18px 8px;
+    border-radius: 12px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .cm-spinner {
+    width: 28px;
+    height: 28px;
+    border-width: 3px;
+    margin-bottom: 8px;
+  }
+  .cm-loading-title {
+    font-size: 1rem;
+    text-align: center;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .cm-skeleton-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .cm-skel-card {
+    height: 60px;
+    border-radius: 8px;
+  }
+}

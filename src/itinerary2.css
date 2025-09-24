@@ -5,23 +5,25 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(40, 48, 80, 0.55);
+  z-index: 100000; /* Higher than header */
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 1000;
+  justify-content: center;
+  padding: 5vh 2vw;
 }
 
 .itn-modal {
-  max-width: 850px;
-  width: 90%;
+  z-index: 100001; /* Modal above backdrop and header */
+  max-width: 900px;
+  width: 95vw;
   max-height: 90vh;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
   overflow: hidden;
-  background-color: #ffffff;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
 /* Modal header */
