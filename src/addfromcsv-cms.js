@@ -96,6 +96,7 @@ const REQUIRED = {
   location: 'Location',
   price: 'Price',              // NEW
   bestTime: 'Best Time to Visit',
+  image: 'Image URL',        // not strictly required, but recommended
 };
 
 // Aliases that map incoming headers to canonical keys
@@ -108,6 +109,7 @@ const ALIASES = {
   location: ['location', 'city', 'place'],
   price: ['price', 'pricerange', 'budget', 'cost', 'amount'], // NEW
   bestTime: ['besttime', 'besttimetovisit', 'season'],
+  image: ['image', 'imageurl', 'featuredimage', 'cover', 'photo', 'picture'],
 };
 
 // Build a quick lookup set of normalized header keys
@@ -402,7 +404,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         {/* Body */}
         <div style={{ padding: 20, display: 'grid', gap: 12 }}>
           <div className="muted" style={{ fontSize: 13 }}>
-            Required columns: Destination Name, Region, Category, Description, Tags, Location, Best Time to Visit, Price
+            Required columns: Destination Name, Region, Category, Description, Tags, Location, Best Time to Visit, Price, Image URL
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
