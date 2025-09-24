@@ -402,7 +402,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         {/* Body */}
         <div style={{ padding: 20, display: 'grid', gap: 12 }}>
           <div className="muted" style={{ fontSize: 13 }}>
-            Required columns: Destination Name, Region, Category, Description, Tags, Location, Best Time to Visit
+            Required columns: Destination Name, Region, Category, Description, Tags, Location, Best Time to Visit, Price
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
