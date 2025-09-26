@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
 import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where, orderBy, limit, serverTimestamp, collectionGroup, documentId, getDoc } from 'firebase/firestore';
-import { CloudinaryContext, Image, Video } from './cloudinary';
+import { CloudinaryContext, Image } from './cloudinary';
 import EditProfileCMS from './editprofile-cms'; // NEW
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import ViewProfileCMS from './viewprofile-cms'; // NEW
@@ -16,6 +16,7 @@ import { signOut } from "firebase/auth";
 import { publishAllDrafts } from './publishAllDrafts';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ImagesCMS from './images-cms';
 
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -1362,6 +1363,9 @@ useEffect(() => {
           <button className={`sidebar-item ${active === 'users' ? 'active' : ''}`} onClick={() => setActive('users')}>
             <span className="icon">👥</span> <span>Users</span>
           </button>
+          <button className={`sidebar-item ${active === 'images' ? 'active' : ''}`} onClick={() => setActive('images')}>
+            <span className="icon">🖼️</span> <span>Images</span>
+          </button>
           <button className={`sidebar-item ${active === 'settings' ? 'active' : ''}`} onClick={() => setActive('settings')}>
             <span className="icon">⚙️</span> <span>Settings</span>
           </button>
@@ -1433,7 +1437,7 @@ useEffect(() => {
               <div className="section-header" style={{ alignItems: 'flex-start' }}>
                 <div>
                   <h2 className="title">Destinations</h2>
-                  <p className="muted">Manage your destinations content</p>
+                  <p className="muted">Manage destinations content</p>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   {/* NEW: Add from CSV button (left of Add New destination) */}
@@ -1684,7 +1688,6 @@ useEffect(() => {
             </div>
           
         )}
-        {active === 'articles' && <div className="content-section"><h2>Articles</h2></div>}
         {active === 'reports' && (
           <div className="content-section">
             <div className="section-header" style={{ alignItems: 'center' }}>
@@ -2118,6 +2121,10 @@ useEffect(() => {
             </div>
           </div>
         )} {/* end users tab */}
+
+        {/* images tab - placeholder for now */}
+        {active === 'images' && <ImagesCMS />}
+
       </main>
   {deleteConfirmOpen && deleteTarget && (
   <div
