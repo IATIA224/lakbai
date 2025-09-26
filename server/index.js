@@ -8,7 +8,7 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 // Mount Cloudinary routes
-app.use(require('./cloudinaryRoutes'));
+app.use('/api', require('./cloudinaryRoutes'));
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
