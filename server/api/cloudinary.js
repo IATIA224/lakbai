@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const cloudinary = require('cloudinary').v2;
+const axios = require('axios');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -9,8 +10,13 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET || 'z0qptwMS1KxJiYb_Z5ssZy39aSo',
 });
 
-    // POST /api/cloudinary/delete
-    router.post('/delete', async (req, res) => {
+// Use config values for axios call
+const CLOUD_NAME = cloudinary.config().cloud_name;
+const API_KEY = cloudinary.config().api_key;
+const API_SECRET = cloudinary.config().api_secret;
+
+// POST /api/cloudinary/delete
+router.post('/delete', async (req, res) => {
     const { publicId } = req.body;
     if (!publicId) {
         return res.status(400).json({ error: 'Missing publicId' });
@@ -20,6 +26,24 @@ cloudinary.config({
         return res.json({ success: true });
     } catch (err) {
         return res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/cloudinary-images', async (req, res) => {
+    const folder = 'destinations';
+    try {
+        const response = await axios.get(
+            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image`,
+            {
+                auth: { username: API_KEY, password: API_SECRET },
+                params: { prefix: folder, max_results: 100 }
+            }
+        );
+        // Filter for jpg only
+        const jpgImages = response.data.resources.filter(img => img.format === 'jpg');
+        res.json(jpgImages);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
