@@ -84,5 +84,6 @@
   "engines": {
     "node": ">=18 <21",
     "npm": ">=8"
-  }
+  },
+  "proxy": "http://localhost:3002"
 }
