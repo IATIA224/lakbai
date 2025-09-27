@@ -268,6 +268,22 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     };
   });
 
+  // Sync local state with initial prop (especially status)
+  useEffect(() => {
+    if (initial) {
+      setData((prev) => ({
+        ...prev,
+        ...initial,
+        status: initial.status || prev.status, // update status from firebase
+        media: {
+          featuredImage: initial?.media?.featuredImage || '',
+          gallery: Array.isArray(initial?.media?.gallery) ? initial.media.gallery : [],
+        },
+        packingSuggestions: initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '',
+      }));
+    }
+  }, [initial]);
+
   // normalize existing names; support array of strings or {id,name}
   const normalizedExisting = useMemo(() => {
     const out = [];

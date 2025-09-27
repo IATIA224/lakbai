@@ -100,11 +100,12 @@ const role = log.role || '—';
 const userId = log.userId || log.uid || '—';
 const session = log.sessionId || log.session || '—';
 const details = log.details || log.message || '—';
-const securityFlags = (log.securityFlags && log.securityFlags.length
+const securityFlagsDisplay =
+    Array.isArray(log.securityFlags)
     ? log.securityFlags.join(', ')
-    : (log.securityFlags && typeof log.securityFlags === 'string'
+    : (typeof log.securityFlags === 'string'
         ? log.securityFlags
-        : 'None'));
+        : 'None');
 
 const userAgent = log.userAgent || '—';
 
@@ -199,11 +200,11 @@ return (
 
             <div style={cardStyle}>
                 <div style={sectionTitleStyle}>User Information</div>
-                <InfoLine label="User:" value={userName} />
-                <InfoLine label="Username:" value={userEmail} />
-                <InfoLine label="Role:" value={role} />
-                <InfoLine label="User ID:" value={userId} />
-                <InfoLine label="Session:" value={session} />
+                    <InfoLine label="User:" value={log.user?.name || userName} />
+                    <InfoLine label="Username:" value={log.user?.username || userEmail} />
+                    <InfoLine label="Role:" value={log.user?.role || role} />
+                    <InfoLine label="User ID:" value={log.user?.userId || userId} />
+                    <InfoLine label="Session:" value={log.user?.session || session} />
             </div>
             </div>
 
@@ -225,7 +226,7 @@ return (
 
             <div style={cardStyle}>
             <div style={sectionTitleStyle}>Security &amp; Flags</div>
-            <InfoLine label="Security Flags:" value={securityFlags} />
+            <InfoLine label="Security Flags:" value={securityFlagsDisplay} />
             </div>
         </div>
 
@@ -243,26 +244,26 @@ return (
 
         {/* Row 5: Data Changes (if applicable) */}
         {log.category === "user management" && log.dataChanges && (
-  <div style={{ display: 'flex', gap: 18, marginTop: 12 }}>
-    <div style={{ flex: 1, background: '#fafbfc', borderRadius: 12, padding: 18, marginBottom: 12 }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Data Changes</div>
-      <div style={{ display: 'flex', gap: 18 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 500, marginBottom: 4 }}>Old Values</div>
-          <pre style={{ background: '#f3f4f6', borderRadius: 8, padding: 10, fontSize: 13, color: '#b91c1c', overflowX: 'auto' }}>
-            {JSON.stringify(log.dataChanges.old, null, 2)}
-          </pre>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 500, marginBottom: 4 }}>New Values</div>
-          <pre style={{ background: '#f3f4f6', borderRadius: 8, padding: 10, fontSize: 13, color: '#166534', overflowX: 'auto' }}>
-            {JSON.stringify(log.dataChanges.new, null, 2)}
-          </pre>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+            <div style={{ display: 'flex', gap: 18, marginTop: 12 }}>
+                <div style={{ flex: 1, background: '#fafbfc', borderRadius: 12, padding: 18, marginBottom: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Data Changes</div>
+                <div style={{ display: 'flex', gap: 18 }}>
+                    <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Old Values</div>
+                    <pre style={{ background: '#f3f4f6', borderRadius: 8, padding: 10, fontSize: 13, color: '#b91c1c', overflowX: 'auto' }}>
+                        {JSON.stringify(log.dataChanges.old, null, 2)}
+                    </pre>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>New Values</div>
+                    <pre style={{ background: '#f3f4f6', borderRadius: 8, padding: 10, fontSize: 13, color: '#166534', overflowX: 'auto' }}>
+                        {JSON.stringify(log.dataChanges.new, null, 2)}
+                    </pre>
+                    </div>
+                </div>
+                </div>
+            </div>
+        )}
         </div>
     </div>
     </div>
@@ -271,12 +272,12 @@ return (
 
 // REPLACED InfoLine to remove reliance on undefined labelStyle / FONT scoping
 function InfoLine({ label, value }) {
-  return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      <span style={{ fontWeight: 600, color: '#111827', fontSize: FONT.label }}>{label}</span>
-      <span style={{ color: '#374151', fontSize: FONT.body }}>{value || '—'}</span>
-    </div>
-  );
+    return (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 600, color: '#111827', fontSize: FONT.label }}>{label}</span>
+        <span style={{ color: '#374151', fontSize: FONT.body }}>{value || '—'}</span>
+        </div>
+    );
 }
 
 // Basic UA parsing (lightweight)
