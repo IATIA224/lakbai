@@ -649,7 +649,7 @@ function Bookmark() {
                     try {
                       await removeBookmark(d.id);
                     } finally {
-                      endRemove(d.id);
+                        endRemove(d.id);
                     }
                   }}
                   aria-label="Remove from bookmarks"
