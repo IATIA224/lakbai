@@ -268,6 +268,62 @@ export default function ImagesCMS() {
                 }
                 // Delete from Firestore
                 await deleteDoc(doc(db, 'photos', img.id));
+                await addDoc(collection(db, 'auditLogs'), {
+                    eventId: `${Date.now()}`,
+                    timestamp: new Date().toISOString(),
+                    action: 'photo delete',
+                    category: 'dest. image delete',
+                    target: `photo (${img.publicId})`,
+                    request: `DELETE http://localhost:3002/api/cloudinary/delete`,
+                    outcome: 'SUCCESS',
+                    user: {
+                        name: 'Aclan Jeremy',
+                        username: 'aclanjeremy432@gmail.com',
+                        role: 'Admin',
+                        userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
+                        session: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                    },
+                    source: {
+                        device: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
+                        browser: navigator.userAgent,
+                        os: navigator.userAgentData?.platform || navigator.platform,
+                    },
+                    securityFlags: 'None',
+                    eventDetails: {
+                        filename: img.name,
+                        url: img.url,
+                        publicId: img.publicId,
+                    },
+                    userAgent: navigator.userAgent,
+                    dataChanges: {
+                        deleted: true,
+                        imageId: img.id,
+                    },
+                    createdAt: serverTimestamp(),
+                });
+                try {
+                    if (fs) {
+                        const jsonPath = require('path').join(__dirname, './dest-images.json');
+                        let current = [];
+                        try {
+                            current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+                        } catch {}
+                        // Remove entry with matching name (case-insensitive, trimmed)
+                        const updated = current.filter(
+                            imgEntry => imgEntry.name?.trim().toLowerCase() !== img.name.trim().toLowerCase()
+                        );
+                        fs.writeFileSync(jsonPath, JSON.stringify(updated, null, 2), 'utf8');
+                    } else {
+                        // Call backend API to remove from dest-images.json by name only
+                        await fetch('http://localhost:4001/api/delete-dest-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: img.name })
+                        });
+                    }
+                } catch (err) {
+                    // Silent fail for browser context
+                }
             }
             setImages(prev => prev.filter(img => !selectedImages.includes(img.id)));
             setSelectedImages([]);
