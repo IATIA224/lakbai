@@ -13,9 +13,9 @@ app.use('/api', require('./cloudinaryRoutes'));
 // Configure Cloudinary with your credentials
 const cloudinary = require('cloudinary').v2;
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 app.post('/api/cloudinary/delete', async (req, res) => {
@@ -28,6 +28,8 @@ app.post('/api/cloudinary/delete', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete image' });
     }
 });
+
+const updateDestImage = require('./update-dest-image');
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
