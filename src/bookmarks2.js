@@ -514,10 +514,23 @@ export default function Bookmarks2() {
         return;
       }
 
-      // Existing behavior (do not remove)
+      // Existing behavior: write to itinerary collection using helper
       await addTripForCurrentUser(dest);
 
-      // NEW: also save to users/{uid}/trips/{destId}
+      // small parser reused here to store same estimatedExpenditure in users/{uid}/trips
+      const parseEstimatedFromPrice = (p) => {
+        if (p == null) return 0;
+        if (typeof p === "number") return p;
+        const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
+        const nums = s.match(/\d+/g);
+        if (!nums || nums.length === 0) return 0;
+        const numbers = nums.map(Number).filter(Number.isFinite);
+        const sum = numbers.reduce((a, b) => a + b, 0);
+        return Math.round(sum / numbers.length);
+      };
+      const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.estimatedExpenditure ?? dest?.budget);
+
+      // NEW: also save to users/{uid}/trips/{destId} with estimatedExpenditure
       try {
         await setDoc(
           doc(db, 'users', user.uid, 'trips', String(dest.id)),
@@ -528,6 +541,7 @@ export default function Bookmarks2() {
             rating: dest.rating ?? null,
             price: dest.price || '',
             priceTier: dest.priceTier || null,
+            estimatedExpenditure: estimated,
             tags: Array.isArray(dest.tags) ? dest.tags : [],
             categories: Array.isArray(dest.categories) ? dest.categories : [],
             bestTime: dest.bestTime || '',
@@ -546,10 +560,6 @@ export default function Bookmarks2() {
       setTimeout(() => {
         setAddedTripId(null);
         navigate('/itinerary'); // Route for "My Trips"
-      }, 600);
-      setTimeout(() => {
-        setAddedTripId(null);
-        navigate('/itinerary'); // Route for “My Trips”
       }, 600);
     } catch (e) {
       if (e?.message === 'AUTH_REQUIRED') {
