@@ -46,4 +46,21 @@ app.post("/api/appendDestImages", (req, res) => {
   }
 });
 
+app.post("/api/delete-dest-image", (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Missing name' });
+
+    const jsonPath = path.join(__dirname, '../src/dest-images.json');
+    let current = [];
+    try {
+        current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    } catch {}
+    // Remove entry with matching name (case-insensitive, trimmed)
+    const updated = current.filter(
+        imgEntry => imgEntry.name?.trim().toLowerCase() !== name.trim().toLowerCase()
+    );
+    fs.writeFileSync(jsonPath, JSON.stringify(updated, null, 2), 'utf8');
+    res.json({ success: true });
+});
+
 app.listen(4001, () => console.log("Update dest-image API running on port 4001"));
