@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
 import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where, orderBy, limit, serverTimestamp, collectionGroup, documentId, getDoc } from 'firebase/firestore';
-import { CloudinaryContext, Image, Video } from './cloudinary';
+import { CloudinaryContext, Image } from './cloudinary';
 import EditProfileCMS from './editprofile-cms'; // NEW
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import ViewProfileCMS from './viewprofile-cms'; // NEW
@@ -13,6 +13,11 @@ import ReportDetailModal from './reportdetails-cms'; //NEW
 import TakeActionModal from './takeaction-cms'; // NEW
 import AuditLogsCMS from './auditlogs-cms'; // NEW
 import { signOut } from "firebase/auth";
+import { publishAllDrafts } from './publishAllDrafts';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import ImagesCMS from './images-cms';
+
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -33,8 +38,8 @@ async function deleteCloudinaryImage(publicId) {
     if (!publicId) return;
     const base = window.location.origin;
     const endpoints = [
-        `${base}/admin/api/cloudinary/delete`,
-        `${base}/api/cloudinary/delete`,
+        'http://localhost:3002/api/cloudinary/delete', // <-- direct to backend port
+        '/api/cloudinary/delete',
     ];
     let lastErr;
     for (const url of endpoints) {
@@ -267,6 +272,10 @@ function ContentManagement() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
+  // DELETE User confirmation modal state
+  const [deleteUserConfirmOpen, setDeleteUserConfirmOpen] = useState(false);
+  const [deleteUserTarget, setDeleteUserTarget] = useState(null);
+
   // NEW: per-user travel stats loaded from Firestore
   const [userStats, setUserStats] = useState({});
 
@@ -296,6 +305,10 @@ function ContentManagement() {
 
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [addCsvOpen, setAddCsvOpen] = useState(false);
+  
+  // DELETE confirmation modal state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Travel tab local state
   const [editInterests, setEditInterests] = useState([]);
@@ -339,6 +352,48 @@ const [userNameCache, setUserNameCache] = useState({});
 const openActionModal = (report) => {
   setActionReport(report);
   setActionOpen(true);
+};
+
+// NEW: Publish All Drafts handler
+const handlePublishAll = async () => {
+  try {
+    const count = await publishAllDrafts();
+    if (count > 0) {
+      toast.success(`Published ${count} draft destination(s).`, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+      });
+    } else {
+      toast.info('No draft destinations to publish.', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+      });
+    }
+    // Optionally refresh your list here
+  } catch (e) {
+    toast.error('Failed to publish drafts.', {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+    });
+  }
 };
 
 // ADD: handleTakeAction (used by TakeActionModal)
@@ -1266,6 +1321,26 @@ useEffect(() => {
     })();
   }, [reports, userNameCache]);
 
+  const filteredDestinations = destinations.filter((d) => {
+    // Status filter
+    const statusMatch =
+      !statusFilter ||
+      (d.status && d.status.toLowerCase() === statusFilter.toLowerCase());
+
+    // Category filter
+    const categoryMatch =
+      !categoryFilter ||
+      (d.category && d.category.toLowerCase() === categoryFilter.toLowerCase());
+
+    // Search filter
+    const searchMatch =
+      !searchDest ||
+      (d.name && d.name.toLowerCase().includes(searchDest.toLowerCase())) ||
+      (d.description && d.description.toLowerCase().includes(searchDest.toLowerCase()));
+
+    return statusMatch && categoryMatch && searchMatch;
+  });
+
   return (
     <div className="cms-root">
       <aside className="sidebar">
@@ -1287,6 +1362,9 @@ useEffect(() => {
           </button>
           <button className={`sidebar-item ${active === 'users' ? 'active' : ''}`} onClick={() => setActive('users')}>
             <span className="icon">👥</span> <span>Users</span>
+          </button>
+          <button className={`sidebar-item ${active === 'images' ? 'active' : ''}`} onClick={() => setActive('images')}>
+            <span className="icon">🖼️</span> <span>Images</span>
           </button>
           <button className={`sidebar-item ${active === 'settings' ? 'active' : ''}`} onClick={() => setActive('settings')}>
             <span className="icon">⚙️</span> <span>Settings</span>
@@ -1359,10 +1437,18 @@ useEffect(() => {
               <div className="section-header" style={{ alignItems: 'flex-start' }}>
                 <div>
                   <h2 className="title">Destinations</h2>
-                  <p className="muted">Manage your destinations content</p>
+                  <p className="muted">Manage destinations content</p>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   {/* NEW: Add from CSV button (left of Add New destination) */}
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ padding: '8px 18px', borderRadius: 8 }}
+                          onClick={handlePublishAll}
+                        >
+                          Publish All
+                        </button>
                         <button
                           className="btn-secondary"
                           onClick={() => setAddCsvOpen(true)}
@@ -1513,7 +1599,7 @@ useEffect(() => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {destinations.map((d, i) => (
+                                    {filteredDestinations.map((d, i) => (
                                         <tr key={d.id || i} style={{
                                             background: i % 2 === 0 ? '#fff' : '#f9fafb',
                                             borderBottom: '1px solid #f1f5f9'
@@ -1584,35 +1670,9 @@ useEffect(() => {
                                                         fontSize: 14,
                                                         boxShadow: 'none'
                                                     }}
-                                                    onClick={async () => {
-                                                        if (window.confirm('Delete this destination?')) {
-                                                            // Delete from Firestore
-                                                            try {
-                                                                await import('firebase/firestore').then(({ deleteDoc, doc }) =>
-                                                                    deleteDoc(doc(db, 'destinations', d.id))
-                                                                );
-                                                            } catch (err) {
-                                                                console.error('Firestore delete failed:', err);
-                                                            }
-                                                            // Delete featured image from Cloudinary
-                                                            const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
-                                                            if (featuredId) await deleteCloudinaryImage(featuredId);
-                                                                
-                                                            // Delete gallery images from Cloudinary
-                                                            if (Array.isArray(d.media?.gallery)) {
-                                                                for (const img of d.media.gallery) {
-                                                                    const imgId = getCloudinaryPublicId(img);
-                                                                    if (imgId) await deleteCloudinaryImage(imgId);
-                                                                }
-                                                            }
-                                                            // Remove from local state
-                                                            setDestinations((s) => s.filter((x) => x.id !== d.id));
-                                                            // Remove from localStorage fallback
-                                                            const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
-                                                            localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
-                                                            // set analytics state
-                                                            setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
-                                                        }
+                                                    onClick={() => {
+                                                        setDeleteTarget(d);
+                                                        setDeleteConfirmOpen(true);
                                                     }}
                                                 >
                                                     Delete
@@ -1626,9 +1686,8 @@ useEffect(() => {
                     )}
                 </div>
             </div>
-            
+          
         )}
-        {active === 'articles' && <div className="content-section"><h2>Articles</h2></div>}
         {active === 'reports' && (
           <div className="content-section">
             <div className="section-header" style={{ alignItems: 'center' }}>
@@ -1856,7 +1915,7 @@ useEffect(() => {
                   const okQ =
                     !q || ((u.travelerName || u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q);
                   const s = (u.status || 'active').toLowerCase();
-                  const okS = userStatusFilter === 'all' || s === userStatusFilter;
+                  const okS = userStatusFilter === 'all' || userStatusFilter === '' || s === userStatusFilter;
                   return okQ && okS;
                 });
 
@@ -2045,16 +2104,9 @@ useEffect(() => {
                                 fontSize: 14,
                                 boxShadow: 'none'
                               }}
-                              onClick={async () => {
-                                if (!u.id) return;
-                                if (!window.confirm('Delete this user?')) return;
-                                try {
-                                  await deleteDoc(doc(db, 'users', u.id));
-                                  setUsers((arr) => arr.filter((x) => x.id !== u.id));
-                                } catch (err) {
-                                  console.error('Delete user failed', err);
-                                  alert('Failed to delete user.');
-                                }
+                              onClick={() => {
+                                setDeleteUserTarget(u);
+                                setDeleteUserConfirmOpen(true);
                               }}
                             >
                               Delete
@@ -2069,8 +2121,154 @@ useEffect(() => {
             </div>
           </div>
         )} {/* end users tab */}
-      </main>
 
+        {/* images tab - placeholder for now */}
+        {active === 'images' && <ImagesCMS />}
+
+      </main>
+  {deleteConfirmOpen && deleteTarget && (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.45)',
+      zIndex: 2000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
+    onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirmOpen(false); }}
+  >
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        padding: 32,
+        minWidth: 340,
+        maxWidth: '90vw',
+        textAlign: 'center'
+      }}
+    >
+      <h3 style={{ marginBottom: 16 }}>Delete Destination</h3>
+      <div style={{ marginBottom: 18 }}>
+        Are you sure you want to delete <b>{deleteTarget.name}</b>?
+      </div>
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+        <button
+          className="btn-danger"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={async () => {
+            // Delete from Firestore
+            try {
+              await import('firebase/firestore').then(({ deleteDoc, doc }) =>
+                deleteDoc(doc(db, 'destinations', deleteTarget.id))
+              );
+            } catch (err) {
+              console.error('Firestore delete failed:', err);
+            }
+            // Delete featured image from Cloudinary
+            const featuredId = getCloudinaryPublicId(deleteTarget.media?.featuredImage);
+            if (featuredId) await deleteCloudinaryImage(featuredId);
+
+            // Delete gallery images from Cloudinary
+            if (Array.isArray(deleteTarget.media?.gallery)) {
+              for (const img of deleteTarget.media.gallery) {
+                const imgId = getCloudinaryPublicId(img);
+                if (imgId) await deleteCloudinaryImage(imgId);
+              }
+            }
+            // Remove from local state
+            setDestinations((s) => s.filter((x) => x.id !== deleteTarget.id));
+            // Remove from localStorage fallback
+            const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
+            localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== deleteTarget.id)));
+            // set analytics state
+            setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
+            setDeleteConfirmOpen(false);
+            setDeleteTarget(null);
+          }}
+        >
+          Yes
+        </button>
+        <button
+          className="btn-secondary"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={() => {
+            setDeleteConfirmOpen(false);
+            setDeleteTarget(null);
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+{deleteUserConfirmOpen && deleteUserTarget && (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.45)',
+      zIndex: 2000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
+    onClick={(e) => { if (e.target === e.currentTarget) setDeleteUserConfirmOpen(false); }}
+  >
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        padding: 32,
+        minWidth: 340,
+        maxWidth: '90vw',
+        textAlign: 'center'
+      }}
+    >
+      <h3 style={{ marginBottom: 16 }}>Delete User</h3>
+      <div style={{ marginBottom: 18 }}>
+        Are you sure you want to delete <b>{deleteUserTarget.travelerName || deleteUserTarget.name || 'this user'}</b>?
+      </div>
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+        <button
+          className="btn-danger"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={async () => {
+            // Delete user from Firestore
+            try {
+              await deleteDoc(doc(db, 'users', deleteUserTarget.id));
+            } catch (err) {
+              console.error('Firestore user delete failed:', err);
+            }
+            // Remove from local state
+            setUsers((s) => s.filter((x) => x.id !== deleteUserTarget.id));
+            // Remove from localStorage fallback
+            const stored = JSON.parse(localStorage.getItem('users') || '[]');
+            localStorage.setItem('users', JSON.stringify(stored.filter((x) => x.id !== deleteUserTarget.id)));
+            setDeleteUserConfirmOpen(false);
+            setDeleteUserTarget(null);
+          }}
+        >
+          Yes
+        </button>
+        <button
+          className="btn-secondary"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={() => {
+            setDeleteUserConfirmOpen(false);
+            setDeleteUserTarget(null);
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     {/* Modals mounted at the root to avoid nesting/adjacent JSX issues */}
     <EditProfileCMS
       open={userEditOpen}

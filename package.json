@@ -9,6 +9,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.11.0",
+    "cloudinary": "^2.7.0",
     "cloudinary-react": "^1.8.1",
     "cors": "^2.8.5",
     "docx": "^9.5.1",
@@ -29,16 +30,18 @@
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.14.0",
     "react-scripts": "^5.0.1",
+    "react-toastify": "^11.0.5",
     "web-vitals": "^2.1.4"
   },
-  "scripts": {
-    "prestart": "node scripts/sync-cloudinary-images.js",
-    "start": "concurrently \"npm run start-frontend\" \"npm run start-backend\"",
-    "start-frontend": "react-scripts start",
-    "start-backend": "node server/update-dest-image.js",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+"scripts": {
+  "prestart": "node scripts/sync-cloudinary-images.js",
+  "start": "concurrently \"npm run start-frontend\" \"npm run start-backend\" \"npm run start-server\"",
+  "start-frontend": "react-scripts start",
+  "start-backend": "node server/update-dest-image.js",
+  "start-server": "cd server && node index.js",
+  "build": "react-scripts build",
+  "test": "react-scripts test",
+  "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": [
@@ -83,5 +86,6 @@
   "engines": {
     "node": ">=18 <21",
     "npm": ">=8"
-  }
+  },
+  "proxy": "http://localhost:3002"
 }
