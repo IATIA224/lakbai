@@ -418,6 +418,28 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         }
       }
 
+      // Add error handling for existing name and url in dest-images.json
+      const checkExistingInDestImages = async (images) => {
+        try {
+          const res = await fetch('http://localhost:4000/src/dest-images.json');
+          if (!res.ok) return { existingNames: [], existingUrls: [] };
+          const destImages = await res.json();
+          const existingNames = [];
+          const existingUrls = [];
+          images.forEach(img => {
+            if (destImages.some(d => d.name.trim().toLowerCase() === img.name.trim().toLowerCase())) {
+              existingNames.push(img.name);
+            }
+            if (destImages.some(d => d.url === img.url)) {
+              existingUrls.push(img.url);
+            }
+          });
+          return { existingNames, existingUrls };
+        } catch {
+          return { existingNames: [], existingUrls: [] };
+        }
+      };
+
       if (created.length) {
         // Collect new images
         const newImages = created.map(d => ({
@@ -425,15 +447,38 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
           url: d.media?.featuredImage || ''
         })).filter(img => img.name && img.url);
 
-        // Send to backend API (example)
-        fetch('http://localhost:4000/api/appendDestImages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newImages)
-        });
+        // --- Error handling for existing name/url in dest-images.json ---
+        const { existingNames, existingUrls } = await checkExistingInDestImages(newImages);
 
-        setAlertType('success');
-        setAlertMsg(`Imported ${created.length} destination(s).`);
+        // Filter out images that already exist by name or url
+        const filteredImages = newImages.filter(
+          img =>
+            !existingNames.includes(img.name) &&
+            !existingUrls.includes(img.url)
+        );
+
+        // Send only new images to backend API
+        if (filteredImages.length) {
+          fetch('http://localhost:4000/api/appendDestImages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(filteredImages)
+          });
+        }
+
+        // Show summary alert if any were skipped
+        if (existingNames.length || existingUrls.length) {
+          setAlertType('error');
+          setAlertMsg(
+            `Skipped ${existingNames.length} name(s) and ${existingUrls.length} url(s) already in dest-images.json.`
+          );
+          setTimeout(() => setAlertMsg(''), 3500);
+        } else {
+          setAlertType('success');
+          setAlertMsg(`Imported ${created.length} destination(s).`);
+          setTimeout(() => setAlertMsg(''), 2500);
+        }
+
         onImported?.(created);
         setTimeout(() => {
           setAlertMsg('');
