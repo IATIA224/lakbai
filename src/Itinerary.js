@@ -489,6 +489,18 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
 
 // Update the summary modal to accept a single item
 function ItinerarySummaryModal({ item, onClose }) {
+  // compute days here (was missing -> caused 'days' not defined)
+  const days =
+    item && item.arrival && item.departure
+      ? Math.max(
+          1,
+          Math.ceil(
+            (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        )
+      : 0;
+
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
       <div

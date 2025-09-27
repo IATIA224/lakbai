@@ -431,6 +431,8 @@ export function SharedDestinationCard({
 
 // EditDestinationModal component for shared itineraries
 export function SharedEditModal({ initial, onSave, onClose }) {
+  // add missing notif state (setNotif was used but not defined)
+  const [notif, setNotif] = useState("");
   const [form, setForm] = useState({
     name: initial?.name || "",
     region: initial?.region || "",
@@ -468,7 +470,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
         onClose();
       }, 1200);
     } catch (err) {
-      setNotif("Failed to update itinerary item.");
+      setNotif("Itinerary item update failed.");
       setTimeout(() => setNotif(""), 2000);
     }
   };
@@ -627,6 +629,11 @@ export function SharedEditModal({ initial, onSave, onClose }) {
           <button type="button" className="itn-btn ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="itn-btn primary">Save Details</button>
         </div>
+        {notif && (
+          <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: "#6c63ff", color: "#fff", padding: "8px 16px", borderRadius: 8 }}>
+            {notif}
+          </div>
+        )}
       </form>
     </div>
   );
