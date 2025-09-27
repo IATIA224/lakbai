@@ -10,6 +10,25 @@ app.use(express.json());
 // Mount Cloudinary routes
 app.use('/api', require('./cloudinaryRoutes'));
 
+// Configure Cloudinary with your credentials
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+app.post('/api/cloudinary/delete', async (req, res) => {
+    const { publicId } = req.body;
+        if (!publicId) return res.status(400).json({ error: 'Missing publicId' });
+        try {
+        await cloudinary.uploader.destroy(publicId, { invalidate: true });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to delete image' });
+    }
+});
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Admin API listening on http://localhost:${PORT}`);
