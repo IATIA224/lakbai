@@ -13,6 +13,16 @@ app.post("/api/update-dest-image", (req, res) => {
   const { name, url } = req.body;
   if (!name || !url) return res.status(400).json({ error: "Missing name or url" });
 
+  const jsonPath = path.join(__dirname, '../src/dest-images.json');
+  let current = [];
+  try {
+      current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  } catch {}
+  if (!current.some(img => img.url === url)) {
+      current.push({ name, url });
+      fs.writeFileSync(jsonPath, JSON.stringify(current, null, 2), 'utf8');
+  }
+
   let images = [];
   if (fs.existsSync(DEST_IMAGES_PATH)) {
     images = JSON.parse(fs.readFileSync(DEST_IMAGES_PATH, "utf8"));
@@ -36,4 +46,21 @@ app.post("/api/appendDestImages", (req, res) => {
   }
 });
 
-app.listen(4000, () => console.log("Update dest-image API running on port 4000"));
+app.post("/api/delete-dest-image", (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Missing name' });
+
+    const jsonPath = path.join(__dirname, '../src/dest-images.json');
+    let current = [];
+    try {
+        current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    } catch {}
+    // Remove entry with matching name (case-insensitive, trimmed)
+    const updated = current.filter(
+        imgEntry => imgEntry.name?.trim().toLowerCase() !== name.trim().toLowerCase()
+    );
+    fs.writeFileSync(jsonPath, JSON.stringify(updated, null, 2), 'utf8');
+    res.json({ success: true });
+});
+
+app.listen(4001, () => console.log("Update dest-image API running on port 4001"));

@@ -1,35 +1,40 @@
+
 const express = require('express');
 const router = express.Router();
 const cloudinary = require('cloudinary').v2;
 
-// Configure via environment variables
-// Set: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dxvewejox',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+console.log('Cloudinary config:', cloudinary.config());
+
+router.post('/api/cloudinary/delete', async (req, res) => {
+  const { publicId } = req.body;
+  if (!publicId) return res.status(400).json({ error: 'Missing publicId' });
+  try {
+    await cloudinary.uploader.destroy(publicId, { invalidate: true });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
-router.post(['/admin/api/cloudinary/delete', '/api/cloudinary/delete'], async (req, res) => {
+// GET /api/cloudinary-images - List all JPG images in 'destinations' folder
+router.get('/cloudinary-images', async (req, res) => {
   try {
-    const { publicId, publicIds } = req.body || {};
-    if (!publicId && (!Array.isArray(publicIds) || publicIds.length === 0)) {
-      return res.status(400).json({ error: 'Missing publicId or publicIds[]' });
-    }
-
-    if (Array.isArray(publicIds) && publicIds.length) {
-      const result = await cloudinary.api.delete_resources(publicIds);
-      return res.json({ success: true, result });
-    }
-
-    const result = await cloudinary.uploader.destroy(publicId);
-    if (result.result !== 'ok' && result.result !== 'not_found') {
-      // not_found is safe to treat as success for idempotency
-      return res.status(500).json({ error: result.result || 'Delete failed' });
-    }
-    return res.json({ success: true, result });
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      max_results: 100,
+      resource_type: 'image',
+    });
+    console.log('Cloudinary result:', result); // <-- Add this line
+    const jpgImages = result.resources.filter(img => img.format === 'jpg');
+    res.json(jpgImages);
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Server error' });
+    console.error('Cloudinary error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

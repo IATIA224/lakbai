@@ -23,7 +23,9 @@ const CATEGORY_STYLES = {
   'SYSTEM ADMINISTRATION': { bg: '#f1f5f9', fg: '#334155' },
   SECURITY: { bg: '#ffe4e6', fg: '#be123c' },
   'ACCESS CONTROL': { bg: '#fef9c3', fg: '#92400e' },
-  'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' }
+  'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' },
+  'DESTINATION IMAGE': { bg: '#fee0efff', fg: '#ff3c9dff' }, // <-- Blue background for IMAGE UPLOAD
+  'DEST. IMAGE DELETE': { bg: '#fee2e2', fg: '#b91c1c' } // <-- Red background for IMAGE DELETE
 };
 
 const OUTCOME_STYLES = {

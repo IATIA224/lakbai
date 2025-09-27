@@ -1,7 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { db } from './firebase';
 import { addDoc, collection, serverTimestamp, setDoc, doc } from 'firebase/firestore'; // Add setDoc and doc imports
+import { getDocs } from 'firebase/firestore';
 
+async function getExistingDestinationNames() {
+  const snap = await getDocs(collection(db, 'destinations'));
+  const names = new Set();
+  snap.forEach(doc => {
+    const data = doc.data();
+    if (data?.name) names.add(String(data.name).trim().toLowerCase());
+  });
+  return names;
+}
 // ---- Parsing helpers ----
 function parseCsv(text) {
   // Robust CSV parser with quotes support
@@ -241,6 +251,10 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     setBusy(false);
   };
 
+  // NEW: alert message state
+  const [alertMsg, setAlertMsg] = useState('');
+  const [alertType, setAlertType] = useState('success'); // 'success' or 'error'
+
   // NEW: when modal closes (open -> false), clear previous content
   useEffect(() => {
     if (!open) resetModal();
@@ -351,8 +365,31 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     if (missingColumns.length) return alert('Please include all required columns before importing.');
     if (rowIssues.length) return alert('Please fill all required cells before importing.');
 
+    const duplicateNames = findDuplicateNames(rows);
+    if (duplicateNames.length) {
+      setAlertType('error');
+      setAlertMsg(`Duplicate destination names found: ${duplicateNames.join(', ')}`);
+      setTimeout(() => setAlertMsg(''), 3500);
+      return;
+    }
+
     setBusy(true);
     try {
+      // Firebase duplicate check
+      const existingNames = await getExistingDestinationNames();
+      const importedNames = rows.map(r =>
+        String(r.name || r.destinationname || r.title || '').trim().toLowerCase()
+      ).filter(Boolean);
+
+      const firebaseDuplicates = importedNames.filter(n => existingNames.has(n));
+      if (firebaseDuplicates.length) {
+        setAlertType('error');
+        setAlertMsg(`Destination names already exist: ${firebaseDuplicates.join(', ')}`);
+        setTimeout(() => setAlertMsg(''), 3500);
+        setBusy(false);
+        return;
+      }
+
       // Map rows to destination docs
       const toCreate = [];
       for (const raw of rows) {
@@ -381,6 +418,28 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         }
       }
 
+      // Add error handling for existing name and url in dest-images.json
+      const checkExistingInDestImages = async (images) => {
+        try {
+          const res = await fetch('http://localhost:4000/src/dest-images.json');
+          if (!res.ok) return { existingNames: [], existingUrls: [] };
+          const destImages = await res.json();
+          const existingNames = [];
+          const existingUrls = [];
+          images.forEach(img => {
+            if (destImages.some(d => d.name.trim().toLowerCase() === img.name.trim().toLowerCase())) {
+              existingNames.push(img.name);
+            }
+            if (destImages.some(d => d.url === img.url)) {
+              existingUrls.push(img.url);
+            }
+          });
+          return { existingNames, existingUrls };
+        } catch {
+          return { existingNames: [], existingUrls: [] };
+        }
+      };
+
       if (created.length) {
         // Collect new images
         const newImages = created.map(d => ({
@@ -388,26 +447,68 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
           url: d.media?.featuredImage || ''
         })).filter(img => img.name && img.url);
 
-        // Send to backend API (example)
-        fetch('http://localhost:4000/api/appendDestImages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newImages)
-        });
+        // --- Error handling for existing name/url in dest-images.json ---
+        const { existingNames, existingUrls } = await checkExistingInDestImages(newImages);
+
+        // Filter out images that already exist by name or url
+        const filteredImages = newImages.filter(
+          img =>
+            !existingNames.includes(img.name) &&
+            !existingUrls.includes(img.url)
+        );
+
+        // Send only new images to backend API
+        if (filteredImages.length) {
+          fetch('http://localhost:4000/api/appendDestImages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(filteredImages)
+          });
+        }
+
+        // Show summary alert if any were skipped
+        if (existingNames.length || existingUrls.length) {
+          setAlertType('error');
+          setAlertMsg(
+            `Skipped ${existingNames.length} name(s) and ${existingUrls.length} url(s) already in dest-images.json.`
+          );
+          setTimeout(() => setAlertMsg(''), 3500);
+        } else {
+          setAlertType('success');
+          setAlertMsg(`Imported ${created.length} destination(s).`);
+          setTimeout(() => setAlertMsg(''), 2500);
+        }
 
         onImported?.(created);
-        alert(`Imported ${created.length} destination(s).`);
-        onClose?.();
+        setTimeout(() => {
+          setAlertMsg('');
+          onClose?.();
+        }, 2500);
       } else {
-        alert('No rows were imported.');
+        setAlertType('error');
+        setAlertMsg('No rows were imported.');
+        setTimeout(() => setAlertMsg(''), 2500);
       }
     } catch (e) {
       console.error(e);
-      alert('Import failed.');
+      setAlertType('error');
+      setAlertMsg('Import failed.');
+      setTimeout(() => setAlertMsg(''), 2500);
     } finally {
       setBusy(false);
     }
   };
+
+  function findDuplicateNames(rows) {
+    const nameCount = {};
+    rows.forEach(r => {
+      const name = String(r.name || r.destinationname || r.title || '').trim().toLowerCase();
+      if (name) nameCount[name] = (nameCount[name] || 0) + 1;
+    });
+    return Object.entries(nameCount)
+      .filter(([_, count]) => count > 1)
+      .map(([name]) => name);
+  }
 
   const disableImport = busy || rows.length === 0 || missingColumns.length > 0 || rowIssues.length > 0;
 
@@ -532,6 +633,28 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
               <div className="muted small" style={{ marginTop: 6 }}>
                 Scroll to view all rows.
               </div>
+            </div>
+          )}
+
+          {alertMsg && (
+            <div
+                style={{
+                  position: 'absolute',
+                  top: 24,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: alertType === 'success' ? '#d1fae5' : '#fee2e2',
+                  color: alertType === 'success' ? '#065f46' : '#991b1b',
+                  border: `1px solid ${alertType === 'success' ? '#10b981' : '#f87171'}`,
+                  borderRadius: 8,
+                  padding: '10px 24px',
+                  fontWeight: 600,
+                  zIndex: 9999,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+                }}
+              role="alert"
+            >
+              {alertMsg}
             </div>
           )}
         </div>
