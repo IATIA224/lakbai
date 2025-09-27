@@ -326,11 +326,10 @@ export function SharedDestinationCard({
         </div>
 
         <div className="itn-stat green">
-          <div className="itn-stat-title">Budget</div>
+          <div className="itn-stat-title">Estimated expenditure</div>
           <div className="itn-stat-body">
-            <div>${item.budget || 0}</div>
-            <div className="itn-muted">Hotel: ${item.accomBudget || 0}</div>
-            <div className="itn-muted">Activities: ${item.activityBudget || 0}</div>
+            <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+            <div className="itn-muted">Estimated total cost for this trip</div>
           </div>
         </div>
 
@@ -439,43 +438,20 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     arrival: initial?.arrival || "",
     departure: initial?.departure || "",
     transport: initial?.transport || "",
-    transportCost: initial?.transportCost || 0,
-    budget: initial?.budget || 0,
-    accomName: initial?.accomName || "",
+    // single estimatedExpenditure
+    estimatedExpenditure: initial?.estimatedExpenditure ?? initial?.budget ?? 0,
     accomType: initial?.accomType || "",
-    accomBudget: initial?.accomBudget || 0,
-    activityBudget: initial?.activityBudget || 0,
-    notes: initial?.notes || "",
+    accomName: initial?.accomName || "",
+    accomNotes: initial?.accomNotes || "",
     activities: initial?.activities || [],
     activityDraft: "",
     transportNotes: initial?.transportNotes || "",
-    accomNotes: initial?.accomNotes || "",
+    notes: initial?.notes || "",
   });
 
-  const [notif, setNotif] = useState("");
-
-  const addActivity = () => {
-    const v = form.activityDraft.trim();
-    if (!v) return;
-    setForm((prev) => ({ 
-      ...prev, 
-      activities: [...prev.activities, v], 
-      activityDraft: "" 
-    }));
-  };
-
-  const removeActivity = (i) =>
-    setForm((prev) => ({ 
-      ...prev, 
-      activities: prev.activities.filter((_, idx) => idx !== i) 
-    }));
-
   const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "number" ? parseFloat(value) || 0 : value,
-    }));
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -484,10 +460,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
       await onSave({
         ...initial,
         ...form,
-        budget: Number(form.budget) || 0,
-        accomBudget: Number(form.accomBudget) || 0,
-        activityBudget: Number(form.activityBudget) || 0,
-        transportCost: Number(form.transportCost) || 0,
+        estimatedExpenditure: Number(form.estimatedExpenditure) || 0,
       });
       setNotif("Itinerary item updated successfully!");
       setTimeout(() => {
@@ -496,55 +469,20 @@ export function SharedEditModal({ initial, onSave, onClose }) {
       }, 1200);
     } catch (err) {
       setNotif("Failed to update itinerary item.");
-      console.error ("Error updating item:", err);
       setTimeout(() => setNotif(""), 2000);
     }
   };
 
-  // Allow Enter to add activity and Esc to close
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Enter" && document.activeElement?.id === "itn-activity-draft") {
-        e.preventDefault();
-        addActivity();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
-      <div
-        className="itn-modal"
-        style={{
-          maxWidth: 700,
-          boxShadow: "0 8px 32px rgba(108,99,255,0.12)",
-          borderRadius: 16,
-          padding: 0,
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: "80vh",
-          background: "#fff",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="itn-modal-header" style={{ padding: "24px 32px 12px 32px" }}>
+      <form className="itn-modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+        <div className="itn-modal-header">
           <div className="itn-modal-title">Edit Shared Destination</div>
-          <button className="itn-close" onClick={onClose}>×</button>
+          <button type="button" className="itn-close" onClick={onClose}>×</button>
         </div>
 
-        <div
-          className="itn-modal-body"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "0 32px 24px 32px",
-            background: "#fafaff",
-          }}
-        >
-          <div className="itn-form-grid" style={{ gap: 32 }}>
+        <div className="itn-modal-body">
+          <div className="itn-form-grid">
             <div className="itn-form-col">
               <div className="itn-grid">
                 <label className="itn-field">
@@ -608,32 +546,12 @@ export function SharedEditModal({ initial, onSave, onClose }) {
 
               <div className="itn-grid">
                 <label className="itn-field">
-                  <span className="itn-label">Total Budget ($)</span>
+                  <span className="itn-label">Estimated Expenditure ($)</span>
                   <input
-                    type="number"
                     className="itn-input"
-                    name="budget"
-                    value={form.budget}
-                    onChange={handleChange}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Accommodation ($)</span>
-                  <input
+                    name="estimatedExpenditure"
                     type="number"
-                    className="itn-input"
-                    name="accomBudget"
-                    value={form.accomBudget}
-                    onChange={handleChange}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Activities ($)</span>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    name="activityBudget"
-                    value={form.activityBudget}
+                    value={form.estimatedExpenditure}
                     onChange={handleChange}
                   />
                 </label>
@@ -668,41 +586,15 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                 <textarea
                   rows={2}
                   className="itn-input"
-                  placeholder="Address, booking details, special notes..."
                   name="accomNotes"
+                  placeholder="Address, booking details..."
                   value={form.accomNotes}
                   onChange={handleChange}
                 />
               </div>
 
               <div className="itn-field">
-                <span className="itn-label">Planned Activities</span>
-                <div className="itn-row">
-                  <input
-                    id="itn-activity-draft"
-                    className="itn-input"
-                    placeholder="Add an activity..."
-                    value={form.activityDraft}
-                    onChange={(e) => setForm({...form, activityDraft: e.target.value})}
-                  />
-                  <button type="button" className="itn-btn success" onClick={addActivity}>
-                    Add
-                  </button>
-                </div>
-                {form.activities.length > 0 && (
-                  <ul className="itn-chips">
-                    {form.activities.map((a, i) => (
-                      <li key={`${a}-${i}`} className="itn-chip">
-                        {a}
-                        <button onClick={() => removeActivity(i)}>×</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="itn-field">
-                <span className="itn-label">Transportation</span>
+                <span className="itn-label">Transport</span>
                 <div className="itn-grid-2">
                   <select
                     className="itn-input"
@@ -717,73 +609,25 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                     <option>Car</option>
                     <option>Ferry</option>
                   </select>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    placeholder="0"
-                    name="transportCost"
-                    value={form.transportCost}
-                    onChange={handleChange}
-                  />
                 </div>
                 <textarea
                   rows={2}
                   className="itn-input"
-                  placeholder="Flight numbers, booking details, pickup times..."
                   name="transportNotes"
+                  placeholder="Transport notes..."
                   value={form.transportNotes}
                   onChange={handleChange}
                 />
               </div>
-
-              <label className="itn-field">
-                <span className="itn-label">Additional Notes</span>
-                <textarea
-                  rows={2}
-                  className="itn-input"
-                  placeholder="Important information, reminders, contacts..."
-                  name="notes"
-                  value={form.notes}
-                  onChange={handleChange}
-                />
-              </label>
             </div>
           </div>
         </div>
 
-        <div className="itn-modal-footer" style={{
-          padding: "16px 32px",
-          borderTop: "1px solid #eee",
-          background: "#fff",
-          position: "sticky",
-          bottom: 0,
-          zIndex: 2,
-        }}>
-          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
-          <button className="itn-btn primary" onClick={handleSubmit}>Save Details</button>
+        <div className="itn-modal-footer">
+          <button type="button" className="itn-btn ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="itn-btn primary">Save Details</button>
         </div>
-
-        {/* Notification popup */}
-        {notif && (
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "#6c63ff",
-              color: "#fff",
-              padding: "10px 24px",
-              borderRadius: 8,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              fontWeight: 500,
-              zIndex: 10,
-            }}
-          >
-            {notif}
-          </div>
-        )}
-      </div>
+      </form>
     </div>
   );
 }
@@ -1676,4 +1520,40 @@ function ItinerarySummaryModal({ item, onClose }) {
       </div>
     </div>
   );
+}
+
+// Example:
+function exportSharedPDF(sel) {
+  const totals = sel.reduce(
+    (acc, it) => {
+      const days =
+        it.arrival && it.departure
+          ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
+          : 0;
+      acc.days += days;
+      acc.budget += Number((it.estimatedExpenditure ?? it.budget) || 0);
+      return acc;
+    },
+    { days: 0, budget: 0 }
+  );
+
+  const rows = sel.map((it, idx) => {
+    const days =
+      it.arrival && it.departure
+        ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
+        : "";
+    const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
+    const budget = `$${Number((it.estimatedExpenditure ?? it.budget) || 0).toLocaleString()}`;
+    return [
+      idx + 1,
+      it.name || "Destination",
+      it.region || "—",
+      dates,
+      String(days || "—"),
+      it.status || "—",
+      budget,
+    ];
+  });
+
+  // ...existing PDF generation code...
 }
