@@ -483,7 +483,13 @@ export default function ImagesCMS() {
                                             <img src={image.url} alt={image.name} />
                                         </div>
                                         <div className="image-card-footer">
-                                            {image.name.slice(0, -6).trim()}
+                                            {
+                                                // Remove a trailing 6-character ID if separated by space, else show full name
+                                                (() => {
+                                                    const match = image.name.match(/^(.*)\s([a-zA-Z0-9]{6})$/);
+                                                    return match ? match[1] : image.name;
+                                                })()
+                                            }
                                         </div>
                                         <div className="image-card-details">
                                             <div className="image-details">
