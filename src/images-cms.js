@@ -202,26 +202,24 @@ export default function ImagesCMS() {
 
             // Write Audit Log to Firebase
             const auditLog = {
-                eventId: `#${Date.now()}`,
+                eventId: `${Date.now()}`,
                 timestamp: new Date().toISOString(),
                 action: 'photo upload',
-                category: 'IMAGE UPLOAD',
+                category: 'destination image',
                 target: `photo (${data.public_id})`,
                 request: `POST https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-                outcome: data.secure_url ? 'success (201)' : 'failure',
+                outcome: data.secure_url ? 'SUCCESS' : 'failure',
                 user: {
                     name: 'Aclan Jeremy',
                     username: 'aclanjeremy432@gmail.com',
                     role: 'Admin',
                     userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
-                    _session: 'unknown',
-                    get session() { return this._session; },
-                    set session(value) { this._session = value; },
+                    session: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
                 },
                 source: {
                     device: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
                     browser: navigator.userAgent,
-                    os: navigator.platform,
+                    os: navigator.userAgentData?.platform || navigator.platform,
                 },
                 securityFlags: 'None',
                 eventDetails: {
