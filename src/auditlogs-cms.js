@@ -23,7 +23,8 @@ const CATEGORY_STYLES = {
   'SYSTEM ADMINISTRATION': { bg: '#f1f5f9', fg: '#334155' },
   SECURITY: { bg: '#ffe4e6', fg: '#be123c' },
   'ACCESS CONTROL': { bg: '#fef9c3', fg: '#92400e' },
-  'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' }
+  'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' },
+  'IMAGE UPLOAD': { bg: '#e0f2fe', fg: '#0369a1' } // <-- Blue background for IMAGE UPLOAD
 };
 
 const OUTCOME_STYLES = {
