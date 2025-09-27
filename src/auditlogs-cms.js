@@ -24,7 +24,7 @@ const CATEGORY_STYLES = {
   SECURITY: { bg: '#ffe4e6', fg: '#be123c' },
   'ACCESS CONTROL': { bg: '#fef9c3', fg: '#92400e' },
   'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' },
-  'IMAGE UPLOAD': { bg: '#e0f2fe', fg: '#0369a1' } // <-- Blue background for IMAGE UPLOAD
+  'DESTINATION IMAGE': { bg: '#fee0efff', fg: '#ff3c9dff' } // <-- Blue background for IMAGE UPLOAD
 };
 
 const OUTCOME_STYLES = {
