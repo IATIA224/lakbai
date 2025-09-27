@@ -167,7 +167,7 @@ export default function ImagesCMS() {
 
             // Use the actual file name (without extension) as the image name
             // (Cloudinary will use this as the public_id as well)
-            // Save to Firestore (or your DB) with the actual name
+
             await addDoc(collection(db, 'photos'), {
                 name: actualName,
                 url: data.secure_url,
@@ -179,7 +179,7 @@ export default function ImagesCMS() {
             // Also update dest-images.json if needed (see previous logic)
             if (fs) {
                 try {
-                    const jsonPath = require('path').join(__dirname, 'dest-images.json');
+                    const jsonPath = require('path').join(__dirname, './dest-images.json');
                     let current = [];
                     try {
                         current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -193,13 +193,11 @@ export default function ImagesCMS() {
                     // Silent fail for browser context
                 }
             } else {
-                // If not Node/Electron, you may POST to a backend API to update dest-images.json
-                // Example:
-                // await fetch('/api/update-dest-images', {
-                //   method: 'POST',
-                //   headers: { 'Content-Type': 'application/json' },
-                //   body: JSON.stringify({ name: actualName, url: data.secure_url })
-                // });
+                await fetch('http://localhost:4001/api/update-dest-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: actualName, url: data.secure_url })
+                });
             }
 
             // Write Audit Log to Firebase
