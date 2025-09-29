@@ -31,6 +31,7 @@ import {
   clearAllTripDestinations,
 } from './itinerary2';
 import ItineraryHotelsModal from "./itineraryHotels"; // NEW
+import ItineraryCostEstimationModal from "./itineraryCostEstimation"; // <-- fix casing here
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -52,16 +53,14 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     arrival: initial?.arrival || "",
     departure: initial?.departure || "",
     status: initial?.status || "Upcoming",
-    budget: initial?.budget ?? 0,
-    accomBudget: initial?.accomBudget ?? 0,
-    activityBudget: initial?.activityBudget ?? 0,
+    // REPLACED: single estimatedExpenditure field (fallback to legacy budget)
+    estimatedExpenditure: initial?.estimatedExpenditure ?? initial?.budget ?? 0,
     accomType: initial?.accomType || "",
     accomName: initial?.accomName || "",
     accomNotes: initial?.accomNotes || "",
     activities: initial?.activities || [],
     activityDraft: "",
     transport: initial?.transport || "",
-    transportCost: initial?.transportCost ?? 0,
     transportNotes: initial?.transportNotes || "",
     notes: initial?.notes || "",
   }));
@@ -79,20 +78,17 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   const handleSave = async () => {
     try {
       await onSave({
-        ...initial, // This ensures we're keeping the ID and other metadata
+        ...initial,
         ...form,
-        budget: Number(form.budget) || 0,
-        accomBudget: Number(form.accomBudget) || 0,
-        activityBudget: Number(form.activityBudget) || 0,
-        transportCost: Number(form.transportCost) || 0,
+        estimatedExpenditure: Number(form.estimatedExpenditure) || 0,
       });
-      setNotif("Itinerary item updated successfully!"); // Changed "created" to "updated"
+      setNotif("Itinerary item updated successfully!");
       setTimeout(() => {
         setNotif("");
-        onClose(); // Close the modal after showing popup
-      }, 1200); // 1.2 seconds
+        onClose();
+      }, 1200);
     } catch (e) {
-      setNotif("Failed to update itinerary item."); // Changed "create" to "update"
+      setNotif("Failed to update itinerary item.");
       setTimeout(() => setNotif(""), 2000);
     }
   };
@@ -112,37 +108,16 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
-      <div
-        className="itn-modal"
-        style={{
-          boxShadow: "0 8px 32px rgba(108,99,255,0.12)",
-          borderRadius: 16,
-          padding: 0,
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: "80vh",
-          background: "#fff",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="itn-modal-header" style={{ padding: "24px 32px 12px 32px" }}>
+      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header">
           <div className="itn-modal-title">Edit Destination Details</div>
           <button className="itn-close" onClick={onClose}>×</button>
         </div>
 
-        <div
-          className="itn-modal-body"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "0 32px 24px 32px",
-            background: "#fafaff",
-          }}
-        >
-          <div className="itn-form-grid" style={{ gap: 32 }}>
+        <div className="itn-modal-body">
+          <div className="itn-form-grid">
             <div className="itn-form-col">
-              {/* ...left column fields... */}
-              {/* (same as your previous code) */}
+              {/* left-column fields unchanged */}
               <div className="itn-grid">
                 <label className="itn-field">
                   <span className="itn-label">Destination Name</span>
@@ -200,37 +175,18 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 
               <div className="itn-grid">
                 <label className="itn-field">
-                  <span className="itn-label">Total Budget ($)</span>
+                  <span className="itn-label">Estimated Expenditure ($)</span>
                   <input
-                    type="number"
                     className="itn-input"
-                    value={form.budget}
-                    onChange={(e) => setForm({ ...form, budget: e.target.value })}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Accommodation ($)</span>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    value={form.accomBudget}
-                    onChange={(e) => setForm({ ...form, accomBudget: e.target.value })}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Activities ($)</span>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    value={form.activityBudget}
-                    onChange={(e) => setForm({ ...form, activityBudget: e.target.value })}
+                    value={form.estimatedExpenditure}
+                    onChange={(e) => setForm({ ...form, estimatedExpenditure: e.target.value })}
                   />
                 </label>
               </div>
             </div>
 
             <div className="itn-form-col">
-              {/* ...right column fields... */}
+              {/* Removed separate Budget/Accommodation/Activity/Transport cost inputs */}
               <div className="itn-field">
                 <span className="itn-label">Accommodation Details</span>
                 <div className="itn-grid-2">
@@ -262,34 +218,9 @@ function EditDestinationModal({ initial, onSave, onClose }) {
                 />
               </div>
 
+              {/* transport type kept, transport cost removed */}
               <div className="itn-field">
-                <span className="itn-label">Planned Activities</span>
-                <div className="itn-row">
-                  <input
-                    id="itn-activity-draft"
-                    className="itn-input"
-                    placeholder="Add an activity..."
-                    value={form.activityDraft}
-                    onChange={(e) => setForm({ ...form, activityDraft: e.target.value })}
-                  />
-                  <button type="button" className="itn-btn success" onClick={addActivity}>
-                    Add
-                  </button>
-                </div>
-                {form.activities.length > 0 && (
-                  <ul className="itn-chips">
-                    {form.activities.map((a, i) => (
-                      <li key={`${a}-${i}`} className="itn-chip">
-                        {a}
-                        <button onClick={() => removeActivity(i)}>×</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="itn-field">
-                <span className="itn-label">Transportation</span>
+                <span className="itn-label">Transport</span>
                 <div className="itn-grid-2">
                   <select
                     className="itn-input"
@@ -303,69 +234,23 @@ function EditDestinationModal({ initial, onSave, onClose }) {
                     <option>Car</option>
                     <option>Ferry</option>
                   </select>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    placeholder="0"
-                    value={form.transportCost}
-                    onChange={(e) => setForm({ ...form, transportCost: e.target.value })}
-                  />
                 </div>
                 <textarea
                   rows={2}
                   className="itn-input"
-                  placeholder="Flight numbers, booking details, pickup times..."
+                  placeholder="Transport notes..."
                   value={form.transportNotes}
                   onChange={(e) => setForm({ ...form, transportNotes: e.target.value })}
                 />
               </div>
-
-              <label className="itn-field">
-                <span className="itn-label">Additional Notes</span>
-                <textarea
-                  rows={2}
-                  className="itn-input"
-                  placeholder="Important information, reminders, contacts..."
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                />
-              </label>
             </div>
           </div>
         </div>
 
-        <div className="itn-modal-footer" style={{
-          padding: "16px 32px",
-          borderTop: "1px solid #eee",
-          background: "#fff",
-          position: "sticky",
-          bottom: 0,
-          zIndex: 2,
-        }}>
+        <div className="itn-modal-footer">
           <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
           <button className="itn-btn primary" onClick={handleSave}>Save Details</button>
         </div>
-
-        {/* Notification popup */}
-        {notif && (
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "#6c63ff",
-              color: "#fff",
-              padding: "10px 24px",
-              borderRadius: 8,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              fontWeight: 500,
-              zIndex: 10,
-            }}
-          >
-            {notif}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -374,7 +259,8 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEditing }) {
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [showHotels, setShowHotels] = useState(false); // NEW
+  const [showHotels, setShowHotels] = useState(false);
+  const [showCostEstimation, setShowCostEstimation] = useState(false); // <-- Add state
   const days =
     item.arrival && item.departure
       ? Math.max(
@@ -424,11 +310,10 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
         </div>
 
         <div className="itn-stat green">
-          <div className="itn-stat-title">Budget</div>
+          <div className="itn-stat-title">Estimated expenditure</div>
           <div className="itn-stat-body">
-            <div>${item.budget || 0}</div>
-            <div className="itn-muted">Hotel: ${item.accomBudget || 0}</div>
-            <div className="itn-muted">Activities: ${item.activityBudget || 0}</div>
+            <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+            <div className="itn-muted">Estimated total cost for this trip</div>
           </div>
         </div>
 
@@ -469,13 +354,20 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
         </div>
       </div>
 
-      {/* View Summary + View Accredited Hotels buttons */}
+      {/* View Summary + View Cost Estimation + View Accredited Hotels buttons */}
       <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button
           className="itn-btn ghost"
           onClick={() => setShowSummary(true)}
         >
           View Summary
+        </button>
+        <button
+          className="itn-btn ghost"
+          onClick={() => setShowCostEstimation(true)}
+          title="Estimate transportation cost"
+        >
+          Estimate Transport Cost
         </button>
         <button
           className="itn-btn ghost"
@@ -493,7 +385,13 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
         />
       )}
 
-      {showHotels && ( // NEW
+      {showCostEstimation && (
+        <ItineraryCostEstimationModal
+          onClose={() => setShowCostEstimation(false)}
+        />
+      )}
+
+      {showHotels && (
         <ItineraryHotelsModal
           open={showHotels}
           onClose={() => setShowHotels(false)}
@@ -591,17 +489,17 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
 
 // Update the summary modal to accept a single item
 function ItinerarySummaryModal({ item, onClose }) {
-  // Calculate days
-  let days = "";
-  if (item.arrival && item.departure) {
-    days = Math.max(
-      1,
-      Math.ceil(
-        (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
-    );
-  }
+  // compute days here (was missing -> caused 'days' not defined)
+  const days =
+    item && item.arrival && item.departure
+      ? Math.max(
+          1,
+          Math.ceil(
+            (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        )
+      : 0;
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
@@ -687,10 +585,9 @@ function ItinerarySummaryModal({ item, onClose }) {
                 ) : ""}
               </div>
               <div>
-                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Budget:</span>{" "}
-                <span style={{ fontWeight: 600 }}>${item.budget || 0}</span>
-                <span style={{ color: "#888", fontSize: 13, marginLeft: 8 }}>
-                  (Hotel: ${item.accomBudget || 0} | Activities: ${item.activityBudget || 0})
+                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Estimated Expenditure:</span>{" "}
+                <span style={{ fontWeight: 600 }}>
+                  ${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -744,13 +641,10 @@ function ItinerarySummaryModal({ item, onClose }) {
             </div>
             <div style={{ margin: "18px 0 0 0" }}>
               <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Transportation
+                Transport
               </div>
               <div style={{ color: "#444", fontSize: 15 }}>
                 {item.transport || "—"}
-                <span style={{ color: "#888", marginLeft: 8 }}>
-                  Cost: ${item.transportCost || 0}
-                </span>
               </div>
               {item.transportNotes && (
                 <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
@@ -1045,7 +939,7 @@ export default function Itinerary() {
             ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
             : 0;
         acc.days += days;
-        acc.budget += Number(it.budget || 0);
+        acc.budget += Number((it.estimatedExpenditure ?? it.budget) || 0);
         return acc;
       },
       { days: 0, budget: 0 }
@@ -1080,7 +974,7 @@ export default function Itinerary() {
           ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
           : "";
       const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
-      const budget = `$${Number(it.budget || 0).toLocaleString()}`;
+      const budget = `$${Number((it.estimatedExpenditure ?? it.budget) || 0).toLocaleString()}`;
       return [
         idx + 1,
         it.name || "Destination",
@@ -1414,6 +1308,21 @@ export async function addTripForCurrentUser(dest) {
   const u = auth.currentUser;
   if (!u) throw new Error("AUTH_REQUIRED");
 
+  // small helper: parse price-like strings (₱1,200 or "500–2,000" etc) -> number (average if range)
+  const parseEstimatedFromPrice = (p) => {
+    if (p == null) return 0;
+    if (typeof p === "number") return p;
+    const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
+    // capture number groups
+    const nums = s.match(/\d+/g);
+    if (!nums || nums.length === 0) return 0;
+    const numbers = nums.map(Number).filter(Number.isFinite);
+    if (numbers.length === 0) return 0;
+    // if a range (two+ numbers) return average, otherwise return first
+    const sum = numbers.reduce((a, b) => a + b, 0);
+    return Math.round(sum / numbers.length);
+  };
+
   // Ensure parent doc exists
   await setDoc(
     doc(db, "itinerary", u.uid),
@@ -1427,6 +1336,9 @@ export async function addTripForCurrentUser(dest) {
   const ref = doc(db, "itinerary", u.uid, "items", id);
   const now = serverTimestamp();
 
+  // compute estimatedExpenditure from dest.price if available
+  const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.budget ?? dest?.estimatedExpenditure);
+
   const payload = {
     name: dest?.name || "Untitled destination",
     region: dest?.region || "",
@@ -1437,6 +1349,7 @@ export async function addTripForCurrentUser(dest) {
     bestTime: dest?.bestTime || "",
     image: dest?.image || "",
     status: dest?.status || "Upcoming",
+    estimatedExpenditure: estimated,
     createdAt: now,
     updatedAt: now,
   };

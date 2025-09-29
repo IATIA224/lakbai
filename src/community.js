@@ -560,7 +560,8 @@ function CommentModal({ post, onClose, onCountChange }) {
           const userCol = collection(db, "users");
           for (let i = 0; i < uidsToFetch.length; i += 10) {
             const chunk = uidsToFetch.slice(i, i + 10);
-            const qUsers = query(userCol, where(documentId(), "in", chunk));
+            // Query by document id using "__name__" (works in tests/mocks)
+            const qUsers = query(userCol, where("__name__", "in", chunk));
             const snap2 = await getDocs(qUsers);
             const seen = new Set();
             snap2.forEach(s => {
@@ -1232,7 +1233,8 @@ const Community = () => {
         const userCol = collection(db, "users");
         for (let i = 0; i < authorIds.length; i += 10) {
           const chunk = authorIds.slice(i, i + 10);
-          const qUsers = query(userCol, where(documentId(), "in", chunk));
+          // Use "__name__" to query by document id (avoids needing documentId helper)
+          const qUsers = query(userCol, where("__name__", "in", chunk));
           const snap = await getDocs(qUsers);
 
           const seen = new Set();
@@ -1523,7 +1525,7 @@ const Community = () => {
                     <button
                       className="act"
                       onClick={() => setCommentingPost(post)}
-                      data-testid={`comments-modal}`}
+                      data-testid="comments-modal"
                     >
                       <span data-testid={`comments-icon`}>💬</span> {post.comments || 0}
                     </button>

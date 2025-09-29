@@ -249,6 +249,8 @@
   border-radius: 12px;
   background: #fff;
   padding: 8px 0;
+  padding-left: 32px;
+  padding-right: 32px;
 }
 .profile-activity-item {
   display: flex;
@@ -258,6 +260,8 @@
   padding: 12px 14px;
   gap: 12px;
   font-size: 1.05rem;
+  margin-left: 0;
+  margin-right: 0;
 }
 .profile-activity-icon {
   font-size: 1.5rem;
@@ -509,12 +513,13 @@
   position: fixed;
   inset: 0;
   background: rgba(2,6,23,0.45);
+  z-index: 100000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 70;
 }
 .sharecode-card {
+  z-index: 100001;
   width: 440px;
   max-width: 92vw;
   background: #fff;
@@ -825,7 +830,7 @@ button[aria-label="Close achievements"] {
 @media (max-width: 768px) {
   .profile-main {
     max-width: 100%;
-    margin: 156px 0;
+    margin: 40px 0; /* Reduced from 156px */
     padding: 0 12px;
   }
 
@@ -1113,7 +1118,8 @@ button[aria-label="Close achievements"] {
   }
 
   .profile-main {
-    padding: 0 10px; /* Slightly more padding */
+    padding: 0 10px;
+    margin: 24px 0; /* Reduced from default, matches desktop closer */
   }
 
   .profile-header {
@@ -1303,4 +1309,34 @@ button[aria-label="Close achievements"] {
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
+}
+
+/* photoGallery.css */
+.photo-gallery-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 48, 80, 0.55);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.photo-gallery-modal {
+  z-index: 100001;
+  /* ...other styles... */
+}
+
+/* achv.css */
+.achv-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.45);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.achv-modal {
+  z-index: 100001;
+  /* ...other styles... */
 }

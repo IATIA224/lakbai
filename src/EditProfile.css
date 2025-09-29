@@ -1,6 +1,17 @@
 /* Add Inter font (same as register.css) */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+.edit-profile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 48, 80, 0.55);
+  z-index: 999999 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vh 2vw;
+}
+
 .edit-profile-modal {
   background: #fff;
   border-radius: 22px;
@@ -14,6 +25,7 @@
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  z-index: 1000000 !important;
 }
 
 .edit-profile-header {
