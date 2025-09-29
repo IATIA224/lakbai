@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { db } from './firebase';
 import { addDoc, collection, serverTimestamp, setDoc, doc } from 'firebase/firestore'; // Add setDoc and doc imports
 import { getDocs } from 'firebase/firestore';
+import AddFromCsvToggle, { IgnoreColumnsDropdown } from './addfromcsv-toggle';
+
 
 async function getExistingDestinationNames() {
   const snap = await getDocs(collection(db, 'destinations'));
@@ -241,6 +243,9 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
   const [missingColumns, setMissingColumns] = useState([]); // array of user-facing labels
   const [rowIssues, setRowIssues] = useState([]);           // [{ row: 2, missing: ['Destination Name', ...] }]
 
+  // State for imported file path
+  const [importedFilePath, setImportedFilePath] = useState('');
+
   // NEW: helper to reset modal state when it closes
   const resetModal = () => {
     setRows([]);
@@ -249,6 +254,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     setMissingColumns([]);
     setRowIssues([]);
     setBusy(false);
+    setImportedFilePath('');
   };
 
   // NEW: alert message state
@@ -276,6 +282,63 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, busy, onClose]);
 
+  
+  // Add this constant for the columns that can be ignored
+  const IGNORABLE_COLUMNS = [
+    { key: 'name', label: 'Destination Name' },
+    { key: 'region', label: 'Region' },
+    { key: 'categories', label: 'Categories' },
+    { key: 'description', label: 'Description' },
+    { key: 'tags', label: 'Tags' },
+    { key: 'location', label: 'Location' },
+    { key: 'bestTime', label: 'Best Time to Visit' },
+    { key: 'price', label: 'Price' },
+    { key: 'image', label: 'Image URL' },
+  ];
+
+  const columns = [
+  'Destination Name', 'Region', 'Categories', 'Description',
+  'Tags', 'Location', 'Best Time to Visit', 'Price', 'ImageURL'
+];
+const [ignored, setIgnored] = useState([]);
+
+<IgnoreColumnsDropdown
+  columns={columns}
+  ignored={ignored}
+  onToggle={col =>
+    setIgnored(ignored =>
+      ignored.includes(col)
+        ? ignored.filter(c => c !== col)
+        : [...ignored, col]
+    )
+  }
+/>
+
+  // State for ignored columns
+  const [ignoredCols, setIgnoredCols] = useState({});
+
+  // Handler for toggling ignore state
+  const handleIgnoreToggle = (key, checked) => {
+    setIgnoredCols(prev => ({ ...prev, [key]: checked }));
+  };
+
+  // Filter REQUIRED and ALIASES based on ignoredCols
+  const effectiveRequired = useMemo(() => {
+    const req = { ...REQUIRED };
+    Object.keys(ignoredCols).forEach(key => {
+      if (ignoredCols[key]) delete req[key];
+    });
+    return req;
+  }, [ignoredCols]);
+
+  const effectiveAliases = useMemo(() => {
+    const aliases = { ...ALIASES };
+    Object.keys(ignoredCols).forEach(key => {
+      if (ignoredCols[key]) delete aliases[key];
+    });
+    return aliases;
+  }, [ignoredCols]);
+
   useEffect(() => {
     if (!headers.length) {
       setMissingColumns([]);
@@ -285,8 +348,8 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     // Header validation
     const setKeys = headerKeySet(headers);
     const missing = [];
-    for (const [canon, label] of Object.entries(REQUIRED)) {
-      const aliases = ALIASES[canon] || [canon];
+    for (const [canon, label] of Object.entries(effectiveRequired)) {
+      const aliases = effectiveAliases[canon] || [canon];
       const present = aliases.some((k) => setKeys.has(k));
       if (!present) missing.push(label);
     }
@@ -297,8 +360,8 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
       const issues = [];
       rows.forEach((r, idx) => {
         const miss = [];
-        for (const [canon, label] of Object.entries(REQUIRED)) {
-          const aliases = ALIASES[canon] || [canon];
+        for (const [canon, label] of Object.entries(effectiveRequired)) {
+          const aliases = effectiveAliases[canon] || [canon];
           const val = getFirstValue(r, aliases);
           if (String(val).trim() === '') miss.push(label);
         }
@@ -308,8 +371,9 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     } else {
       setRowIssues([]);
     }
-  }, [headers, rows]);
-
+  }, [headers, rows, effectiveRequired, effectiveAliases]);
+  // Add before your return statement
+  
   if (!open) return null;
 
   const handleGrid = (grid) => {
@@ -323,6 +387,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
   const handleFile = async (file) => {
     setError('');
+    setImportedFilePath(file?.name || ''); // Set the file name (or path if available)
     try {
       const grid = await readGridFromFile(file);
       handleGrid(grid);
@@ -347,18 +412,92 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     }
   };
 
-  const downloadTemplate = () => {
-    const template =
-      'Destination Name,Region,Categories,Description,Content,Tags,Location,Price,Best Time to Visit,Rating,Status,Featured Image,Gallery\n' + // UPDATED (Price column)
-      'Boracay,Aklan,"Beach","White sand beach","<p>Paradise</p>","beach, island",Aklan,1500,Dec-May,5,published,https://res.cloudinary.com/.../boracay.jpg,https://.../1.jpg|https://.../2.jpg';
-    const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'destinations-template.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  
+  // Pass effectiveAliases to rowToDestination
+  function rowToDestinationWithIgnore(raw) {
+    // Helper: read using aliases and defaults
+    const g = (keys, def = '') => {
+      const v = getFirstValue(raw, keys);
+      return v === '' ? def : v;
+    };
+
+    // Use effectiveAliases for all lookups
+    const name = g(effectiveAliases.name || [], '');
+    if (!name && !ignoredCols.name) return null;
+
+    const tagsRaw = g(effectiveAliases.tags || [], '');
+    const tags = String(tagsRaw)
+      .split(/[|,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const galleryRaw = raw.gallery || raw.galleryImages || raw.mediaGallery || '';
+    const gallery = String(galleryRaw)
+      .split(/[|,; ]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const ratingStr = raw.rating || raw.stars || '0';
+    const rating = Math.max(0, Math.min(5, Number(ratingStr) || 0));
+
+    const status = String(raw.status ?? 'draft').toLowerCase();
+
+    // NEW: robust price parsing
+    const parsePrice = (v) => {
+      if (v == null) return null;
+      if (typeof v === 'number') return isFinite(v) ? v : null;
+      const cleaned = String(v)
+        .replace(/[^0-9.,]/g, '')
+        .replace(/,/g, '')
+        .trim();
+      if (!cleaned) return null;
+      const num = Number(cleaned);
+      return isFinite(num) ? num : null;
+    };
+
+    const priceRaw =
+      raw.price ??
+      raw.pricerange ??
+      raw.budget ??
+      raw.cost ??
+      raw.amount ??
+      '';
+
+    const priceNum = parsePrice(priceRaw);
+
+    const categoriesRaw = g(effectiveAliases.categories || [], '');
+    const categories = String(categoriesRaw)
+      .split(/[|,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const dest = {
+      ...(ignoredCols.name ? {} : { name: String(name).trim() }),
+      ...(ignoredCols.categories ? {} : { categories }),
+      ...(ignoredCols.description ? {} : { description: g(effectiveAliases.description || [], '') }),
+      content: raw.content || raw.body || raw.html || '',
+      ...(ignoredCols.tags ? {} : { tags }),
+      ...(ignoredCols.location ? {} : { location: g(effectiveAliases.location || [], '') }),
+      ...(ignoredCols.region ? {} : { region: g(effectiveAliases.region || [], '') }),
+      ...(ignoredCols.price ? {} : { priceRange: priceRaw, price: priceNum }),
+      ...(ignoredCols.bestTime ? {} : { bestTime: g(effectiveAliases.bestTime || [], '') }),
+      rating,
+      media: {
+        // Use aliases to get the image URL from the CSV/excel file
+        ...(ignoredCols.image ? {} : { featuredImage: getFirstValue(raw, effectiveAliases.image || []) }),
+        gallery
+      },
+      status,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const featured = String(raw.featured ?? raw.isfeatured ?? '').toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(featured)) dest.featured = true;
+
+    return dest;
+  }
+  
 
   const importNow = async () => {
     if (!rows.length) return;
@@ -366,7 +505,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     if (rowIssues.length) return alert('Please fill all required cells before importing.');
 
     const duplicateNames = findDuplicateNames(rows);
-    if (duplicateNames.length) {
+    if (duplicateNames.length && !ignoredCols.name) {
       setAlertType('error');
       setAlertMsg(`Duplicate destination names found: ${duplicateNames.join(', ')}`);
       setTimeout(() => setAlertMsg(''), 3500);
@@ -382,7 +521,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
       ).filter(Boolean);
 
       const firebaseDuplicates = importedNames.filter(n => existingNames.has(n));
-      if (firebaseDuplicates.length) {
+      if (firebaseDuplicates.length && !ignoredCols.name) {
         setAlertType('error');
         setAlertMsg(`Destination names already exist: ${firebaseDuplicates.join(', ')}`);
         setTimeout(() => setAlertMsg(''), 3500);
@@ -393,7 +532,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
       // Map rows to destination docs
       const toCreate = [];
       for (const raw of rows) {
-        const dest = rowToDestination(raw);
+        const dest = rowToDestinationWithIgnore(raw);
         if (dest) toCreate.push(dest);
       }
       if (!toCreate.length) {
@@ -407,10 +546,12 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
       for (const item of toCreate) {
         try {
           // Use destination name as ID (slugify for safety)
-          const id = String(item.name)
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with dash
-            .replace(/^-+|-+$/g, '');    // trim dashes
+          const id = item.name
+            ? String(item.name)
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with dash
+                .replace(/^-+|-+$/g, '')    // trim dashes
+            : Math.random().toString(36).slice(2, 10); // fallback if name is ignored
           await setDoc(doc(db, 'destinations', id), item);
           created.push({ ...item, id, createdAt: now, updatedAt: now });
         } catch (e) {
@@ -512,6 +653,8 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
   const disableImport = busy || rows.length === 0 || missingColumns.length > 0 || rowIssues.length > 0;
 
+
+
   return (
     <div
       role="dialog"
@@ -519,7 +662,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
       onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose?.(); }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
-      <div style={{ width: 'min(2000px,98vw)', height: 'min(900px,95vh)', background: '#fff', borderRadius: 12, boxShadow: '0 24px 64px rgba(0,0,0,.25)', overflow: 'hidden' }}>
+      <div style={{ width: 'min(2000px,98vw)', height: 'min(900px,95vh)', background: '#fff', borderRadius: 12, boxShadow: '0 24px 64px rgba(0,0,0,.25)', overflow: 'hidden', position: 'relative' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Add Destinations from CSV/Excel</div>
@@ -534,20 +677,83 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <input
+              id="import-file-input"
               type="file"
               accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleFile(e.target.files[0]);
+              }}
               disabled={busy}
+              style={{ display: 'none' }}
             />
             <button
               type="button"
-              className="btn-secondary"
-              onClick={downloadTemplate}
+              onClick={() => !busy && document.getElementById('import-file-input').click()}
               disabled={busy}
-              style={{ padding: '8px 14px', borderRadius: 8 }}
+              style={{
+                padding: '8px 18px',
+                borderRadius: 8,
+                border: '1px solid #10b981',
+                background: busy ? '#f3f4f6' : 'linear-gradient(90deg,#10b981,#059669)',
+                color: '#fff',
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                outline: 'none',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                transition: 'border 0.2s, box-shadow 0.2s',
+                marginRight: 8,
+                minWidth: 170,
+                maxWidth: 260,
+              }}
             >
-              Download Template
+              Import File
             </button>
+            {/* Address bar for imported file path */}
+            <input
+              type="text"
+              value={importedFilePath}
+              readOnly
+              placeholder="No file selected"
+              style={{
+                minWidth: 220,
+                maxWidth: 400,
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid #d1d5db',
+                background: '#f9fafb',
+                color: '#374151',
+                fontSize: 15,
+                fontWeight: 500,
+                outline: 'none',
+                marginRight: 8,
+                flex: 1,
+                // Remove marginBottom to keep inline
+              }}
+              tabIndex={-1}
+              aria-label="Imported file path"
+            />
+            {/* Inline Ignore columns dropdown */}
+            <div style={{ marginBottom: 0 }}>
+              <IgnoreColumnsDropdown
+                columns={
+                  IGNORABLE_COLUMNS
+                    .map(col => col.label)
+                    .filter(label =>
+                      rowIssues.some(issue => issue.missing.includes(label)) || ignoredCols[IGNORABLE_COLUMNS.find(c => c.label === label)?.key]
+                    )
+                }
+                ignored={IGNORABLE_COLUMNS.filter(col => !!ignoredCols[col.key]).map(col => col.label)}
+                presentColumns={[]} // Not needed since columns is already filtered
+                disabled={rows.length === 0} // <-- Grey out when no file is imported
+                onToggle={label => {
+                  const col = IGNORABLE_COLUMNS.find(c => c.label === label);
+                  if (col) {
+                    handleIgnoreToggle(col.key, !ignoredCols[col.key]);
+                  }
+                }}
+              />
+            </div>
           </div>
 
           <div
