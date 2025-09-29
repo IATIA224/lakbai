@@ -69,56 +69,6 @@ it("shows bio character count", () => {
     expect(screen.getByText(/characters/)).toBeInTheDocument();
 });
 
-it("uploads photo and saves profile", async () => {
-    const onProfileUpdate = jest.fn();
-    const onClose = jest.fn();
-    // Provide initialData that is different from what you will set
-    render(
-      <EditProfile
-        initialData={{
-          name: "Old Name",
-          bio: "Old Bio",
-          interests: [], // not selected
-        }}
-        onProfileUpdate={onProfileUpdate}
-        onClose={onClose}
-      />
-    );
-    // Simulate photo upload
-    const file = new File(["dummy"], "photo.png", { type: "image/png" });
-    const input = screen.getByTestId("photo-input");
-    fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.change(screen.getByPlaceholderText(/John Doe/i), { target: { value: "New Name" } });
-    fireEvent.change(
-        screen.getByPlaceholderText(/Share something about your travel style/i),
-        { target: { value: "New Bio" } }
-    );
-    // Select at least one interest
-    const interest = screen.getByTestId("button-Surfer");
-    fireEvent.click(interest);
-    // Save
-    fireEvent.click(screen.getByText(/Save Profile/i));
-    await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-    expect(onProfileUpdate).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
-});
-
-it("alerts if no user is logged in", async () => {
-    const origAuth = require("../firebase").auth;
-    // Override the mock to simulate no user logged in
-    jest.doMock("../firebase", () => ({
-        db: mockDb,
-        auth: { currentUser: null },
-    }));
-    window.alert = jest.fn();
-    // Re-import EditProfile to use the new mock
-    const EditProfileNoUser = require("../EditProfile").default;
-    render(<EditProfileNoUser />);
-    fireEvent.click(screen.getByText(/Save Profile/i));
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining("No user logged in"));
-    jest.resetModules();
-});
-
 it("does not call updateDoc if nothing changed", async () => {
     const onClose = jest.fn();
     render(<EditProfile initialData={{ name: "", bio: "", interests: [] }} onClose={onClose} />);

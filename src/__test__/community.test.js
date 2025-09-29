@@ -161,7 +161,8 @@ it("opens share trip modal when clicking Share Trip", async () => {
         <Community />
     </MemoryRouter>
     );
-    fireEvent.click(screen.getByText(/\+ Share Trip/i));
+    // header button text is "Share Trip" (no leading +)
+    fireEvent.click(screen.getByText(/Share Trip/i));
     expect(await screen.findByText(/Share Your Philippines Adventure/i)).toBeInTheDocument();
 });
 
@@ -172,7 +173,8 @@ it("opens friend popup when clicking Add Friend", async () => {
         <Community />
     </MemoryRouter>
     );
-    fireEvent.click(screen.getByText(/\+ Add Friend/i));
+    // open the FriendPopup via the header "Friend Settings" button
+    fireEvent.click(screen.getByText(/Friend Settings/i));
     expect(await screen.findByText(/FriendPopup/i)).toBeInTheDocument();
 });
 
@@ -229,7 +231,7 @@ it("opens comment modal when clicking comment button", async () => {
             <Community />
         </MemoryRouter>
     );
-    await screen.findByText("Trip to Cebu");
+    await screen.findByText("quickscape");
     fireEvent.click(
         screen.getAllByText((content, node) => node.textContent.includes("💬 1"))[0]
     );
