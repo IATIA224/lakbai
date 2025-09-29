@@ -34,9 +34,11 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   const [photoFile, setPhotoFile] = useState(null); // <-- store file
   const [name, setName] = useState(initialData.name || "");
   const [bio, setBio] = useState(initialData.bio || "");
+  // if initialData.interests is an empty array, fall back to default interestsList
   const [interests, setInterests] = useState(
-    initialData.interests ||
-      interestsList.map(i => ({ ...i, status: null }))
+    Array.isArray(initialData.interests) && initialData.interests.length
+      ? initialData.interests
+      : interestsList.map(i => ({ ...i, status: null }))
   );
   const [saving, setSaving] = useState(false);
 
@@ -249,7 +251,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
                     role="button"
                     tabIndex={0}
                     aria-label={interest.label}
-                    data-testid={"button-Surfer"}
+                    data-testid={`button-${interest.label.replace(/\s+/g, "")}`}
                     style={{
                       background: bgColor,
                       cursor: "pointer",
