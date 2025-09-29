@@ -1,0 +1,21 @@
+Vehicle Type,Sub-Type,Base Rate(First 5 or 4 kilometers),Rate per km (₱),Per Minute Travel time,Total Price (₱)
+PUB City,Aircon Bus,15,2.65,0,
+PUB City,Ordinary Bus,13,2.25,0,
+"PUB
+Provincial",Aircon Bus,10.50,2.10,0,
+"PUB
+Provincial",Ordinary Bus,11,1.90,0,
+PUJ,"Jeepney (Traditional
+)",13,1.80,0,
+PUJ,E-Jeep (Modern & Electric Aircon),15,2.20,0,
+PUJ,"E-Jeep (Modern & Electric Non-Aircon
+)",15,1.80,0,
+Taxi,Taxi,50.00,13.50,2,
+TNVS,"Hatchback
+/
+Sub-Comp act",35,13,2,
+TNVS,Sedan,45,15,2,
+TNVS,AUV / SUV,55,18,2,
+TNVS,Premium,145,36,4,
+UVE,Traditional,50,2.40,0,
+UVE,Modern,55,2.50,0,

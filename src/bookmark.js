@@ -257,6 +257,44 @@ function Bookmark() {
       await addTripForCurrentUser(dest);
       setAddedTripId(dest.id);
       setTimeout(() => setAddedTripId(null), 1200);
+
+      // parse estimated expenditure from price and save to users/{uid}/trips
+      const parseEstimatedFromPrice = (p) => {
+        if (p == null) return 0;
+        if (typeof p === "number") return p;
+        const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
+        const nums = s.match(/\d+/g);
+        if (!nums || nums.length === 0) return 0;
+        const numbers = nums.map(Number).filter(Number.isFinite);
+        const sum = numbers.reduce((a, b) => a + b, 0);
+        return Math.round(sum / numbers.length);
+      };
+      const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.estimatedExpenditure ?? dest?.budget);
+
+      try {
+        await setDoc(
+          doc(db, 'users', u.uid, 'trips', String(dest.id)),
+          {
+            destId: String(dest.id),
+            name: dest.name || '',
+            region: dest.region || '',
+            rating: dest.rating ?? null,
+            price: dest.price || '',
+            priceTier: dest.priceTier || null,
+            estimatedExpenditure: estimated,
+            tags: Array.isArray(dest.tags) ? dest.tags : [],
+            categories: Array.isArray(dest.categories) ? dest.categories : [],
+            bestTime: dest.bestTime || '',
+            image: dest.image || '',
+            addedBy: u.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn('users/{uid}/trips write skipped:', e.code || e.message);
+      }
     } catch (e) {
       // console.error('Add to trip failed:', e?.code || e?.message, e);
       showError('Failed to add to My Trips.');
@@ -611,7 +649,7 @@ function Bookmark() {
                     try {
                       await removeBookmark(d.id);
                     } finally {
-                      endRemove(d.id);
+                        endRemove(d.id);
                     }
                   }}
                   aria-label="Remove from bookmarks"

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from './firebase';
+
 import { signOut } from 'firebase/auth';
+import { 
+  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc, onSnapshot
+} from 'firebase/firestore';
+import { db, auth } from './firebase';
 import './dashboardBanner.css';
 import useUserDashboardStats from './dashboard-stats-row'; // <-- Add this import at the top
 
@@ -64,42 +68,94 @@ function DestinationCard({
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
 
-  // Sample trips and bookmarks (replace with Firestore fetch)
-  const [trips, setTrips] = useState([
-    {
-      id: 'trip1',
-      title: 'Baguio Adventure',
-      image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
-      user: '/user.png',
-      date: 'Sep 15',
-      places: 3,
-      soon: true
-    },
-    {
-      id: 'trip2',
-      title: 'Palawan Escape',
-      image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80',
-      user: '/user.png',
-      date: 'Oct 2',
-      places: 5,
-      soon: false
-    }
-  ]);
+  // Fetch trips from Firestore (itinerary/{userId}/items) for the current user, real-time
+  const [trips, setTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(true);
+  useEffect(() => {
+    let unsubscribeAuth;
+    let unsubscribeTrips;
+    setTripsLoading(true);
+    unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (user) {
+        const colRef = collection(db, 'itinerary', user.uid, 'items');
+        unsubscribeTrips = onSnapshot(
+          fsQuery(colRef, orderBy('createdAt', 'desc')),
+          (snap) => {
+            const rows = snap.docs.map((doc) => {
+              const data = doc.data() || {};
+              return {
+                id: doc.id,
+                ...data,
+              };
+            });
+            setTrips(rows);
+            setTripsLoading(false);
+          },
+          (error) => {
+            setTrips([]);
+            setTripsLoading(false);
+          }
+        );
+      } else {
+        setTrips([]);
+        setTripsLoading(false);
+        if (unsubscribeTrips) unsubscribeTrips();
+      }
+    });
+    return () => {
+      if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
+      if (typeof unsubscribeTrips === 'function') unsubscribeTrips();
+    };
+  }, []);
 
-  const [bookmarks, setBookmarks] = useState([
-    {
-      id: 'bm1',
-      title: 'Chocolate Hills',
-      image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80',
-      desc: 'Unique geological formation in Bohol.'
-    },
-    {
-      id: 'bm2',
-      title: 'Taal Volcano',
-      image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80',
-      desc: 'Active volcano with a scenic lake.'
-    }
-  ]);
+  const [bookmarks, setBookmarks] = useState([]);
+  const [bookmarksLoading, setBookmarksLoading] = useState(true);
+
+  // Fetch 2 most recent bookmarks for the current user
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setBookmarksLoading(true);
+        try {
+          const colRef = collection(db, 'users', user.uid, 'bookmarks');
+          const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc'), limit(2)));
+          const rows = await Promise.all(
+            snap.docs.map(async (b) => {
+              const data = b.data() || {};
+              // Prefer data stored on the bookmark doc
+              if (data.name && data.description) {
+                return {
+                  id: b.id,
+                  ...data,
+                  savedAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+                };
+              }
+              // Fallback: merge with source destination doc
+              const dref = doc(db, 'destinations', b.id);
+              const ddoc = await getDoc(dref);
+              return {
+                id: b.id,
+                ...(ddoc.exists() ? ddoc.data() : {}),
+                ...data,
+                savedAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+              };
+            })
+          );
+          setBookmarks(rows.filter(Boolean));
+        } catch (e) {
+          setBookmarks([]);
+        } finally {
+          setBookmarksLoading(false);
+        }
+      } else {
+        setBookmarks([]);
+        setBookmarksLoading(false);
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, []);
 
   // Use the custom hook for live stats
   const { loading: statsLoading, error: statsError, stats } = useUserDashboardStats();
@@ -224,42 +280,57 @@ function Dashboard({ setShowAIModal }) {
             + Plan new trip
           </button>
           <div className="dashboard-preview-list">
-            {trips && trips.map(trip => (
-              <div className="dashboard-preview-trip" key={trip.id}>
-                <img src={trip.image} alt={trip.title} className="dashboard-preview-img" />
-                <div className="dashboard-preview-info">
-                  {trip.soon && <span className="dashboard-preview-soon">In 1 day</span>}
-                  <div className="dashboard-preview-trip-title">{trip.title}</div>
-                  <div className="dashboard-preview-trip-meta">
-                    <img src={trip.user} alt="user" className="dashboard-preview-user" />
-                    <span>{trip.date} • {trip.places} place{trip.places !== 1 ? 's' : ''}</span>
+            {tripsLoading ? (
+              <div className="dashboard-preview-empty">Loading trips…</div>
+            ) : trips && trips.length > 0 ? (
+              trips.map(trip => (
+                <div className="dashboard-preview-trip" key={trip.id || trip.name}>
+                  <img src={trip.image || '/placeholder.png'} alt={trip.name || trip.title} className="dashboard-preview-img" />
+                  <div className="dashboard-preview-info">
+                    {trip.status === 'Upcoming' && trip.arrival && (
+                      <span className="dashboard-preview-soon">Upcoming</span>
+                    )}
+                    <div className="dashboard-preview-trip-title">{trip.name || trip.title}</div>
+                    <div className="dashboard-preview-trip-meta">
+                      <span>
+                        {trip.arrival ? `${trip.arrival}` : ''}
+                        {trip.departure ? ` – ${trip.departure}` : ''}
+                        {trip.activities && Array.isArray(trip.activities)
+                          ? ` • ${trip.activities.length} activit${trip.activities.length === 1 ? 'y' : 'ies'}`
+                          : ''}
+                      </span>
+                    </div>
                   </div>
+                  <span className="dashboard-preview-dots">⋯</span>
                 </div>
-                <span className="dashboard-preview-dots">⋯</span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="dashboard-preview-empty">No trips found. Start planning your first trip!</div>
+            )}
           </div>
         </div>
         <div className="dashboard-preview-col">
           <div className="dashboard-preview-title">Bookmarks</div>
           <button 
             className="dashboard-preview-btn"
-            onClick={() => navigate('/bookmarks')}
+            onClick={() => navigate('/bookmarks2')}
           >
             + Add new bookmark
           </button>
           <div className="dashboard-preview-list">
-            {bookmarks && bookmarks.length === 0 ? (
+            {bookmarksLoading ? (
+              <div className="dashboard-preview-empty">Loading bookmarks…</div>
+            ) : bookmarks.length === 0 ? (
               <div className="dashboard-preview-empty">
                 You don't have any bookmarks yet. <span style={{ color: "#e74c3c" }}>Add a new bookmark.</span>
               </div>
             ) : (
-              bookmarks && bookmarks.map(bm => (
+              bookmarks.map(bm => (
                 <div className="dashboard-preview-bookmark" key={bm.id}>
-                  <img src={bm.image} alt={bm.title} className="dashboard-preview-img" />
+                  <img src={bm.image} alt={bm.title || bm.name} className="dashboard-preview-img" />
                   <div className="dashboard-preview-bookmark-info">
-                    <div className="dashboard-preview-bookmark-title">{bm.title}</div>
-                    <div className="dashboard-preview-bookmark-desc">{bm.desc}</div>
+                    <div className="dashboard-preview-bookmark-title">{bm.title || bm.name}</div>
+                    <div className="dashboard-preview-bookmark-desc">{bm.desc || bm.description}</div>
                   </div>
                   <span className="dashboard-preview-dots">⋯</span>
                 </div>

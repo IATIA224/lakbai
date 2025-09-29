@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, BrowserRouter, useLocation, useInRouterContext, Navigate } from 'react-router-dom';
+import { Routes, Route, BrowserRouter, useLocation, useInRouterContext, Navigate, Outlet } from 'react-router-dom';
 import StickyHeader from './header';
 import Login from './login';
 import Register from './register';
@@ -17,17 +17,13 @@ import Footer from './Footer';
 import LoginCMS from './login-cms';
 import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
-import Destinations from './bookmarks2'; // <-- Add this import at the top
 import { ToastContainer } from 'react-toastify';
 
-// New: place all UI that depends on useLocation in this inner component
+// Authentication helpers (unchanged)
 function isAuthenticated() {
-  // Only treat as authenticated if token is a non-empty string
   const token = localStorage.getItem('token');
   return typeof token === 'string' && token.trim().length > 0;
 }
-
-// Add a separate admin authentication check
 function isAdminAuthenticated() {
   const adminToken = localStorage.getItem('adminToken');
   return typeof adminToken === 'string' && adminToken.trim().length > 0;
@@ -37,28 +33,25 @@ function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
   const location = useLocation();
 
-  // normalize path to avoid flashes on refresh (trailing slash, case, query/hash)
-  const normalizePath = (p = '/') => {
-    const noQuery = String(p).split('?')[0].split('#')[0];
-    const trimmed = noQuery.replace(/\/+$/, '');
-    return (trimmed === '' ? '/' : trimmed).toLowerCase();
-  };
-
-  const hideHeaderRoutes = [
-    '/', '/login', '/register', '/admin/login'
-  ];
-
-  const currentPath = normalizePath(location?.pathname || '/');
-  // Hide header for all /admin routes
-  const isAdminRoute = currentPath.startsWith('/admin');
-  const showHeader = !hideHeaderRoutes.includes(currentPath) && !isAdminRoute;
+  // MainLayout used only for pages that should have header + footer.
+  // Footer is keyed by location so it remounts on navigation.
+  function MainLayout() {
+    const loc = useLocation();
+    return (
+      <>
+        <StickyHeader setShowAIModal={setShowAIModal} />
+        <main id="main-content">
+          <Outlet />
+        </main>
+        <Footer key={loc.pathname + (loc.search || '')} />
+      </>
+    );
+  }
 
   return (
     <UserProvider>
-      {showHeader && <StickyHeader setShowAIModal={setShowAIModal} />}
-
       <Routes>
-        {/* User routes */}
+        {/* Public / auth routes (no header/footer) */}
         <Route
           path="/"
           element={
@@ -71,81 +64,38 @@ function AppInner() {
         />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard setShowAIModal={setShowAIModal} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/bookmark"
-          element={
-            <ProtectedRoute>
-              <Bookmark />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/bookmarks2"
-          element={
-            <ProtectedRoute>
-              <Bookmarks2 />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/community"
-          element={
-            <ProtectedRoute>
-              <Community />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/itinerary"
-          element={
-            <ProtectedRoute>
-              <Itinerary />
-            </ProtectedRoute>
-          }
-        />
-        {/* Admin routes */}
+
+        {/* Admin routes (no main header/footer) */}
         <Route path="/admin/login" element={<LoginCMS />} />
         <Route path="/admin/ContentManagement" element={<ContentManagement />} />
-        {/* Fallback for unknown user routes */}
         <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
+
+        {/* Protected routes that should include header + footer */}
+        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
+          <Route path="/bookmark" element={<Bookmark />} />
+          <Route path="/bookmarks2" element={<Bookmarks2 />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/itinerary" element={<Itinerary />} />
+        </Route>
+
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
       <AchievementToast />
-      {showHeader && <Footer />}
       <ToastContainer />
     </UserProvider>
   );
 }
 
-// Replace default export body to mount a Router only if needed
+// Export wrapped by BrowserRouter if not already in a Router context
 export default function App() {
-  // Was: typeof check that caused a conditional hook call lint error
-  const inRouter = useInRouterContext(); // safe: returns false if no Router
+  const inRouter = useInRouterContext();
+  if (inRouter) return <AppInner />;
 
-  if (inRouter) {
-    // Already wrapped (e.g., tests use <MemoryRouter>)
-    return <AppInner />;
-  }
-
-  // Normal app run: provide BrowserRouter
   return (
     <BrowserRouter>
       <AppInner />
