@@ -242,9 +242,41 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
   const [missingColumns, setMissingColumns] = useState([]); // array of user-facing labels
   const [rowIssues, setRowIssues] = useState([]);           // [{ row: 2, missing: ['Destination Name', ...] }]
+  // State for existing names check
+  const [allExist, setAllExist] = useState(false);
+  const [existingRowsSummary, setExistingRowsSummary] = useState('');
+  const [importedFilePath, setImportedFilePath] = useState('');
 
   // State for imported file path
-  const [importedFilePath, setImportedFilePath] = useState('');
+  useEffect(() => {
+    let ignore = false;
+    async function checkExisting() {
+      if (!rows.length) {
+        setAllExist(false);
+        setExistingRowsSummary('');
+        return;
+      }
+      const existingNames = await getExistingDestinationNames();
+      const importedNames = rows.map(r =>
+        String(r.name || r.destinationname || r.title || '').trim().toLowerCase()
+      ).filter(Boolean);
+
+      const alreadyExist = importedNames.filter(n => existingNames.has(n));
+      if (!ignore) {
+        setAllExist(alreadyExist.length === importedNames.length && importedNames.length > 0);
+        if (alreadyExist.length) {
+          setExistingRowsSummary(
+            `Already exists: ${alreadyExist.slice(0, 5).join(', ')}${alreadyExist.length > 5 ? `, and ${alreadyExist.length - 5} more` : ''}`
+          );
+        } else {
+          setExistingRowsSummary('');
+        }
+      }
+    }
+    checkExisting();
+    return () => { ignore = true; };
+  }, [rows]);
+
 
   // NEW: helper to reset modal state when it closes
   const resetModal = () => {
@@ -651,7 +683,13 @@ const [ignored, setIgnored] = useState([]);
       .map(([name]) => name);
   }
 
-  const disableImport = busy || rows.length === 0 || missingColumns.length > 0 || rowIssues.length > 0;
+  // Track if all imported rows already exist
+
+
+  // Check for existing destinations on file import or rows change
+
+
+  const disableImport = busy || rows.length === 0 || missingColumns.length > 0 || rowIssues.length > 0 || allExist;
 
 
 
@@ -873,16 +911,22 @@ const [ignored, setIgnored] = useState([]);
             display: 'flex',
             justifyContent: 'flex-end',
             gap: 10,
-            position: 'absolute',      // <-- Add this
-            right: 0,                  // <-- Add this
-            bottom: 0,                 // <-- Add this
-            width: '100%',             // <-- Add this
-            background: '#fff',        // <-- Optional: keeps footer visible if content scrolls
+            position: 'absolute',
+            right: 0,
+            bottom: 0,
+            width: '100%',
+            background: '#fff',
           }}
         >
+          {allExist && (
+            <span style={{ color: '#b91c1c', fontWeight: 500, margin: '0 12px 0 0', alignSelf: 'center', fontSize: 15 }}>
+              All imported destinations already exist. {existingRowsSummary}
+            </span>
+          )}
           <button className="btn-secondary" onClick={() => !busy && onClose?.()} disabled={busy} style={{ padding: '10px 18px', borderRadius: 10 }}>
             Cancel
           </button>
+
           <button
             className="btn-primary"
             onClick={importNow}
