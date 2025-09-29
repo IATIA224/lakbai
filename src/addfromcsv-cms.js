@@ -866,7 +866,20 @@ const [ignored, setIgnored] = useState([]);
         </div>
 
         {/* Footer */}
-        <div style={{ padding: 16, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <div
+          style={{
+            padding: 16,
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 10,
+            position: 'absolute',      // <-- Add this
+            right: 0,                  // <-- Add this
+            bottom: 0,                 // <-- Add this
+            width: '100%',             // <-- Add this
+            background: '#fff',        // <-- Optional: keeps footer visible if content scrolls
+          }}
+        >
           <button className="btn-secondary" onClick={() => !busy && onClose?.()} disabled={busy} style={{ padding: '10px 18px', borderRadius: 10 }}>
             Cancel
           </button>
