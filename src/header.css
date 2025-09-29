@@ -12,7 +12,7 @@
   left: 0;
   right: 0;
   height: var(--header-height);
-  z-index: 99999 !important;
+  z-index: 999 !important;
   background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
   box-shadow: 0 6px 20px rgba(0,0,0,0.12);
   border-top: none !important;

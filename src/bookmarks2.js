@@ -187,17 +187,68 @@ export default function Bookmarks2() {
   const canPrev = page > 1;
   const canNext = page < totalPages;
 
+  // NEW: helper to navigate pages and reliably scroll to top
+  const goToPage = (target) => {
+    setPage(target);
+
+    // Desired top position
+    const top = 0;
+
+    // Try multiple scroll targets (window, document, main app container)
+    try {
+      if (typeof window !== 'undefined' && window.scrollTo) {
+        // smooth when possible
+        try {
+          window.scrollTo({ top, behavior: 'smooth' });
+        } catch {
+          window.scrollTo(0, top);
+        }
+      }
+
+      // Also try documentElement/body (some setups use these)
+      if (document.documentElement && 'scrollTop' in document.documentElement) {
+        document.documentElement.scrollTop = top;
+      }
+      if (document.body && 'scrollTop' in document.body) {
+        document.body.scrollTop = top;
+      }
+
+      // If your app uses a scrollable container, scroll that too
+      const appEl = document.querySelector('.App') || document.querySelector('#root') || null;
+      if (appEl && typeof appEl.scrollTo === 'function') {
+        try {
+          appEl.scrollTo({ top, behavior: 'smooth' });
+        } catch {
+          appEl.scrollTop = top;
+        }
+      }
+    } catch (e) {
+      // final fallback
+      try { window.scrollTo(0, 0); } catch {}
+    }
+
+    // Remove focus from the pager button so the browser won't keep it visible
+    // (do after a short delay so we don't interrupt the click)
+    try {
+      setTimeout(() => {
+        const active = document.activeElement;
+        if (active && typeof active.blur === 'function') active.blur();
+      }, 50);
+    } catch {}
+  };
+
+  // REPLACE existing Pager with one that uses goToPage
   const Pager = () => (
     <div className="bp2-pager" style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', margin: '12px 0' }}>
       <div className="bp2-pager-info" style={{ color: '#475569', fontSize: 14 }}>
         {filtered.length ? `Showing ${start + 1}–${end} of ${filtered.length}` : 'No destinations found'}
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button className="next-page-btn" onClick={() => setPage(1)} disabled={!canPrev} aria-label="First page">« First</button>
-        <button className="next-page-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={!canPrev} aria-label="Previous page">‹ Prev</button>
+        <button className="next-page-btn" onClick={() => goToPage(1)} disabled={!canPrev} aria-label="First page">« First</button>
+        <button className="next-page-btn" onClick={() => goToPage(Math.max(1, page - 1))} disabled={!canPrev} aria-label="Previous page">‹ Prev</button>
         <span style={{ padding: '6px 10px', fontSize: 14 }}>{page} / {totalPages}</span>
-        <button className="next-page-btn  " onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={!canNext} aria-label="Next page">Next ›</button>
-        <button className="next-page-btn" onClick={() => setPage(totalPages)} disabled={!canNext} aria-label="Last page">Last »</button>
+        <button className="next-page-btn" onClick={() => goToPage(Math.min(totalPages, page + 1))} disabled={!canNext} aria-label="Next page">Next ›</button>
+        <button className="next-page-btn" onClick={() => goToPage(totalPages)} disabled={!canNext} aria-label="Last page">Last »</button>
       </div>
     </div>
   );
@@ -463,10 +514,23 @@ export default function Bookmarks2() {
         return;
       }
 
-      // Existing behavior (do not remove)
+      // Existing behavior: write to itinerary collection using helper
       await addTripForCurrentUser(dest);
 
-      // NEW: also save to users/{uid}/trips/{destId}
+      // small parser reused here to store same estimatedExpenditure in users/{uid}/trips
+      const parseEstimatedFromPrice = (p) => {
+        if (p == null) return 0;
+        if (typeof p === "number") return p;
+        const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
+        const nums = s.match(/\d+/g);
+        if (!nums || nums.length === 0) return 0;
+        const numbers = nums.map(Number).filter(Number.isFinite);
+        const sum = numbers.reduce((a, b) => a + b, 0);
+        return Math.round(sum / numbers.length);
+      };
+      const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.estimatedExpenditure ?? dest?.budget);
+
+      // NEW: also save to users/{uid}/trips/{destId} with estimatedExpenditure
       try {
         await setDoc(
           doc(db, 'users', user.uid, 'trips', String(dest.id)),
@@ -477,6 +541,7 @@ export default function Bookmarks2() {
             rating: dest.rating ?? null,
             price: dest.price || '',
             priceTier: dest.priceTier || null,
+            estimatedExpenditure: estimated,
             tags: Array.isArray(dest.tags) ? dest.tags : [],
             categories: Array.isArray(dest.categories) ? dest.categories : [],
             bestTime: dest.bestTime || '',
@@ -495,10 +560,6 @@ export default function Bookmarks2() {
       setTimeout(() => {
         setAddedTripId(null);
         navigate('/itinerary'); // Route for "My Trips"
-      }, 600);
-      setTimeout(() => {
-        setAddedTripId(null);
-        navigate('/itinerary'); // Route for “My Trips”
       }, 600);
     } catch (e) {
       if (e?.message === 'AUTH_REQUIRED') {
@@ -967,5 +1028,5 @@ export default function Bookmarks2() {
         </div>
       )}
     </div>
-  );
-}
+  );}
+

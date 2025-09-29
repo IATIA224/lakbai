@@ -34,9 +34,11 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   const [photoFile, setPhotoFile] = useState(null); // <-- store file
   const [name, setName] = useState(initialData.name || "");
   const [bio, setBio] = useState(initialData.bio || "");
+  // if initialData.interests is an empty array, fall back to default interestsList
   const [interests, setInterests] = useState(
-    initialData.interests ||
-      interestsList.map(i => ({ ...i, status: null }))
+    Array.isArray(initialData.interests) && initialData.interests.length
+      ? initialData.interests
+      : interestsList.map(i => ({ ...i, status: null }))
   );
   const [saving, setSaving] = useState(false);
 
@@ -132,155 +134,157 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   };
 
   return (
-    <div className="edit-profile-modal">
-      <div className="edit-profile-header">
-        <span>Edit Travel Profile</span>
-        <div className="edit-profile-sub">Customize your adventure identity</div>
-      </div>
-      <div className="edit-profile-content">
-        <div className="edit-profile-left">
-          <div className="edit-profile-avatar">
-            <label htmlFor="profile-photo-upload" className="edit-profile-avatar-label">
-              {photo ? (
-                <img 
-                  src={photo} 
-                  alt="Profile" 
-                  className="edit-profile-avatar-img"
-                  style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    background: "#f3f4f6",
-                    border: "3px solid #e5e7eb",
-                    cursor: "pointer"
-                  }}
+    <div className="edit-profile-backdrop">
+      <div className="edit-profile-modal">
+        <div className="edit-profile-header">
+          <span>Edit Travel Profile</span>
+          <div className="edit-profile-sub">Customize your adventure identity</div>
+        </div>
+        <div className="edit-profile-content">
+          <div className="edit-profile-left">
+            <div className="edit-profile-avatar">
+              <label htmlFor="profile-photo-upload" className="edit-profile-avatar-label">
+                {photo ? (
+                  <img 
+                    src={photo} 
+                    alt="Profile" 
+                    className="edit-profile-avatar-img"
+                    style={{
+                      width: 96,
+                      height: 96,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      background: "#f3f4f6",
+                      border: "3px solid #e5e7eb",
+                      cursor: "pointer"
+                    }}
+                  />
+                ) : initialData.profilePicture && initialData.profilePicture !== "/user.png" ? (
+                  <img
+                    src={initialData.profilePicture}
+                    alt="Profile"
+                    className="edit-profile-avatar-img"
+                    style={{
+                      width: 96,
+                      height: 96,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      background: "#f3f4f6",
+                      border: "3px solid #e5e7eb",
+                      cursor: "pointer"
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 96,
+                      height: 96,
+                      borderRadius: "50%",
+                      background: "#a084ee",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "2.5rem",
+                      fontWeight: "700",
+                      border: "3px solid #e5e7eb",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {(initialData.name || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <input
+                  data-testid="photo-input"
+                  id="profile-photo-upload"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handlePhotoChange}
                 />
-              ) : initialData.profilePicture && initialData.profilePicture !== "/user.png" ? (
-                <img
-                  src={initialData.profilePicture}
-                  alt="Profile"
-                  className="edit-profile-avatar-img"
-                  style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    background: "#f3f4f6",
-                    border: "3px solid #e5e7eb",
-                    cursor: "pointer"
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: "50%",
-                    background: "#a084ee",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "2.5rem",
-                    fontWeight: "700",
-                    border: "3px solid #e5e7eb",
-                    cursor: "pointer"
-                  }}
-                >
-                  {(initialData.name || "U").charAt(0).toUpperCase()}
-                </div>
-              )}
+              </label>
+              <div className="edit-profile-avatar-change">Click to change photo</div>
+            </div>
+            <label className="edit-profile-label">
+              Travel Name
               <input
-                data-testid="photo-input"
-                id="profile-photo-upload"
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handlePhotoChange}
+                type="text"
+                className="edit-profile-input"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                maxLength={40}
+                placeholder="John Doe"
               />
             </label>
-            <div className="edit-profile-avatar-change">Click to change photo</div>
+            <label className="edit-profile-label">
+              Travel Bio
+              <textarea
+                className="edit-profile-textarea"
+                value={bio}
+                onChange={e => setBio(e.target.value.slice(0, MAX_BIO))}
+                maxLength={MAX_BIO}
+                rows={4}
+                placeholder="Share something about your travel style..."
+              />
+              <div className="edit-profile-bio-count">
+                {bio.length}/{MAX_BIO} characters
+              </div>
+            </label>
           </div>
-          <label className="edit-profile-label">
-            Travel Name
-            <input
-              type="text"
-              className="edit-profile-input"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={40}
-              placeholder="John Doe"
-            />
-          </label>
-          <label className="edit-profile-label">
-            Travel Bio
-            <textarea
-              className="edit-profile-textarea"
-              value={bio}
-              onChange={e => setBio(e.target.value.slice(0, MAX_BIO))}
-              maxLength={MAX_BIO}
-              rows={4}
-              placeholder="Share something about your travel style..."
-            />
-            <div className="edit-profile-bio-count">
-              {bio.length}/{MAX_BIO} characters
+          <div className="edit-profile-right">
+            <div style={{ height: 12 }} /> {/* spacing between left and right */}
+            <div className="edit-profile-interests-title">
+              Travel Interests
+              <div className="edit-profile-interests-sub">
+                Click each interest to like (green) or dislike (red)
+              </div>
             </div>
-          </label>
-        </div>
-        <div className="edit-profile-right">
-          <div style={{ height: 12 }} /> {/* spacing between left and right */}
-          <div className="edit-profile-interests-title">
-            Travel Interests
-            <div className="edit-profile-interests-sub">
-              Click each interest to like (green) or dislike (red)
+            <div className="edit-profile-interests-list" style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", overflowX: "hidden"}}>
+              {interests.map((interest, idx) => {
+                let bgColor = interest.color;
+                if (interest.status === "like") bgColor = "#d1fae5"; // green
+                if (interest.status === "dislike") bgColor = "#fee2e2"; // red
+                return (
+                  <div
+                    key={interest.label}
+                    className="edit-profile-interest"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={interest.label}
+                    data-testid={`button-${interest.label.replace(/\s+/g, "")}`}
+                    style={{
+                      background: bgColor,
+                      cursor: "pointer",
+                      transition: "background 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      border: interest.status ? "2px solid #6c63ff" : "2px solid transparent",
+                      minHeight: "48px",
+                      borderRadius: "12px",
+                      padding: "12px 16px",
+                      fontSize: "1.08rem",
+                      fontWeight: "500",
+                      boxShadow: "0 2px 8px rgba(108,99,255,0.07)",
+                      userSelect: "none"
+                    }}
+                    onClick={() => handleInterestClick(idx)}
+                    onKeyPress={e => { if (e.key === "Enter" || e.key === " ") handleInterestClick(idx); }}
+                  >
+                    <span className="edit-profile-interest-icon">{interest.icon}</span>
+                    <span className="edit-profile-interest-label">{interest.label}</span>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-          <div className="edit-profile-interests-list" style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", overflowX: "hidden"}}>
-            {interests.map((interest, idx) => {
-              let bgColor = interest.color;
-              if (interest.status === "like") bgColor = "#d1fae5"; // green
-              if (interest.status === "dislike") bgColor = "#fee2e2"; // red
-              return (
-                <div
-                  key={interest.label}
-                  className="edit-profile-interest"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={interest.label}
-                  data-testid={"button-Surfer"}
-                  style={{
-                    background: bgColor,
-                    cursor: "pointer",
-                    transition: "background 0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    border: interest.status ? "2px solid #6c63ff" : "2px solid transparent",
-                    minHeight: "48px",
-                    borderRadius: "12px",
-                    padding: "12px 16px",
-                    fontSize: "1.08rem",
-                    fontWeight: "500",
-                    boxShadow: "0 2px 8px rgba(108,99,255,0.07)",
-                    userSelect: "none"
-                  }}
-                  onClick={() => handleInterestClick(idx)}
-                  onKeyPress={e => { if (e.key === "Enter" || e.key === " ") handleInterestClick(idx); }}
-                >
-                  <span className="edit-profile-interest-icon">{interest.icon}</span>
-                  <span className="edit-profile-interest-label">{interest.label}</span>
-                </div>
-              );
-            })}
           </div>
         </div>
-      </div>
-      <div className="edit-profile-actions">
-        <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
-        <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save Profile"}
-        </button>
+        <div className="edit-profile-actions">
+          <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
+          <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Profile"}
+          </button>
+        </div>
       </div>
     </div>
   );
