@@ -476,6 +476,14 @@ export default function ImagesCMS() {
                     <option value="REGION_V">Region V - Bicol Region</option>
                     <option value="REGION_VI">Region VI - Western Visayas</option>
                     <option value="REGION_VII">Region VII - Central Visayas</option>
+                    <option value="REGION_VIII">Region VIII - Eastern Visayas</option>
+                    <option value="REGION_IX">Region IX - Zamboanga Peninsula</option>
+                    <option value="REGION_X">Region X - Northern Mindanao</option>
+                    <option value="REGION_XI">Region XI - Davao Region</option>
+                    <option value="REGION_XII">Region XII - SOCCSKSARGEN</option>
+                    <option value="REGION_XIII">Region XIII - CARAGA</option>
+                    <option value="NCR">NCR - National Capital Region</option>
+                    <option value="BARMM">BARMM - Bangsamoro Autonomous Region in Muslim Mindanao</option>
                 </select>
             </div>
 

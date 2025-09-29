@@ -74,15 +74,15 @@ it("uploads photo and saves profile", async () => {
     const onClose = jest.fn();
     // Provide initialData that is different from what you will set
     render(
-      <EditProfile
-        initialData={{
-          name: "Old Name",
-          bio: "Old Bio",
-          interests: [], // not selected
-        }}
-        onProfileUpdate={onProfileUpdate}
-        onClose={onClose}
-      />
+        <EditProfile
+            initialData={{
+            name: "Old Name",
+            bio: "Old Bio",
+            interests: [], // not selected
+            }}
+            onProfileUpdate={onProfileUpdate}
+            onClose={onClose}
+        />
     );
     // Simulate photo upload
     const file = new File(["dummy"], "photo.png", { type: "image/png" });
