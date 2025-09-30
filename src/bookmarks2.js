@@ -796,7 +796,7 @@ export default function Bookmarks2() {
                     <div
                       style={{
                         width: "100%",
-                        height: 120,
+                        height: 180,
                         borderRadius: "12px 12px 0 0",
                         background: "#e0e7ef",
                         display: "flex",
