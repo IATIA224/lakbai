@@ -3,6 +3,8 @@ import { db } from './firebase';
 import { addDoc, collection, serverTimestamp, setDoc, doc } from 'firebase/firestore'; // Add setDoc and doc imports
 import { getDocs } from 'firebase/firestore';
 import AddFromCsvToggle, { IgnoreColumnsDropdown } from './addfromcsv-toggle';
+import { logDestinationImport } from './addfromcsv-audit';
+
 
 
 async function getExistingDestinationNames() {
@@ -585,6 +587,19 @@ const [ignored, setIgnored] = useState([]);
                 .replace(/^-+|-+$/g, '')    // trim dashes
             : Math.random().toString(36).slice(2, 10); // fallback if name is ignored
           await setDoc(doc(db, 'destinations', id), item);
+          // Log audit
+            await logDestinationImport({
+            destination: item,
+            userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
+            userEmail: 'aclanjeremy432@gmail.com',
+            userRole: 'admin',
+            sessionId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+            device: 'Desktop',
+            browser: getBrowserInfo(),
+            os: getOSInfo(),
+            userAgent: navigator.userAgent,
+            outcome: `success (${created.length > 0 ? 200 : 204})`
+            });
           created.push({ ...item, id, createdAt: now, updatedAt: now });
         } catch (e) {
           console.warn('Failed to create a row:', e?.message);
@@ -949,5 +964,27 @@ const [ignored, setIgnored] = useState([]);
     </div>
   );
 };
+
+// Simple browser info function
+function getBrowserInfo() {
+  const ua = navigator.userAgent;
+  if (/chrome|crios|crmo/i.test(ua) && !/edge|edg|opr|opera/i.test(ua)) return 'Chrome';
+  if (/firefox|fxios/i.test(ua)) return 'Firefox';
+  if (/safari/i.test(ua) && !/chrome|crios|crmo|android/i.test(ua)) return 'Safari';
+  if (/edg/i.test(ua)) return 'Edge';
+  if (/opr|opera/i.test(ua)) return 'Opera';
+  return 'Other';
+}
+
+// Simple OS info function
+function getOSInfo() {
+  const ua = navigator.userAgent;
+  if (/windows nt/i.test(ua)) return 'Windows';
+  if (/macintosh|mac os x/i.test(ua)) return 'MacOS';
+  if (/android/i.test(ua)) return 'Android';
+  if (/linux/i.test(ua)) return 'Linux';
+  if (/iphone|ipad|ipod/i.test(ua)) return 'iOS';
+  return 'Other';
+}
 
 export default AddFromCsvCMS;
