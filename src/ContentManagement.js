@@ -1635,8 +1635,7 @@ useEffect(() => {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '14px 16px', verticalAlign: 'top', fontSize: 14 }}>
-                                                {d.updatedAt ? new Date(d.updatedAt).toLocaleDateString() : new Date().toLocaleDateString()}
-                                            </td>
+                                              {fmtDate(d.updatedAt)}                                            </td>
                                             <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
                                                 <button
                                                     className="btn-primary-cms"
