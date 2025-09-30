@@ -1,0 +1,21 @@
+.notfound-cms {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 0;
+  color: #6b7280;
+  font-size: 1.2rem;
+  background: transparent;
+}
+.notfound-cms-icon {
+  font-size: 18px;
+  margin-bottom: 12px;
+  opacity: 0.7;
+}
+.notfound-cms-text {
+  font-size: 18px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+}
