@@ -763,6 +763,18 @@ body { overflow-y: auto; }
     font-weight: 700;
     box-shadow: 0 8px 30px rgba(43,110,246,0.18);
 }
+.btn-primary-cms-edit {
+    background: linear-gradient(90deg,#2b6ef6 0%, #4aa8ff 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        color: white;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        height: 36px;
+        width: 120px;
+}
 .btn-secondary {
     background: linear-gradient(90deg,#10b981,#059669);
     color: #fff;
