@@ -20,6 +20,9 @@ export default function ImagesCMS() {
     const [openDetails, setOpenDetails] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadTotal, setUploadTotal] = useState(0);
+    const [uploadDone, setUploadDone] = useState(0);
 
     // New state for delete confirmation and error
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -131,120 +134,143 @@ export default function ImagesCMS() {
         document.getElementById('cloudinary-upload-input').click();
     };
 
+    // Modified for progress bar and count
     const handleFileChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        if (!file.name.toLowerCase().endsWith('.jpg') && !file.name.toLowerCase().endsWith('.jpeg')) {
-            alert('Only JPG images are allowed.');
-            return;
-        }
-        // Check for duplicate name (case-insensitive, ignore .jpg)
-        const newName = file.name.replace(/\.jpe?g$/i, '').trim().toLowerCase();
-        const isDuplicate = images.some(img => img.name.trim().toLowerCase() === newName);
-        if (isDuplicate) {
-            setUploadError('Image with this name already exists.');
-            setTimeout(() => setUploadError(''), 3000);
-            e.target.value = '';
-            return;
-        }
-        setUploading(true);
-        setUploadError('');
-        try {
-            // Upload to Cloudinary
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('upload_preset', process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_uploads');
-            // Use the actual file name (without extension) as public_id
-            const actualName = file.name.replace(/\.jpe?g$/i, '');
-            formData.append('public_id', actualName);
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        const fileArr = Array.from(files);
+        setUploadTotal(fileArr.length);
+        setUploadDone(0);
+        setUploadProgress(0);
 
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await res.json();
-            if (!data.secure_url) throw new Error('Upload failed');
-
-            // Use the actual file name (without extension) as the image name
-            // (Cloudinary will use this as the public_id as well)
-
-            await addDoc(collection(db, 'photos'), {
-                name: actualName,
-                url: data.secure_url,
-                publicId: data.public_id,
-                createdBy: 'Admin',
-                createdAt: Date.now(),
-            });
-
-            // Also update dest-images.json if needed (see previous logic)
-            if (fs) {
-                try {
-                    const jsonPath = require('path').join(__dirname, './dest-images.json');
-                    let current = [];
-                    try {
-                        current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-                    } catch {}
-                    const url = data.secure_url;
-                    if (!current.some(img => img.url === url)) {
-                        current.push({ name: actualName, url });
-                        fs.writeFileSync(jsonPath, JSON.stringify(current, null, 2), 'utf8');
-                    }
-                } catch (err) {
-                    // Silent fail for browser context
-                }
-            } else {
-                await fetch('http://localhost:4001/api/update-dest-image', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: actualName, url: data.secure_url })
-                });
+        for (let i = 0; i < fileArr.length; i++) {
+            const file = fileArr[i];
+            if (!file.name.toLowerCase().endsWith('.jpg') && !file.name.toLowerCase().endsWith('.jpeg')) {
+                alert('Only JPG images are allowed.');
+                continue;
             }
+            // Check for duplicate name (case-insensitive, ignore .jpg)
+            const newName = file.name.replace(/\.jpe?g$/i, '').trim().toLowerCase();
+            const isDuplicate = images.some(img => img.name.trim().toLowerCase() === newName);
+            if (isDuplicate) {
+                setUploadError('Image with this name already exists.');
+                setTimeout(() => setUploadError(''), 3000);
+                continue;
+            }
+            setUploading(true);
+            setUploadError('');
+            try {
+                // Upload to Cloudinary
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('upload_preset', process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_uploads');
+                const actualName = file.name.replace(/\.jpe?g$/i, '');
+                formData.append('public_id', actualName);
 
-            // Write Audit Log to Firebase
-            const auditLog = {
-                eventId: `${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                action: 'photo upload',
-                category: 'destination image',
-                target: `photo (${data.public_id})`,
-                request: `POST https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-                outcome: data.secure_url ? 'SUCCESS' : 'failure',
-                user: {
-                    name: 'Aclan Jeremy',
-                    username: 'aclanjeremy432@gmail.com',
-                    role: 'Admin',
-                    userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
-                    session: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-                },
-                source: {
-                    device: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
-                    browser: navigator.userAgent,
-                    os: navigator.userAgentData?.platform || navigator.platform,
-                },
-                securityFlags: 'None',
-                eventDetails: {
-                    filename: file.name,
-                    size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-                    location: data.public_id.split('/')[0] || 'unknown',
-                },
-                userAgent: navigator.userAgent,
-                dataChanges: {
-                    filename: file.name,
-                    size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-                    location: data.public_id.split('/')[0] || 'unknown',
-                },
-                createdAt: serverTimestamp(),
-            };
-            await addDoc(collection(db, 'auditLogs'), auditLog);
+                // Progress event
+                let xhr = new XMLHttpRequest();
+                xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`);
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        setUploadProgress(Math.round((event.loaded / event.total) * 100));
+                    }
+                };
+                const uploadPromise = new Promise((resolve, reject) => {
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject(new Error('Upload failed'));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Upload failed'));
+                });
+                xhr.send(formData);
+                const data = await uploadPromise;
+                if (!data.secure_url) throw new Error('Upload failed');
 
-            // Reload images
-            await loadImages();
-        } catch (err) {
-            setUploadError('Image upload failed. Please try again.');
-            console.error(err);
-            setTimeout(() => setUploadError(''), 3000);
+                await addDoc(collection(db, 'photos'), {
+                    name: actualName,
+                    url: data.secure_url,
+                    publicId: data.public_id,
+                    createdBy: 'Admin',
+                    createdAt: Date.now(),
+                });
+
+                // Also update dest-images.json if needed (see previous logic)
+                if (fs) {
+                    try {
+                        const jsonPath = require('path').join(__dirname, './dest-images.json');
+                        let current = [];
+                        try {
+                            current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+                        } catch {}
+                        const url = data.secure_url;
+                        if (!current.some(img => img.url === url)) {
+                            current.push({ name: actualName, url });
+                            fs.writeFileSync(jsonPath, JSON.stringify(current, null, 2), 'utf8');
+                        }
+                    } catch (err) {
+                        // Silent fail for browser context
+                    }
+                } else {
+                    await fetch('http://localhost:4001/api/update-dest-image', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: actualName, url: data.secure_url })
+                    });
+                }
+
+                // Write Audit Log to Firebase
+                const auditLog = {
+                    eventId: `${Date.now()}`,
+                    timestamp: new Date().toISOString(),
+                    action: 'photo upload',
+                    category: 'destination image',
+                    target: `photo (${data.public_id})`,
+                    request: `POST https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+                    outcome: data.secure_url ? 'SUCCESS' : 'failure',
+                    user: {
+                        name: 'Aclan Jeremy',
+                        username: 'aclanjeremy432@gmail.com',
+                        role: 'Admin',
+                        userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
+                        session: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                    },
+                    source: {
+                        device: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
+                        browser: navigator.userAgent,
+                        os: navigator.userAgentData?.platform || navigator.platform,
+                    },
+                    securityFlags: 'None',
+                    eventDetails: {
+                        filename: file.name,
+                        size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+                        location: data.public_id.split('/')[0] || 'unknown',
+                    },
+                    userAgent: navigator.userAgent,
+                    dataChanges: {
+                        filename: file.name,
+                        size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+                        location: data.public_id.split('/')[0] || 'unknown',
+                    },
+                    createdAt: serverTimestamp(),
+                };
+                await addDoc(collection(db, 'auditLogs'), auditLog);
+
+                setUploadDone(done => done + 1);
+                setUploadProgress(0);
+                await loadImages();
+            } catch (err) {
+                setUploadError('Image upload failed. Please try again.');
+                console.error(err);
+                setTimeout(() => setUploadError(''), 3000);
+            }
         }
         setUploading(false);
+        setUploadProgress(0);
+        setUploadTotal(0);
+        setUploadDone(0);
         e.target.value = '';
     };
 
@@ -276,10 +302,12 @@ export default function ImagesCMS() {
                     target: `photo (${img.publicId})`,
                     request: `DELETE http://localhost:3002/api/cloudinary/delete`,
                     outcome: 'SUCCESS',
+                    user: 'Aclan Jeremy',
+                    role: 'admin',
                     user: {
                         name: 'Aclan Jeremy',
                         username: 'aclanjeremy432@gmail.com',
-                        role: 'Admin',
+                        role: 'admin',
                         userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
                         session: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
                     },
@@ -341,7 +369,38 @@ export default function ImagesCMS() {
                     <h2 className="title">Images</h2>
                     <p className="muted">Manage destination images</p>
                 </div>
-                <div className="images-cms-actions">
+                <div className="images-cms-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {/* Progress bar and counts */}
+                    {uploading && (
+                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 220, marginRight: 8 }}>
+                            {/* Horizontal progress bar */}
+                            <div style={{
+                                width: 120,
+                                height: 8,
+                                background: '#e5e7eb',
+                                borderRadius: 6,
+                                marginRight: 10,
+                                overflow: 'hidden',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}>
+                                <div style={{
+                                    height: '100%',
+                                    width: `${uploadProgress}%`,
+                                    background: '#2563eb',
+                                    transition: 'width 0.3s'
+                                }} />
+                            </div>
+                            <div style={{ fontSize: 13, color: '#2563eb', fontWeight: 600 }}>
+                                {uploadDone}/{uploadTotal} uploaded
+                                {uploadTotal - uploadDone > 0 && (
+                                    <span style={{ color: '#b91c1c', marginLeft: 8 }}>
+                                        {uploadTotal - uploadDone} not uploaded
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     <button 
                         className="btn-primary-cms"
                         onClick={handleUploadClick}
@@ -363,6 +422,7 @@ export default function ImagesCMS() {
                         accept=".jpg,.jpeg"
                         style={{ display: 'none' }}
                         onChange={handleFileChange}
+                        multiple
                     />
                     {selectedImages.length === 1 && (
                         <button 
