@@ -25,7 +25,8 @@ const CATEGORY_STYLES = {
   'ACCESS CONTROL': { bg: '#fef9c3', fg: '#92400e' },
   'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' },
   'DESTINATION IMAGE': { bg: '#fee0efff', fg: '#ff3c9dff' }, // <-- Blue background for IMAGE UPLOAD
-  'DEST. IMAGE DELETE': { bg: '#fee2e2', fg: '#b91c1c' } // <-- Red background for IMAGE DELETE
+  'DEST. IMAGE DELETE': { bg: '#fee2e2', fg: '#b91c1c' }, // <-- Red background for IMAGE DELETE
+  'DESTINATION IMPORT': { bg: '#d1fae5', fg: '#3eaaaaff' } // <-- Green background for IMPORT
 };
 
 const OUTCOME_STYLES = {
@@ -53,7 +54,8 @@ const ACTION_ICONS = {
   'permission change': '🔑',
   'rate limit exceeded': '⏱️',
   'review create': '⭐',
-  'backup create': '💾'
+  'backup create': '💾',
+  'destination import': '🛫'
 };
 
 // NEW: sizing / typography scale (adjust numbers to taste)
