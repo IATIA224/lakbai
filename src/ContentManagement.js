@@ -17,6 +17,7 @@ import { publishAllDrafts } from './publishAllDrafts';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ImagesCMS from './images-cms';
+import NotFoundCMS from './notfound-cms';
 
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -1570,12 +1571,9 @@ useEffect(() => {
                     {loadingDest ? (
                         <div className="centered"><div className="loading-spinner" /></div>
                     ) : destinations.length === 0 ? (
-                        <>
-                            <div className="muted" style={{ marginBottom: 18 }}>No destinations found</div>
-                            <button className="btn-primary-cms" onClick={openCreate} style={{ padding: '10px 20px', borderRadius: 12 }}>
-                                Create your first destination
-                            </button>
-                        </>
+                        <NotFoundCMS text="Destination not found" />
+                    ) : filteredDestinations.length === 0 ? (
+                        <NotFoundCMS text="Destination not found" />
                     ) : (
                         <div style={{ width: '100%' }}>
                             <table style={{
@@ -1637,8 +1635,9 @@ useEffect(() => {
                                             <td style={{ padding: '14px 16px', verticalAlign: 'top', fontSize: 14 }}>
                                               {fmtDate(d.updatedAt)}                                            </td>
                                             <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                              <div style={{ display: 'flex', gap: 12 }}>
                                                 <button
-                                                    className="btn-primary-cms"
+                                                    className="btn-primary-cms-edit"
                                                     style={{
                                                         background: '#dcfce7',      // same as Users "Edit"
                                                         color: '#166534',
@@ -1646,7 +1645,6 @@ useEffect(() => {
                                                         padding: '6px 18px',
                                                         borderRadius: 8,
                                                         fontWeight: 700,
-                                                        marginRight: 8,
                                                         fontSize: 14,
                                                         boxShadow: 'none'
                                                     }}
@@ -1676,6 +1674,7 @@ useEffect(() => {
                                                 >
                                                     Delete
                                                 </button>
+                                              </div>
                                             </td>
                                         </tr>
                                     ))}
