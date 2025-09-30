@@ -5,6 +5,7 @@ import './Styles/contentManager.css';
 import './Styles/images-cms.css';
 import { FiCopy } from "react-icons/fi"; // Add this if using react-icons, or use your preferred icon
 import destImages from './dest-images.json'; // Import for local use
+import NotFoundCMS from './notfound-cms'; // Add this import at the top
 
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dcv3eqmde';
 
@@ -556,9 +557,16 @@ export default function ImagesCMS() {
                                 <div style={{ color: '#64748b', marginTop: 18, fontSize: 16 }}>Loading images...</div>
                             </div>
                         ) : (
-                            images
-                                .filter(img => img.name.toLowerCase().includes(search.toLowerCase()))
-                                .map(image => (
+                            (() => {
+                                const filtered = images.filter(img => img.name.toLowerCase().includes(search.toLowerCase()));
+                                if (filtered.length === 0) {
+                                    return (
+                                        <div style={{ gridColumn: '1/-1', width: '100%' }}>
+                                            <NotFoundCMS text="Image not found" />
+                                        </div>
+                                    );
+                                }
+                                return filtered.map(image => (
                                     <div className={`image-card${selectedImages.includes(image.id) ? ' active' : ''}`} key={image.id}>
                                         <div className="image-card-content" style={{ position: 'relative' }}>
                                             {/* Checkbox top-left */}
@@ -636,7 +644,8 @@ export default function ImagesCMS() {
                                             </div>
                                         </div>
                                     </div>
-                                ))
+                                ));
+                            })()
                         )}
                     </div>
                 </div>
