@@ -244,9 +244,10 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     const base = {
       name: '',
       category: '',
+      categories: [],
       description: '',
-      content: '',                // legacy (kept, not removed)
-      packingSuggestions: '',     // NEW FIELD
+      content: '',
+      packingSuggestions: '',
       tags: [],
       location: '',
       price: '',
@@ -256,10 +257,20 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
       status: 'draft',
     };
     if (!initial) return base;
+    // Normalize categories/category
+    let categories = [];
+    if (Array.isArray(initial.categories) && initial.categories.length) {
+      categories = initial.categories;
+    } else if (typeof initial.categories === 'string' && initial.categories.trim()) {
+      categories = initial.categories.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (initial.category) {
+      categories = [initial.category].flat().filter(Boolean);
+    }
     return {
       ...base,
       ...initial,
-      // prefer existing packingSuggestions field; fallback to legacy content
+      category: initial.category || (categories[0] || ''),
+      categories,
       packingSuggestions: initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '',
       media: {
         featuredImage: initial?.media?.featuredImage || '',
@@ -409,16 +420,28 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     setNameError(normalizedExisting.includes(n) ? 'A destination with this name already exists.' : '');
   }, [data.name, normalizedExisting]);
 
+  // In the submit function, always save both category and categories
   const submit = (e) => {
     e?.preventDefault();
     if (!data.name.trim()) return alert('Please enter a destination name');
     if (nameError) return alert(nameError);
 
+    // Normalize categories before save
+    let categories = [];
+    if (Array.isArray(data.categories) && data.categories.length) {
+      categories = data.categories;
+    } else if (typeof data.categories === 'string' && data.categories.trim()) {
+      categories = data.categories.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (data.category) {
+      categories = [data.category].flat().filter(Boolean);
+    }
+
     const payload = {
       ...data,
-      // Keep legacy "content" (do not remove) & also store new dedicated field
+      category: data.category || (categories[0] || ''),
+      categories,
       packingSuggestions: data.packingSuggestions,
-      content: data.content || data.packingSuggestions, // legacy fallback
+      content: data.content || data.packingSuggestions,
       updatedAt: new Date().toISOString(),
       createdAt: initial?.createdAt || new Date().toISOString(),
     };
