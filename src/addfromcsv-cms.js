@@ -330,24 +330,6 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     { key: 'image', label: 'Image URL' },
   ];
 
-  const columns = [
-  'Destination Name', 'Region', 'Categories', 'Description',
-  'Tags', 'Location', 'Best Time to Visit', 'Price', 'ImageURL'
-];
-const [ignored, setIgnored] = useState([]);
-
-<IgnoreColumnsDropdown
-  columns={columns}
-  ignored={ignored}
-  onToggle={col =>
-    setIgnored(ignored =>
-      ignored.includes(col)
-        ? ignored.filter(c => c !== col)
-        : [...ignored, col]
-    )
-  }
-/>
-
   // State for ignored columns
   const [ignoredCols, setIgnoredCols] = useState({});
 
@@ -355,6 +337,44 @@ const [ignored, setIgnored] = useState([]);
   const handleIgnoreToggle = (key, checked) => {
     setIgnoredCols(prev => ({ ...prev, [key]: checked }));
   };
+
+  // Only show toggles for columns that are missing in at least one row (always show, even if ignored)
+  const missingLabels = useMemo(() => {
+    // Collect all missing labels from rowIssues
+    const labels = new Set();
+    rowIssues.forEach(issue => {
+      issue.missing.forEach(label => labels.add(label));
+    });
+    return Array.from(labels);
+  }, [rowIssues]);
+
+  // Columns that have at least one missing cell (independent of ignore state)
+  const columnsWithMissingCells = useMemo(() => {
+    if (!rows.length) return [];
+    const labels = [];
+    for (const [canon, label] of Object.entries(REQUIRED)) {
+      // respect current ignore selections when validating header presence later,
+      // but for the dropdown we only care about cell-missing status in data
+      const aliases = ALIASES[canon] || [canon];
+      const hasMissing = rows.some(r => String(getFirstValue(r, aliases)).trim() === '');
+      if (hasMissing) labels.push(label);
+    }
+    return labels;
+  }, [rows]);
+
+  // Filter rowIssues to remove ignored columns from missing warnings
+  const filteredRowIssues = useMemo(() => {
+    if (!rowIssues.length) return [];
+    return rowIssues
+      .map(issue => ({
+        ...issue,
+        missing: issue.missing.filter(label => {
+          const col = IGNORABLE_COLUMNS.find(c => c.label === label);
+          return !(col && ignoredCols[col.key]);
+        })
+      }))
+      .filter(issue => issue.missing.length > 0);
+  }, [rowIssues, ignoredCols]);
 
   // Filter REQUIRED and ALIASES based on ignoredCols
   const effectiveRequired = useMemo(() => {
@@ -579,6 +599,17 @@ const [ignored, setIgnored] = useState([]);
       const created = [];
       for (const item of toCreate) {
         try {
+          // Set packingSuggestions based on category if not present
+          let packingSuggestions = item.packingSuggestions;
+          if (!packingSuggestions) {
+            // Try to match first category (case-insensitive)
+            const cat = Array.isArray(item.categories) && item.categories.length
+              ? String(item.categories[0]).toLowerCase()
+              : (item.category ? String(item.category).toLowerCase() : '');
+            packingSuggestions = PACKING_SUGGESTIONS_BY_CATEGORY[cat] || '';
+            item.packingSuggestions = packingSuggestions;
+          }
+
           // Use destination name as ID (slugify for safety)
           const id = item.name
             ? String(item.name)
@@ -588,7 +619,7 @@ const [ignored, setIgnored] = useState([]);
             : Math.random().toString(36).slice(2, 10); // fallback if name is ignored
           await setDoc(doc(db, 'destinations', id), item);
           // Log audit
-            await logDestinationImport({
+          await logDestinationImport({
             destination: item,
             userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
             userEmail: 'aclanjeremy432@gmail.com',
@@ -599,7 +630,7 @@ const [ignored, setIgnored] = useState([]);
             os: getOSInfo(),
             userAgent: navigator.userAgent,
             outcome: `success (${created.length > 0 ? 200 : 204})`
-            });
+          });
           created.push({ ...item, id, createdAt: now, updatedAt: now });
         } catch (e) {
           console.warn('Failed to create a row:', e?.message);
@@ -704,7 +735,12 @@ const [ignored, setIgnored] = useState([]);
   // Check for existing destinations on file import or rows change
 
 
-  const disableImport = busy || rows.length === 0 || missingColumns.length > 0 || rowIssues.length > 0 || allExist;
+  const disableImport =
+    busy ||
+    rows.length === 0 ||
+    missingColumns.length > 0 ||
+    filteredRowIssues.length > 0 ||   // use filtered issues so ignoring a column enables import
+    allExist;
 
 
 
@@ -789,16 +825,12 @@ const [ignored, setIgnored] = useState([]);
             {/* Inline Ignore columns dropdown */}
             <div style={{ marginBottom: 0 }}>
               <IgnoreColumnsDropdown
-                columns={
-                  IGNORABLE_COLUMNS
-                    .map(col => col.label)
-                    .filter(label =>
-                      rowIssues.some(issue => issue.missing.includes(label)) || ignoredCols[IGNORABLE_COLUMNS.find(c => c.label === label)?.key]
-                    )
-                }
-                ignored={IGNORABLE_COLUMNS.filter(col => !!ignoredCols[col.key]).map(col => col.label)}
-                presentColumns={[]} // Not needed since columns is already filtered
-                disabled={rows.length === 0} // <-- Grey out when no file is imported
+                columns={columnsWithMissingCells} // only columns that actually have missing cells
+                ignored={columnsWithMissingCells.filter(label => {
+                  const col = IGNORABLE_COLUMNS.find(c => c.label === label);
+                  return col && ignoredCols[col.key];
+                })}
+                disabled={rows.length === 0}
                 onToggle={label => {
                   const col = IGNORABLE_COLUMNS.find(c => c.label === label);
                   if (col) {
@@ -826,16 +858,16 @@ const [ignored, setIgnored] = useState([]);
             </div>
           )}
 
-          {rowIssues.length > 0 && (
+          {filteredRowIssues.length > 0 && (
             <div style={{ background: '#fff7ed', color: '#9a3412', border: '1px solid #fed7aa', borderRadius: 8, padding: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                {rowIssues.length} row{rowIssues.length > 1 ? 's' : ''} have missing required values:
+                {filteredRowIssues.length} row{filteredRowIssues.length > 1 ? 's' : ''} have missing required values:
               </div>
               <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 13 }}>
-                {rowIssues.slice(0, 100).map((it, i) => (
+                {filteredRowIssues.slice(0, 100).map((it, i) => (
                   <div key={i}>Row {it.row}: {it.missing.join(', ')}</div>
                 ))}
-                {rowIssues.length > 100 && <div>…and {rowIssues.length - 100} more</div>}
+                {filteredRowIssues.length > 100 && <div>…and {filteredRowIssues.length - 100} more</div>}
               </div>
             </div>
           )}
@@ -986,5 +1018,113 @@ function getOSInfo() {
   if (/iphone|ipad|ipod/i.test(ua)) return 'iOS';
   return 'Other';
 }
+
+// Packing suggestion templates
+function toLines(arr) {
+  return arr.join('\n');
+}
+const PACKING_SUGGESTIONS_BY_CATEGORY = {
+  beach: toLines([
+    'Swimwear (multiple sets)',
+    'Rash guard / quick-dry shirt',
+    'Flip-flops or aqua shoes',
+    'Beach towel or sarong',
+    'Snorkeling gear (optional if not renting)',
+    'Waterproof dry bag (phone, wallet, camera)',
+    'Reef-safe sunscreen & after-sun (aloe vera)',
+    'Sunglasses & hat/cap',
+    'Portable hammock or mat',
+    'Light cover-up / beach dress / shorts'
+  ]),
+  caves: toLines([
+    'Headlamp / reliable flashlight (extra batteries)',
+    'Helmet (if required / available)',
+    'Sturdy non-slip footwear',
+    'Gloves for grip (optional)',
+    'Quick-dry clothes (avoid cotton)',
+    'Small waterproof pouch (valuables)',
+    'Insect repellent',
+    'Drinking water & light snacks'
+  ]),
+  cultural: toLines([
+    'Modest clothing (long pants/skirt, sleeves)',
+    'Light scarf / shawl',
+    'Comfortable walking sandals / shoes',
+    'Reusable shopping bag',
+    'Notebook / pen',
+    'Small tokens / gifts (optional)',
+    'Camera / phone (extra storage)',
+    'Offline translation app'
+  ]),
+  historical: toLines([
+    'Lightweight modest clothing',
+    'Comfortable walking shoes',
+    'Sun protection (cap / umbrella / sunscreen)',
+    'Camera / phone (wide-angle if possible)',
+    'Guidebook / printed notes',
+    'Reusable water bottle'
+  ]),
+  islands: toLines([
+    'Dry bag (boat rides splashy)',
+    'Waterproof phone case',
+    'Swimwear & rash guard',
+    'Snorkeling gear (or rent on site)',
+    'Powerbank',
+    'Insect repellent (sandflies / mosquitoes)',
+    'Cash (small bills, fees/vendors)',
+    'Refillable water bottle'
+  ]),
+  landmarks: toLines([
+    'Comfortable casual wear',
+    'Walking shoes / sandals',
+    'Hat / cap',
+    'Camera / phone',
+    'Small umbrella (sudden rain)',
+    'Notebook / pen'
+  ]),
+  mountains: toLines([
+    'Trekking shoes / trail sandals',
+    'Trekking pole (optional)',
+    'Quick-dry clothes + extra layer',
+    'Cap / hat & sunglasses',
+    'Headlamp (sunrise hikes)',
+    'Small backpack (10–20L)',
+    'Snacks (trail mix, energy bars)',
+    'Drinking water (bottles / bladder)',
+    'Raincoat / poncho',
+    'First aid kit + blister patches'
+  ]),
+  museums: toLines([
+    'Smart casual clothing',
+    'Lightweight jacket (strong AC)',
+    'Notebook / sketchpad + pen',
+    'Smartphone / camera (if allowed)',
+    'ID card (entry requirement sometimes)',
+    'Reusable water bottle (may stay outside)'
+  ]),
+  parks: toLines([
+    'Sturdy shoes (trek/hike trails)',
+    'Hat, sunglasses, sunscreen',
+    'Insect repellent',
+    'Light raincoat / poncho',
+    'Binoculars (birdwatching)',
+    'Refillable water bottle & snacks',
+    'Camera with zoom lens',
+    'Picnic mat',
+    'Trash bags (Leave No Trace)'
+  ]),
+  tourist: toLines([
+    'Casual breathable clothing',
+    'Comfortable walking shoes',
+    'Small backpack / daypack',
+    'Sunglasses, hat, sunscreen',
+    'Reusable water bottle',
+    'Portable fan / handkerchief',
+    'Powerbank & cables',
+    'Local SIM / pocket WiFi',
+    'Copies of ID & travel documents',
+    'Cash (small bills) + ATM/credit card'
+  ])
+};
 
 export default AddFromCsvCMS;
