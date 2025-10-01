@@ -16,6 +16,7 @@ async function getExistingDestinationNames() {
   });
   return names;
 }
+
 // ---- Parsing helpers ----
 function parseCsv(text) {
   // Robust CSV parser with quotes support
@@ -621,7 +622,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
                 .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with dash
                 .replace(/^-+|-+$/g, '')    // trim dashes
             : Math.random().toString(36).slice(2, 10); // fallback if name is ignored
-          await setDoc(doc(db, 'destinations', id), item);
+          await setDoc(doc(db, 'destinations', id), cleanFirestoreDoc(item));
           // Log audit
           await logDestinationImport({
             destination: item,
@@ -1133,3 +1134,19 @@ const PACKING_SUGGESTIONS_BY_CATEGORY = {
 };
 
 export default AddFromCsvCMS;
+
+function cleanFirestoreDoc(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(cleanFirestoreDoc);
+  }
+  if (obj && typeof obj === 'object') {
+    const out = {};
+    Object.entries(obj).forEach(([k, v]) => {
+      if (v !== undefined) {
+        out[k] = cleanFirestoreDoc(v);
+      }
+    });
+    return out;
+  }
+  return obj;
+}
