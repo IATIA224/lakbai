@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // A simple toggle switch component for ignoring columns (no checkbox)
 const AddFromCsvToggle = ({ label, checked, onChange }) => (
@@ -50,24 +50,33 @@ const AddFromCsvToggle = ({ label, checked, onChange }) => (
 export const IgnoreColumnsDropdown = ({ columns, ignored, onToggle, disabled = false }) => {
   const [open, setOpen] = useState(false);
 
+  // Disable if parent says so OR there are no columns to ignore
+  const isDisabled = disabled || !columns || columns.length === 0;
+
+  // Close dropdown automatically when it becomes disabled
+  useEffect(() => {
+    if (isDisabled) setOpen(false);
+  }, [isDisabled]);
+
   return (
     <div style={{ position: 'relative', display: 'inline-block'}}>
       <button
-        onClick={() => !disabled && setOpen(o => !o)}
-        disabled={disabled}
+        onClick={() => !isDisabled && setOpen(o => !o)}
+        disabled={isDisabled}
+        title={isDisabled ? 'No columns to ignore' : undefined}
         style={{
           padding: '8px 16px',
           borderRadius: 6,
           border: '1px solid #d1d5db',
-          background: disabled ? '#f3f4f6' : '#fff',
-          cursor: disabled ? 'not-allowed' : 'pointer',
+          background: isDisabled ? '#f3f4f6' : '#fff',
+          cursor: isDisabled ? 'not-allowed' : 'pointer',
           fontWeight: 500,
-          color: disabled ? '#9ca3af' : 'inherit',
+          color: isDisabled ? '#9ca3af' : 'inherit',
         }}
       >
         Ignore Columns
       </button>
-      {open && !disabled && (
+      {open && !isDisabled && (
         <div
           style={{
             position: 'absolute',
