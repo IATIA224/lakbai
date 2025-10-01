@@ -164,7 +164,7 @@ export default function Bookmarks2() {
     if (sortBy === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     if (sortBy === 'rating') list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     if (sortBy === 'price') {
-      const n = (x) => parseInt((x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
+      const n = (x) => parseInt(String(x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
       list = [...list].sort((a, b) => n(a) - n(b));
     }
     return list;
@@ -233,7 +233,7 @@ export default function Bookmarks2() {
       setTimeout(() => {
         const active = document.activeElement;
         if (active && typeof active.blur === 'function') active.blur();
-      }, 50);
+      }, 50);const n = (x) => parseInt((x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
     } catch {}
   };
 

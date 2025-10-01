@@ -13,8 +13,8 @@
 /* Modal */
 .cost-modal {
   width: min(935px, 83vw);
-  height: 600px;
-  max-height: 600px;
+  height: 700px;
+  max-height: 700px;
   border-radius: 18.7px;
   padding: 0 !important;
   background: #fff;
@@ -22,6 +22,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: center;
 }
 @keyframes hotels-modal-in {
   from { transform: translateY(40px) scale(.98); opacity: 0.2; }
@@ -33,7 +34,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18.7px 27.2px 15.3px 27.2px;
+  padding: 18.7px 18.7px 15.3px 18.7px;
   color: #fff;
   background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
   border-top-left-radius: 18.7px;
@@ -83,6 +84,7 @@
   font-weight: 700;
   min-width: 221px;
   flex: 1 1 272px;
+  margin-top: 10px;
 }
 
 .cost-select,
@@ -105,8 +107,8 @@
 .cost-modal #map,
 .cost-modal [ref="mapRef"] {
   width: 100%;
-  height: 220px !important;      /* You can increase this if you want */
-  border-radius: 12px !important;
+  height: 520px !important;      /* You can increase this if you want */
+  border-radius: 0px !important;
   margin-bottom: 12px !important;
   background: #eef2ff;
   box-shadow: 0 2px 8px rgba(108,99,255,0.08);
@@ -266,7 +268,7 @@
 @media (max-width: 900px) {
   .cost-modal {
     width: 98vw !important;
-    padding: 8px 3px !important;
+    padding: 3px 3px !important;
   }
 }
 
@@ -280,8 +282,8 @@
 
   .cost-modal {
     width: 98vw;
-    max-height: 96vh;
-    border-radius: 16px;
+    max-height: 98vh;
+    border-radius: 10px;
     margin-top: 2vh;
     z-index: 100001;
   }
@@ -328,7 +330,7 @@
   /* Map smaller on mobile */
   .cost-modal #map,
   .cost-modal [ref="mapRef"] {
-    height: 180px !important;
+    height: 280px !important;
     border-radius: 10px !important;
     margin-bottom: 10px !important;
   }
