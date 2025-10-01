@@ -163,9 +163,13 @@ export default function Bookmarks2() {
 
     if (sortBy === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     if (sortBy === 'rating') list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    if (sortBy === 'price') {
+    if (sortBy === 'price-asc') {
       const n = (x) => parseInt(String(x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
       list = [...list].sort((a, b) => n(a) - n(b));
+    }
+    if (sortBy === 'price-desc') {
+      const n = (x) => parseInt(String(x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
+      list = [...list].sort((a, b) => n(b) - n(a));
     }
     return list;
   }, [destinations, query, selectedRegions, selectedPrice, selectedCats, sortBy]);
@@ -404,6 +408,19 @@ export default function Bookmarks2() {
       } catch (e) {
         console.error('Load selected avg failed', e);
       }
+    }
+
+    // --- NEW: Fetch packingSuggestions from Firestore if available ---
+    try {
+      const destSnap = await getDoc(doc(db, 'destinations', d.id, 'packingSuggestions'));
+      if (destSnap.exists()) {
+        const data = destSnap.data();
+        if (data.packingSuggestions) {
+          setSelected(prev => ({ ...prev, packingSuggestions: data.packingSuggestions }));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch packingSuggestions:', e.message);
     }
   };
 
@@ -764,7 +781,8 @@ export default function Bookmarks2() {
               >
                 <option value="name">Name</option>
                 <option value="rating">Rating</option>
-                <option value="price">Price</option>
+                <option value="price-asc">Price (Lowest to Highest)</option>
+                <option value="price-desc">Price (Highest to Lowest)</option>
               </select>
             </div>
           </div>
@@ -939,9 +957,8 @@ export default function Bookmarks2() {
                           </button>
                           ))}
                         </div>
-                        </div>
                       </div>
-
+                      </div>
                       <div className="details-actions">
                         <button
                         className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
