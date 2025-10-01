@@ -731,9 +731,14 @@ export default function Itinerary() {
   // Init Leaflet map
   useEffect(() => {
     if (map) return;
-    const m = L.map(mapRef.current, { zoomControl: true }).setView([14.5995, 120.9842], 11);
+    // Create map without default zoom control and without attribution watermark
+    const m = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(
+      [14.5995, 120.9842],
+      11
+    );
+    // Add tiles with empty attribution to avoid the watermark
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
+      attribution: "",
     }).addTo(m);
     setMap(m);
   }, [map]);
