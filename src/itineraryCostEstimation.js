@@ -13,6 +13,18 @@ const PHILIPPINES_BOUNDS = [
   [21.3, 126.6],
 ];
 
+// New: Metro Manila bounds for a tighter preview
+const METRO_MANILA_BOUNDS = [
+  [14.3, 120.8], // southwest
+  [14.9, 121.3], // northeast
+];
+
+// New: Taguig bounds for a closer preview
+const TAGUIG_BOUNDS = [
+  [14.52, 121.01], // southwest (approx)
+  [14.60, 121.09], // northeast (approx)
+];
+
 // Helper for Nominatim search restricted to Philippines
 async function searchPlacePH(q) {
   if (!q || !q.trim()) return [];
@@ -58,10 +70,12 @@ export default function ItineraryCostEstimation({ onClose }) {
   const [fromQuery, setFromQuery] = useState("");
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [fromPlace, setFromPlace] = useState(null);
+  const fromActiveIndex = useRef(-1);
 
   const [toQuery, setToQuery] = useState("");
   const [toSuggestions, setToSuggestions] = useState([]);
   const [toPlace, setToPlace] = useState(null);
+  const toActiveIndex = useRef(-1);
 
   // Map refs
   const mapRef = useRef(null);
@@ -123,8 +137,17 @@ export default function ItineraryCostEstimation({ onClose }) {
   // Init map
   useEffect(() => {
     if (map) return;
-    const m = L.map(mapRef.current, { zoomControl: true })
-      .fitBounds(PHILIPPINES_BOUNDS);
+    const m = L.map(mapRef.current, { zoomControl: true });
+    // Start with a Taguig-focused preview; fallback to Metro Manila / Philippines if needed
+    try {
+      m.fitBounds(TAGUIG_BOUNDS, { padding: [40, 40] });
+    } catch (e) {
+      try {
+        m.fitBounds(METRO_MANILA_BOUNDS, { padding: [40, 40] });
+      } catch (err) {
+        m.fitBounds(PHILIPPINES_BOUNDS);
+      }
+    }
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap",
     }).addTo(m);
@@ -212,13 +235,14 @@ export default function ItineraryCostEstimation({ onClose }) {
   const fromDebounceTimer = useRef();
   const handleFromInput = (e) => {
     setFromQuery(e.target.value);
+    setFromPlace(null);
     clearTimeout(fromDebounceTimer.current);
     const value = e.target.value;
+    fromActiveIndex.current = -1;
     fromDebounceTimer.current = setTimeout(async () => {
       if (value.length > 0) {
         const res = await searchPlacePH(value);
-        setFromSuggestions(res);
-        // Removed auto-select logic here
+        setFromSuggestions(res.slice(0, 8)); // limit suggestions
       } else {
         setFromSuggestions([]);
       }
@@ -229,20 +253,76 @@ export default function ItineraryCostEstimation({ onClose }) {
   const toDebounceTimer = useRef();
   const handleToInput = (e) => {
     setToQuery(e.target.value);
+    setToPlace(null);
     clearTimeout(toDebounceTimer.current);
     const value = e.target.value;
+    toActiveIndex.current = -1;
     toDebounceTimer.current = setTimeout(async () => {
       if (value.length > 0) {
         const res = await searchPlacePH(value);
-        setToSuggestions(res);
-        // Removed auto-select logic here
+        setToSuggestions(res.slice(0, 8));
       } else {
         setToSuggestions([]);
       }
     }, 400);
   };
 
-  // Combined set destinations handler
+  // Select suggestion handlers
+  const selectFromSuggestion = (s) => {
+    setFromPlace(s);
+    setFromQuery(s.display_name);
+    setFromSuggestions([]);
+    fromActiveIndex.current = -1;
+  };
+  const selectToSuggestion = (s) => {
+    setToPlace(s);
+    setToQuery(s.display_name);
+    setToSuggestions([]);
+    toActiveIndex.current = -1;
+  };
+
+  // keyboard navigation for suggestions
+  const handleFromKeyDown = (e) => {
+    if (!fromSuggestions.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      fromActiveIndex.current = Math.min(fromActiveIndex.current + 1, fromSuggestions.length - 1);
+      setFromQuery(fromSuggestions[fromActiveIndex.current].display_name);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      fromActiveIndex.current = Math.max(fromActiveIndex.current - 1, 0);
+      setFromQuery(fromSuggestions[fromActiveIndex.current].display_name);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const sel = fromSuggestions[fromActiveIndex.current] || fromSuggestions[0];
+      if (sel) selectFromSuggestion(sel);
+    } else if (e.key === "Escape") {
+      setFromSuggestions([]);
+      fromActiveIndex.current = -1;
+    }
+  };
+
+  const handleToKeyDown = (e) => {
+    if (!toSuggestions.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      toActiveIndex.current = Math.min(toActiveIndex.current + 1, toSuggestions.length - 1);
+      setToQuery(toSuggestions[toActiveIndex.current].display_name);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      toActiveIndex.current = Math.max(toActiveIndex.current - 1, 0);
+      setToQuery(toSuggestions[toActiveIndex.current].display_name);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const sel = toSuggestions[toActiveIndex.current] || toSuggestions[0];
+      if (sel) selectToSuggestion(sel);
+    } else if (e.key === "Escape") {
+      setToSuggestions([]);
+      toActiveIndex.current = -1;
+    }
+  };
+
+  // Combined set destinations handler (keeps existing behavior)
   const handleSetDestinations = async () => {
     // Only set if a suggestion is selected, else search and pick first
     if (!fromPlace && fromQuery) {
@@ -287,27 +367,66 @@ export default function ItineraryCostEstimation({ onClose }) {
           <button className="cost-close" onClick={onClose}>&times;</button>
         </div>
         <div className="cost-location-group" style={{ display: "flex", gap: "16px", padding: "0 32px 12px 32px" }}>
-          <div className="cost-label" style={{ flex: 1 }}>
+          <div className="cost-label" style={{ flex: 1, position: "relative" }}>
             <label>From</label>
             <input
               className="cost-input"
               placeholder="Type a city/place in PH"
               value={fromQuery}
               onChange={handleFromInput}
+              onKeyDown={handleFromKeyDown}
               autoComplete="new-password"
+              aria-autocomplete="list"
+              aria-controls="from-suggestions"
             />
+            {fromSuggestions.length > 0 && (
+              <ul id="from-suggestions" role="listbox" className="suggestions-list">
+                {fromSuggestions.map((s, i) => (
+                  <li
+                    key={s.place_id || `${s.lat}-${s.lon}-${i}`}
+                    role="option"
+                    aria-selected={fromActiveIndex.current === i}
+                    className={`suggestion-item ${fromActiveIndex.current === i ? "active" : ""}`}
+                    onMouseDown={(ev) => { ev.preventDefault(); selectFromSuggestion(s); }} // use onMouseDown to avoid blur before click
+                  >
+                    <div className="suggestion-main">{s.display_name}</div>
+                    <div className="suggestion-sub">{s.type || ""}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <div className="cost-label" style={{ flex: 1 }}>
+          <div className="cost-label" style={{ flex: 1, position: "relative" }}>
             <label>To</label>
             <input
               className="cost-input"
               placeholder="Type a city/place in PH"
               value={toQuery}
               onChange={handleToInput}
+              onKeyDown={handleToKeyDown}
               autoComplete="new-password"
+              aria-autocomplete="list"
+              aria-controls="to-suggestions"
             />
+            {toSuggestions.length > 0 && (
+              <ul id="to-suggestions" role="listbox" className="suggestions-list">
+                {toSuggestions.map((s, i) => (
+                  <li
+                    key={s.place_id || `${s.lat}-${s.lon}-${i}`}
+                    role="option"
+                    aria-selected={toActiveIndex.current === i}
+                    className={`suggestion-item ${toActiveIndex.current === i ? "active" : ""}`}
+                    onMouseDown={(ev) => { ev.preventDefault(); selectToSuggestion(s); }}
+                  >
+                    <div className="suggestion-main">{s.display_name}</div>
+                    <div className="suggestion-sub">{s.type || ""}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
+
         <div
           id="map"
           ref={mapRef}
