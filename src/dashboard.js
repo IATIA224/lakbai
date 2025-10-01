@@ -8,6 +8,14 @@ import {
 import { db, auth } from './firebase';
 import './dashboardBanner.css';
 import useUserDashboardStats from './dashboard-stats-row'; // <-- Add this import at the top
+import destImages from './dest-images.json'; // Add this import at the top
+
+// Helper to get image URL by destination name
+function getImageForDestination(name) {
+  if (!name) return undefined;
+  const found = destImages.find(img => img.name.trim().toLowerCase() === name.trim().toLowerCase());
+  return found ? found.url : undefined;
+}
 
 // DestinationCard Component - moved to top to avoid conflicts
 function DestinationCard({ 
@@ -327,7 +335,11 @@ function Dashboard({ setShowAIModal }) {
             ) : (
               bookmarks.map(bm => (
                 <div className="dashboard-preview-bookmark" key={bm.id}>
-                  <img src={bm.image} alt={bm.title || bm.name} className="dashboard-preview-img" />
+                  <img 
+                    src={bm.image || getImageForDestination(bm.name)} 
+                    alt={bm.title || bm.name} 
+                    className="dashboard-preview-img" 
+                  />
                   <div className="dashboard-preview-bookmark-info">
                     <div className="dashboard-preview-bookmark-title">{bm.title || bm.name}</div>
                     <div className="dashboard-preview-bookmark-desc">{bm.desc || bm.description}</div>
