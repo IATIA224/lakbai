@@ -47,7 +47,7 @@ const AddFromCsvToggle = ({ label, checked, onChange }) => (
 );
 
 // Dropdown menu for toggles
-export const IgnoreColumnsDropdown = ({ columns, ignored, onToggle, presentColumns = [], disabled = false }) => {
+export const IgnoreColumnsDropdown = ({ columns, ignored, onToggle, disabled = false }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -82,18 +82,14 @@ export const IgnoreColumnsDropdown = ({ columns, ignored, onToggle, presentColum
             padding: 12,
           }}
         >
-          {columns
-            // Only show toggles for columns NOT present in CSV (i.e., missing columns)
-            .filter(col => !presentColumns.includes(col))
-            // Only show toggles for columns that are actually missing in the data (not just not present in headers)
-            .map(col => (
-              <AddFromCsvToggle
-                key={col}
-                label={`"${col}"`}
-                checked={ignored.includes(col)}
-                onChange={() => onToggle(col)}
-              />
-            ))}
+          {columns.map(col => (
+            <AddFromCsvToggle
+              key={col}
+              label={`"${col}"`}
+              checked={ignored.includes(col)}
+              onChange={() => onToggle(col)}
+            />
+          ))}
         </div>
       )}
     </div>
