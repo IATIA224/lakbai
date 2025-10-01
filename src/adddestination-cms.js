@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './Styles/contentManager.css';
 import { CloudinaryContext, Image } from './cloudinary';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 // Cloudinary config (same defaults used elsewhere)
@@ -476,8 +476,20 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
 
     await setDoc(doc(db, 'destinations', id), payload);
 
-    // Optionally, write to a separate 'region' collection if needed:
-    // await setDoc(doc(db, 'region', id), { region });
+    // --- Audit log for update ---
+    if (initial) {
+      await logDestinationUpdate({
+        before: initial,
+        after: payload,
+        user: {
+          name: 'Aclan Jeremy',
+          username: 'aclanjeremy432@gmail.com',
+          role: 'admin',
+          userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
+          session: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+        }
+      });
+    }
 
     onSave?.(payload);
   };
@@ -813,5 +825,55 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     </form>
   );
 };
+
+// Audit log for destination update
+async function logDestinationUpdate({ before, after, user }) {
+  // Find changed fields
+  const changes = {};
+  Object.keys(after).forEach(key => {
+    const beforeVal = before[key] === undefined ? null : before[key];
+    const afterVal = after[key] === undefined ? null : after[key];
+    if (JSON.stringify(afterVal) !== JSON.stringify(beforeVal)) {
+      changes[key] = { from: beforeVal, to: afterVal };
+    }
+  });
+
+  // Compose target string (list changed fields)
+  const changedFields = Object.keys(changes).join(', ');
+  const target = changedFields
+    ? `Changed: ${changedFields}`
+    : `No changes`;
+
+  
+
+  await addDoc(collection(db, 'auditLogs'), {
+    eventType: 'destination_update',
+    timestamp: serverTimestamp(),
+    action: 'update',
+    category: 'update destination',
+    target,
+    outcome: 'SUCCESS',
+    eventDetails: {
+      destinationId: after.name,
+      changes,
+    },
+    
+    user: {
+      name: user?.name || 'Aclan Jeremy',
+      username: user?.username || 'aclanjeremy432@gmail.com',
+      role: user?.role || 'admin',
+      userId: user?.userId || 'cuuEceXHEmOMa37xQeSTFbixeqt2',
+      session: user?.session || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    },
+    source: {
+      device: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
+      browser: navigator.userAgent,
+      os: navigator.userAgentData?.platform || navigator.platform,
+    },
+    securityFlags: 'None',
+    userAgent: navigator.userAgent,
+    createdAt: serverTimestamp(),
+  });
+}
 
 export default DestinationForm;
