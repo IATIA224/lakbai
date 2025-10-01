@@ -202,8 +202,8 @@ function packingKey(cat = '') {
   if (!c) return 'tourist';
   if (c.includes('beach')) return 'beach';
   if (c.includes('cave')) return 'caves';
-  if (c.includes('cultur')) return 'cultural';
-  if (c.includes('histor') || c.includes('heritage')) return 'historical';
+  if (c.includes('culture')) return 'cultural';
+  if (c.includes('history') || c.includes('heritage')) return 'historical';
   if (c.includes('island')) return 'islands';
   if (c.includes('landmark')) return 'landmarks';
   if (c.includes('mountain')) return 'mountains';
@@ -288,12 +288,18 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     } else if (initial.category) {
       categories = [initial.category].flat().filter(Boolean);
     }
+    // --- Packing suggestion logic ---
+    const catKey = packingKey(initial.category || (categories[0] || ''));
+    const autoPacking = PACKING_TEMPLATES[catKey] || '';
+    const importedPacking = initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '';
+    // Use imported packing if present, otherwise auto-generate
+    const packingSuggestions = importedPacking && importedPacking.trim() ? importedPacking : autoPacking;
     return {
       ...base,
       ...initial,
       category: initial.category || (categories[0] || ''),
       categories,
-      packingSuggestions: initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '',
+      packingSuggestions,
       media: {
         featuredImage: initial?.media?.featuredImage || '',
         gallery: Array.isArray(initial?.media?.gallery) ? initial.media.gallery : [],
@@ -428,12 +434,19 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     if (!template) return;
     const current = data.packingSuggestions?.trim();
     const lastAuto = lastAutoRef.current;
-    // Replace if empty OR still equal to previous auto template
-    if (!userEditedPackingRef.current && (!current || current === lastAuto)) {
+    // Replace if empty OR still equal to previous auto template OR matches imported packing
+    if (
+      !userEditedPackingRef.current &&
+      (
+        !current ||
+        current === lastAuto ||
+        current === (initial?.packingSuggestions || initial?.packing_suggestions || initial?.packing || '')
+      )
+    ) {
       setData(d => ({ ...d, packingSuggestions: template }));
       lastAutoRef.current = template;
     }
-  }, [data.category]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data.category, initial]);
 
 
   useEffect(() => {
@@ -843,8 +856,6 @@ async function logDestinationUpdate({ before, after, user }) {
   const target = changedFields
     ? `Changed: ${changedFields}`
     : `No changes`;
-
-  
 
   await addDoc(collection(db, 'auditLogs'), {
     eventType: 'destination_update',
