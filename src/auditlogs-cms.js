@@ -26,7 +26,8 @@ const CATEGORY_STYLES = {
   'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' },
   'DESTINATION IMAGE': { bg: '#fee0efff', fg: '#ff3c9dff' }, // <-- Blue background for IMAGE UPLOAD
   'DEST. IMAGE DELETE': { bg: '#fee2e2', fg: '#b91c1c' }, // <-- Red background for IMAGE DELETE
-  'DESTINATION IMPORT': { bg: '#d1fae5', fg: '#3eaaaaff' } // <-- Green background for IMPORT
+  'DESTINATION IMPORT': { bg: '#d1fae5', fg: '#3eaaaaff' }, // <-- Green background for IMPORT
+  'UPDATE DESTINATION': { bg: '#feffdcff', fg: '#5e5f06ff' } // green background
 };
 
 const OUTCOME_STYLES = {
