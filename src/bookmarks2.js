@@ -131,16 +131,25 @@ export default function Bookmarks2() {
   }, [setCurrentUser]);
 
   // Regions/Categories derived from Firestore data
-  const regions = useMemo(
-    () => [...new Set(destinations.map((d) => d.region).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [destinations]
-  );
-  const categoriesMemo = useMemo(() => {
-    const s = new Set();
-    destinations.forEach((d) => (d.categories || []).forEach((c) => s.add(c)));
-    return [...s].sort((a, b) => a.localeCompare(b));
-  }, [destinations]);
+const regions = useMemo(
+  () => [...new Set(destinations.map((d) => d.region || '').filter(Boolean))]
+    .sort((a, b) => String(a).localeCompare(String(b))),
+  [destinations]
+);
 
+const categoriesMemo = useMemo(() => {
+  const s = new Set();
+  destinations.forEach((d) => (d.categories || []).forEach((c) => s.add(c || '')));
+  return [...s].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b)));
+}, [destinations]);
+
+const allCategories = useMemo(() => {
+  const set = new Set();
+  categories.forEach((c) => set.add(c));
+  (categoriesMemo || []).forEach((c) => set.add(c));
+  return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)));
+}, [categories, categoriesMemo]);
+  
   // Filter + sort
   const filtered = useMemo(() => {
     // Guard: keep only truly published docs
@@ -161,7 +170,7 @@ export default function Bookmarks2() {
       return matchesQ && matchesRegion && matchesPrice && matchesCat;
     });
 
-    if (sortBy === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (sortBy === 'name') list = [...list].sort((a, b) => String(a.name).localeCompare(String(b.name)));
     if (sortBy === 'rating') list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     if (sortBy === 'price-asc') {
       const n = (x) => parseInt(String(x.price || '0').replace(/[^\d]/g, ''), 10) || 0;
@@ -258,13 +267,8 @@ export default function Bookmarks2() {
   );
 
   // All categories (from Firestore + CMS) for filter list
-  const allCategories = useMemo(() => {
-  const set = new Set();
-  categories.forEach((c) => set.add(c));
-  (categoriesMemo || []).forEach((c) => set.add(c));
-  return Array.from(set).sort((a, b) => a.localeCompare(b));
-}, [categories, categoriesMemo]);
   
+
   // Helpers
   const toggleSet = (setter, value) =>
     setter((prev) => {
