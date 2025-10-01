@@ -1323,24 +1323,25 @@ useEffect(() => {
   }, [reports, userNameCache]);
 
   const filteredDestinations = destinations.filter((d) => {
-    // Status filter
-    const statusMatch =
-      !statusFilter ||
-      (d.status && d.status.toLowerCase() === statusFilter.toLowerCase());
+  // Status filter
+  const statusMatch =
+    !statusFilter ||
+    (d.status && d.status.toLowerCase() === statusFilter.toLowerCase());
 
-    // Category filter
-    const categoryMatch =
-      !categoryFilter ||
-      (d.category && d.category.toLowerCase() === categoryFilter.toLowerCase());
+  // Category filter (support both category and categories array)
+  const categoryMatch =
+    !categoryFilter ||
+    (d.category && d.category.toLowerCase() === categoryFilter.toLowerCase()) ||
+    (Array.isArray(d.categories) && d.categories.some(cat => cat.toLowerCase() === categoryFilter.toLowerCase()));
 
-    // Search filter
-    const searchMatch =
-      !searchDest ||
-      (d.name && d.name.toLowerCase().includes(searchDest.toLowerCase())) ||
-      (d.description && d.description.toLowerCase().includes(searchDest.toLowerCase()));
+  // Search filter
+  const searchMatch =
+    !searchDest ||
+    (d.name && d.name.toLowerCase().includes(searchDest.toLowerCase())) ||
+    (d.description && d.description.toLowerCase().includes(searchDest.toLowerCase()));
 
-    return statusMatch && categoryMatch && searchMatch;
-  });
+  return statusMatch && categoryMatch && searchMatch;
+});
 
   return (
     <div className="cms-root">
