@@ -59,5 +59,5 @@ const log = {
     securityFlags: [],
 };
 
-await addDoc(collection(db, 'auditlogs'), log);
+await addDoc(collection(db, 'auditLogs'), log);
 }
