@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './Styles/contentManager.css';
 import { CloudinaryContext, Image } from './cloudinary';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 // Cloudinary config (same defaults used elsewhere)
 const CLOUDINARY_UPLOAD_PRESET = "lakbai_preset";
@@ -239,6 +241,26 @@ function showToast(msg, type = "error", duration = 5500) {
   }, duration);
 }
 
+const REGION_LIST = [
+  'NCR - National Capital Region',
+  'CAR - Cordillera Administrative Region',
+  'Region I - Ilocos Region',
+  'Region II - Cagayan Valley',
+  'Region III - Central Luzon',
+  'Region IV-A - CALABARZON',
+  'Region IV-B - MIMAROPA',
+  'Region V - Bicol Region',
+  'Region VI - Western Visayas',
+  'Region VII - Central Visayas',
+  'Region VIII - Eastern Visayas',
+  'Region IX - Zamboanga Peninsula',
+  'Region X - Northern Mindanao',
+  'Region XI - Davao Region',
+  'Region XII - SOCCSKSARGEN',
+  'Region XIII - Caraga',
+  'BARMM - Bangsamoro Autonomous Region'
+];
+
 const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [], ignoreId = null }) => {
   const [data, setData] = useState(() => {
     const base = {
@@ -421,7 +443,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
   }, [data.name, normalizedExisting]);
 
   // In the submit function, always save both category and categories
-  const submit = (e) => {
+  const submit = async (e) => {
     e?.preventDefault();
     if (!data.name.trim()) return alert('Please enter a destination name');
     if (nameError) return alert(nameError);
@@ -438,6 +460,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
 
     const payload = {
       ...data,
+      region: region,
       category: data.category || (categories[0] || ''),
       categories,
       packingSuggestions: data.packingSuggestions,
@@ -445,8 +468,25 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
       updatedAt: new Date().toISOString(),
       createdAt: initial?.createdAt || new Date().toISOString(),
     };
+
+    // Write region to Firestore (destinations collection)
+    const id = data.name
+      ? String(data.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      : Math.random().toString(36).slice(2, 10);
+
+    await setDoc(doc(db, 'destinations', id), payload);
+
+    // Optionally, write to a separate 'region' collection if needed:
+    // await setDoc(doc(db, 'region', id), { region });
+
     onSave?.(payload);
   };
+
+  const [region, setRegion] = useState(initial?.region || '');
+
+  useEffect(() => {
+    if (initial?.region) setRegion(initial.region);
+  }, [initial]);
 
   return (
     <form className="content-form" onSubmit={submit}>
@@ -634,7 +674,20 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
               placeholder="e.g., March to May"
             />
           </div>
-          
+
+          <div>
+            <label>Region</label>
+            <select
+              value={region}
+              onChange={e => setRegion(e.target.value)}
+              className="form-input"
+            >
+              <option value="">Select region</option>
+              {REGION_LIST.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
