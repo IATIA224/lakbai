@@ -248,6 +248,8 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
   const [allExist, setAllExist] = useState(false);
   const [existingRowsSummary, setExistingRowsSummary] = useState('');
   const [importedFilePath, setImportedFilePath] = useState('');
+  // NEW: track if any imported name already exists
+  const [anyExist, setAnyExist] = useState(false);
 
   // State for imported file path
   useEffect(() => {
@@ -255,6 +257,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     async function checkExisting() {
       if (!rows.length) {
         setAllExist(false);
+        setAnyExist(false); // NEW
         setExistingRowsSummary('');
         return;
       }
@@ -266,6 +269,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
       const alreadyExist = importedNames.filter(n => existingNames.has(n));
       if (!ignore) {
         setAllExist(alreadyExist.length === importedNames.length && importedNames.length > 0);
+        setAnyExist(alreadyExist.length > 0); // NEW
         if (alreadyExist.length) {
           setExistingRowsSummary(
             `Already exists: ${alreadyExist.slice(0, 5).join(', ')}${alreadyExist.length > 5 ? `, and ${alreadyExist.length - 5} more` : ''}`
@@ -740,6 +744,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
     rows.length === 0 ||
     missingColumns.length > 0 ||
     filteredRowIssues.length > 0 ||   // use filtered issues so ignoring a column enables import
+    (!ignoredCols.name && anyExist) || // NEW: gray out if any destination already exists (unless Name is ignored)
     allExist;
 
 
