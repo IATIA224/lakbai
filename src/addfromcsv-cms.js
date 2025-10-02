@@ -326,7 +326,7 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
   const IGNORABLE_COLUMNS = [
     { key: 'name', label: 'Destination Name' },
     { key: 'region', label: 'Region' },
-    { key: 'categories', label: 'Categories' },
+    { key: 'category', label: 'Category' },
     { key: 'description', label: 'Description' },
     { key: 'tags', label: 'Tags' },
     { key: 'location', label: 'Location' },
@@ -864,13 +864,13 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
           {error && <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>}
 
           {missingColumns.length > 0 && (
-            <div style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: 8, padding: 12 }}>
+            <div style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: 8, padding: 12, }}>
               Missing required column(s): {missingColumns.join(', ')}
             </div>
           )}
 
           {filteredRowIssues.length > 0 && (
-            <div style={{ background: '#fff7ed', color: '#9a3412', border: '1px solid #fed7aa', borderRadius: 8, padding: 12 }}>
+            <div style={{ background: '#fff7ed', color: '#9a3412', border: '1px solid #fed7aa', borderRadius: 8, padding: 12,  }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>
                 {filteredRowIssues.length} row{filteredRowIssues.length > 1 ? 's' : ''} have missing required values:
               </div>
@@ -884,18 +884,29 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
           )}
 
           {rows.length > 0 && (
-            <div style={{ borderTop: '1px solid #eef2f7', paddingTop: 12 }}>
+              <div
+                style={{
+                  borderTop: '1px solid #eef2f7',
+                  paddingTop: 12,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  flex: (missingColumns.length === 0 && filteredRowIssues.length === 0) ? 1 : 'unset',
+                }}
+              >
               <div style={{ marginBottom: 8, fontWeight: 700 }}>
                 Preview ({rows.length} row{rows.length > 1 ? 's' : ''})
               </div>
-              <div
-                style={{
-                  overflow: 'auto',
-                  border: '1px solid #eef2f7',
-                  borderRadius: 8,
-                  maxHeight: 295, // keep preview area size steady and scroll within
-                }}
-              >
+                <div
+                  style={{
+                    overflow: 'auto',
+                    border: '1px solid #eef2f7',
+                    borderRadius: 8,
+                    minHeight: 0,
+                    maxHeight: filteredRowIssues.length > 0 ? 310 : 550, // Set to 310px if missing required values
+                    transition: 'max-height 0.35s cubic-bezier(.4,0,.2,1)',
+                  }}
+                >
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#f6f8fa', color: '#6b7280', fontWeight: 700 }}>
