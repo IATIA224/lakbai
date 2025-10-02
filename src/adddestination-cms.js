@@ -262,11 +262,28 @@ const REGION_LIST = [
 ];
 
 const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [], ignoreId = null }) => {
+  function normalizeCategory(cat) {
+    if (!cat) return '';
+    const c = cat.trim().toLowerCase();
+    if (c.startsWith('beach')) return 'Beach';
+    if (c.startsWith('mountain')) return 'Mountain';
+    if (c.startsWith('tourist')) return 'Tourist';
+    if (c.startsWith('waterfall')) return 'Waterfalls';
+    if (c.startsWith('historical') || c.startsWith('heritage')) return 'Historical';
+    if (c.startsWith('park') || c.startsWith('natural')) return 'Parks';
+    if (c.startsWith('museum')) return 'Museums';
+    if (c.startsWith('landmark')) return 'Landmarks';
+    if (c.startsWith('cultural')) return 'Cultural';
+    if (c.startsWith('cave')) return 'Caves';
+    if (c.startsWith('island')) return 'Islands';
+    if (c.startsWith('lake')) return 'Lakes';
+    return '';
+  }
+
   const [data, setData] = useState(() => {
     const base = {
       name: '',
       category: '',
-      categories: [],
       description: '',
       content: '',
       packingSuggestions: '',
@@ -279,26 +296,17 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
       status: 'draft',
     };
     if (!initial) return base;
-    // Normalize categories/category
-    let categories = [];
-    if (Array.isArray(initial.categories) && initial.categories.length) {
-      categories = initial.categories;
-    } else if (typeof initial.categories === 'string' && initial.categories.trim()) {
-      categories = initial.categories.split(',').map(s => s.trim()).filter(Boolean);
-    } else if (initial.category) {
-      categories = [initial.category].flat().filter(Boolean);
-    }
-    // --- Packing suggestion logic ---
-    const catKey = packingKey(initial.category || (categories[0] || ''));
+    // Normalize category from Firestore to match dropdown
+    const category = normalizeCategory(initial.category || '');
+    // Packing suggestion logic
+    const catKey = packingKey(category);
     const autoPacking = PACKING_TEMPLATES[catKey] || '';
     const importedPacking = initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '';
-    // Use imported packing if present, otherwise auto-generate
     const packingSuggestions = importedPacking && importedPacking.trim() ? importedPacking : autoPacking;
     return {
       ...base,
       ...initial,
-      category: initial.category || (categories[0] || ''),
-      categories,
+      category,
       packingSuggestions,
       media: {
         featuredImage: initial?.media?.featuredImage || '',
@@ -312,13 +320,8 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     if (initial) {
       setData((prev) => ({
         ...prev,
-        ...initial,
-        status: initial.status || prev.status, // update status from firebase
-        media: {
-          featuredImage: initial?.media?.featuredImage || '',
-          gallery: Array.isArray(initial?.media?.gallery) ? initial.media.gallery : [],
-        },
-        packingSuggestions: initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '',
+        // Normalize category from Firestore to match dropdown
+        category: normalizeCategory(initial.category || ''),
       }));
     }
   }, [initial]);
@@ -474,8 +477,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     const payload = {
       ...data,
       region: region,
-      category: data.category || (categories[0] || ''),
-      categories,
+      category: data.category || '',
       packingSuggestions: data.packingSuggestions,
       content: data.content || data.packingSuggestions,
       updatedAt: new Date().toISOString(),
@@ -507,10 +509,19 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     onSave?.(payload);
   };
 
-  const [region, setRegion] = useState(initial?.region || '');
+  function normalizeRegion(region) {
+    if (!region) return '';
+    // Try to find a matching region in REGION_LIST
+    const r = region.trim().toLowerCase();
+    const match = REGION_LIST.find(opt => opt.toLowerCase().includes(r));
+    return match || '';
+  }
 
+  const [region, setRegion] = useState(() => normalizeRegion(initial?.region));
+
+  // Update region when initial changes
   useEffect(() => {
-    if (initial?.region) setRegion(initial.region);
+    setRegion(normalizeRegion(initial?.region));
   }, [initial]);
 
   return (
