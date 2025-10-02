@@ -105,7 +105,7 @@ function toCamelKey(s) {
 const REQUIRED = {
   name: 'Destination Name',
   region: 'Region',
-  categories: 'Categories',
+  category: 'Category',
   description: 'Description',
   tags: 'Tags',
   location: 'Location',
@@ -606,14 +606,17 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         try {
           // Set packingSuggestions based on category if not present
           let packingSuggestions = item.packingSuggestions;
-          if (!packingSuggestions) {
-            // Try to match first category (case-insensitive)
-            const cat = Array.isArray(item.categories) && item.categories.length
-              ? String(item.categories[0]).toLowerCase()
-              : (item.category ? String(item.category).toLowerCase() : '');
-            packingSuggestions = PACKING_SUGGESTIONS_BY_CATEGORY[cat] || '';
-            item.packingSuggestions = packingSuggestions;
-          }
+          // Use only the first category for storage
+          const cat = Array.isArray(item.categories) && item.categories.length
+            ? String(item.categories[0]).toLowerCase()
+            : (item.category ? String(item.category).toLowerCase() : '');
+          packingSuggestions = packingSuggestions || PACKING_SUGGESTIONS_BY_CATEGORY[cat] || '';
+          item.packingSuggestions = packingSuggestions;
+
+          // Store only 'category' as string, not 'categories' array
+          item.category = cat;
+          // Always remove categories field to avoid undefined/null
+          if ('categories' in item) delete item.categories;
 
           // Use destination name as ID (slugify for safety)
           const id = item.name
@@ -624,18 +627,20 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
             : Math.random().toString(36).slice(2, 10); // fallback if name is ignored
           await setDoc(doc(db, 'destinations', id), cleanFirestoreDoc(item));
           // Log audit
-          await logDestinationImport({
-            destination: item,
-            userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
-            userEmail: 'aclanjeremy432@gmail.com',
-            userRole: 'admin',
-            sessionId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-            device: 'Desktop',
-            browser: getBrowserInfo(),
-            os: getOSInfo(),
-            userAgent: navigator.userAgent,
-            outcome: `success (${created.length > 0 ? 200 : 204})`
-          });
+          await logDestinationImport(
+            cleanFirestoreDoc ({
+              destination: cleanFirestoreDoc(item),
+              userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
+              userEmail: 'aclanjeremy432@gmail.com',
+              userRole: 'admin',
+              sessionId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+              device: 'Desktop',
+              browser: getBrowserInfo(),
+              os: getOSInfo(),
+              userAgent: navigator.userAgent,
+              outcome: `success (${created.length > 0 ? 200 : 204})`
+            })
+          );
           created.push({ ...item, id, createdAt: now, updatedAt: now });
         } catch (e) {
           console.warn('Failed to create a row:', e?.message);
