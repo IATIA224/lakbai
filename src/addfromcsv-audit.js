@@ -40,7 +40,7 @@ const log = {
     importedData: {
         name: destination.name,
         region: destination.region,
-        categories: destination.categories,
+        categories: destination.category,
         // Add more fields as needed
     }
     },
