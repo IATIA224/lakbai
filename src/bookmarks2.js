@@ -65,7 +65,12 @@ export default function Bookmarks2() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const items = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+        const items = snap.docs.map((x) => ({
+          id: x.id,
+          ...x.data(),
+          category: x.data().category || '', // Always use category string
+          // categories: undefined, // Optionally remove categories if present
+        }));
         setDestinations(items);
         setIsLoading(false);
       },
@@ -326,7 +331,7 @@ const allCategories = useMemo(() => {
               price: dest.price || '',
               priceTier: dest.priceTier || null,
               tags: dest.tags || [],
-              categories: dest.categories || [],
+              category: dest.category || [],
               bestTime: dest.bestTime || '',
               image: dest.image || '',
               createdAt: serverTimestamp(),
@@ -1033,13 +1038,13 @@ const allCategories = useMemo(() => {
                   </div>
 
                   <div className="trip-item">
-                    <div className="trip-label">Categories</div>
+                    <div className="trip-label">Category</div>
                     <div className="badge-row">
-                      {(selected.categories || []).map((c, i) => (
-                        <span key={i} className="badge purple">
-                          {c}
-                        </span>
-                      ))}
+                      {selected.category ? (
+                        <span className="badge purple">{selected.category}</span>
+                      ) : (
+                        <span className="badge purple">No category</span>
+                      )}
                     </div>
                   </div>
                 </aside>
