@@ -253,25 +253,33 @@ function Dashboard({ setShowAIModal }) {
       <div className="dashboard-stats-row">
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number blue">
-            {statsLoading ? '–' : stats.destinations}
+            {statsLoading
+              ? <span className={`loading-spinner${!statsLoading ? ' spinner-fade-out' : ''}`} />
+              : stats.destinations}
           </span>
           <span className="dashboard-stat-label">Destinations</span>
         </div>
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number green">
-            {statsLoading ? '–' : stats.bookmarked}
+            {statsLoading
+              ? <span className={`loading-spinner${!statsLoading ? ' spinner-fade-out' : ''}`} />
+              : stats.bookmarked}
           </span>
           <span className="dashboard-stat-label">Bookmarked</span>
         </div>
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number purple">
-            {statsLoading ? '–' : stats.tripsPlanned}
+            {statsLoading
+              ? <span className={`loading-spinner${!statsLoading ? ' spinner-fade-out' : ''}`} />
+              : stats.tripsPlanned}
           </span>
           <span className="dashboard-stat-label">Trips Planned</span>
         </div>
         <div className="dashboard-stat" title={statsError ? String(statsError) : undefined}>
           <span className="dashboard-stat-number orange">
-            {statsLoading ? '–' : stats.ratedCount}
+            {statsLoading
+              ? <span className={`loading-spinner${!statsLoading ? ' spinner-fade-out' : ''}`} />
+              : stats.ratedCount}
           </span>
           <span className="dashboard-stat-label">Rated Destinations</span>
         </div>
