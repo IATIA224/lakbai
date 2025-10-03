@@ -1034,3 +1034,22 @@
     font-size: 0.85rem;
   }
 }
+.loading-spinner {
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 auto;
+  opacity: 1;
+  transition: opacity 0.4s cubic-bezier(.4,0,.2,1);
+}
+.spinner-fade-out {
+  opacity: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
