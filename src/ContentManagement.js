@@ -1634,7 +1634,18 @@ useEffect(() => {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '14px 16px', verticalAlign: 'top', fontSize: 14 }}>
-                                              {fmtDate(d.updatedAt)}                                            </td>
+                                              {d.updatedAt?.toDate
+                                                ? d.updatedAt.toDate().toLocaleDateString()
+                                                : d.updatedAt instanceof Date
+                                                  ? d.updatedAt.toLocaleDateString()
+                                                  : typeof d.updatedAt === 'string'
+                                                    ? (() => {
+                                                        const dt = new Date(d.updatedAt);
+                                                        return isNaN(dt) ? 'Invalid Date' : dt.toLocaleDateString();
+                                                      })()
+                                                    : '—'
+                                              }
+                                            </td>
                                             <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
                                               <div style={{ display: 'flex', gap: 12 }}>
                                                 <button
