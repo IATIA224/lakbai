@@ -391,7 +391,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             fontSize: 16,
             opacity: .55,
             pointerEvents: 'none'
-          }}>🔍</span>
+          }}>🔎</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -399,8 +399,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             style={{
               width: '100%',
               padding: '14px 16px 14px 44px',
-              borderRadius: 14,
-              border: 'none',
+              borderRadius: 10,
+              border: '2px solid #b9b9b933',
               fontSize: FS.base,
               background: '#f4f8fc',
               color: '#334155',
@@ -437,6 +437,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
               minWidth: 180,
               boxShadow: 'none',
               outline: 'none',
+              border: '2px solid #b9b9b933',
               flex: windowWidth < 700 ? 'unset' : 1
             }}
           >
@@ -450,8 +451,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             className="form-input"
             style={{
               background: '#f4f8fc',
-              border: 'none',
-              borderRadius: 14,
+              borderRadius: 10,
               fontSize: FS.base,
               fontWeight: 500,
               color: '#334155',
@@ -459,7 +459,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
               minWidth: 180,
               boxShadow: 'none',
               outline: 'none',
-              flex: windowWidth < 700 ? 'unset' : 1
+              flex: windowWidth < 700 ? 'unset' : 1,
+              border: '2px solid #b9b9b933',
             }}
           >
             {outcomesList.map((o) => (
@@ -472,8 +473,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             className="form-input"
             style={{
               background: '#f4f8fc',
-              border: 'none',
-              borderRadius: 14,
+              border: '2px solid #b9b9b933',
+              borderRadius: 10,
               fontSize: FS.base,
               fontWeight: 500,
               color: '#334155',
@@ -518,8 +519,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 onChange={(e) => setStartDate(e.target.value)}
                 style={{
                   background: '#f4f8fc',
-                  border: 'none',
-                  borderRadius: 14,
+                  border: '2px solid #b9b9b933',
+                  borderRadius: 10,
                   fontSize: FS.base,
                   fontWeight: 500,
                   color: '#334155',
@@ -552,8 +553,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 onChange={(e) => setEndDate(e.target.value)}
                 style={{
                   background: '#f4f8fc',
-                  border: 'none',
-                  borderRadius: 14,
+                  border: '2px solid #b9b9b933',
+                  borderRadius: 10,
                   fontSize: FS.base,
                   fontWeight: 500,
                   color: '#334155',
