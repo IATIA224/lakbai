@@ -18,6 +18,8 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ImagesCMS from './images-cms';
 import NotFoundCMS from './notfound-cms';
+import destImages from './dest-images.json';
+
 
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
@@ -317,6 +319,9 @@ function ContentManagement() {
   const [placeInput, setPlaceInput] = useState('');
   const [editStatus, setEditStatus] = useState('active'); // NEW: settings tab state
   const [interestInput, setInterestInput] = useState('');  // NEW: inline input for Travel Interests
+
+  // NEW: total images count from dest-images.json
+  const totalImages = Array.isArray(destImages) ? destImages.length : 0;
 
   // Settings state (persisted to localStorage)
   const [cmsSettings, setCmsSettings] = useState(() => {
@@ -1338,7 +1343,7 @@ useEffect(() => {
   const searchMatch =
     !searchDest ||
     (d.name && d.name.toLowerCase().includes(searchDest.toLowerCase())) ||
-    (d.description && d.description.toLowerCase().includes(searchDest.toLowerCase()));
+    (d.description && d.description.toLowerCase().includes(searchDest.toLowerCase()));  
 
   return statusMatch && categoryMatch && searchMatch;
 });
@@ -1401,7 +1406,9 @@ useEffect(() => {
               <div className="stat-card content-card gradient-1" style={{ padding: 20 }}>
                 <div style={{ fontWeight: 700, color: '#fff' }}>Total Destinations</div>
                 <div className="stat-value" style={{ color: '#fff' }}>
-                {Number(analytics.totalDestinations || 0).toLocaleString()}
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : Number(analytics.totalDestinations || 0).toLocaleString()}
                 </div>
                 <div className="muted" style={{ opacity: 0.9 }}>Active travel destinations</div>
               </div>
@@ -1409,21 +1416,31 @@ useEffect(() => {
               <div className="stat-card content-card gradient-2" style={{ padding: 20 }}>
                 <div style={{ fontWeight: 700, color: '#fff' }}>Total Users</div>
                 <div className="stat-value" style={{ color: '#fff' }}>
-                {Number(analytics.totalUsers || 0).toLocaleString()}
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : Number(analytics.totalUsers || 0).toLocaleString()}
                 </div>
                 <div className="muted" style={{ opacity: 0.9 }}>Registered travelers</div>
               </div>
 
               <div className="stat-card content-card gradient-3" style={{ padding: 20 }}>
-              <div style={{ fontWeight: 700, color: '#fff' }}>Total Reports</div>
-              <div className="stat-value" style={{ color: '#fff' }}>{analytics.totalArticles}</div>
-              <div className="muted" style={{ opacity: 0.9 }}>Reported Contents</div>
+                <div style={{ fontWeight: 700, color: '#fff' }}>Total Reports</div>
+                <div className="stat-value" style={{ color: '#fff' }}>
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : analytics.totalArticles}
+                </div>
+                <div className="muted" style={{ opacity: 0.9 }}>Reported Contents</div>
               </div>
 
               <div className="stat-card content-card gradient-4" style={{ padding: 20 }}>
-              <div style={{ fontWeight: 700, color: '#fff' }}>Published Content</div>
-              <div className="stat-value" style={{ color: '#fff' }}>{analytics.publishedContent}</div>
-              <div className="muted" style={{ opacity: 0.9 }}>Live content pieces</div>
+                <div style={{ fontWeight: 700, color: '#fff' }}>Total Images</div>
+                <div className="stat-value" style={{ color: '#fff', minHeight: 38 }}>
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : totalImages}
+                </div>
+                <div className="muted" style={{ opacity: 0.9 }}>Available Images</div>
               </div>
 
               </div>
