@@ -114,6 +114,8 @@ const REQUIRED = {
   image: 'Image URL',        // not strictly required, but recommended
 };
 
+
+
 // Aliases that map incoming headers to canonical keys
 const ALIASES = {
   name: ['name', 'destinationname', 'destination', 'title'],
@@ -237,7 +239,9 @@ function rowToDestination(raw) {
   return dest;
 }
 
+
 const AddFromCsvCMS = ({ open, onClose, onImported }) => {
+  const [importProgress, setImportProgress] = useState({ imported: 0, failed: 0, total: 0 });
   const [rows, setRows] = useState([]);           // array of normalized row objects (keys = normalized headers)
   const [headers, setHeaders] = useState([]);     // raw headers as strings
   const [error, setError] = useState('');
@@ -252,37 +256,54 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
   // NEW: track if any imported name already exists
   const [anyExist, setAnyExist] = useState(false);
 
-  // State for imported file path
-  useEffect(() => {
-    let ignore = false;
-    async function checkExisting() {
-      if (!rows.length) {
-        setAllExist(false);
-        setAnyExist(false); // NEW
-        setExistingRowsSummary('');
-        return;
-      }
-      const existingNames = await getExistingDestinationNames();
-      const importedNames = rows.map(r =>
-        String(r.name || r.destinationname || r.title || '').trim().toLowerCase()
-      ).filter(Boolean);
+  const [existingNameLocation, setExistingNameLocation] = useState([]);
 
-      const alreadyExist = importedNames.filter(n => existingNames.has(n));
-      if (!ignore) {
-        setAllExist(alreadyExist.length === importedNames.length && importedNames.length > 0);
-        setAnyExist(alreadyExist.length > 0); // NEW
-        if (alreadyExist.length) {
-          setExistingRowsSummary(
-            `Already exists: ${alreadyExist.slice(0, 5).join(', ')}${alreadyExist.length > 5 ? `, and ${alreadyExist.length - 5} more` : ''}`
-          );
-        } else {
-          setExistingRowsSummary('');
-        }
+  // State for imported file path
+useEffect(() => {
+  let ignore = false;
+  async function checkExisting() {
+    if (!rows.length) {
+      setAllExist(false);
+      setAnyExist(false);
+      setExistingRowsSummary('');
+      setExistingNameLocation([]); // <-- clear when no rows
+      return;
+    }
+    const existingNames = await getExistingDestinationNames();
+    const importedNames = rows.map(r =>
+      String(r.name || r.destinationname || r.title || '').trim().toLowerCase()
+    ).filter(Boolean);
+
+    // Fetch all existing destinations with name and location
+    const snap = await getDocs(collection(db, 'destinations'));
+    const nameLocArr = [];
+    snap.forEach(doc => {
+      const data = doc.data();
+      if (data?.name) {
+        nameLocArr.push({
+          name: String(data.name).trim().toLowerCase(),
+          location: String(data.location || '').trim().toLowerCase()
+        });
+      }
+    });
+    if (!ignore) setExistingNameLocation(nameLocArr);
+
+    const alreadyExist = importedNames.filter(n => existingNames.has(n));
+    if (!ignore) {
+      setAllExist(alreadyExist.length === importedNames.length && importedNames.length > 0);
+      setAnyExist(alreadyExist.length > 0);
+      if (alreadyExist.length) {
+        setExistingRowsSummary(
+          `Already exists: ${alreadyExist.slice(0, 5).join(', ')}${alreadyExist.length > 5 ? `, and ${alreadyExist.length - 5} more` : ''}`
+        );
+      } else {
+        setExistingRowsSummary('');
       }
     }
-    checkExisting();
-    return () => { ignore = true; };
-  }, [rows]);
+  }
+  checkExisting();
+  return () => { ignore = true; };
+}, [rows]);
 
 
   // NEW: helper to reset modal state when it closes
@@ -579,21 +600,62 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
         String(r.name || r.destinationname || r.title || '').trim().toLowerCase()
       ).filter(Boolean);
 
-      const firebaseDuplicates = importedNames.filter(n => existingNames.has(n));
-      if (firebaseDuplicates.length && !ignoredCols.name) {
-        setAlertType('error');
-        setAlertMsg(`Destination names already exist: ${firebaseDuplicates.join(', ')}`);
-        setTimeout(() => setAlertMsg(''), 3500);
-        setBusy(false);
-        return;
-      }
+      // --- NEW: Check for same name AND same location ---
+      const importedNameLocation = rows.map(r => ({
+      name: String(r.name || r.destinationname || r.title || '').trim().toLowerCase(),
+      location: String(r.location || '').trim().toLowerCase()
+      }));
 
+      // Fetch all existing destinations with name and location
+      const snap = await getDocs(collection(db, 'destinations'));
+      const existingNameLocation = [];
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (data?.name) {
+          existingNameLocation.push({
+            name: String(data.name).trim().toLowerCase(),
+            location: String(data.location || '').trim().toLowerCase()
+          });
+        }
+      });
+
+          // Find duplicates: same name AND same location
+    const duplicates = importedNameLocation.filter(imported =>
+      existingNameLocation.some(existing =>
+        imported.name === existing.name && imported.location === existing.location
+      )
+    );
+
+    if (duplicates.length && !ignoredCols.name) {
+      setAlertType('error');
+      setAlertMsg(
+        `Destination(s) already exist with same name and location: ${duplicates
+          .map(d => `${d.name} (${d.location})`)
+          .slice(0, 5)
+          .join(', ')}${duplicates.length > 5 ? `, and ${duplicates.length - 5} more` : ''}`
+      );
+      setTimeout(() => setAlertMsg(''), 3500);
+      setBusy(false);
+      return;
+    }
+
+    // Continue with previous duplicate name check (name only, not location)
+    const firebaseDuplicates = importedNames.filter(n => existingNames.has(n));
+    if (firebaseDuplicates.length && !ignoredCols.name) {
+      setAlertType('error');
+      setAlertMsg(`Destination names already exist: ${firebaseDuplicates.join(', ')}`);
+      setTimeout(() => setAlertMsg(''), 3500);
+      setBusy(false);
+      return;
+    }
       // Map rows to destination docs
       const toCreate = [];
       for (const raw of rows) {
         const dest = rowToDestinationWithIgnore(raw);
         if (dest) toCreate.push(dest);
       }
+      setImportProgress({ imported: 0, failed: 0, total: toCreate.length }); // before import loop
+
       if (!toCreate.length) {
         alert('No valid rows to import.');
         return;
@@ -642,8 +704,9 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
             })
           );
           created.push({ ...item, id, createdAt: now, updatedAt: now });
+          setImportProgress(prev => ({ ...prev, imported: prev.imported + 1 }));
         } catch (e) {
-          console.warn('Failed to create a row:', e?.message);
+          setImportProgress(prev => ({ ...prev, failed: prev.failed + 1 }));
         }
       }
 
@@ -746,12 +809,15 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
 
 
   const disableImport =
-    busy ||
-    rows.length === 0 ||
-    missingColumns.length > 0 ||
-    filteredRowIssues.length > 0 ||   // use filtered issues so ignoring a column enables import
-    (!ignoredCols.name && anyExist) || // NEW: gray out if any destination already exists (unless Name is ignored)
-    allExist;
+  busy ||
+  rows.length === 0 ||
+  missingColumns.some(label => {
+    const col = IGNORABLE_COLUMNS.find(c => c.label === label);
+    return !(col && ignoredCols[col.key]);
+  }) ||
+  filteredRowIssues.length > 0 ||
+  (!ignoredCols.name && anyExist) ||
+  allExist;
 
 
 
@@ -850,6 +916,52 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
                 }}
               />
             </div>
+              {/* Progress Bar - upper right, inline */}
+              {busy && (
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 0,
+                  marginRight: 20,
+                  marginTop: 110,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: '#f3f4f6',
+                  borderRadius: 8,
+                  padding: '10px 15px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#059669',
+                  boxShadow: '0 1px 6px rgba(0,0,0,0.04)'
+                }}>
+                  <span>
+                    Importing: {importProgress.imported} / {importProgress.total}
+                  </span>
+                  <span style={{
+                    color: '#b91c1c',
+                    fontWeight: 500,
+                    marginLeft: 8
+                  }}>
+                    {importProgress.failed > 0 && `Not imported: ${importProgress.failed}`}
+                  </span>
+                  <div style={{
+                    width: 80,
+                    height: 8,
+                    background: '#e5e7eb',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    marginLeft: 8
+                  }}>
+                    <div style={{
+                      width: `${Math.round((importProgress.imported / importProgress.total) * 100)}%`,
+                      height: '100%',
+                      background: '#10b981',
+                      transition: 'width 0.3s'
+                    }} />
+                  </div>
+                </div>
+              )}
           </div>
 
           <div
@@ -992,6 +1104,52 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
               All imported destinations already exist. {existingRowsSummary}
             </span>
           )}
+          {/* Debug: show why import is disabled */}
+          {disableImport && importedFilePath && (
+            <div style={{ color: '#b91c1c', fontSize: 13, marginBottom: 8 }}>
+              Import is disabled because: {
+                busy ? 'Busy importing' :
+                rows.length === 0 ? 'No rows loaded' :
+                missingColumns.some(label => {
+                  const col = IGNORABLE_COLUMNS.find(c => c.label === label);
+                  return !(col && ignoredCols[col.key]);
+                }) ? 'Missing required columns (not ignored)' :
+                filteredRowIssues.length > 0 ? 'Rows have missing required values (not ignored)' :
+                (!ignoredCols.name && anyExist) ? (
+                  // Show duplicates from both CSV and Firebase (name + location)
+                  (() => {
+                    // Get imported name/location pairs
+                    const importedPairs = rows.map(r => ({
+                      name: String(r.name || r.destinationname || r.title || '').trim().toLowerCase(),
+                      location: String(r.location || '').trim().toLowerCase()
+                    }));
+                    // Get existing name/location pairs from Firebase (already fetched in useEffect)
+                    // You can reuse existingNameLocation if you store it in state, or refetch here:
+                    // For performance, you may want to store existingNameLocation in a useState/useRef.
+                    // For this inline check, let's assume you have it as a variable:
+                    // existingNameLocation = [{ name, location }, ...]
+                    // If not, fallback to showing existingRowsSummary.
+                    if (typeof existingNameLocation !== 'undefined') {
+                      const duplicates = importedPairs.filter(imported =>
+                        existingNameLocation.some(existing =>
+                          imported.name === existing.name && imported.location === existing.location
+                        )
+                      );
+                      if (duplicates.length) {
+                        return `Some destinations already exist: ${duplicates
+                          .map(d => `${d.name} (${d.location})`)
+                          .slice(0, 5)
+                          .join(', ')}${duplicates.length > 5 ? `, and ${duplicates.length - 5} more` : ''}`;
+                      }
+                    }
+                    // Fallback: show summary from name-only check
+                    return existingRowsSummary;
+                  })()
+                ) :
+                allExist ? 'All imported destinations already exist' : ''
+              }
+            </div>
+          )}
           <button className="btn-secondary" onClick={() => !busy && onClose?.()} disabled={busy} style={{ padding: '10px 18px', borderRadius: 10 }}>
             Cancel
           </button>
@@ -1011,8 +1169,10 @@ const AddFromCsvCMS = ({ open, onClose, onImported }) => {
               cursor: disableImport ? 'not-allowed' : 'pointer'
             }}
           >
+            
             {busy ? 'Importing...' : `Import ${rows.length} row${rows.length > 1 ? 's' : ''}`}
           </button>
+          
         </div>
       </div>
     </div>
