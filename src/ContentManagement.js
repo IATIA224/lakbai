@@ -1538,11 +1538,11 @@ useEffect(() => {
                 )}
 
                 <div className="filters content-card" style={{ display: 'flex', gap: 12, padding: 16, alignItems: 'center', marginBottom: 18 }}>
-                    <div className="search-bar" style={{ position: 'relative', flex: 1 }}>
-                    <span className="search-icon">🔍</span>
+                    <div className="search-bar" style={{ position: 'relative', flex: 1, border: 'none' }}>
+                    <span className="search-icon">🔎</span>
                     <input
                         className="form-input"
-                        style={{ width: '100%', paddingLeft: 48 }}
+                        style={{ width: '100%', paddingLeft: 40 }}
                         placeholder="Search content..."
                         value={searchDest}
                         onChange={(e) => setSearchDest(e.target.value)}
@@ -1618,13 +1618,14 @@ useEffect(() => {
                                 overflow: 'hidden',
                                 boxShadow: 'none'
                             }}>
+                              
                                 <thead>
-                                    <tr style={{ background: '#f6f8fa', color: '#6b7280', fontWeight: 600 }}>
+                                    <tr style={{ background: '#f6f8fa', color: '#6b7280', fontWeight: 600, gap: 15 }}>
                                         <th style={{ padding: '14px 16px', textAlign: 'left', borderTopLeftRadius: 12 }}>Title</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left' }}>Category</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left' }}>Status</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left' }}>Updated</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left', borderTopRightRadius: 12 }}>Actions</th>
+                                        <th className="category-col" style={{ padding: '14px 16px', textAlign: 'center' }}>Category</th>
+                                        <th style={{ padding: '14px 16px 14px 1px', textAlign: 'center', width: '140px' }}>Status</th>
+                                        <th className="updated-col" style={{ padding: '14px 16px', textAlign: 'center'}}>Updated</th>
+                                        <th style={{ padding: '14px 16px', textAlign: 'center', borderTopRightRadius: 12}}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1637,7 +1638,7 @@ useEffect(() => {
                                                 <div style={{ fontWeight: 600 }}>{d.name}</div>
                                                 <div style={{ color: '#6b7280', fontSize: 13 }}>{d.description}</div>
                                             </td>
-                                            <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                            <td className="category-col" style={{ padding: '14px 16px', verticalAlign: 'top' }}>
                                                 <span style={{
                                                     background: '#e0f2fe',
                                                     color: '#2563eb',
@@ -1663,7 +1664,7 @@ useEffect(() => {
                                                     {(d.status || 'draft').toUpperCase()}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '14px 16px', verticalAlign: 'top', fontSize: 14 }}>
+                                            <td className="updated-col" style={{ padding: '14px 16px', verticalAlign: 'top' }}>
                                               {d.updatedAt?.toDate
                                                 ? d.updatedAt.toDate().toLocaleDateString()
                                                 : d.updatedAt instanceof Date
