@@ -19,6 +19,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import ImagesCMS from './images-cms';
 import NotFoundCMS from './notfound-cms';
 import destImages from './dest-images.json';
+import settings, { getSetting, setSetting } from './settings';
+// ...existing code...
 
 
 // Cloudinary config
@@ -286,6 +288,9 @@ function ContentManagement() {
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [userProfileTab, setUserProfileTab] = useState('overview');
+
+  // Audit Logs modal state
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
 
   // Activity state for User Profile
   const [userActivity, setUserActivity] = useState([]);
@@ -1356,10 +1361,12 @@ useEffect(() => {
           <div className="muted">Content Management System</div>
         </div>
 
-
         <nav>
           <button className={`sidebar-item ${active === 'dashboard' ? 'active' : ''}`} onClick={() => setActive('dashboard')}>
             <span className="icon">📊</span> <span>Dashboard</span>
+          </button>
+          <button className={`sidebar-item ${active === 'audit-logs' ? 'active' : ''}`} onClick={() => setActive('audit-logs')}>
+            <span className="icon">📜</span> <span>Audit Logs</span>
           </button>
           <button className={`sidebar-item ${active === 'destinations' ? 'active' : ''}`} onClick={() => setActive('destinations')}>
             <span className="icon">🏖️</span> <span>Destinations</span>
@@ -1451,6 +1458,12 @@ useEffect(() => {
           )}
           </div>
 
+          {active === 'audit-logs' && (
+              <div className="content-section">
+              <AuditLogsCMS useFirestore={true} pageSize={200} />
+            </div>
+          )}
+          
           {active === 'destinations' && (
             <div className="content-section">
               <div className="section-header" style={{ alignItems: 'flex-start' }}>
