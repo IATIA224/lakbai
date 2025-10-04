@@ -428,6 +428,7 @@ body { overflow-y: auto; }
         
         .search-bar {
             position: relative;
+            border: none;
         }
         
         .search-bar input {
@@ -440,6 +441,7 @@ body { overflow-y: auto; }
             top: 50%;
             transform: translateY(-50%);
             color: #9ca3af;
+            opacity: 50%;
         }
         
         .modal-overlay {
