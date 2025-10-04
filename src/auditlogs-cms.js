@@ -621,14 +621,28 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 key={l.id || i}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(120px,1.2fr) minmax(120px,1.5fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,2fr) 120px 120px', // CHANGED: minmax for responsive
+                  gridTemplateColumns: 'minmax(120px,1.2fr) minmax(120px,1.5fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,2fr) 120px 120px',
                   fontSize: FS.tableCell,
                   background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
                   borderBottom: '1px solid #eef2f6',
                   transition: 'background .15s'
                 }}
-                onMouseEnter={e=>e.currentTarget.style.background = isFailure ? '#ffe2e2' : '#e8f2ff'}
-                onMouseLeave={e=>e.currentTarget.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa')}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = isFailure ? '#ffe2e2' : '#e8f2ff';
+                  // Also update sticky columns
+                  const stickyCols = e.currentTarget.querySelectorAll('.sticky-col');
+                  stickyCols.forEach(col => {
+                    col.style.background = isFailure ? '#ffe2e2' : '#e8f2ff';
+                  });
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa');
+                  // Also reset sticky columns
+                  const stickyCols = e.currentTarget.querySelectorAll('.sticky-col');
+                  stickyCols.forEach(col => {
+                    col.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa');
+                  });
+                }}
               >
                 <div style={{ padding:'16px 20px', fontWeight: W.primary, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tiny(l.timestamp)}</div>
                 <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -682,40 +696,41 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                   {l.userAgent || '—'}
                 </div>
                 {/* Outcome column: sticky on right for visibility */}
-                <div style={{
-                  padding: '12px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'sticky',
-                  right: 120, // CHANGED: sticky outcome
-                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
-                  zIndex: 2
-                }}>
+                <div
+                  className="sticky-col"
+                  style={{
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'sticky',
+                    right: 120, // CHANGED: sticky outcome
+                    background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
+                    zIndex: 2
+                  }}>
                   <Badge text={l.outcome} palette={outSty} />
                 </div>
                 {/* Actions column: sticky on right for visibility */}
-                <div style={{
-                  padding: '12px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'sticky',
-                  right: 0, // CHANGED: sticky actions
-                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
-                  zIndex: 3
-                }}>
+                <div
+                  className="sticky-col"
+                  style={{
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'sticky',
+                    right: 0, // CHANGED: sticky actions
+                    background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
+                    zIndex: 3
+                  }}>
                   <button
-                    style={{
-                      background: '#e0e7ff',
-                      color: '#1d4ed8',
+                    style={{ 
+                      background: 'rgb(224, 231, 255)', color: 'rgb(37, 99, 235)',
                       border: 'none',
-                      padding: '4px 14px',
-                      borderRadius: 8,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      minWidth: 60 // CHANGED: ensure button width
+                      padding: '6px 18px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '14px',
                     }}
                     onClick={() => setViewLog(l)}
                   >
