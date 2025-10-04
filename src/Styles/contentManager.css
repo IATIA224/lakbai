@@ -43,7 +43,7 @@ body{margin:0;background:var(--bg);color:#0f172a;font-size:14px}
 
 /* Form controls */
 label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
-.form-input{display:block;width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:#fbfcfe;font-size:14px;color:#0f172a;outline:none}.form-input:focus{box-shadow:0 6px 20px rgba(59,130,246,0.08);border-color:#cfe4ff}
+.form-input{display:block;width:auto;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:#fbfcfe;font-size:14px;color:#0f172a;outline:none}.form-input:focus{box-shadow:0 6px 20px rgba(59,130,246,0.08);border-color:#cfe4ff}
 textarea.form-input{min-height:84px;resize:vertical;padding-top:10px}
 
 /* Small helper text */
@@ -901,4 +901,150 @@ display:grid;place-items:center;font-size:18px
 /* Responsive */
 @media (max-width: 760px){
 .up-ach-grid{grid-template-columns:1fr}
+}
+
+.dark-mode {
+    background: #18181b;
+    color: #e5e7eb;
+}
+.dark-mode input, .dark-mode select {
+    background: #27272a;
+    color: #e5e7eb;
+    border-color: #27272a;
+}
+.dark-mode .card {
+    background: #23232a;
+    border-color: #27272a;
+}
+.dark-mode .badge {
+    background: #334155;
+    color: #a3e635;
+}
+
+/* Ensure table fits inside content-card and does not overflow */
+.content-card {
+    overflow-x: auto;
+    padding: 0; /* Remove extra padding so table fills card */
+}
+
+.content-card table {
+    width: 100%;
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+    font-size: 15px;
+    color: #222;
+    border-radius: 12px;
+    box-shadow: none;
+    table-layout: auto;
+}
+
+.content-card th, .content-card td {
+    padding: 14px 12px; /* Slightly reduced horizontal padding */
+    vertical-align: top;
+    min-width: 90px;
+    word-break: break-word;
+    white-space: normal;
+}
+
+.content-card th {
+    background: #f6f8fa;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.content-card td > div {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* Responsive: shrink font and padding for small screens, keep actions visible */
+@media (max-width: 900px) {
+    .content-card th, .content-card td {
+        font-size: 13px;
+        padding: 10px 6px;
+        min-width: 70px;
+    }
+}
+
+@media (max-width: 1000px) {
+    .content-card th.category-col,
+    .content-card td.category-col,
+    .content-card th.updated-col,
+    .content-card td.updated-col {
+        display: none !important;
+    }
+}
+
+/* Make sure actions column buttons wrap and stay inside card */
+.content-card td.actions-cell {
+    min-width: 300px;
+    max-width: 140px;
+    word-break: keep-all;
+}
+
+/* Maximize Title column width, reduce meta columns width */
+.content-card th:first-child,
+.content-card td:first-child {
+    width: 50%;
+    min-width: 220px;
+}
+
+.content-card th.category-col,
+.content-card td.category-col,
+.content-card th.status-col,
+.content-card td.status-col,
+.content-card th.updated-col,
+.content-card td.updated-col,
+.content-card th.actions-col,
+.content-card td.actions-col {
+    width: 1%;
+    min-width: 140px;
+    max-width: 150px;
+    text-align: center;
+    padding-left: 6px;
+    padding-right: 6px;
+    vertical-align: middle;
+}
+
+/* Responsive: shrink meta columns even more on smaller screens */
+@media (max-width: 1200px) {
+    .content-card th.category-col,
+    .content-card td.category-col,
+    .content-card th.status-col,
+    .content-card td.status-col,
+    .content-card th.updated-col,
+    .content-card td.updated-col,
+    .content-card th.actions-col,
+    .content-card td.actions-col {
+        min-width: 60px;
+        max-width: 90px;
+        font-size: 13px;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+    .content-card th:first-child,
+    .content-card td:first-child {
+        min-width: 160px;
+    }
+}
+
+.content-card td.actions-col {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.content-card td.actions-col {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.stats-grid .content-card {
+    overflow-x: hidden !important;
 }
