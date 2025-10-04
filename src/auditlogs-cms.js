@@ -158,6 +158,16 @@ function exportCsv(rows) {
   URL.revokeObjectURL(a.href);
 }
 
+function useWindowWidth() {
+  const [width, setWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return width;
+}
+
 export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
   const db = useMemo(() => {
     try {
@@ -241,6 +251,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
     };
   }, [db, useFirestore, pageSize]);
 
+  
+
   // Only use real categories from logs
   const categoriesList = useMemo(
     () => ['All', ...Array.from(new Set(logs.map((l) => l.category))).sort()],
@@ -248,6 +260,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
   );
   const rolesList = ['All', 'admin', 'moderator', 'user', 'system', 'anonymous'];
   const outcomesList = ['All', 'SUCCESS', 'FAILURE'];
+
+  const windowWidth = useWindowWidth();
 
   const filtered = useMemo(() => {
     const sTerm = search.trim().toLowerCase();
@@ -277,21 +291,39 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
       <div
         style={{
           background: 'linear-gradient(90deg,#0f172a,#1e3a8a)',
-          padding: '26px 30px',                // CHANGED
-          borderRadius: 20,                    // CHANGED
+          padding: '26px 30px',
+          borderRadius: 20,
           color: '#fff',
-            display: 'flex',
+          display: 'flex',
           alignItems: 'center',
           gap: 28,
-          marginBottom: 26,                    // CHANGED
-          boxShadow: '0 10px 28px -6px rgba(0,0,0,0.35)'
+          marginBottom: 26,
+          boxShadow: '0 10px 28px -6px rgba(0,0,0,0.35)',
+          flexWrap: 'wrap'
         }}
       >
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: FS.h1, fontWeight: 700, letterSpacing: .4 }}>Audit Logs</div> {/* CHANGED */}
-          <div style={{ fontSize: FS.small, opacity: .78 }}>Monitor system activities and security events</div> {/* CHANGED */}
+        <div style={{
+          flex: 1,
+          minWidth: 260,
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 18,
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ fontSize: FS.h1, fontWeight: 700, letterSpacing: .4, whiteSpace: 'nowrap' }}>
+            Audit Logs
+          </div>
+          <div style={{
+            fontSize: FS.small,
+            opacity: .78,
+            whiteSpace: 'nowrap',
+            marginLeft: 10
+          }}>
+            Monitor system activities and security events
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}> {/* CHANGED */}
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ background: '#1e293b', padding: '10px 18px', borderRadius: 12, fontSize: FS.small, fontWeight: 600 }}>
             Total: {filtered.length}
           </div>
@@ -307,9 +339,9 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
               background: 'linear-gradient(90deg,#059669,#10b981)',
               color: '#fff',
               border: 'none',
-              padding: '12px 24px',            // CHANGED
+              padding: '10px 18px',
               fontWeight: 700,
-              borderRadius: 12,                // CHANGED
+              borderRadius: 12,
               cursor: 'pointer',
               fontSize: FS.small,
               boxShadow: '0 6px 16px -2px rgba(16,185,129,.45)'
@@ -324,99 +356,213 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
       <div
         style={{
           ...UI.card,
-          padding: 22,                                        // CHANGED
-          display: 'grid',
-          gridTemplateColumns: 'minmax(280px,1fr) repeat(3,190px) repeat(2,190px) 140px', // CHANGED
-          gap: 18,                                            // CHANGED
-          alignItems: 'end',
+          padding: 22,
+          display: 'flex',
+          flexDirection: windowWidth < 700 ? 'column' : windowWidth < 1100 ? 'row' : 'row',
+          gap: windowWidth < 700 ? 12 : windowWidth < 1100 ? 16 : 18,
+          alignItems: windowWidth < 700 ? 'stretch' : 'center',
           marginBottom: 26,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          flexWrap: windowWidth < 1100 ? 'wrap' : 'nowrap'
         }}
       >
         {/* search input */}
-        <div style={{ position: 'relative' }}>
+        <div
+          style={{
+            flex: windowWidth < 700 ? 'unset' : 2,
+            minWidth: windowWidth < 700 ? '100%' : 320,
+            maxWidth: windowWidth < 700 ? '100%' : 580,
+            position: 'relative',
+            marginBottom: windowWidth < 700 ? 12 : 0,
+            background: '#f4f8fc',
+            borderRadius: 14,
+            display: 'flex',
+            alignItems: 'center',
+            border: 'none',
+            boxShadow: 'none'
+          }}
+        >
+          <span style={{
+            position: 'absolute',
+            left: 18,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: 16,
+            opacity: .55,
+            pointerEvents: 'none'
+          }}>🔍</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search logs..."
             style={{
               width: '100%',
-              padding: '14px 16px 14px 50px',                // CHANGED
-              borderRadius: 12,                              // CHANGED
-              border: UI.softBorder,
+              padding: '14px 16px 14px 44px',
+              borderRadius: 14,
+              border: 'none',
               fontSize: FS.base,
-              background: '#f1f5f9'
+              background: '#f4f8fc',
+              color: '#334155',
+              fontWeight: 500,
+              boxShadow: 'none',
+              outline: 'none'
             }}
           />
-          <span style={{ position: 'absolute', top: 14, left: 18, fontSize: 22, opacity: .55 }}>🔍</span> {/* CHANGED */}
         </div>
-        {/* selects updated via selectStyle() below */}
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="form-input"
-          style={selectStyle()}
+        {/* filters */}
+        <div
+          style={{
+            display: 'flex',
+            flex: 3,
+            gap: windowWidth < 700 ? 12 : 16,
+            flexWrap: windowWidth < 1100 ? 'wrap' : 'nowrap',
+            alignItems: windowWidth < 700 ? 'stretch' : 'center',
+            width: '100%',
+            justifyContent: windowWidth < 1100 ? 'flex-start' : 'center'
+          }}
         >
-          {categoriesList.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-        <select
-          value={outcome}
-          onChange={(e) => setOutcome(e.target.value)}
-          className="form-input"
-          style={selectStyle()}
-        >
-          {outcomesList.map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="form-input"
-          style={selectStyle()}
-        >
-          {rolesList.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#6b7280',
-                marginBottom: 4
-              }}
-            >
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={dateInputStyle}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#6b7280',
-                marginBottom: 4
-              }}
-            >
-              End Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={dateInputStyle}
-            />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="form-input"
+            style={{
+              background: '#f4f8fc',
+              border: 'none',
+              borderRadius: 14,
+              fontSize: FS.base,
+              fontWeight: 500,
+              color: '#334155',
+              padding: '14px 18px',
+              minWidth: 180,
+              boxShadow: 'none',
+              outline: 'none',
+              flex: windowWidth < 700 ? 'unset' : 1
+            }}
+          >
+            {categoriesList.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <select
+            value={outcome}
+            onChange={(e) => setOutcome(e.target.value)}
+            className="form-input"
+            style={{
+              background: '#f4f8fc',
+              border: 'none',
+              borderRadius: 14,
+              fontSize: FS.base,
+              fontWeight: 500,
+              color: '#334155',
+              padding: '14px 18px',
+              minWidth: 180,
+              boxShadow: 'none',
+              outline: 'none',
+              flex: windowWidth < 700 ? 'unset' : 1
+            }}
+          >
+            {outcomesList.map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="form-input"
+            style={{
+              background: '#f4f8fc',
+              border: 'none',
+              borderRadius: 14,
+              fontSize: FS.base,
+              fontWeight: 500,
+              color: '#334155',
+              padding: '14px 18px',
+              minWidth: 180,
+              boxShadow: 'none',
+              outline: 'none',
+              flex: windowWidth < 700 ? 'unset' : 1
+            }}
+          >
+            {rolesList.map((r) => (
+              <option key={r}>{r}</option>
+            ))}
+          </select>
+          <div style={{
+            display: 'flex',
+            gap: windowWidth < 700 ? 8 : 12,
+            alignItems: windowWidth < 700 ? 'stretch' : 'center',
+            flexDirection: windowWidth < 700 ? 'column' : 'row',
+            width: windowWidth < 700 ? '100%' : 'auto'
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 160,
+              width: windowWidth < 700 ? '100%' : 'auto'
+            }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#64748b',
+                  marginBottom: 4,
+                  marginLeft: 4
+                }}
+              >
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                style={{
+                  background: '#f4f8fc',
+                  border: 'none',
+                  borderRadius: 14,
+                  fontSize: FS.base,
+                  fontWeight: 500,
+                  color: '#334155',
+                  padding: '14px 18px',
+                  boxShadow: 'none',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 160,
+              width: windowWidth < 700 ? '100%' : 'auto'
+            }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#64748b',
+                  marginBottom: 4,
+                  marginLeft: 4
+                }}
+              >
+                End Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                style={{
+                  background: '#f4f8fc',
+                  border: 'none',
+                  borderRadius: 14,
+                  fontSize: FS.base,
+                  fontWeight: 500,
+                  color: '#334155',
+                  padding: '14px 18px',
+                  boxShadow: 'none',
+                  outline: 'none'
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -426,7 +572,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
         style={{
           ...UI.card,
           padding: 0,
-          overflow: 'hidden',
+          overflow: 'auto', // CHANGED: allow horizontal scroll
           position: 'relative'
         }}
       >
@@ -436,7 +582,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             top: 0,
             zIndex: 10,
             display: 'grid',
-            gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // Balanced columns
+            gridTemplateColumns: 'minmax(120px,1.2fr) minmax(120px,1.5fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,2fr) 120px 120px', // CHANGED: minmax for responsive
             background: 'linear-gradient(90deg,#f1f5f9,#f8fafc)',
             fontSize: FS.tableHeader,
             fontWeight: 700,
@@ -450,7 +596,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             (h) => (
               <div
                 key={h}
-                style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb' }}
+                style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }} // CHANGED: nowrap
               >
                 {h}
               </div>
@@ -475,7 +621,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 key={l.id || i}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // Balanced columns
+                  gridTemplateColumns: 'minmax(120px,1.2fr) minmax(120px,1.5fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,2fr) 120px 120px', // CHANGED: minmax for responsive
                   fontSize: FS.tableCell,
                   background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
                   borderBottom: '1px solid #eef2f6',
@@ -484,20 +630,19 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 onMouseEnter={e=>e.currentTarget.style.background = isFailure ? '#ffe2e2' : '#e8f2ff'}
                 onMouseLeave={e=>e.currentTarget.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa')}
               >
-                <div style={{ padding:'16px 20px', fontWeight: W.primary }}>{tiny(l.timestamp)}</div> {/* CHANGED padding */}
-                {/* User */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding:'16px 20px', fontWeight: W.primary, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tiny(l.timestamp)}</div>
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <div style={{ fontWeight: W.primary }}>{l.userName || '—'}</div>
                   <div
                     style={{
                       fontSize: 11,
                       color: '#64748b',
-                      fontWeight: W.secondary,            // CHANGED (was 500/600)
+                      fontWeight: W.secondary,
                       marginTop: 2
                     }}
                   >
                     {l.role && (
-                      <span style={{ color: roleSty.fg, fontWeight: W.secondary }}>{l.role}</span> // CHANGED
+                      <span style={{ color: roleSty.fg, fontWeight: W.secondary }}>{l.role}</span>
                     )}
                     {l.userEmail && (
                       <>
@@ -507,8 +652,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                     )}
                   </div>
                 </div>
-                {/* Action */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 14 }}>{icon}</span>
                     <span style={{ fontWeight: W.primary }}>{l.action}</span>
@@ -518,7 +662,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                       style={{
                         fontSize: 10,
                         color: '#be123c',
-                        fontWeight: W.subtle,              // CHANGED (remove bold)
+                        fontWeight: W.subtle,
                         marginTop: 4,
                         lineHeight: 1.2,
                         textTransform: 'lowercase'
@@ -528,24 +672,39 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                     </div>
                   )}
                 </div>
-                {/* Category */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <Badge text={categoryKey} palette={catSty} />
                 </div>
-                {/* Target */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {l.target || '—'}
                 </div>
-                {/* Source */}
-                <div style={{ padding: '12px 14px', wordBreak: 'break-all', fontSize: 12 }}>
+                <div style={{ padding: '12px 14px', wordBreak: 'break-all', fontSize: 12, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {l.userAgent || '—'}
                 </div>
-                {/* Outcome */}
-                <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Outcome column: sticky on right for visibility */}
+                <div style={{
+                  padding: '12px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'sticky',
+                  right: 120, // CHANGED: sticky outcome
+                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
+                  zIndex: 2
+                }}>
                   <Badge text={l.outcome} palette={outSty} />
                 </div>
-                {/* Actions */}
-                <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Actions column: sticky on right for visibility */}
+                <div style={{
+                  padding: '12px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'sticky',
+                  right: 0, // CHANGED: sticky actions
+                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
+                  zIndex: 3
+                }}>
                   <button
                     style={{
                       background: '#e0e7ff',
@@ -555,7 +714,8 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                       borderRadius: 8,
                       fontSize: 12,
                       fontWeight: 600,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      minWidth: 60 // CHANGED: ensure button width
                     }}
                     onClick={() => setViewLog(l)}
                   >
