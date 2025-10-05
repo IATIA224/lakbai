@@ -67,7 +67,14 @@ function AppInner() {
 
         {/* Admin routes (no main header/footer) */}
         <Route path="/admin/login" element={<LoginCMS />} />
-        <Route path="/admin/ContentManagement" element={<ContentManagement />} />
+        <Route
+          path="/admin/ContentManagement"
+          element={
+            <ProtectedRoute>
+              <ContentManagement />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
 
         {/* Protected routes that should include header + footer */}
