@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import ReactDOM from "react-dom"; // ADD THIS IMPORT
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./itinerary.css";
@@ -12,7 +13,7 @@ import {
   doc,
   onSnapshot,
   orderBy,
-  query as fsQuery,  // Keep this alias
+  query as fsQuery,
   getDocs,
   setDoc,
   where,
@@ -129,7 +130,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [addActivity, onClose]);
 
-  return (
+  const modalContent = (
     <div className="itn-modal-backdrop" onClick={onClose}>
       <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
         <div className="itn-modal-header">
@@ -207,7 +208,6 @@ function EditDestinationModal({ initial, onSave, onClose }) {
                 </label>
               </div>
 
-              {/* Activities Section - RESTORED */}
               <div className="itn-field">
                 <span className="itn-label">Activities & Things to Do</span>
                 <div className="itn-grid-2">
@@ -358,13 +358,17 @@ function EditDestinationModal({ initial, onSave, onClose }) {
       </div>
     </div>
   );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEditing }) {
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showHotels, setShowHotels] = useState(false);
-  const [showCostEstimation, setShowCostEstimation] = useState(false); // <-- Add state
+  const [showCostEstimation, setShowCostEstimation] = useState(false);
+  
   const days =
     item.arrival && item.departure
       ? Math.max(
@@ -380,108 +384,110 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
   const showToggle = activities.length > 3;
 
   return (
-    <div className="itn-card">
-      <div className="itn-card-head">
-        <div className="itn-card-title">
-          <span className="itn-step">{index + 1}</span>
-          <div>
-            <div className="itn-name">{item.name || "Destination"}</div>
-            <div className="itn-sub">{item.region}</div>
+    <>
+      <div className="itn-card">
+        <div className="itn-card-head">
+          <div className="itn-card-title">
+            <span className="itn-step">{index + 1}</span>
+            <div>
+              <div className="itn-name">{item.name || "Destination"}</div>
+              <div className="itn-sub">{item.region}</div>
+            </div>
+          </div>
+          <div className="itn-actions">
+            <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
+            <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle Status</button>
+            <button className="itn-btn" onClick={() => onEdit(item)}>Edit</button>
+            <button className="itn-btn danger" onClick={() => onRemove(item.id)}>Remove</button>
           </div>
         </div>
-        <div className="itn-actions">
-          <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
-          <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle Status</button>
-          <button className="itn-btn" onClick={() => onEdit(item)}>Edit</button>
-          <button className="itn-btn danger" onClick={() => onRemove(item.id)}>Remove</button>
+
+        <div className="itn-stats">
+          <div className="itn-stat blue">
+            <div className="itn-stat-title">Dates</div>
+            <div className="itn-stat-body">
+              {item.arrival || item.departure ? (
+                <>
+                  <div>{item.arrival || "—"}</div>
+                  <div>{item.departure || "—"}</div>
+                  <div className="itn-muted">{days} {days === 1 ? "day" : "days"} total</div>
+                </>
+              ) : (
+                <div className="itn-muted">Not set</div>
+              )}
+            </div>
+          </div>
+
+          <div className="itn-stat green">
+            <div className="itn-stat-title">Estimated expenditure</div>
+            <div className="itn-stat-body">
+              <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+              <div className="itn-muted">Estimated total cost for this trip</div>
+            </div>
+          </div>
+
+          <div className="itn-stat purple">
+            <div className="itn-stat-title">Stay</div>
+            <div className="itn-stat-body">
+              <div>{item.accomType || "Not planned"}</div>
+              <div className="itn-muted">{item.accomName || "No details"}</div>
+            </div>
+          </div>
+
+          <div className="itn-stat orange">
+            <div className="itn-stat-title">Activities</div>
+            <div className="itn-stat-body">
+              <div>{activities.length} planned</div>
+              {activities.length ? (
+                <>
+                  <div className="itn-muted" style={{ wordBreak: "break-word" }}>
+                    {showAllActivities
+                      ? activities.join(", ")
+                      : activities.slice(0, 3).join(", ")}
+                    {showToggle && !showAllActivities && "…"}
+                  </div>
+                  {showToggle && (
+                    <button
+                      className="itn-btn ghost"
+                      style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
+                      onClick={() => setShowAllActivities((v) => !v)}
+                    >
+                      {showAllActivities ? "Show Less" : "Show All"}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="itn-muted">—</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button
+            className="itn-btn ghost"
+            onClick={() => setShowSummary(true)}
+          >
+            View Summary
+          </button>
+          <button
+            className="itn-btn ghost"
+            onClick={() => setShowCostEstimation(true)}
+            title="Estimate transportation cost"
+          >
+            Estimate Transport Cost
+          </button>
+          <button
+            className="itn-btn ghost"
+            onClick={() => setShowHotels(true)}
+            title="Show DOT-accredited hotels and accommodations"
+          >
+            View accredited hotels
+          </button>
         </div>
       </div>
 
-      <div className="itn-stats">
-        <div className="itn-stat blue">
-          <div className="itn-stat-title">Dates</div>
-          <div className="itn-stat-body">
-            {item.arrival || item.departure ? (
-              <>
-                <div>{item.arrival || "—"}</div>
-                <div>{item.departure || "—"}</div>
-                <div className="itn-muted">{days} {days === 1 ? "day" : "days"} total</div>
-              </>
-            ) : (
-              <div className="itn-muted">Not set</div>
-            )}
-          </div>
-        </div>
-
-        <div className="itn-stat green">
-          <div className="itn-stat-title">Estimated expenditure</div>
-          <div className="itn-stat-body">
-            <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
-            <div className="itn-muted">Estimated total cost for this trip</div>
-          </div>
-        </div>
-
-        <div className="itn-stat purple">
-          <div className="itn-stat-title">Stay</div>
-          <div className="itn-stat-body">
-            <div>{item.accomType || "Not planned"}</div>
-            <div className="itn-muted">{item.accomName || "No details"}</div>
-          </div>
-        </div>
-
-        <div className="itn-stat orange">
-          <div className="itn-stat-title">Activities</div>
-          <div className="itn-stat-body">
-            <div>{activities.length} planned</div>
-            {activities.length ? (
-              <>
-                <div className="itn-muted" style={{ wordBreak: "break-word" }}>
-                  {showAllActivities
-                    ? activities.join(", ")
-                    : activities.slice(0, 3).join(", ")}
-                  {showToggle && !showAllActivities && "…"}
-                </div>
-                {showToggle && (
-                  <button
-                    className="itn-btn ghost"
-                    style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
-                    onClick={() => setShowAllActivities((v) => !v)}
-                  >
-                    {showAllActivities ? "Show Less" : "Show All"}
-                  </button>
-                )}
-              </>
-            ) : (
-              <div className="itn-muted">—</div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* View Summary + View Cost Estimation + View Accredited Hotels buttons */}
-      <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button
-          className="itn-btn ghost"
-          onClick={() => setShowSummary(true)}
-        >
-          View Summary
-        </button>
-        <button
-          className="itn-btn ghost"
-          onClick={() => setShowCostEstimation(true)}
-          title="Estimate transportation cost"
-        >
-          Estimate Transport Cost
-        </button>
-        <button
-          className="itn-btn ghost"
-          onClick={() => setShowHotels(true)}
-          title="Show DOT-accredited hotels and accommodations"
-        >
-          View accredited hotels
-        </button>
-      </div>
-
+      {/* Render modals OUTSIDE the card */}
       {showSummary && (
         <ItinerarySummaryModal
           item={item}
@@ -510,90 +516,11 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 
-function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose }) {
-  const [filter, setFilter] = useState("");
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (it) =>
-        (it.name || "").toLowerCase().includes(q) ||
-        (it.region || "").toLowerCase().includes(q)
-    );
-  }, [items, filter]);
-
-  const allChecked = selected.size === items.length && items.length > 0;
-
-  return (
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div className="itn-modal itn-modal-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="itn-modal-header itn-gradient">
-          <div className="itn-modal-title">Export Itinerary to PDF</div>
-          <button className="itn-close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="itn-modal-body">
-          <div className="itn-toolbar">
-            <input
-              className="itn-input"
-              placeholder="Search destinations to include..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <div className="itn-toolbar-right">
-              <span className="itn-muted">
-                Selected {selected.size}/{items.length}
-              </span>
-              <button className="itn-btn ghost" onClick={onSelectAll}>
-                {allChecked ? "Clear all" : "Select all"}
-              </button>
-            </div>
-          </div>
-
-          <div className="itn-results">
-            {filtered.map((it) => {
-              const checked = selected.has(it.id);
-              return (
-                <label key={it.id} className={`itn-result ${checked ? "is-checked" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => onToggle(it.id)}
-                  />
-                  <div className="itn-result-main">
-                    <div className="itn-result-title">{it.name || "Destination"}</div>
-                    <div className="itn-result-sub">
-                      {(it.region || "—")} • {(it.arrival || "—")} → {(it.departure || "—")} • {(it.status || "Upcoming")}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
-            {!items.length && <div className="itn-empty-sm">No destinations available.</div>}
-            {items.length > 0 && filtered.length === 0 && (
-              <div className="itn-empty-sm">No matches for "{filter}".</div>
-            )}
-          </div>
-        </div>
-
-        <div className="itn-modal-footer">
-          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
-          <button className="itn-btn primary" onClick={onExport} disabled={!selected.size}>
-            Export PDF
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Update the summary modal to accept a single item
 function ItinerarySummaryModal({ item, onClose }) {
-  // compute days here (was missing -> caused 'days' not defined)
   const days =
     item && item.arrival && item.departure
       ? Math.max(
@@ -605,184 +532,182 @@ function ItinerarySummaryModal({ item, onClose }) {
         )
       : 0;
 
-  return (
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div
-        className="itn-modal itn-modal-lg"
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
-          borderRadius: 18,
-          boxShadow: "0 8px 32px rgba(108,99,255,0.13)",
-          padding: 0,
-          maxWidth: 520,
-        }}
-      >
-        <div
-          className="itn-modal-header"
-          style={{
-            background: "linear-gradient(90deg, #6c63ff 60%, #a084ee 100%)",
-            color: "#fff",
-            borderTopLeftRadius: 18,
-            borderTopRightRadius: 18,
-            padding: "24px 32px 16px 32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 28, marginRight: 4 }}>📝</span>
-            <span className="itn-modal-title" style={{ fontWeight: 700, fontSize: 22 }}>
-              Itinerary Summary
-            </span>
-          </div>
-          <button className="itn-close" onClick={onClose} style={{ color: "#fff" }}>
-            ×
-          </button>
+  const modalContent = (
+    <div className="itn-modal-backdrop itn-summary-backdrop" onClick={onClose}>
+      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header">
+          <div className="itn-modal-title">📋 Trip Summary</div>
+          <button className="itn-close" onClick={onClose}>×</button>
         </div>
-        <div
-          className="itn-modal-body"
-          style={{
-            padding: "28px 32px 18px 32px",
-            background: "transparent",
-            maxHeight: 500,
-            overflowY: "auto",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              boxShadow: "0 2px 8px rgba(108,99,255,0.06)",
-              padding: "24px 20px 18px 20px",
-              marginBottom: 8,
-            }}
-          >
-            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "#6c63ff" }}>
-              {item.name || "—"}
-            </div>
-            <div style={{ color: "#64748b", fontSize: 15, marginBottom: 12 }}>
-              <span style={{ marginRight: 16 }}>
-                <span style={{ fontWeight: 500 }}>Region:</span> {item.region || "—"}
-              </span>
-              <span>
-                <span style={{ fontWeight: 500 }}>Status:</span> {item.status || "—"}
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 18,
-                marginBottom: 10,
-                fontSize: 15,
-              }}
-            >
-              <div>
-                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Dates:</span>{" "}
-                {item.arrival || "—"} {item.departure ? `– ${item.departure}` : ""}
-                {days ? (
-                  <span style={{ marginLeft: 8, color: "#888" }}>
-                    ({days} {days === 1 ? "day" : "days"})
-                  </span>
-                ) : ""}
+
+        <div className="itn-modal-body">
+          <div className="itn-summary-content">
+            <div className="itn-summary-section">
+              <h3 className="itn-summary-heading">📍 Destination</h3>
+              <div className="itn-summary-item">
+                <strong>{item.name}</strong>
+                {item.region && <span className="itn-summary-region">{item.region}</span>}
               </div>
-              <div>
-                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Estimated Expenditure:</span>{" "}
-                <span style={{ fontWeight: 600 }}>
-                  ${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}
+            </div>
+
+            {(item.arrival || item.departure) && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">📅 Travel Dates</h3>
+                <div className="itn-summary-grid">
+                  {item.arrival && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Arrival:</span>
+                      <span>{new Date(item.arrival).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {item.departure && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Departure:</span>
+                      <span>{new Date(item.departure).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {days > 0 && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Duration:</span>
+                      <span>{days} day{days !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {item.estimatedExpenditure > 0 && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">💰 Budget</h3>
+                <div className="itn-summary-item">
+                  <span className="itn-summary-amount">
+                    ${Number(item.estimatedExpenditure).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {item.activities && item.activities.length > 0 && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">🎯 Activities</h3>
+                <div className="itn-summary-tags">
+                  {item.activities.map((activity, idx) => (
+                    <span key={idx} className="itn-summary-tag">{activity}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(item.accomType || item.accomName) && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">🏨 Accommodation</h3>
+                <div className="itn-summary-item">
+                  {item.accomType && <span className="itn-summary-badge">{item.accomType}</span>}
+                  {item.accomName && <strong>{item.accomName}</strong>}
+                  {item.accomNotes && <p className="itn-summary-notes">{item.accomNotes}</p>}
+                </div>
+              </div>
+            )}
+
+            {item.transport && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">🚗 Transportation</h3>
+                <div className="itn-summary-item">
+                  <span className="itn-summary-badge">{item.transport}</span>
+                  {item.transportNotes && <p className="itn-summary-notes">{item.transportNotes}</p>}
+                </div>
+              </div>
+            )}
+
+            {item.notes && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">📝 Notes</h3>
+                <div className="itn-summary-item">
+                  <p className="itn-summary-notes">{item.notes}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="itn-summary-section">
+              <h3 className="itn-summary-heading">✅ Status</h3>
+              <div className="itn-summary-item">
+                <span className={`itn-summary-status ${item.status.toLowerCase()}`}>
+                  {item.status}
                 </span>
               </div>
             </div>
-            <div style={{ margin: "14px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Accommodation
-              </div>
-              <div style={{ color: "#444", fontSize: 15 }}>
-                {item.accomType || "Not planned"}
-                {item.accomName ? (
-                  <span style={{ color: "#888", marginLeft: 8 }}>
-                    ({item.accomName})
-                  </span>
-                ) : null}
-              </div>
-              {item.accomNotes && (
-                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
-                  {item.accomNotes}
-                </div>
-              )}
-            </div>
-            <div style={{ margin: "18px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Activities
-              </div>
-              <div style={{ minHeight: 28 }}>
-                {Array.isArray(item.activities) && item.activities.length ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {item.activities.map((a, i) => (
-                      <span
-                        key={i}
-                        style={{
-                          display: "inline-block",
-                          background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
-                          color: "#fff",
-                          borderRadius: 16,
-                          padding: "4px 14px",
-                          fontSize: 14,
-                          fontWeight: 500,
-                          boxShadow: "0 1px 4px rgba(108,99,255,0.07)",
-                        }}
-                      >
-                        {a}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span style={{ color: "#888" }}>—</span>
-                )}
-              </div>
-            </div>
-            <div style={{ margin: "18px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Transport
-              </div>
-              <div style={{ color: "#444", fontSize: 15 }}>
-                {item.transport || "—"}
-              </div>
-              {item.transportNotes && (
-                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
-                  {item.transportNotes}
-                </div>
-              )}
-            </div>
-            <div style={{ margin: "18px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Notes
-              </div>
-              <div style={{ color: "#444", fontSize: 15 }}>
-                {item.notes || <span style={{ color: "#888" }}>—</span>}
-              </div>
-            </div>
           </div>
         </div>
-        <div
-          className="itn-modal-footer"
-          style={{
-            borderBottomLeftRadius: 18,
-            borderBottomRightRadius: 18,
-            background: "#f8fafc",
-            padding: "18px 32px",
-            textAlign: "right",
-          }}
-        >
-          <button className="itn-btn primary" onClick={onClose}>
-            Close
+
+        <div className="itn-modal-footer">
+          <button className="itn-btn primary" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
+}
+
+function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose }) {
+  const modalContent = (
+    <div className="itn-modal-backdrop" onClick={onClose}>
+      <div className="itn-modal itn-modal-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header">
+          <div className="itn-modal-title">📄 Export to PDF</div>
+          <button className="itn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="itn-modal-body">
+          <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <p style={{ margin: 0, color: "#64748b" }}>
+              Select destinations to export ({selected.size} of {items.length} selected)
+            </p>
+            <button className="itn-btn ghost" onClick={onSelectAll}>
+              {selected.size === items.length ? "Deselect All" : "Select All"}
+            </button>
+          </div>
+
+          <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className={`itn-export-item ${selected.has(item.id) ? "selected" : ""}`}
+                onClick={() => onToggle(item.id)}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(item.id)}
+                  onChange={() => onToggle(item.id)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{item.name}</div>
+                  <div style={{ fontSize: 14, color: "#64748b" }}>{item.region}</div>
+                </div>
+                <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="itn-modal-footer">
+          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
+          <button 
+            className="itn-btn primary" 
+            onClick={onExport}
+            disabled={selected.size === 0}
+          >
+            Export {selected.size > 0 ? `(${selected.size})` : ""}
           </button>
         </div>
       </div>
     </div>
   );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 export default function Itinerary() {
@@ -798,22 +723,17 @@ export default function Itinerary() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  // Export and Share modal states - DECLARE ONLY ONCE
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareSelected, setShareSelected] = useState(new Set());
   const [activeTab, setActiveTab] = useState("personal");
-  const [showSummary, setShowSummary] = useState(false);
 
-  // NEW: current user
   const [user, setUser] = useState(null);
 
-  // Friends and shared itineraries
   const friends = useFriendsList(user);
   const { sharedWithMe } = useSharedItineraries(user);
 
-  // NEW: watch auth, then subscribe to user's itinerary
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u || null));
     return () => {
@@ -827,7 +747,7 @@ export default function Itinerary() {
       return;
     }
     const colRef = collection(db, "itinerary", user.uid, "items");
-    const q = fsQuery(colRef, orderBy("createdAt", "asc")); // use aliased function
+    const q = fsQuery(colRef, orderBy("createdAt", "asc"));
     const unsub = onSnapshot(q, (snap) => {
       const list = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
@@ -836,22 +756,18 @@ export default function Itinerary() {
     return () => unsub();
   }, [user]);
 
-  // Init Leaflet map
   useEffect(() => {
     if (map) return;
-    // Create map without default zoom control and without attribution watermark
     const m = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(
       [14.5995, 120.9842],
       11
     );
-    // Add tiles with empty attribution to avoid the watermark
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "",
     }).addTo(m);
     setMap(m);
   }, [map]);
 
-  // Center map on selected place and show custom pin icon
   useEffect(() => {
     if (!map || !selected) return;
     const lat = Number(selected.lat);
@@ -861,7 +777,7 @@ export default function Itinerary() {
     const pinIcon = L.icon({
       iconUrl: `${process.env.PUBLIC_URL || ""}/placeholder.png`,
       iconSize: [40, 40],
-      iconAnchor: [20, 38],   // tip near bottom-center
+      iconAnchor: [20, 38],
       popupAnchor: [0, -38],
     });
 
@@ -885,17 +801,14 @@ export default function Itinerary() {
     }
   };
 
-  // Open the form using the selected place
   const openAddModal = () => {
     if (!selected) return;
     setEditing({
       ...selected,
       status: "Upcoming",
-      // no id here; Firestore will assign one
     });
   };
 
-  // Update the saveItem function
   const saveItem = async (data) => {
     if (!user) {
       alert("Please sign in to save your itinerary.");
@@ -906,7 +819,6 @@ export default function Itinerary() {
     
     try {
       if (data.id) {
-        // It's an edit - update the existing document
         const itemRef = doc(db, "itinerary", user.uid, "items", data.id);
         await updateDoc(itemRef, { 
           ...data, 
@@ -914,7 +826,6 @@ export default function Itinerary() {
         });
         console.log("Updated existing itinerary item:", data.id);
       } else {
-        // It's a new item - create a new document
         const colRef = collection(db, "itinerary", user.uid, "items");
         const newDocRef = await addDoc(colRef, { 
           ...data, 
@@ -922,7 +833,6 @@ export default function Itinerary() {
           updatedAt: serverTimestamp() 
         });
         
-        // Track destination added in Stats
         await trackDestinationAdded(user.uid, {
           id: newDocRef.id,
           name: data.name,
@@ -931,10 +841,8 @@ export default function Itinerary() {
           departure: data.departure,
         });
         
-        // Log activity for creating new destination
         await logActivity(`Added "${data.name}" to your itinerary`, "📍");
         
-        // Check if this is the user's first itinerary item
         const snap = await getDocs(colRef);
         if (snap.size === 1) {
           await unlockAchievement(1, "First Step");
@@ -957,7 +865,6 @@ export default function Itinerary() {
     });
   };
 
-  // KEEP THIS ONE - Update the handleShareItinerary function
   const handleShareItinerary = async (itemIds, friendIds) => {
     if (!user) return;
     try {
@@ -982,7 +889,6 @@ export default function Itinerary() {
       
       await shareItineraryWithFriends(user, items, itemIds, friendIds);
       
-      // Log activity for sharing itinerary
       await logActivity(
         `Shared itinerary with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''} (${itemIds.length} destination${itemIds.length > 1 ? 's' : ''})`,
         "🔗"
@@ -997,19 +903,14 @@ export default function Itinerary() {
     }
   };
 
-  // Fix the checkMiniPlannerAchievement effect (around line 1050)
   useEffect(() => {
     const checkMiniPlannerAchievement = async () => {
       if (!user) return;
       
       try {
-        // Count personal itinerary items
         const personalCount = items.length;
-        
-        // Count shared itinerary items where user is a participant
         let sharedCount = 0;
         
-        // FIX: Use fsQuery instead of query
         const sharedQuery = fsQuery(
           collection(db, "sharedItineraries"),
           where("sharedWith", "array-contains", user.uid)
@@ -1025,7 +926,6 @@ export default function Itinerary() {
         
         const totalDestinations = personalCount + sharedCount;
         
-        // Unlock Mini Planner achievement if user has 3 or more destinations
         if (totalDestinations >= 3) {
           await unlockAchievement(6, "Mini Planner");
         }
@@ -1035,11 +935,8 @@ export default function Itinerary() {
     };
     
     checkMiniPlannerAchievement();
-  }, [user, items]); // Re-check whenever user or items change
+  }, [user, items]);
 
-  // Make sure you have this state for export moda
-
-  // Export functions - KEEP ONLY THESE
   const openExport = () => {
     setShowExport(true);
     setExportSelected(new Set(items.map(i => i.id)));
@@ -1100,7 +997,6 @@ export default function Itinerary() {
     try {
       await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
       
-      // Track removal in stats
       if (itemToRemove) {
         await trackDestinationRemoved(
           user.uid,
@@ -1134,9 +1030,7 @@ export default function Itinerary() {
       updatedAt: serverTimestamp(),
     });
 
-    // Track completion stats
     if (next === "Completed" && current.status !== "Completed") {
-      // Changed to Completed
       await trackDestinationCompleted(user.uid, {
         id: current.id,
         name: current.name,
@@ -1151,7 +1045,6 @@ export default function Itinerary() {
         console.error("Error unlocking Checklist Champ achievement:", error);
       }
     } else if (current.status === "Completed" && next !== "Completed") {
-      // Changed from Completed to something else
       await trackDestinationUncompleted(user.uid, {
         id: current.id,
         name: current.name,
@@ -1163,14 +1056,12 @@ export default function Itinerary() {
   const markAllComplete = async () => {
     if (!user || !items.length) return;
     try {
-      // Track each incomplete item as completed
       const promises = items.map(async (it) => {
         await updateDoc(doc(db, "itinerary", user.uid, "items", it.id), {
           status: "Completed",
           updatedAt: serverTimestamp(),
         });
         
-        // Only track if it wasn't already completed
         if (it.status !== "Completed") {
           await trackDestinationCompleted(user.uid, {
             id: it.id,
@@ -1184,8 +1075,7 @@ export default function Itinerary() {
       
       await Promise.all(promises);
       console.log("[Itinerary] Marked all complete for", user.uid);
-
-      // Unlock Checklist Champ achievement when marking all as complete
+      
       try {
         await unlockAchievement(8, "Checklist Champ");
       } catch (error) {
@@ -1218,13 +1108,14 @@ export default function Itinerary() {
         <div className="itn-hero-sub">Plan every aspect of your perfect journey</div>
         <div className="itn-hero-actions">
           <button 
-            className="itn-btn ghost" 
+            className="itn-btn ghost"
             onClick={() => setShowShareModal(true)} 
+            disabled={!items.length}
             title={!items.length ? "No itineraries to share" : "Share with friends"}
           >
             Share Itinerary
           </button>
-          <button
+          <button 
             className="itn-btn ghost"
             onClick={openExport}
             disabled={!items.length}
@@ -1232,7 +1123,20 @@ export default function Itinerary() {
           >
             Export PDF
           </button>
-          {/* Removed unused View Summary button */}
+          <button 
+            className="itn-btn ghost"
+            onClick={markAllComplete}
+            disabled={!items.length}
+          >
+            Mark All Complete
+          </button>
+          <button 
+            className="itn-btn ghost"
+            onClick={clearAll}
+            disabled={!items.length}
+          >
+            Clear All
+          </button>
         </div>
       </div>
 
@@ -1240,7 +1144,6 @@ export default function Itinerary() {
         <section className="itn-left">
           <div className="itn-panel">
             <div className="itn-panel-title">Find Destination</div>
-
             <div className="itn-row">
               <input
                 className="itn-input"
@@ -1254,7 +1157,6 @@ export default function Itinerary() {
               </button>
             </div>
 
-            {/* Map container (remove the CSS dot element) */}
             <div className="itn-map-wrap">
               <div className="itn-map" ref={mapRef} />
             </div>
@@ -1317,30 +1219,6 @@ export default function Itinerary() {
             
             {activeTab === 'personal' ? (
               <>
-                <div className="itn-head-actions">
-                  <button
-                    className="itn-btn primary"
-                    onClick={() => setShowShareModal(true)}
-                    disabled={!items.length}
-                  >
-                    Share
-                  </button>
-                  <button
-                    className="itn-btn success"
-                    onClick={markAllComplete}
-                    disabled={!items.length}
-                  >
-                    Mark All Complete
-                  </button>
-                  <button
-                    className="itn-btn danger"
-                    onClick={clearAll}
-                    disabled={!items.length}
-                  >
-                    Clear All
-                  </button>
-                </div>
-
                 {!items.length ? (
                   <div className="itn-empty">
                     <div className="itn-empty-icon">🧳</div>
@@ -1349,7 +1227,7 @@ export default function Itinerary() {
                       Search for places on the map to start building your itinerary!
                     </div>
                   </div>
-                ) : 
+                ) : (
                   items.map((item, idx) => (
                     <DestinationCard
                       key={item.id}
@@ -1358,15 +1236,14 @@ export default function Itinerary() {
                       onEdit={(it) => setEditing(it)}
                       onRemove={removeItem}
                       onToggleStatus={toggleStatus}
-                      setEditing={setEditing} // <-- ADD THIS LINE
+                      setEditing={setEditing}
                     />
                   ))
-                }
+                )}
               </>
             ) : (
               <SharedItinerariesTab user={user} />
             )}
-            
           </div>
         </section>
       </div>
@@ -1379,7 +1256,6 @@ export default function Itinerary() {
         />
       )}
 
-      {/* Export PDF Modal */}
       {showExport && (
         <ExportPDFModal
           items={items}
@@ -1391,7 +1267,6 @@ export default function Itinerary() {
         />
       )}
 
-      {/* Share Modal */}
       {showShareModal && (
         <ShareItineraryModal
           items={items}
@@ -1403,13 +1278,6 @@ export default function Itinerary() {
             setShowShareModal(false);
             setShareSelected(new Set());
           }}
-        />
-      )}
-
-      {showSummary && (
-        <ItinerarySummaryModal
-          item={items}
-          onClose={() => setShowSummary(false)}
         />
       )}
     </div>
