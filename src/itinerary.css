@@ -1,3 +1,174 @@
+/* Add these animations at the top of your CSS file */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* Apply animations to itinerary elements */
+.itn-hero {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.itn-tabs {
+  animation: fadeIn 0.6s ease-out 0.1s both;
+}
+
+.itn-left .itn-panel,
+.itn-right .itn-panel {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.itn-left .itn-panel {
+  animation-delay: 0.2s;
+}
+
+.itn-right .itn-panel {
+  animation-delay: 0.15s;
+}
+
+.itn-card {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.itn-card:nth-child(1) { animation-delay: 0.1s; }
+.itn-card:nth-child(2) { animation-delay: 0.15s; }
+.itn-card:nth-child(3) { animation-delay: 0.2s; }
+.itn-card:nth-child(4) { animation-delay: 0.25s; }
+.itn-card:nth-child(5) { animation-delay: 0.3s; }
+
+.itn-stat {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.itn-stat:nth-child(1) { animation-delay: 0.1s; }
+.itn-stat:nth-child(2) { animation-delay: 0.15s; }
+.itn-stat:nth-child(3) { animation-delay: 0.2s; }
+.itn-stat:nth-child(4) { animation-delay: 0.25s; }
+
+.itn-shared-group {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+/* Loading skeleton styles */
+.itn-loading-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1400;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.itn-loading-card {
+  width: min(760px, 92vw);
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  animation: scaleIn .18s ease-out both;
+}
+
+.itn-loading-title {
+  font-weight: 800;
+  font-size: 18px;
+  color: #0f172a;
+  margin: 6px 0 14px;
+}
+
+.itn-spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3.5px solid #e5e7eb;
+  border-top-color: #6c63ff;
+  animation: spin .9s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.itn-skeleton-col {
+  display: grid;
+  gap: 10px;
+}
+
+.itn-skel-bar {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f2f4f8 25%, #e9edf5 37%, #f2f4f8 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.itn-skel-bar.short {
+  width: 60%;
+}
+
+.itn-skel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.itn-skel-tile {
+  height: 100px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f2f4f8 25%, #e9edf5 37%, #f2f4f8 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+/* Reduce animations on mobile for performance */
+@media (max-width: 768px) {
+  .itn-hero,
+  .itn-tabs,
+  .itn-left .itn-panel,
+  .itn-right .itn-panel,
+  .itn-card,
+  .itn-stat,
+  .itn-shared-group {
+    animation-duration: 0.3s;
+    animation-delay: 0s !important;
+  }
+}
+
 :root {
   --brand-primary: #6c63ff;        /* same as profile header left */
   --brand-secondary: #a084ee;      /* same as profile header right */

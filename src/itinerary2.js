@@ -20,6 +20,13 @@ import { db } from "./firebase";
 import './itinerary2.css';
 import ItineraryHotelsModal from "./itineraryHotels"; // NEW
 import ItineraryCostEstimationModal from "./itineraryCostEstimation";
+import { unlockAchievement } from "./profile";
+import {
+  trackDestinationAdded,
+  trackDestinationCompleted,
+  trackDestinationUncompleted,
+  trackDestinationRemoved,
+} from "./itinerary_Stats";
 
 // Helper function to ensure collections exist
 async function ensureCollectionExists(path) {
@@ -263,13 +270,13 @@ export function SharedDestinationCard({
   onToggleStatus, 
   readOnly = false,
   isOwner = false,
-  setEditing, // <-- ADD THIS
-  setSharedItineraryId, // <-- ADD THIS
-  sharedId // <-- ADD THIS
+  setEditing,
+  setSharedItineraryId,
+  sharedId
 }) {
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [showHotels, setShowHotels] = useState(false); // NEW
+  const [showHotels, setShowHotels] = useState(false);
   const [showCostEstimation, setShowCostEstimation] = useState(false);
 
   const days =
@@ -301,9 +308,16 @@ export function SharedDestinationCard({
           
           {!readOnly && (
             <>
-              <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle Status</button>
-              <button className="itn-btn" onClick={() => onEdit(item)}>Edit</button>
-              <button className="itn-btn danger" onClick={() => onRemove(item.id)}>Remove</button>
+              {/* FIX: Pass both sharedId and item.id to the callbacks */}
+              <button className="itn-btn" onClick={() => onToggleStatus(sharedId, item.id)}>
+                Toggle Status
+              </button>
+              <button className="itn-btn" onClick={() => onEdit(sharedId, item)}>
+                Edit
+              </button>
+              <button className="itn-btn danger" onClick={() => onRemove(sharedId, item.id)}>
+                Remove
+              </button>
             </>
           )}
         </div>
@@ -370,7 +384,6 @@ export function SharedDestinationCard({
         </div>
       </div>
 
-      {/* View Summary + View Accredited Hotels buttons */}
       <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button
           className="itn-btn ghost"
@@ -431,7 +444,6 @@ export function SharedDestinationCard({
 
 // EditDestinationModal component for shared itineraries
 export function SharedEditModal({ initial, onSave, onClose }) {
-  // add missing notif state (setNotif was used but not defined)
   const [notif, setNotif] = useState("");
   const [form, setForm] = useState({
     name: initial?.name || "",
@@ -440,7 +452,6 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     arrival: initial?.arrival || "",
     departure: initial?.departure || "",
     transport: initial?.transport || "",
-    // single estimatedExpenditure
     estimatedExpenditure: initial?.estimatedExpenditure ?? initial?.budget ?? 0,
     accomType: initial?.accomType || "",
     accomName: initial?.accomName || "",
@@ -450,6 +461,15 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     transportNotes: initial?.transportNotes || "",
     notes: initial?.notes || "",
   });
+
+  const addActivity = React.useCallback(() => {
+    const v = form.activityDraft.trim();
+    if (!v) return;
+    setForm((f) => ({ ...f, activities: [...f.activities, v], activityDraft: "" }));
+  }, [form.activityDraft]);
+  
+  const removeActivity = (i) =>
+    setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -474,6 +494,19 @@ export function SharedEditModal({ initial, onSave, onClose }) {
       setTimeout(() => setNotif(""), 2000);
     }
   };
+
+  // Allow Enter to add activity
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Enter" && document.activeElement?.id === "shared-activity-draft") {
+        e.preventDefault();
+        addActivity();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [addActivity, onClose]);
 
   return (
     <div className="itn-modal-backdrop" onClick={onClose}>
@@ -558,6 +591,61 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                   />
                 </label>
               </div>
+
+              {/* Activities Section - ADDED */}
+              <div className="itn-field">
+                <span className="itn-label">Activities & Things to Do</span>
+                <div className="itn-grid-2">
+                  <input
+                    id="shared-activity-draft"
+                    className="itn-input"
+                    placeholder="e.g., Snorkeling, Hiking..."
+                    value={form.activityDraft}
+                    onChange={(e) => setForm({ ...form, activityDraft: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addActivity())}
+                  />
+                  <button type="button" className="itn-btn primary" onClick={addActivity}>
+                    Add Activity
+                  </button>
+                </div>
+                {form.activities.length > 0 && (
+                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {form.activities.map((act, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
+                          color: "#fff",
+                          borderRadius: 16,
+                          padding: "4px 12px",
+                          fontSize: 13,
+                          fontWeight: 500,
+                        }}
+                      >
+                        <span>{act}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeActivity(i)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#fff",
+                            cursor: "pointer",
+                            fontSize: 16,
+                            lineHeight: 1,
+                            padding: 0,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="itn-form-col">
@@ -621,6 +709,18 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                   onChange={handleChange}
                 />
               </div>
+
+              <div className="itn-field">
+                <span className="itn-label">Additional Notes</span>
+                <textarea
+                  rows={3}
+                  className="itn-input"
+                  name="notes"
+                  placeholder="Any other important details..."
+                  value={form.notes}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -649,18 +749,12 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
   console.log("Starting share operation:", { itemIds, friendIds });
   
   try {
-    // First ensure the required collections exist
     await ensureCollectionExists("sharedItineraries");
     await ensureCollectionExists("notifications");
     
-    // Get the items to share
     const itemsToShare = items.filter(item => itemIds.includes(item.id));
-
-    // Create a single shared itinerary document
     const sharedDocRef = doc(collection(db, "sharedItineraries"));
     const timestamp = serverTimestamp();
-
-    // IMPORTANT: include owner uid in sharedWith
     const sharedWithAll = Array.from(new Set([...friendIds, user.uid]));
 
     await setDoc(sharedDocRef, {
@@ -678,9 +772,8 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
       }
     });
 
-    // Create shared items + map original -> new id
     const batch = writeBatch(db);
-    const idMap = []; // { originalId, sharedItemId }
+    const idMap = [];
     for (const item of itemsToShare) {
       const { id: originalId, ...rest } = item;
       const itemRef = doc(collection(db, "sharedItineraries", sharedDocRef.id, "items"));
@@ -696,7 +789,6 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
     }
     await batch.commit();
 
-    // DELETE originals so only one canonical copy exists
     const delBatch = writeBatch(db);
     for (const m of idMap) {
       delBatch.delete(doc(db, "itinerary", user.uid, "items", m.originalId));
@@ -704,7 +796,14 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
     await delBatch.commit();
     console.log("Moved items to shared itinerary and removed personal copies");
     
-    // Add notification for each friend
+    // Log activity for sharing itinerary
+    await logActivity(
+      `Shared itinerary with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''} (${itemIds.length} destination${itemIds.length > 1 ? 's' : ''})`,
+      "🔗"
+    );
+    
+    await checkMiniPlannerAchievement(user);
+    
     const notificationBatch = writeBatch(db);
     for (const friendId of friendIds) {
       try {
@@ -728,10 +827,8 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
       }
     }
     
-    // Commit all notifications at once
     await notificationBatch.commit();
     console.log(`Created notifications for ${friendIds.length} friends`);
-    
     console.log("Share operation completed successfully");
     return sharedDocRef.id;
   } catch (err) {
@@ -945,7 +1042,6 @@ export function SharedItinerariesTab({ user }) {
   const [sharedItineraryId, setSharedItineraryId] = useState(null);
   const { sharedWithMe, loading, error } = useSharedItineraries(user);
 
-  // Only render itineraries that still have items (no residues)
   const visibleShared = useMemo(
     () => sharedWithMe.filter(s => Array.isArray(s.items) && s.items.length > 0),
     [sharedWithMe]
@@ -958,7 +1054,6 @@ export function SharedItinerariesTab({ user }) {
     shared.collaborative &&
     (shared.sharedBy.id === user.uid || (shared.sharedWith || []).includes(user.uid));
 
-  // NEW: copy all items from a shared itinerary into the user's personal itinerary
   const handleCopyToMyItinerary = async (shared) => {
     if (!user || !shared) return;
     if (!shared.items || shared.items.length === 0) return;
@@ -976,7 +1071,6 @@ export function SharedItinerariesTab({ user }) {
         });
       }
       await batch.commit();
-      // Optional: reflect copy on parent doc timestamp
       await updateDoc(doc(db, "sharedItineraries", shared.id), {
         lastUpdated: serverTimestamp()
       });
@@ -997,6 +1091,7 @@ export function SharedItinerariesTab({ user }) {
       const nextStatus =
         item.status === "Upcoming" ? "Ongoing" :
         item.status === "Ongoing" ? "Completed" : "Upcoming";
+      
       await updateDoc(doc(db, "sharedItineraries", sharedId, "items", itemId), {
         status: nextStatus,
         updatedAt: serverTimestamp(),
@@ -1006,6 +1101,29 @@ export function SharedItinerariesTab({ user }) {
       await updateDoc(doc(db, "sharedItineraries", sharedId), {
         lastUpdated: serverTimestamp()
       });
+
+      // Track completion stats
+      if (nextStatus === "Completed" && item.status !== "Completed") {
+        await trackDestinationCompleted(user.uid, {
+          id: item.id,
+          name: item.name,
+          region: item.region,
+          arrival: item.arrival,
+          departure: item.departure,
+        });
+        
+        try {
+          await unlockAchievement(8, "Checklist Champ");
+        } catch (error) {
+          console.error("Error unlocking Checklist Champ achievement:", error);
+        }
+      } else if (item.status === "Completed" && nextStatus !== "Completed") {
+        await trackDestinationUncompleted(user.uid, {
+          id: item.id,
+          name: item.name,
+          region: item.region,
+        });
+      }
     } catch (e) {
       console.error("Toggle status failed:", e);
     }
@@ -1025,6 +1143,9 @@ export function SharedItinerariesTab({ user }) {
       await updateDoc(doc(db, "sharedItineraries", sharedItineraryId), {
         lastUpdated: serverTimestamp()
       });
+      
+      await checkMiniPlannerAchievement(user);
+      
       setEditing(null);
       setSharedItineraryId(null);
     } catch (e) {
@@ -1032,19 +1153,16 @@ export function SharedItinerariesTab({ user }) {
     }
   };
 
-  // UPDATED: removing an item no longer deletes/hides the whole group automatically
   const handleRemoveItem = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
-    if (!shared || !user) return;
+    if (!shared || !canEditShared(shared)) return;
     if (!window.confirm("Remove this destination?")) return;
 
     try {
       await deleteDoc(doc(db, "sharedItineraries", sharedId, "items", itemId));
 
-      // Check remaining items
       const remainingSnap = await getDocs(collection(db, "sharedItineraries", sharedId, "items"));
       if (remainingSnap.empty) {
-        // If owner: delete the whole shared itinerary; else: remove self from sharedWith
         if (shared.sharedBy.id === user.uid) {
           await deleteSharedItinerary(sharedId);
         } else {
@@ -1052,9 +1170,6 @@ export function SharedItinerariesTab({ user }) {
             sharedWith: arrayRemove(user.uid)
           });
         }
-        // Optimistically drop from UI now
-        // (Listener also cleans it, but this removes any brief residue)
-        // Note: setSharedWithMe is inside the hook; rely on listener + filter above.
       } else {
         await updateDoc(doc(db, "sharedItineraries", sharedId), {
           lastUpdated: serverTimestamp(),
@@ -1071,6 +1186,37 @@ export function SharedItinerariesTab({ user }) {
     setSharedItineraryId(sharedId);
   };
 
+  // Add this effect to check achievement when shared itineraries change
+  useEffect(() => {
+    const checkAchievement = async () => {
+      if (!user || loading) return;
+      
+      try {
+        // Count personal items
+        const personalSnap = await getDocs(
+          collection(db, "itinerary", user.uid, "items")
+        );
+        const personalCount = personalSnap.size;
+        
+        // Count shared items
+        const sharedCount = sharedWithMe.reduce(
+          (total, shared) => total + (shared.items?.length || 0),
+          0
+        );
+        
+        const totalDestinations = personalCount + sharedCount;
+        
+        if (totalDestinations >= 3) {
+          await unlockAchievement(6, "Mini Planner");
+        }
+      } catch (error) {
+        console.error("Error checking achievement:", error);
+      }
+    };
+    
+    checkAchievement();
+  }, [user, sharedWithMe, loading]);
+
   if (loading) {
     return (
       <div className="itn-loading">
@@ -1082,73 +1228,75 @@ export function SharedItinerariesTab({ user }) {
   if (error) {
     return (
       <div className="itn-error">
-        <div>Error loading shared itineraries</div>
-        <div>{error.message}</div>
+        <div className="itn-error-icon">❌</div>
+        <div className="itn-error-message">Failed to load shared itineraries. Please try again later.</div>
+      </div>
+    );
+  }
+
+  if (visibleShared.length === 0) {
+    return (
+      <div className="itn-empty-state">
+        <div className="itn-empty-icon">📭</div>
+        <div className="itn-empty-title">No Shared Itineraries</div>
+        <div className="itn-empty-description">
+          You don't have any shared itineraries yet. Ask your friends to share their itineraries with you!
+        </div>
       </div>
     );
   }
 
   return (
-    <>
-      {visibleShared.length === 0 ? (
-        <div className="itn-empty">
-          <div className="itn-empty-icon">🔄</div>
-          <div className="itn-empty-title">No shared itineraries</div>
-          <div className="itn-muted">
-            When friends share their travel plans with you, they will appear here.
-          </div>
-        </div>
-      ) : (
-        visibleShared.map(shared => (
-          <div className="itn-shared-group" key={shared.id}>
+    <div className="itn-shared-itineraries-tab">
+      {visibleShared.map((shared, idx) => {
+        const canEdit = canEditShared(shared);
+        return (
+          <div key={shared.id} className="itn-shared-itinerary">
             <div className="itn-shared-header">
-              <div className="itn-shared-info">
-                <img
-                  src={shared.sharedBy.profilePicture || "/user.png"}
-                  alt={shared.sharedBy.name}
-                  className="itn-shared-avatar"
-                />
+              <div className="itn-shared-title">
+                <span className="itn-shared-step">{idx + 1}</span>
                 <div>
-                  <div className="itn-shared-by">Shared by {shared.sharedBy.name}</div>
-                  <div className="itn-shared-date">
-                    Shared: {new Date(shared.sharedAt).toLocaleDateString()} •
-                    Updated: {new Date(shared.lastUpdated).toLocaleDateString()}
+                  <div className="itn-shared-name">{shared.name}</div>
+                  <div className="itn-shared-meta">
+                    Shared by {shared.sharedBy.name} • {shared.items?.length || 0} destinations
+                    {canEdit && " • You can edit"}
                   </div>
                 </div>
               </div>
-              <div className="itn-actions">
-                <button
-                  className="itn-btn primary"
-                  onClick={() => handleCopyToMyItinerary(shared)}
-                  disabled={copyingId === shared.id || !shared.items || shared.items.length === 0}
-                  title={!shared.items?.length ? "No destinations to copy" : "Copy to your itinerary"}
+              <div className="itn-shared-actions">
+                <button 
+                  className="itn-btn" 
+                  onClick={() => handleCopyToMyItinerary(shared)} 
+                  disabled={copyingId === shared.id}
                 >
                   {copyingId === shared.id ? "Copying..." : "Copy to My Itinerary"}
                 </button>
               </div>
             </div>
 
-            {/* Render items if any; header remains even if empty */}
-            {(shared.items || []).map((item, idx) => (
-              <SharedDestinationCard
-                key={item.id}
-                item={item}
-                index={idx}
-                readOnly={!canEditShared(shared)}
-                isOwner={shared.sharedBy.id === user.uid}
-                onEdit={() => canEditShared(shared) && handleEditItem(shared.id, item)}
-                onRemove={() => canEditShared(shared) && handleRemoveItem(shared.id, item.id)}
-                onToggleStatus={() => canEditShared(shared) && handleToggleStatus(shared.id, item.id)}
-                setEditing={setEditing} // <-- ADD THIS
-                setSharedItineraryId={setSharedItineraryId} // <-- ADD THIS
-                sharedId={shared.id} // <-- ADD THIS
-              />
-            ))}
+            <div className="itn-shared-content">
+              {shared.items.map((item, i) => (
+                <div key={item.id} className="itn-shared-item">
+                  <SharedDestinationCard
+                    item={item}
+                    index={i}
+                    onEdit={handleEditItem}
+                    onRemove={handleRemoveItem}
+                    onToggleStatus={handleToggleStatus}
+                    readOnly={!canEdit}
+                    isOwner={shared.sharedBy.id === user.uid}
+                    setEditing={setEditing}
+                    setSharedItineraryId={setSharedItineraryId}
+                    sharedId={shared.id}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        ))
-      )}
+        );
+      })}
 
-      {editing && (
+      {editing && sharedItineraryId && (
         <SharedEditModal
           initial={editing}
           onSave={handleSaveEdit}
@@ -1158,409 +1306,121 @@ export function SharedItinerariesTab({ user }) {
           }}
         />
       )}
-    </>
-  );
-}
-
-// Make sure these are imported (add if missing):
-// import { collection, doc, getDocs, query, limit, writeBatch, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-
-// >>> Add near top (after other helpers)
-async function deleteSharedItinerary(sharedId) {
-  try {
-    console.log("[CLEAN] Deleting shared itinerary:", sharedId);
-    const itemsCol = collection(db, "sharedItineraries", sharedId, "items");
-    while (true) {
-      const snap = await getDocs(query(itemsCol, limit(400)));
-      if (snap.empty) break;
-      const batch = writeBatch(db);
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-    }
-    await deleteDoc(doc(db, "sharedItineraries", sharedId));
-    console.log("[CLEAN] Deleted parent doc:", sharedId);
-  } catch (e) {
-    console.error("[CLEAN] Failed deleting itinerary:", sharedId, e);
-    throw e;
-  }
-}
-
-export async function cleanEmptySharedItinerariesForUser(user, { maxAgeMs = 2000 } = {}) {
-  if (!user) return { scanned: 0, removed: 0 };
-  const parentQ = query(collection(db, "sharedItineraries"), where("sharedWith", "array-contains", user.uid));
-  const snap = await getDocs(parentQ);
-  let removed = 0;
-  let scanned = 0;
-
-  for (const d of snap.docs) {
-    scanned++;
-    const data = d.data() || {};
-    // Normalize timestamp
-    let updatedMs = 0;
-    if (data.lastUpdated?.toMillis) updatedMs = data.lastUpdated.toMillis();
-    else if (data.lastUpdated instanceof Date) updatedMs = data.lastUpdated.getTime();
-
-    const age = Date.now() - updatedMs;
-    // Only owner can purge
-    if (data.sharedBy !== user.uid) {
-      console.log(`[CLEAN][SKIP] Not owner ${d.id}`);
-      continue;
-    }
-
-    // Give a small grace (maxAgeMs) so brand new shares aren't removed too fast
-    if (updatedMs && age < maxAgeMs) {
-      console.log(`[CLEAN][SKIP] Too new (${age}ms) ${d.id}`);
-      continue;
-    }
-
-    const itemsSnap = await getDocs(query(collection(db, "sharedItineraries", d.id, "items"), limit(1)));
-    if (itemsSnap.empty) {
-      try {
-        await deleteSharedItinerary(d.id);
-        removed++;
-      } catch {}
-    } else {
-      console.log(`[CLEAN][KEEP] Has items ${d.id}`);
-    }
-  }
-
-  console.log(`[CLEAN] Done. Scanned=${scanned} removed=${removed}`);
-  return { scanned, removed };
-}
-
-// MOVE / KEEP deleteSharedItinerary (only one copy) then ADD helper:
-
-async function leaveOrDeleteSharedItinerary(shared, user) {
-  if (!user) return;
-  try {
-    if (shared.sharedBy.id === user.uid) {
-      // Owner: delete whole doc (items already empty, but still attempt full cleanup)
-      await deleteSharedItinerary(shared.id);
-      console.log("[LEAVE] Owner deleted empty shared itinerary", shared.id);
-    } else {
-      // Non‑owner: just remove self from sharedWith
-      await updateDoc(doc(db, "sharedItineraries", shared.id), {
-        sharedWith: arrayRemove(user.uid)
-      });
-      console.log("[LEAVE] User left shared itinerary", shared.id);
-    }
-  } catch (e) {
-    console.error("[LEAVE] Failed", e);
-  }
-}
-
-// Firestore helpers for "My Trips" ONLY (does not touch itinerary/sharedItineraries)
-
-// Internal helpers for global deletes under users/*/trips
-async function deleteTripDocFromAllUsers(itemId) {
-  if (!itemId) return;
-  const usersSnap = await getDocs(collection(db, "users"));
-  let batch = writeBatch(db);
-  let ops = 0;
-
-  for (const u of usersSnap.docs) {
-    const ref = doc(db, "users", u.id, "trips", itemId);
-    batch.delete(ref);
-    ops++;
-    if (ops >= 450) {
-      await batch.commit();
-      batch = writeBatch(db);
-      ops = 0;
-    }
-  }
-  if (ops) await batch.commit();
-}
-
-async function clearTripsForAllUsers() {
-  const usersSnap = await getDocs(collection(db, "users"));
-  for (const u of usersSnap.docs) {
-    const tripsCol = collection(db, "users", u.id, "trips");
-    // Batch-delete in chunks to avoid limits
-    while (true) {
-      const snap = await getDocs(query(tripsCol, limit(400)));
-      if (snap.empty) break;
-      const batch = writeBatch(db);
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-    }
-  }
-}
-
-// Delete one destination from trips
-export async function deleteTripDestination(user, itemId, subcolOrOptions = "items") {
-  if (!user || !itemId) return;
-
-  // Allow overriding behavior if ever needed
-  const allUsers = typeof subcolOrOptions === "object" ? !!subcolOrOptions.allUsers : true;
-
-  // Always remove from the current user first (correct path includes "users")
-  await deleteDoc(doc(db, "users", user.uid, "trips", itemId));
-
-  // Also remove from every user's trips (requested behavior)
-  if (allUsers) {
-    try {
-      await deleteTripDocFromAllUsers(itemId);
-    } catch (e) {
-      console.error("Global trip delete failed; current user's trip removed only.", e);
-    }
-  }
-}
-
-// Clear all destinations from trips
-export async function clearAllTripDestinations(user, subcolOrOptions = "items") {
-  if (!user) return;
-
-  const allUsers = typeof subcolOrOptions === "object" ? !!subcolOrOptions.allUsers : true;
-
-  // Clear for the current user first
-  const itemsCol = collection(db, "users", user.uid, "trips");
-  while (true) {
-    const snap = await getDocs(query(itemsCol, limit(400)));
-    if (snap.empty) break;
-    const batch = writeBatch(db);
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-  }
-
-  // Also clear for all users (requested behavior)
-  if (allUsers) {
-    try {
-      await clearTripsForAllUsers();
-    } catch (e) {
-      console.error("Global clear trips failed; current user's trips cleared only.", e);
-    }
-  }
-}
-
-// New ItinerarySummaryModal component
-function ItinerarySummaryModal({ item, onClose }) {
-  let days = "";
-  if (item.arrival && item.departure) {
-    days = Math.max(
-      1,
-      Math.ceil(
-        (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
-    );
-  }
-
-  return (
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div
-        className="itn-modal itn-modal-lg"
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
-          borderRadius: 18,
-          boxShadow: "0 8px 32px rgba(108,99,255,0.13)",
-          padding: 0,
-          maxWidth: 520,
-        }}
-      >
-        <div
-          className="itn-modal-header"
-          style={{
-            background: "linear-gradient(90deg, #6c63ff 60%, #a084ee 100%)",
-            color: "#fff",
-            borderTopLeftRadius: 18,
-            borderTopRightRadius: 18,
-            padding: "24px 32px 16px 32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 28, marginRight: 4 }}>📝</span>
-            <span className="itn-modal-title" style={{ fontWeight: 700, fontSize: 22 }}>
-              Itinerary Summary
-            </span>
-          </div>
-          <button className="itn-close" onClick={onClose} style={{ color: "#fff" }}>
-            ×
-          </button>
-        </div>
-        <div
-          className="itn-modal-body"
-          style={{
-            padding: "28px 32px 18px 32px",
-            background: "transparent",
-            maxHeight: 500,
-            overflowY: "auto",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              boxShadow: "0 2px 8px rgba(108,99,255,0.06)",
-              padding: "24px 20px 18px 20px",
-              marginBottom: 8,
-            }}
-          >
-            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6, color: "#6c63ff" }}>
-              {item.name || "—"}
-            </div>
-            <div style={{ color: "#64748b", fontSize: 15, marginBottom: 12 }}>
-              <span style={{ marginRight: 16 }}>
-                <span style={{ fontWeight: 500 }}>Region:</span> {item.region || "—"}
-              </span>
-              <span>
-                <span style={{ fontWeight: 500 }}>Status:</span> {item.status || "—"}
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 18,
-                marginBottom: 10,
-                fontSize: 15,
-              }}
-            >
-              <div>
-                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Dates:</span>{" "}
-                {item.arrival || "—"} {item.departure ? `– ${item.departure}` : ""}
-                {days ? (
-                  <span style={{ marginLeft: 8, color: "#888" }}>
-                    ({days} {days === 1 ? "day" : "days"})
-                  </span>
-                ) : ""}
-              </div>
-              <div>
-                <span style={{ color: "#6c63ff", fontWeight: 500 }}>Budget:</span>{" "}
-                <span style={{ fontWeight: 600 }}>${item.budget || 0}</span>
-                <span style={{ color: "#888", fontSize: 13, marginLeft: 8 }}>
-                  (Hotel: ${item.accomBudget || 0} | Activities: ${item.activityBudget || 0})
-                </span>
-              </div>
-            </div>
-            <div style={{ margin: "14px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Accommodation
-              </div>
-              <div style={{ color: "#444", fontSize: 15 }}>
-                {item.accomType || "Not planned"}
-                {item.accomName ? (
-                  <span style={{ color: "#888", marginLeft: 8 }}>
-                    ({item.accomName})
-                  </span>
-                ) : null}
-              </div>
-              {item.accomNotes && (
-                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
-                  {item.accomNotes}
-                </div>
-              )}
-            </div>
-            <div style={{ margin: "18px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Activities
-              </div>
-              <div style={{ minHeight: 28 }}>
-                {Array.isArray(item.activities) && item.activities.length ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {item.activities.map((a, i) => (
-                      <span
-                        key={i}
-                        style={{
-                          display: "inline-block",
-                          background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
-                          color: "#fff",
-                          borderRadius: 16,
-                          padding: "4px 14px",
-                          fontSize: 14,
-                          fontWeight: 500,
-                          boxShadow: "0 1px 4px rgba(108,99,255,0.07)",
-                        }}
-                      >
-                        {a}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span style={{ color: "#888" }}>—</span>
-                )}
-              </div>
-            </div>
-            <div style={{ margin: "18px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Transportation
-              </div>
-              <div style={{ color: "#444", fontSize: 15 }}>
-                {item.transport || "—"}
-                <span style={{ color: "#888", marginLeft: 8 }}>
-                  Cost: ${item.transportCost || 0}
-                </span>
-              </div>
-              {item.transportNotes && (
-                <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>
-                  {item.transportNotes}
-                </div>
-              )}
-            </div>
-            <div style={{ margin: "18px 0 0 0" }}>
-              <div style={{ fontWeight: 500, color: "#6c63ff", marginBottom: 2 }}>
-                Notes
-              </div>
-              <div style={{ color: "#444", fontSize: 15 }}>
-                {item.notes || <span style={{ color: "#888" }}>—</span>}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div
-          className="itn-modal-footer"
-          style={{
-            borderBottomLeftRadius: 18,
-            borderBottomRightRadius: 18,
-            background: "#f8fafc",
-            padding: "18px 32px",
-            textAlign: "right",
-          }}
-        >
-          <button className="itn-btn primary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
 
-// Example:
-function exportSharedPDF(sel) {
-  const totals = sel.reduce(
-    (acc, it) => {
-      const days =
-        it.arrival && it.departure
-          ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
-          : 0;
-      acc.days += days;
-      acc.budget += Number((it.estimatedExpenditure ?? it.budget) || 0);
-      return acc;
-    },
-    { days: 0, budget: 0 }
-  );
+// Add these helper functions after the checkMiniPlannerAchievement function
 
-  const rows = sel.map((it, idx) => {
-    const days =
-      it.arrival && it.departure
-        ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
-        : "";
-    const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
-    const budget = `$${Number((it.estimatedExpenditure ?? it.budget) || 0).toLocaleString()}`;
-    return [
-      idx + 1,
-      it.name || "Destination",
-      it.region || "—",
-      dates,
-      String(days || "—"),
-      it.status || "—",
-      budget,
-    ];
-  });
+async function checkMiniPlannerAchievement(user) {
+  if (!user) return;
+  
+  try {
+    // Count personal itinerary items
+    const personalSnap = await getDocs(
+      collection(db, "itinerary", user.uid, "items")
+    );
+    const personalCount = personalSnap.size;
+    
+    // Count shared itinerary items
+    let sharedCount = 0;
+    const sharedQuery = query(
+      collection(db, "sharedItineraries"),
+      where("sharedWith", "array-contains", user.uid)
+    );
+    const sharedSnap = await getDocs(sharedQuery);
+    
+    for (const doc of sharedSnap.docs) {
+      const itemsSnap = await getDocs(
+        collection(db, "sharedItineraries", doc.id, "items")
+      );
+      sharedCount += itemsSnap.size;
+    }
+    
+    const totalDestinations = personalCount + sharedCount;
+    
+    if (totalDestinations >= 3) {
+      await unlockAchievement(6, "Mini Planner");
+    }
+  } catch (error) {
+    console.error("Error checking Mini Planner achievement:", error);
+  }
+}
 
-  // ...existing PDF generation code...
+// Add these new export functions
+export async function deleteTripDestination(user, itemId) {
+  if (!user || !itemId) return;
+  
+  try {
+    // Delete from personal itinerary
+    await deleteDoc(doc(db, "itinerary", user.uid, "items", itemId));
+    console.log("Deleted trip destination:", itemId);
+  } catch (error) {
+    console.error("Error deleting trip destination:", error);
+    throw error;
+  }
+}
+
+export async function clearAllTripDestinations(user) {
+  if (!user) return;
+  
+  try {
+    // Get all items from personal itinerary
+    const itemsRef = collection(db, "itinerary", user.uid, "items");
+    const snapshot = await getDocs(itemsRef);
+    
+    // Delete all items in a batch
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    
+    await batch.commit();
+    console.log("Cleared all trip destinations");
+  } catch (error) {
+    console.error("Error clearing all trip destinations:", error);
+    throw error;
+  }
+}
+
+// Add this helper function to delete a shared itinerary
+async function deleteSharedItinerary(sharedId) {
+  if (!sharedId) return;
+  
+  try {
+    // Delete all items in the shared itinerary
+    const itemsRef = collection(db, "sharedItineraries", sharedId, "items");
+    const itemsSnap = await getDocs(itemsRef);
+    
+    const batch = writeBatch(db);
+    itemsSnap.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    
+    // Delete the shared itinerary document itself
+    batch.delete(doc(db, "sharedItineraries", sharedId));
+    
+    await batch.commit();
+    console.log("Deleted shared itinerary:", sharedId);
+  } catch (error) {
+    console.error("Error deleting shared itinerary:", error);
+    throw error;
+  }
+}
+
+// Add this helper function after the imports
+async function logActivity(text, icon = "🔵") {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    await addDoc(collection(db, "activities"), {
+      userId: user.uid,
+      text,
+      icon,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
 }

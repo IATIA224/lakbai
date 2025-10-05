@@ -285,6 +285,28 @@
   to { opacity: 1; }
 }
 
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .itn-modal-backdrop {
   animation: fadeIn 0.2s ease;
 }
@@ -913,5 +935,65 @@ textarea.itn-form-input {
 
   .itn-share-list-container {
     max-height: 30vh;
+  }
+}
+
+/* Add these animations at the top */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply animations to shared itinerary elements */
+.itn-shared-group {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.itn-shared-group:nth-child(1) { animation-delay: 0.1s; }
+.itn-shared-group:nth-child(2) { animation-delay: 0.15s; }
+.itn-shared-group:nth-child(3) { animation-delay: 0.2s; }
+.itn-shared-group:nth-child(4) { animation-delay: 0.25s; }
+
+.itn-card {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.itn-shared-edit-modal {
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Reduce animations on mobile */
+@media (max-width: 768px) {
+  .itn-shared-group,
+  .itn-card,
+  .itn-shared-edit-modal {
+    animation-duration: 0.3s;
+    animation-delay: 0s !important;
   }
 }

@@ -539,6 +539,129 @@
   100% { transform: translateX(520%);   width: 24%; }
 }
 
+/* Add these animations after the existing animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply animations to bookmarks2 elements */
+.App {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.bp2-page-layout {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.bp2-filters {
+  animation: fadeInUp 0.5s ease-out 0.1s both;
+}
+
+.bp2-header-row {
+  animation: fadeInUp 0.5s ease-out 0.15s both;
+}
+
+.bp2-content {
+  animation: fadeIn 0.6s ease-out 0.2s both;
+}
+
+.grid-container {
+  animation: fadeIn 0.5s ease-out 0.25s both;
+}
+
+.grid-card {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.grid-card:nth-child(1) { animation-delay: 0.1s; }
+.grid-card:nth-child(2) { animation-delay: 0.15s; }
+.grid-card:nth-child(3) { animation-delay: 0.2s; }
+.grid-card:nth-child(4) { animation-delay: 0.25s; }
+.grid-card:nth-child(5) { animation-delay: 0.3s; }
+.grid-card:nth-child(6) { animation-delay: 0.35s; }
+.grid-card:nth-child(7) { animation-delay: 0.4s; }
+.grid-card:nth-child(8) { animation-delay: 0.45s; }
+.grid-card:nth-child(9) { animation-delay: 0.5s; }
+.grid-card:nth-child(10) { animation-delay: 0.55s; }
+.grid-card:nth-child(11) { animation-delay: 0.6s; }
+.grid-card:nth-child(12) { animation-delay: 0.65s; }
+
+.bp2-pager {
+  animation: fadeInUp 0.5s ease-out 0.3s both;
+}
+
+.modal-content,
+.details-modal {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.bm-empty {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+/* Reduce animations on mobile for performance */
+@media (max-width: 768px) {
+  .App,
+  .bp2-page-layout,
+  .bp2-filters,
+  .bp2-header-row,
+  .bp2-content,
+  .grid-container,
+  .grid-card,
+  .bp2-pager,
+  .modal-content,
+  .details-modal,
+  .bm-empty {
+    animation-duration: 0.3s;
+    animation-delay: 0s !important;
+  }
+}
+
+/* Accessibility - reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .App,
+  .bp2-page-layout,
+  .bp2-filters,
+  .bp2-header-row,
+  .bp2-content,
+  .grid-container,
+  .grid-card,
+  .bp2-pager,
+  .modal-content,
+  .details-modal,
+  .bm-empty {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* Layout */
 .bp2-page-layout {
   display: grid;

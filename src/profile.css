@@ -1,3 +1,114 @@
+/* Add these animations at the top of your CSS file */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply animations to elements that load data */
+.profile-header {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.profile-avatar img {
+  animation: scaleIn 0.5s ease-out;
+}
+
+.profile-stats-row {
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+.profile-stat {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.profile-stat:nth-child(1) { animation-delay: 0.15s; }
+.profile-stat:nth-child(2) { animation-delay: 0.25s; }
+.profile-stat:nth-child(3) { animation-delay: 0.35s; }
+.profile-stat:nth-child(4) { animation-delay: 0.45s; }
+
+.profile-card {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.profile-content-main .profile-card:nth-child(1) { animation-delay: 0.2s; }
+.profile-content-main .profile-card:nth-child(2) { animation-delay: 0.3s; }
+.profile-content-main .profile-card:nth-child(3) { animation-delay: 0.4s; }
+
+.profile-content-side .profile-card:nth-child(1) { animation-delay: 0.25s; }
+.profile-content-side .profile-card:nth-child(2) { animation-delay: 0.35s; }
+
+.profile-activity-item {
+  animation: fadeIn 0.3s ease-out both;
+}
+
+.profile-activity-item:nth-child(1) { animation-delay: 0.05s; }
+.profile-activity-item:nth-child(2) { animation-delay: 0.1s; }
+.profile-activity-item:nth-child(3) { animation-delay: 0.15s; }
+.profile-activity-item:nth-child(4) { animation-delay: 0.2s; }
+.profile-activity-item:nth-child(5) { animation-delay: 0.25s; }
+
+.profile-gallery-photo {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.profile-gallery-photo:nth-child(1) { animation-delay: 0.1s; }
+.profile-gallery-photo:nth-child(2) { animation-delay: 0.15s; }
+.profile-gallery-photo:nth-child(3) { animation-delay: 0.2s; }
+.profile-gallery-photo:nth-child(4) { animation-delay: 0.25s; }
+.profile-gallery-photo:nth-child(5) { animation-delay: 0.3s; }
+.profile-gallery-photo:nth-child(6) { animation-delay: 0.35s; }
+
+.achievement-item {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+.achievement-item:nth-child(1) { animation-delay: 0.1s; }
+.achievement-item:nth-child(2) { animation-delay: 0.15s; }
+.achievement-item:nth-child(3) { animation-delay: 0.2s; }
+.achievement-item:nth-child(4) { animation-delay: 0.25s; }
+.achievement-item:nth-child(5) { animation-delay: 0.3s; }
+
+/* Reduce animations on mobile for performance */
+@media (max-width: 768px) {
+  .profile-header,
+  .profile-avatar img,
+  .profile-stats-row,
+  .profile-stat,
+  .profile-card,
+  .profile-activity-item,
+  .profile-gallery-photo,
+  .achievement-item {
+    animation-duration: 0.3s;
+    animation-delay: 0s !important;
+  }
+}
+
 :root{
   --brand-primary: #6c63ff;      /* community blue */
   --brand-secondary: #a084ee;    /* community purple */

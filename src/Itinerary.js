@@ -12,9 +12,10 @@ import {
   doc,
   onSnapshot,
   orderBy,
-  query as fsQuery,
+  query as fsQuery,  // Keep this alias
   getDocs,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import jsPDF from 'jspdf';
@@ -26,12 +27,34 @@ import {
   useSharedItineraries,
   shareItinerary as shareItineraryWithFriends,
   SharedItinerariesTab,
-  // add:
   deleteTripDestination,
   clearAllTripDestinations,
 } from './itinerary2';
-import ItineraryHotelsModal from "./itineraryHotels"; // NEW
-import ItineraryCostEstimationModal from "./itineraryCostEstimation"; // <-- fix casing here
+import ItineraryHotelsModal from "./itineraryHotels";
+import ItineraryCostEstimationModal from "./itineraryCostEstimation";
+import {
+  trackDestinationAdded,
+  trackDestinationCompleted,
+  trackDestinationUncompleted,
+  trackDestinationRemoved,
+} from "./itinerary_Stats";
+
+// Add this helper function after the imports
+async function logActivity(text, icon = "🔵") {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    await addDoc(collection(db, "activities"), {
+      userId: user.uid,
+      text,
+      icon,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+}
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -53,7 +76,6 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     arrival: initial?.arrival || "",
     departure: initial?.departure || "",
     status: initial?.status || "Upcoming",
-    // REPLACED: single estimatedExpenditure field (fallback to legacy budget)
     estimatedExpenditure: initial?.estimatedExpenditure ?? initial?.budget ?? 0,
     accomType: initial?.accomType || "",
     accomName: initial?.accomName || "",
@@ -72,6 +94,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     if (!v) return;
     setForm((f) => ({ ...f, activities: [...f.activities, v], activityDraft: "" }));
   }, [form.activityDraft]);
+  
   const removeActivity = (i) =>
     setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
 
@@ -117,7 +140,6 @@ function EditDestinationModal({ initial, onSave, onClose }) {
         <div className="itn-modal-body">
           <div className="itn-form-grid">
             <div className="itn-form-col">
-              {/* left-column fields unchanged */}
               <div className="itn-grid">
                 <label className="itn-field">
                   <span className="itn-label">Destination Name</span>
@@ -178,15 +200,69 @@ function EditDestinationModal({ initial, onSave, onClose }) {
                   <span className="itn-label">Estimated Expenditure ($)</span>
                   <input
                     className="itn-input"
+                    type="number"
                     value={form.estimatedExpenditure}
                     onChange={(e) => setForm({ ...form, estimatedExpenditure: e.target.value })}
                   />
                 </label>
               </div>
+
+              {/* Activities Section - RESTORED */}
+              <div className="itn-field">
+                <span className="itn-label">Activities & Things to Do</span>
+                <div className="itn-grid-2">
+                  <input
+                    id="itn-activity-draft"
+                    className="itn-input"
+                    placeholder="e.g., Snorkeling, Hiking..."
+                    value={form.activityDraft}
+                    onChange={(e) => setForm({ ...form, activityDraft: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addActivity())}
+                  />
+                  <button className="itn-btn primary" onClick={addActivity}>
+                    Add Activity
+                  </button>
+                </div>
+                {form.activities.length > 0 && (
+                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {form.activities.map((act, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
+                          color: "#fff",
+                          borderRadius: 16,
+                          padding: "4px 12px",
+                          fontSize: 13,
+                          fontWeight: 500,
+                        }}
+                      >
+                        <span>{act}</span>
+                        <button
+                          onClick={() => removeActivity(i)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#fff",
+                            cursor: "pointer",
+                            fontSize: 16,
+                            lineHeight: 1,
+                            padding: 0,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="itn-form-col">
-              {/* Removed separate Budget/Accommodation/Activity/Transport cost inputs */}
               <div className="itn-field">
                 <span className="itn-label">Accommodation Details</span>
                 <div className="itn-grid-2">
@@ -218,7 +294,6 @@ function EditDestinationModal({ initial, onSave, onClose }) {
                 />
               </div>
 
-              {/* transport type kept, transport cost removed */}
               <div className="itn-field">
                 <span className="itn-label">Transport</span>
                 <div className="itn-grid-2">
@@ -243,6 +318,17 @@ function EditDestinationModal({ initial, onSave, onClose }) {
                   onChange={(e) => setForm({ ...form, transportNotes: e.target.value })}
                 />
               </div>
+
+              <div className="itn-field">
+                <span className="itn-label">Additional Notes</span>
+                <textarea
+                  rows={3}
+                  className="itn-input"
+                  placeholder="Any other important details..."
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -251,6 +337,24 @@ function EditDestinationModal({ initial, onSave, onClose }) {
           <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
           <button className="itn-btn primary" onClick={handleSave}>Save Details</button>
         </div>
+
+        {notif && (
+          <div
+            style={{
+              position: "fixed",
+              top: 20,
+              right: 20,
+              background: "#6c63ff",
+              color: "#fff",
+              padding: "12px 20px",
+              borderRadius: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              zIndex: 10000,
+            }}
+          >
+            {notif}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -694,7 +798,7 @@ export default function Itinerary() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  // ADD THESE
+  // Export and Share modal states - DECLARE ONLY ONCE
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
   const [showShareModal, setShowShareModal] = useState(false);
@@ -704,6 +808,10 @@ export default function Itinerary() {
 
   // NEW: current user
   const [user, setUser] = useState(null);
+
+  // Friends and shared itineraries
+  const friends = useFriendsList(user);
+  const { sharedWithMe } = useSharedItineraries(user);
 
   // NEW: watch auth, then subscribe to user's itinerary
   useEffect(() => {
@@ -787,7 +895,7 @@ export default function Itinerary() {
     });
   };
 
-  // Replace saveItem with the parent-doc ensure before writing
+  // Update the saveItem function
   const saveItem = async (data) => {
     if (!user) {
       alert("Please sign in to save your itinerary.");
@@ -797,7 +905,6 @@ export default function Itinerary() {
     if (!data.name) data.name = "Untitled destination";
     
     try {
-      // Check if this is an edit (has an id) or a new item
       if (data.id) {
         // It's an edit - update the existing document
         const itemRef = doc(db, "itinerary", user.uid, "items", data.id);
@@ -809,16 +916,27 @@ export default function Itinerary() {
       } else {
         // It's a new item - create a new document
         const colRef = collection(db, "itinerary", user.uid, "items");
-        await addDoc(colRef, { 
+        const newDocRef = await addDoc(colRef, { 
           ...data, 
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp() 
         });
         
+        // Track destination added in Stats
+        await trackDestinationAdded(user.uid, {
+          id: newDocRef.id,
+          name: data.name,
+          region: data.region,
+          arrival: data.arrival,
+          departure: data.departure,
+        });
+        
+        // Log activity for creating new destination
+        await logActivity(`Added "${data.name}" to your itinerary`, "📍");
+        
         // Check if this is the user's first itinerary item
         const snap = await getDocs(colRef);
         if (snap.size === 1) {
-          // Unlock "First Step" achievement (id: 1)
           await unlockAchievement(1, "First Step");
         }
         
@@ -830,241 +948,6 @@ export default function Itinerary() {
     }
   };
 
-  // NEW: delete from Firestore
-  const removeItem = async (id) => {
-    if (!user) return;
-    // delete from itinerary (existing behavior)
-    await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
-
-    // also delete from My Trips (all users)
-    try {
-      await removeTripForAllUsers(id);
-    } catch (e) {
-      console.warn("[Trips] Failed to delete from trips across users:", e);
-    }
-  };
-
-  // NEW: toggle status in Firestore
-  const toggleStatus = async (id) => {
-    if (!user) return;
-    const current = items.find((i) => i.id === id);
-    if (!current) return;
-    const next =
-      current.status === "Upcoming"
-        ? "Ongoing"
-        : current.status === "Ongoing"
-        ? "Completed"
-        : "Upcoming";
-    await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
-      status: next,
-      updatedAt: serverTimestamp(),
-    });
-  };
-
-  const markAllComplete = async () => {
-    if (!user || !items.length) return;
-    try {
-      await Promise.all(
-        items.map((it) =>
-          updateDoc(doc(db, "itinerary", user.uid, "items", it.id), {
-            status: "Completed",
-            updatedAt: serverTimestamp(),
-          })
-        )
-      );
-      console.log("[Itinerary] Marked all complete for", user.uid);
-    } catch (e) {
-      console.error("Mark All Complete failed:", e);
-      alert("Failed to mark all complete. Please try again.");
-    }
-  };
-
-  const clearAll = async () => {
-    if (!user || !items.length) return;
-    if (!window.confirm("Remove all destinations from your itinerary?")) return;
-    try {
-      // clear itinerary (existing behavior)
-      const colRef = collection(db, "itinerary", user.uid, "items");
-      const snap = await getDocs(colRef);
-      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
-      console.log("[Itinerary] Cleared itinerary for", user.uid);
-
-      // also clear My Trips (all users)
-      try {
-        await clearAllTripsForAllUsers();
-      } catch (e) {
-        console.warn("[Trips] Failed to clear trips across users:", e);
-      }
-    } catch (e) {
-      console.error("Clear All failed:", e);
-      alert("Failed to clear your itinerary. Please try again.");
-    }
-  };
-
-  // Open export dialog (preselect all) 
-  const openExport = () => {
-    setExportSelected(new Set(items.map(i => i.id)));
-    setShowExport(true);
-  };
-
-  const toggleSelected = (id) => {
-    setExportSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    setExportSelected(prev => {
-      if (prev.size === items.length) return new Set();
-      return new Set(items.map(i => i.id));
-    });
-  };
-
-  const exportToPDF = async () => {
-    if (!exportSelected.size) return;
-
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const w = doc.internal.pageSize.getWidth();
-    const h = doc.internal.pageSize.getHeight();
-    const pad = 40;
-    const contentW = w - pad * 2;
-
-    // Sort by arrival date, newest first, then name
-    const toMs = (d) => (d ? new Date(d).getTime() : 0);
-    const sel = [...items]
-      .filter((i) => exportSelected.has(i.id))
-      .sort((a, b) => (toMs(b.arrival) - toMs(a.arrival)) || (a.name || "").localeCompare(b.name || ""));
-
-    const totals = sel.reduce(
-      (acc, it) => {
-        const days =
-          it.arrival && it.departure
-            ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
-            : 0;
-        acc.days += days;
-        acc.budget += Number((it.estimatedExpenditure ?? it.budget) || 0);
-        return acc;
-      },
-      { days: 0, budget: 0 }
-    );
-
-    // Header + footer via didDrawPage
-    const drawHeader = () => {
-      doc.setFillColor(246, 247, 255);
-      doc.rect(0, 0, w, 64, "F");
-      doc.setFontSize(18);
-      doc.setTextColor(28, 28, 30);
-      doc.text("LakbAI Itinerary", pad, 32);
-      doc.setFontSize(10);
-      doc.setTextColor(90, 90, 100);
-      doc.text(
-        `Exported: ${new Date().toLocaleString()} • Destinations: ${sel.length} • Total days: ${totals.days} • Total budget: $${totals.budget.toLocaleString()}`,
-        pad,
-        50
-      );
-    };
-    const drawFooter = () => {
-      const page = doc.getNumberOfPages();
-      doc.setFontSize(10);
-      doc.setTextColor(120, 120, 130);
-      doc.text(`Page ${page}`, w - pad, h - 16, { align: "right" });
-    };
-
-    // Build table rows
-    const rows = sel.map((it, idx) => {
-      const days =
-        it.arrival && it.departure
-          ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
-          : "";
-      const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
-      const budget = `$${Number((it.estimatedExpenditure ?? it.budget) || 0).toLocaleString()}`;
-      return [
-        idx + 1,
-        it.name || "Destination",
-        it.region || "—",
-        dates,
-        String(days || "—"),
-        it.status || "—",
-        budget,
-      ];
-    });
-
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 90);
-    doc.text(`Destinations: ${sel.length}`, pad + 12, 80);
-    doc.text(`Total days: ${totals.days}`, pad + 160, 80);
-    doc.text(`Total budget: $${totals.budget.toLocaleString()}`, pad + 280, 80);
-
-    // when adding a table:
-    const addTable = (opts) => {
-      // works with both plugin styles
-      if (typeof doc.autoTable === 'function') {
-        doc.autoTable(opts);
-      } else {
-        autoTable(doc, opts);
-      }
-    };
-
-    addTable({
-      startY: 92,
-      margin: { left: pad, right: pad },
-      head: [["#", "Destination", "Region", "Dates", "Days", "Status", "Budget"]],
-      body: rows,
-      styles: {
-        fontSize: 9,
-        cellPadding: 6,
-        overflow: "linebreak",
-        lineColor: [230, 230, 242],
-        lineWidth: 0.2,
-        valign: "middle",
-      },
-      headStyles: { fillColor: [108, 99, 255], textColor: 255 },
-      alternateRowStyles: { fillColor: [248, 248, 255] },
-      columnStyles: {
-        0: { cellWidth: contentW * 0.06, halign: "right" },
-        1: { cellWidth: contentW * 0.32 },
-        2: { cellWidth: contentW * 0.16 },
-        3: { cellWidth: contentW * 0.20 },
-        4: { cellWidth: contentW * 0.08, halign: "right" },
-        5: { cellWidth: contentW * 0.10 },
-        6: { cellWidth: contentW * 0.08, halign: "right" },
-      },
-      didDrawPage: () => {
-        drawHeader();
-        drawFooter();
-      },
-    });
-
-    // Summary box after table
-    let y = (doc.lastAutoTable?.finalY || 72) + 18;
-    if (y + 80 > h - pad) {
-      doc.addPage();
-      drawHeader();
-      drawFooter();
-      y = 72;
-    }
-    doc.setDrawColor(108, 99, 255);
-    doc.setLineWidth(0.8);
-    doc.roundedRect(pad, y, contentW, 60, 8, 8);
-    doc.setFontSize(12);
-    doc.setTextColor(20, 20, 20);
-    doc.text("Summary", pad + 12, y + 20);
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 90);
-    doc.text(`Destinations: ${sel.length}`, pad + 12, y + 40);
-    doc.text(`Total days: ${totals.days}`, pad + 160, y + 40);
-    doc.text(`Total budget: $${totals.budget.toLocaleString()}`, pad + 280, y + 40);
-
-    const filename = `itinerary-${new Date().toISOString().slice(0, 10)}.pdf`;
-    doc.save(filename);
-    setShowExport(false);
-  };
-
-  const friends = useFriendsList(user);
-  const { sharedWithMe } = useSharedItineraries(user);
-
   const toggleShareItem = (id) => {
     setShareSelected(prev => {
       const next = new Set(prev);
@@ -1074,12 +957,12 @@ export default function Itinerary() {
     });
   };
 
+  // KEEP THIS ONE - Update the handleShareItinerary function
   const handleShareItinerary = async (itemIds, friendIds) => {
     if (!user) return;
     try {
       console.log("Starting share with:", { itemIds, friendIds });
       
-      // First check that we have the data we need
       if (!itemIds.length) {
         alert("Please select at least one destination to share");
         return;
@@ -1090,7 +973,6 @@ export default function Itinerary() {
         return;
       }
       
-      // Get the actual items to be shared
       const itemsToShare = items.filter(item => itemIds.includes(item.id));
       
       if (!itemsToShare.length) {
@@ -1098,12 +980,234 @@ export default function Itinerary() {
         return;
       }
       
-      // Now call the share function
       await shareItineraryWithFriends(user, items, itemIds, friendIds);
+      
+      // Log activity for sharing itinerary
+      await logActivity(
+        `Shared itinerary with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''} (${itemIds.length} destination${itemIds.length > 1 ? 's' : ''})`,
+        "🔗"
+      );
+      
       alert(`Itinerary shared with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''}!`);
+      setShowShareModal(false);
+      setShareSelected(new Set());
     } catch (err) {
       console.error("Share failed:", err);
       alert(`Failed to share itinerary: ${err.message || "Unknown error"}`);
+    }
+  };
+
+  // Fix the checkMiniPlannerAchievement effect (around line 1050)
+  useEffect(() => {
+    const checkMiniPlannerAchievement = async () => {
+      if (!user) return;
+      
+      try {
+        // Count personal itinerary items
+        const personalCount = items.length;
+        
+        // Count shared itinerary items where user is a participant
+        let sharedCount = 0;
+        
+        // FIX: Use fsQuery instead of query
+        const sharedQuery = fsQuery(
+          collection(db, "sharedItineraries"),
+          where("sharedWith", "array-contains", user.uid)
+        );
+        const sharedSnap = await getDocs(sharedQuery);
+        
+        for (const docSnap of sharedSnap.docs) {
+          const itemsSnap = await getDocs(
+            collection(db, "sharedItineraries", docSnap.id, "items")
+          );
+          sharedCount += itemsSnap.size;
+        }
+        
+        const totalDestinations = personalCount + sharedCount;
+        
+        // Unlock Mini Planner achievement if user has 3 or more destinations
+        if (totalDestinations >= 3) {
+          await unlockAchievement(6, "Mini Planner");
+        }
+      } catch (error) {
+        console.error("Error checking Mini Planner achievement:", error);
+      }
+    };
+    
+    checkMiniPlannerAchievement();
+  }, [user, items]); // Re-check whenever user or items change
+
+  // Make sure you have this state for export moda
+
+  // Export functions - KEEP ONLY THESE
+  const openExport = () => {
+    setShowExport(true);
+    setExportSelected(new Set(items.map(i => i.id)));
+  };
+
+  const toggleExportItem = (id) => {
+    setExportSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllExport = () => {
+    setExportSelected(new Set(items.map(i => i.id)));
+  };
+
+  const handleExport = async () => {
+    const toExport = items.filter(it => exportSelected.has(it.id));
+    if (!toExport.length) {
+      alert("No items selected for export");
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("My Itinerary", 14, 20);
+    
+    const tableData = toExport.map(item => [
+      item.name || "",
+      item.region || "",
+      item.arrival || "",
+      item.departure || "",
+      item.status || "",
+      `$${Number(item.estimatedExpenditure || 0).toLocaleString()}`
+    ]);
+
+    autoTable(doc, {
+      head: [["Destination", "Region", "Arrival", "Departure", "Status", "Budget"]],
+      body: tableData,
+      startY: 30,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+      styles: { fontSize: 9 }
+    });
+
+    doc.save("itinerary.pdf");
+    setShowExport(false);
+  };
+
+  const removeItem = async (id) => {
+    if (!user) return;
+    if (!window.confirm("Remove this destination?")) return;
+    
+    const itemToRemove = items.find((i) => i.id === id);
+    
+    try {
+      await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
+      
+      // Track removal in stats
+      if (itemToRemove) {
+        await trackDestinationRemoved(
+          user.uid,
+          {
+            id: itemToRemove.id,
+            name: itemToRemove.name,
+            region: itemToRemove.region,
+          },
+          itemToRemove.status === "Completed"
+        );
+      }
+    } catch (e) {
+      console.error("Remove failed:", e);
+    }
+  };
+
+  const toggleStatus = async (id) => {
+    if (!user) return;
+    const current = items.find((i) => i.id === id);
+    if (!current) return;
+    
+    const next =
+      current.status === "Upcoming"
+        ? "Ongoing"
+        : current.status === "Ongoing"
+        ? "Completed"
+        : "Upcoming";
+    
+    await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
+      status: next,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Track completion stats
+    if (next === "Completed" && current.status !== "Completed") {
+      // Changed to Completed
+      await trackDestinationCompleted(user.uid, {
+        id: current.id,
+        name: current.name,
+        region: current.region,
+        arrival: current.arrival,
+        departure: current.departure,
+      });
+      
+      try {
+        await unlockAchievement(8, "Checklist Champ");
+      } catch (error) {
+        console.error("Error unlocking Checklist Champ achievement:", error);
+      }
+    } else if (current.status === "Completed" && next !== "Completed") {
+      // Changed from Completed to something else
+      await trackDestinationUncompleted(user.uid, {
+        id: current.id,
+        name: current.name,
+        region: current.region,
+      });
+    }
+  };
+
+  const markAllComplete = async () => {
+    if (!user || !items.length) return;
+    try {
+      // Track each incomplete item as completed
+      const promises = items.map(async (it) => {
+        await updateDoc(doc(db, "itinerary", user.uid, "items", it.id), {
+          status: "Completed",
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Only track if it wasn't already completed
+        if (it.status !== "Completed") {
+          await trackDestinationCompleted(user.uid, {
+            id: it.id,
+            name: it.name,
+            region: it.region,
+            arrival: it.arrival,
+            departure: it.departure,
+          });
+        }
+      });
+      
+      await Promise.all(promises);
+      console.log("[Itinerary] Marked all complete for", user.uid);
+
+      // Unlock Checklist Champ achievement when marking all as complete
+      try {
+        await unlockAchievement(8, "Checklist Champ");
+      } catch (error) {
+        console.error("Error unlocking Checklist Champ achievement:", error);
+      }
+    } catch (e) {
+      console.error("Mark All Complete failed:", e);
+      alert("Failed to mark all complete. Please try again.");
+    }
+  };
+
+  const clearAll = async () => {
+    if (!user || !items.length) return;
+    if (!window.confirm("Clear ALL destinations? This cannot be undone.")) return;
+    try {
+      await Promise.all(
+        items.map((it) => deleteDoc(doc(db, "itinerary", user.uid, "items", it.id)))
+      );
+      console.log("[Itinerary] Cleared all for", user.uid);
+    } catch (e) {
+      console.error("Clear All failed:", e);
+      alert("Failed to clear all. Please try again.");
     }
   };
 
@@ -1275,17 +1379,19 @@ export default function Itinerary() {
         />
       )}
 
+      {/* Export PDF Modal */}
       {showExport && (
         <ExportPDFModal
           items={items}
           selected={exportSelected}
-          onToggle={toggleSelected}
-          onSelectAll={toggleSelectAll}
-          onExport={exportToPDF}
+          onToggle={toggleExportItem}
+          onSelectAll={selectAllExport}
+          onExport={handleExport}
           onClose={() => setShowExport(false)}
         />
       )}
 
+      {/* Share Modal */}
       {showShareModal && (
         <ShareItineraryModal
           items={items}
@@ -1293,7 +1399,10 @@ export default function Itinerary() {
           selected={shareSelected}
           onToggleItem={toggleShareItem}
           onShare={handleShareItinerary}
-          onClose={() => setShowShareModal(false)}
+          onClose={() => {
+            setShowShareModal(false);
+            setShareSelected(new Set());
+          }}
         />
       )}
 
