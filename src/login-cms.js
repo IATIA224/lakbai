@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, setDoc, getDoc, doc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { getFirestore, setDoc, getDoc, doc, collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import ContentManagement from "./ContentManagement";
 import "./Styles/login-cms.css";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
@@ -60,7 +60,7 @@ export default function LoginCMS() {
             });
 
             setIsAdmin(true);
-            navigate("/ContentManagement", { replace: true }); // Redirect after successful login
+            navigate("/admin/ContentManagement", { replace: true }); // Redirect after successful login
         } catch (err) {
             setError(
                 err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credentials"
@@ -145,16 +145,6 @@ export default function LoginCMS() {
                             </div>
                         )}
                     </form>
-                    <div className="login-cms-security" style={{ marginTop: 18 }}>
-                        <span className="icon" role="img" aria-label="security">🔒</span>
-                        <span>
-                            <b>Security Notice</b>
-                            <br />
-                            <span style={{ fontWeight: 400 }}>
-                                This is a demo system. In production, use strong passwords and enable two-factor authentication.
-                            </span>
-                        </span>
-                    </div>
                 </div>
                 <div className="login-cms-footer">
                     © 2025 LakbAI. All rights reserved.<br />
