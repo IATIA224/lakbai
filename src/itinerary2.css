@@ -1,3 +1,38 @@
+/* Modal backdrop and base - UPDATED */
+.itn-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(2, 6, 23, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+  padding: 0;
+}
+
+.itn-modal {
+  position: relative;
+  max-width: 850px;
+  width: 90%;
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Summary modal specific */
+.itn-modal-backdrop.itn-summary-backdrop {
+  z-index: 99999;
+}
+
 /* Modal backdrop and base */
 .itn-modal-backdrop {
   position: fixed;
@@ -988,12 +1023,119 @@ textarea.itn-form-input {
   animation: scaleIn 0.3s ease-out;
 }
 
-/* Reduce animations on mobile */
-@media (max-width: 768px) {
-  .itn-shared-group,
-  .itn-card,
-  .itn-shared-edit-modal {
-    animation-duration: 0.3s;
-    animation-delay: 0s !important;
-  }
+/* Summary Modal Styles */
+.itn-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.itn-summary-section {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 16px;
+}
+
+.itn-summary-section:last-child {
+  border-bottom: none;
+}
+
+.itn-summary-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itn-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #334155;
+}
+
+.itn-summary-region {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.itn-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.itn-summary-label {
+  font-weight: 600;
+  color: #475569;
+  margin-right: 8px;
+}
+
+.itn-summary-amount {
+  font-size: 24px;
+  font-weight: 800;
+  color: #6c63ff;
+}
+
+.itn-summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.itn-summary-tag {
+  background: linear-gradient(90deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.itn-summary-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.itn-summary-notes {
+  color: #475569;
+  font-size: 14px;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.itn-summary-status {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.itn-summary-status.upcoming {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.itn-summary-status.ongoing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.itn-summary-status.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.itn-summary-status.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
 }
