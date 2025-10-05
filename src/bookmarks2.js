@@ -16,10 +16,29 @@ import {
   arrayUnion,
   arrayRemove,
   deleteDoc,
+  addDoc,
 } from 'firebase/firestore';
-import { addTripForCurrentUser } from './Itinerary'; // <-- add this import
+import { addTripForCurrentUser } from './Itinerary';
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
+import { trackDestinationAdded } from './itinerary_Stats';
 
+// ADD logActivity function HERE at the top
+async function logActivity(text, icon = "🔵") {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    await addDoc(collection(db, "activities"), {
+      userId: user.uid,
+      text,
+      icon,
+      timestamp: new Date().toISOString(),
+    });
+    console.log("Activity logged:", text); // Debug log
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+}
 
 export default function Bookmarks2() {
   // Firestore-backed destinations and bookmarks
@@ -54,6 +73,9 @@ export default function Bookmarks2() {
   // NEW: pagination
   const [page, setPage] = useState(1);
   const pageSize = 12;
+
+  // NEW: destinations viewed by the user (for achievement tracking)
+  const [viewedDestinations, setViewedDestinations] = useState(new Set());
 
   // 1) Load only CMS-published destinations (status in ['published','PUBLISHED'])
   useEffect(() => {
@@ -161,11 +183,12 @@ const allCategories = useMemo(() => {
     let list = destinations.filter(
       (d) => String(d.status || '').toUpperCase() === 'PUBLISHED'
     );
-
-    const q = query.trim().toLowerCase();
+    
+    // FIX: Change 'q' to 'query.toLowerCase()' 
     list = list.filter((d) => {
+      const q = query.toLowerCase();
       const matchesQ =
-        !q ||
+        !query ||
         d.name?.toLowerCase().includes(q) ||
         d.description?.toLowerCase().includes(q) ||
         d.region?.toLowerCase().includes(q);
@@ -289,6 +312,7 @@ const allCategories = useMemo(() => {
       alert('Please sign in to bookmark destinations.');
       return;
     }
+    
     const listRef = doc(db, 'userBookmarks', user.uid);
     const userDocRef = doc(db, 'users', user.uid);
     const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', dest.id);
@@ -299,14 +323,13 @@ const allCategories = useMemo(() => {
       await setDoc(
         listRef,
         {
-          userId: user.uid,                         // <- add this to satisfy rules on update
+          userId: user.uid,
           updatedAt: serverTimestamp(),
           bookmarks: isBookmarked ? arrayRemove(dest.id) : arrayUnion(dest.id),
         },
         { merge: true }
       );
 
-      // Best-effort secondary writes; do not fail the whole toggle if they’re blocked by rules
       try {
         await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
       } catch (e) {
@@ -316,6 +339,9 @@ const allCategories = useMemo(() => {
       if (isBookmarked) {
         try {
           await deleteDoc(bookmarkDocRef);
+          // Log activity for removing bookmark
+          await logActivity(`Removed "${dest.name}" from bookmarks`, "💔");
+          console.log('✅ Activity logged: Removed bookmark');
         } catch (e) {
           console.warn('delete users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
         }
@@ -334,16 +360,27 @@ const allCategories = useMemo(() => {
               category: dest.category || [],
               bestTime: dest.bestTime || '',
               image: dest.image || '',
+              description: dest.description || '',
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             },
             { merge: true }
           );
+          
+          // Log activity for adding bookmark
+          await logActivity(`Bookmarked "${dest.name}"`, "⭐");
+          console.log('✅ Activity logged: Added bookmark');
+          
+          // Check if this is the first bookmark
+          const userBookmarksSnap = await getDoc(listRef);
+          const bookmarksList = userBookmarksSnap.data()?.bookmarks || [];
+          if (bookmarksList.length === 1) {
+            await unlockAchievement(2, "First Bookmark");
+          }
         } catch (e) {
           console.warn('upsert users/{uid}/bookmarks/{destId} skipped:', e.code || e.message);
         }
       }
-      // onSnapshot on userBookmarks keeps UI in sync
     } catch (e) {
       console.error('Toggle bookmark failed:', e.code || e.message);
       alert('Could not update bookmark. Please try again.');
@@ -388,9 +425,65 @@ const allCategories = useMemo(() => {
     return r && r.count > 0 ? r.avg.toFixed(1) : '—';
   };
 
+  // Add this useEffect to load viewed destinations from Firestore when user logs in
+useEffect(() => {
+  if (!currentUser) {
+    setViewedDestinations(new Set());
+    return;
+  }
+
+  const loadViewedDestinations = async () => {
+    try {
+      const viewedRef = doc(db, 'users', currentUser.uid, 'viewedDestinations', 'data');
+      const viewedSnap = await getDoc(viewedRef);
+      
+      if (viewedSnap.exists()) {
+        const viewedIds = viewedSnap.data().destinationIds || [];
+        setViewedDestinations(new Set(viewedIds));
+      }
+    } catch (error) {
+      console.warn('Could not load viewed destinations:', error);
+    }
+  };
+
+  loadViewedDestinations();
+}, [currentUser]);
+
   const openDetails = async (d) => {
     setSelected(d);
     setModalOpen(true);
+
+    // Track this destination as viewed
+    const newViewed = new Set(viewedDestinations);
+    const wasNew = !newViewed.has(d.id);
+    newViewed.add(d.id);
+    setViewedDestinations(newViewed);
+
+    // Save to Firestore if user is logged in and this is a new view
+    if (currentUser && wasNew) {
+      try {
+        const viewedRef = doc(db, 'users', currentUser.uid, 'viewedDestinations', 'data');
+        await setDoc(
+          viewedRef,
+          {
+            destinationIds: Array.from(newViewed),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.warn('Could not save viewed destination:', error);
+      }
+    }
+
+    // Check if user has viewed 10 different destinations
+    if (newViewed.size >= 10) {
+      try {
+        await unlockAchievement(7, "Explorer at Heart");
+      } catch (error) {
+        console.error("Error unlocking Explorer at Heart achievement:", error);
+      }
+    }
 
     // Load user's rating for this destination
     try {
@@ -419,7 +512,7 @@ const allCategories = useMemo(() => {
       }
     }
 
-    // --- NEW: Fetch packingSuggestions from Firestore if available ---
+    // Fetch packingSuggestions from Firestore if available
     try {
       const destSnap = await getDoc(doc(db, 'destinations', d.id, 'packingSuggestions'));
       if (destSnap.exists()) {
@@ -460,14 +553,13 @@ const allCategories = useMemo(() => {
 
     setBookmarking(true);
     try {
-      await toggleBookmark(selected); // persists to Firestore
+      await toggleBookmark(selected); // This will log the activity
       
       // If adding first bookmark, unlock achievement
       if (isFirstBookmark) {
-        unlockAchievement(2, "First Bookmark");
+        await unlockAchievement(2, "First Bookmark");
       }
       
-      // onSnapshot will keep state in sync afterward
     } catch (e) {
       // Rollback on failure
       setBookmarks((prev) => {
@@ -543,6 +635,13 @@ const allCategories = useMemo(() => {
       // Existing behavior: write to itinerary collection using helper
       await addTripForCurrentUser(dest);
 
+      // Track destination added to itinerary
+      await trackDestinationAdded(user.uid, {
+        id: dest.id,
+        name: dest.name,
+        region: dest.region,
+      });
+
       // small parser reused here to store same estimatedExpenditure in users/{uid}/trips
       const parseEstimatedFromPrice = (p) => {
         if (p == null) return 0;
@@ -588,12 +687,6 @@ const allCategories = useMemo(() => {
         navigate('/itinerary'); // Route for "My Trips"
       }, 600);
     } catch (e) {
-      if (e?.message === 'AUTH_REQUIRED') {
-        alert('Please sign in to add to My Trips.');
-      } else {
-        console.error('Add to My Trips failed:', e);
-        alert('Failed to add to trip. Please try again.');
-      }
       if (e?.message === 'AUTH_REQUIRED') {
         alert('Please sign in to add to My Trips.');
       } else {
@@ -1054,5 +1147,6 @@ const allCategories = useMemo(() => {
         </div>
       )}
     </div>
-  );}
+  );
+}
 

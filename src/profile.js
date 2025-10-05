@@ -26,6 +26,7 @@ import { useUser } from "./UserContext";
 import { emitAchievement } from "./achievementsBus";
 import { onAuthStateChanged } from "firebase/auth";
 import { getUserDashboardStats } from "./dashboard-stats-row"; // <-- Add this import
+import { getUserCompletionStats } from './itinerary_Stats';
 
 export const CLOUDINARY_CONFIG = {
   cloudName: "dxvewejox",
@@ -76,11 +77,6 @@ const Profile = () => {
   const [unlockedAchievements, setUnlockedAchievements] = useState(new Set());
   const [photos, setPhotos] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
-  const [visitedLocations, setVisitedLocations] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [mapCenter, setMapCenter] = useState([12.8797, 121.774]);
-  const [mapZoom, setMapZoom] = useState(6);
-  const [searchMarker, setSearchMarker] = useState(null);
   const [activities, setActivities] = useState([]);
   // initialize friends as 0 so UI shows 0 immediately on refresh
   const [stats, setStats] = useState({
@@ -90,6 +86,11 @@ const Profile = () => {
     friends: 0, // show 0 immediately, update later when authoritative count arrives
   });
   const [shareCode, setShareCode] = useState("");
+  const [completedDestinations, setCompletedDestinations] = useState([]);
+
+  // Map state - simplified (no search)
+  const [mapCenter, setMapCenter] = useState([12.8797, 121.774]);
+  const [mapZoom, setMapZoom] = useState(6);
 
   // Function to fetch profile data
   const fetchProfile = async (uidParam, userObj) => {
@@ -134,7 +135,7 @@ const Profile = () => {
         friends: prev.friends ?? 0,
       }));
 
-      // Heavy reads in parallel (photos, map, activities)
+      // Heavy reads in parallel (photos, activities)
       await Promise.all([
         (async () => {
           try {
@@ -142,13 +143,6 @@ const Profile = () => {
             const photosSnapshot = await getDocs(photosQuery);
             setPhotos(photosSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
           } catch { setPhotos([]); }
-        })(),
-        (async () => {
-          try {
-            const locationsQuery = query(collection(db, "travel_map"), where("userId", "==", uid));
-            const locationsSnapshot = await getDocs(locationsQuery);
-            setVisitedLocations(locationsSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-          } catch { setVisitedLocations([]); }
         })(),
         (async () => {
           try {
@@ -196,7 +190,6 @@ const Profile = () => {
         setUserId(null);
         setProfile(null);
         setPhotos([]);
-        setVisitedLocations([]);
         setActivities([]);
         setStats({ placesVisited: 0, photosShared: 0, reviewsWritten: 0, friends: 0 });
         setShareCode("");
@@ -497,29 +490,6 @@ const Profile = () => {
     shareItinerary: () => addActivity("You have shared an itinerary.", "🔗"),
   };
 
-  // Search
-  const handleSearch = async (e) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            searchQuery + ", Philippines"
-          )}&limit=1`
-        );
-        const data = await response.json();
-        if (data.length > 0) {
-          const { lat, lon, display_name } = data[0];
-          const position = [parseFloat(lat), parseFloat(lon)];
-          setMapCenter(position);
-          setMapZoom(12);
-          setSearchMarker({ position, name: display_name });
-        }
-      } catch (error) {
-        console.error("Search error:", error);
-      }
-    }
-  };
-
   // Generate and save share code
   const handleShareProfile = async () => {
     try {
@@ -695,6 +665,68 @@ const Profile = () => {
     return () => unsubscribe();
   }, [userId]);
 
+  // Fetch user's completed destinations from Stats collection
+  useEffect(() => {
+    const fetchCompletedDestinations = async () => {
+      if (!userId) {
+        setCompletedDestinations([]);
+        return;
+      }
+
+      try {
+        const stats = await getUserCompletionStats(userId);
+        if (stats && stats.destinations) {
+          // Convert destinations object to array with location data
+          const destinationsArray = Object.entries(stats.destinations).map(([id, data]) => ({
+            id,
+            name: data.name || 'Unknown',
+            region: data.region || '',
+            completedAt: data.completedAt,
+            latitude: data.latitude,
+            longitude: data.longitude,
+          }));
+
+          // Filter out destinations without coordinates
+          const withCoordinates = destinationsArray.filter(
+            dest => dest.latitude && dest.longitude
+          );
+
+          setCompletedDestinations(withCoordinates);
+
+          // Update the Places Visited stat with total completed count
+          setStats((prev) => ({
+            ...prev,
+            placesVisited: destinationsArray.length, // Total completed destinations (with or without coordinates)
+          }));
+
+          // Auto-center map if there are completed destinations
+          if (withCoordinates.length > 0) {
+            // Calculate average position
+            const avgLat = withCoordinates.reduce((sum, d) => sum + d.latitude, 0) / withCoordinates.length;
+            const avgLng = withCoordinates.reduce((sum, d) => sum + d.longitude, 0) / withCoordinates.length;
+            setMapCenter([avgLat, avgLng]);
+            setMapZoom(7); // Zoom in a bit to show the cluster
+          }
+        } else {
+          // No completed destinations
+          setStats((prev) => ({
+            ...prev,
+            placesVisited: 0,
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching completed destinations:', error);
+        setCompletedDestinations([]);
+        setStats((prev) => ({
+          ...prev,
+          placesVisited: 0,
+        }));
+      }
+    };
+
+    fetchCompletedDestinations();
+  }, [userId]);
+
   return (
     <>
       <div className="profile-main">
@@ -796,33 +828,15 @@ const Profile = () => {
         <div className="profile-content-row">
           {/* Left column */}
           <div className="profile-content-main">
-            {/* Travel Map */}
+            {/* Travel Map - UPDATED: No search bar, only completed destinations */}
             <div className="profile-card">
-              <div className="profile-card-title">🗺️ My Travel Map</div>
+              <div className="profile-card-title">🗺️ My Completed Destinations</div>
               <div style={{ height: "300px", position: "relative" }}>
-                <div style={{ marginBottom: "16px", padding: "0 4px" }}>
-                  <input
-                    type="text"
-                    placeholder="Search for a destination in the Philippines..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={handleSearch}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #d1d5db",
-                      fontSize: "14px",
-                      outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
                 <MapContainer
                   center={mapCenter}
                   zoom={mapZoom}
                   style={{
-                    height: "250px",
+                    height: "100%",
                     width: "100%",
                     borderRadius: "12px",
                     zIndex: 1,
@@ -834,31 +848,64 @@ const Profile = () => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
-                  {visitedLocations.map((location) => (
-                    <Marker
-                      key={location.id}
-                      position={[location.latitude, location.longitude]}
-                    >
-                      <Popup>
-                        <div>
-                          <h3>{location.name}</h3>
-                          <p>{location.description || "Visited location"}</p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                  {searchMarker && (
-                    <Marker position={searchMarker.position} icon={customIcon}>
-                      <Popup>
-                        <div>
-                          <h3>Search Result</h3>
-                          <p>{searchMarker.name}</p>
-                        </div>
-                      </Popup>
-                    </Marker>
+                  
+                  {/* Only show completed destinations */}
+                  {completedDestinations.length > 0 ? (
+                    completedDestinations.map((dest) => (
+                      <Marker
+                        key={`completed-${dest.id}`}
+                        position={[dest.latitude, dest.longitude]}
+                        icon={customIcon}
+                      >
+                        <Popup>
+                          <div>
+                            <h3>✅ {dest.name}</h3>
+                            <p>{dest.region}</p>
+                            {dest.completedAt && (
+                              <p style={{ fontSize: '12px', color: '#666' }}>
+                                Completed: {new Date(
+                                  dest.completedAt.toMillis ? dest.completedAt.toMillis() : dest.completedAt
+                                ).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))
+                  ) : (
+                    // Show message when no completed destinations
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      background: 'white',
+                      padding: '20px',
+                      borderRadius: '12px',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+                      textAlign: 'center',
+                      zIndex: 1000,
+                      pointerEvents: 'none'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '12px' }}>🗺️</div>
+                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>No completed destinations yet</div>
+                      <div style={{ fontSize: '14px', color: '#666' }}>
+                        Mark destinations as completed in your itinerary to see them here!
+                      </div>
+                    </div>
                   )}
                 </MapContainer>
               </div>
+              {completedDestinations.length > 0 && (
+                <div style={{ 
+                  marginTop: '12px', 
+                  fontSize: '14px', 
+                  color: '#666',
+                  textAlign: 'center'
+                }}>
+                  📍 {completedDestinations.length} destination{completedDestinations.length !== 1 ? 's' : ''} completed
+                </div>
+              )}
             </div>
 
             {/* Recent Activity */}
