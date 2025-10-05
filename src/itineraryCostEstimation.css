@@ -1,20 +1,22 @@
-/* Modal backdrop and base */
+/* Modal backdrop and base - FIXED */
 .cost-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(40, 48, 80, 0.55);
-  z-index: 100000;
+  z-index: 9999998; /* Very high - just below summary modal */
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: 5vh 2vw;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
 }
 
 /* Modal */
 .cost-modal {
+  z-index: 9999999; /* Above backdrop */
   width: min(935px, 83vw);
-  height: 700px;
-  max-height: 700px;
+  max-height: 90vh;
   border-radius: 18.7px;
   padding: 0 !important;
   background: #fff;
@@ -22,11 +24,24 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: center;
+  position: relative;
+  animation: scaleIn 0.3s ease-out;
 }
-@keyframes hotels-modal-in {
-  from { transform: translateY(40px) scale(.98); opacity: 0.2; }
-  to   { transform: none; opacity: 1; }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Header */
