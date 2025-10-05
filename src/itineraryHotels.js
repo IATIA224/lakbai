@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import ReactDOM from "react-dom";
 import "./itineraryHotels.css";
 
 // List of region CSVs (match your assets/data folder)
@@ -132,6 +133,10 @@ export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
   const [citySel, setCitySel] = useState("");
   const [provinceSel, setProvinceSel] = useState("");
   const [cityText, setCityText] = useState(""); // <-- Add this
+  const [regionFilter, setRegionFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState("");
 
   // Load CSV when region changes
   useEffect(() => {
@@ -237,12 +242,12 @@ export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
 
   if (!open) return null;
 
-  return (
+  const modalContent = (
     <div className="hotels-backdrop" onClick={onClose}>
       <div className="hotels-modal" onClick={(e) => e.stopPropagation()}>
         <div className="hotels-header">
-          <div className="hotels-title">Accredited accommodations</div>
-          <button className="hotels-close" onClick={onClose} aria-label="Close">×</button>
+          <div className="hotels-title">🏨 DOT-Accredited Hotels & Accommodations</div>
+          <button className="hotels-close" onClick={onClose}>×</button>
         </div>
 
         <div className="hotels-controls">
@@ -250,69 +255,48 @@ export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
             Region
             <select
               className="hotels-select"
-              value={region}
-              onChange={(e) => {
-                setRegion(e.target.value);
-                setCitySel("");
-                setProvinceSel("");
-                setCityText("");
-              }}
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value)}
             >
+              <option value="">All Regions</option>
               {REGION_FILES.map((r) => (
                 <option key={r.label} value={r.label}>{r.label}</option>
               ))}
             </select>
           </label>
 
-          {region === "NCR" ? (
-            <label className="hotels-label">
-              City
-              <select
-                className="hotels-select"
-                value={citySel}
-                onChange={(e) => setCitySel(e.target.value)}
-              >
-                <option value="">All cities…</option>
-                {cities.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <label className="hotels-label">
-              Province
-              <select
-                className="hotels-select"
-                value={provinceSel}
-                onChange={(e) => setProvinceSel(e.target.value)}
-              >
-                <option value="">All provinces…</option>
-                {provinces.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {/* Add type box for city reference */}
           <label className="hotels-label">
-            Type city as reference
+            Type
+            <select
+              className="hotels-select"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="">All Types</option>
+              {all.map((a) => (
+                <option key={a.type} value={a.type}>{a.type}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="hotels-label">
+            Search
             <input
               className="hotels-input"
-              placeholder="e.g. Makati"
-              value={cityText}
-              onChange={(e) => setCityText(e.target.value)}
+              placeholder="Search by name or address..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </label>
         </div>
 
         <div className="hotels-body">
-          {loading ? (
-            <div className="hotels-info">Loading…</div>
-          ) : err ? (
-            <div className="hotels-error">Failed to load: {err.message}</div>
+          {error ? (
+            <div className="hotels-error">{error}</div>
           ) : results.length === 0 ? (
-            <div className="hotels-info">No accredited accommodations found for this selection.</div>
+            <div className="hotels-info">
+              No hotels found matching your criteria. Try adjusting the filters.
+            </div>
           ) : (
             <ul className="hotels-list">
               {results.map((r) => (
@@ -372,4 +356,7 @@ export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
       </div>
     </div>
   );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
 }
