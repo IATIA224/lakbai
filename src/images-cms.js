@@ -363,6 +363,39 @@ export default function ImagesCMS() {
         setDeleting(false);
     };
 
+    // Helper: Parse CSV and map region to destination names
+    function parseRegionCsv(csvText) {
+        const lines = csvText.split('\n').filter(Boolean);
+        const regionMap = {};
+        for (const line of lines) {
+            const [region, name] = line.split(',');
+            if (region && name) {
+                if (!regionMap[region.trim()]) regionMap[region.trim()] = [];
+                regionMap[region.trim()].push(name.trim());
+            }
+        }
+        return regionMap;
+    }
+
+    // Load region-destination mapping once
+    const [regionMap, setRegionMap] = useState({});
+    useEffect(() => {
+        fetch('/src/region-destinations.csv')
+            .then(res => res.text())
+            .then(csv => setRegionMap(parseRegionCsv(csv)));
+    }, []);
+
+    // Filter images by region using CSV and dest-images.json
+    const filteredImages = images.filter(img => {
+        if (status === 'all') return true;
+        // Find matching destination names for selected region
+        const regionNames = regionMap[status] || [];
+        // Check if image name matches any destination name in region
+        return regionNames.some(destName =>
+            img.name.trim().toLowerCase() === destName.trim().toLowerCase()
+        );
+    }).filter(img => img.name.toLowerCase().includes(search.toLowerCase()));
+
     return (
         <div className="content-section">
             <div className="section-header">
