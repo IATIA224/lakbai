@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import Papa from "papaparse";
+import ReactDOM from "react-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
-import "leaflet-routing-machine";
+import "leaflet-routing-machine"; // ADD THIS - for routing
+import Papa from "papaparse"; // ADD THIS - for CSV parsing
 import "./itineraryCostEstimation.css";
 
 const CSV_PATH = "/data/transport/Fare_LTFRB.csv";
@@ -57,7 +57,12 @@ const PUB_CATEGORIES = [
   { value: "PUB Provincial", label: "PUB Provincial" }
 ];
 
-export default function ItineraryCostEstimation({ onClose }) {
+export default function ItineraryCostEstimationModal({ onClose }) {
+  const mapRef = useRef(null);
+  const [map, setMap] = useState(null);
+  const markerRefs = useRef({});
+  const routeRef = useRef(null);
+
   const [fares, setFares] = useState([]);
   const [vehicleType, setVehicleType] = useState("");
   const [pubCategory, setPubCategory] = useState("");
@@ -76,12 +81,6 @@ export default function ItineraryCostEstimation({ onClose }) {
   const [toSuggestions, setToSuggestions] = useState([]);
   const [toPlace, setToPlace] = useState(null);
   const toActiveIndex = useRef(-1);
-
-  // Map refs
-  const mapRef = useRef(null);
-  const [map, setMap] = useState(null);
-  const markerRefs = useRef({});
-  const routeRef = useRef(null);
 
   useEffect(() => {
     Papa.parse(CSV_PATH, {
@@ -322,27 +321,6 @@ export default function ItineraryCostEstimation({ onClose }) {
     }
   };
 
-  // Combined set destinations handler (keeps existing behavior)
-  const handleSetDestinations = async () => {
-    // Only set if a suggestion is selected, else search and pick first
-    if (!fromPlace && fromQuery) {
-      const res = await searchPlacePH(fromQuery);
-      if (res.length) {
-        setFromPlace(res[0]);
-        setFromQuery(res[0].display_name);
-        setFromSuggestions([]);
-      }
-    }
-    if (!toPlace && toQuery) {
-      const res = await searchPlacePH(toQuery);
-      if (res.length) {
-        setToPlace(res[0]);
-        setToQuery(res[0].display_name);
-        setToSuggestions([]);
-      }
-    }
-  };
-
   // Only estimate if all required fields are filled
   useEffect(() => {
     if (
@@ -359,209 +337,215 @@ export default function ItineraryCostEstimation({ onClose }) {
     // eslint-disable-next-line
   }, [vehicleType, pubCategory, subType, distance, minutes]);
 
-  return (
-    <div className="cost-backdrop hotels-backdrop">
-      <div className="cost-modal">
+  const modalContent = (
+    <div className="cost-backdrop" onClick={onClose}>
+      <div className="cost-modal" onClick={(e) => e.stopPropagation()}>
         <div className="cost-header">
-          <span className="cost-title">Itinerary Cost Estimation</span>
-          <button className="cost-close" onClick={onClose}>&times;</button>
+          <div className="cost-title">🚗 Transportation Cost Estimator</div>
+          <button className="cost-close" onClick={onClose}>×</button>
         </div>
-        <div className="cost-location-group" style={{ display: "flex", gap: "16px", padding: "0 32px 12px 32px" }}>
-          <div className="cost-label" style={{ flex: 1, position: "relative" }}>
-            <label>From</label>
-            <input
-              className="cost-input"
-              placeholder="Type a city/place in PH"
-              value={fromQuery}
-              onChange={handleFromInput}
-              onKeyDown={handleFromKeyDown}
-              autoComplete="new-password"
-              aria-autocomplete="list"
-              aria-controls="from-suggestions"
-            />
-            {fromSuggestions.length > 0 && (
-              <ul id="from-suggestions" role="listbox" className="suggestions-list">
-                {fromSuggestions.map((s, i) => (
-                  <li
-                    key={s.place_id || `${s.lat}-${s.lon}-${i}`}
-                    role="option"
-                    aria-selected={fromActiveIndex.current === i}
-                    className={`suggestion-item ${fromActiveIndex.current === i ? "active" : ""}`}
-                    onMouseDown={(ev) => { ev.preventDefault(); selectFromSuggestion(s); }} // use onMouseDown to avoid blur before click
-                  >
-                    <div className="suggestion-main">{s.display_name}</div>
-                    <div className="suggestion-sub">{s.type || ""}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
+
+        <div className="cost-controls">
+          <div className="cost-location-group">
+            <div className="cost-location-box">
+              <label className="cost-label">
+                From (Origin)
+                <input
+                  className="cost-input"
+                  placeholder="Enter origin city..."
+                  value={fromQuery}
+                  onChange={handleFromInput}
+                  onKeyDown={handleFromKeyDown}
+                />
+              </label>
+              {fromSuggestions.length > 0 && (
+                <ul className="cost-suggestions">
+                  {fromSuggestions.map((s, i) => (
+                    <li
+                      key={i}
+                      className={`cost-suggestion-item ${i === fromActiveIndex.current ? 'active' : ''}`}
+                      onClick={() => selectFromSuggestion(s)}
+                    >
+                      {s.display_name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="cost-location-box">
+              <label className="cost-label">
+                To (Destination)
+                <input
+                  className="cost-input"
+                  placeholder="Enter destination city..."
+                  value={toQuery}
+                  onChange={handleToInput}
+                  onKeyDown={handleToKeyDown}
+                />
+              </label>
+              {toSuggestions.length > 0 && (
+                <ul className="cost-suggestions">
+                  {toSuggestions.map((s, i) => (
+                    <li
+                      key={i}
+                      className={`cost-suggestion-item ${i === toActiveIndex.current ? 'active' : ''}`}
+                      onClick={() => selectToSuggestion(s)}
+                    >
+                      {s.display_name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-          <div className="cost-label" style={{ flex: 1, position: "relative" }}>
-            <label>To</label>
-            <input
-              className="cost-input"
-              placeholder="Type a city/place in PH"
-              value={toQuery}
-              onChange={handleToInput}
-              onKeyDown={handleToKeyDown}
-              autoComplete="new-password"
-              aria-autocomplete="list"
-              aria-controls="to-suggestions"
-            />
-            {toSuggestions.length > 0 && (
-              <ul id="to-suggestions" role="listbox" className="suggestions-list">
-                {toSuggestions.map((s, i) => (
-                  <li
-                    key={s.place_id || `${s.lat}-${s.lon}-${i}`}
-                    role="option"
-                    aria-selected={toActiveIndex.current === i}
-                    className={`suggestion-item ${toActiveIndex.current === i ? "active" : ""}`}
-                    onMouseDown={(ev) => { ev.preventDefault(); selectToSuggestion(s); }}
-                  >
-                    <div className="suggestion-main">{s.display_name}</div>
-                    <div className="suggestion-sub">{s.type || ""}</div>
-                  </li>
+
+          <div className="cost-grid">
+            <label className="cost-label">
+              Vehicle Type
+              <select
+                className="cost-select"
+                value={vehicleType}
+                onChange={(e) => {
+                  setVehicleType(e.target.value);
+                  setPubCategory("");
+                  setSubType("");
+                }}
+              >
+                <option value="">Select vehicle type...</option>
+                {VEHICLE_TYPES.map(t => (
+                  <option key={t} value={t}>{t}</option>
                 ))}
-              </ul>
+              </select>
+            </label>
+
+            {vehicleType === "PUB" && (
+              <label className="cost-label">
+                PUB Category
+                <select
+                  className="cost-select"
+                  value={pubCategory}
+                  onChange={(e) => {
+                    setPubCategory(e.target.value);
+                    setSubType("");
+                  }}
+                >
+                  <option value="">Select category...</option>
+                  {PUB_CATEGORIES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {subTypeOptions.length > 0 && (
+              <label className="cost-label">
+                Sub-Type
+                <select
+                  className="cost-select"
+                  value={subType}
+                  onChange={(e) => setSubType(e.target.value)}
+                >
+                  <option value="">Select sub-type...</option>
+                  {subTypeOptions.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label className="cost-label">
+              Travel Time (minutes)
+              <input
+                type="number"
+                className="cost-input"
+                value={minutes}
+                onChange={(e) => setMinutes(Number(e.target.value))}
+                min="1"
+              />
+            </label>
+
+            {distance && (
+              <label className="cost-label">
+                Distance (km)
+                <input
+                  type="number"
+                  className="cost-input"
+                  value={distance}
+                  onChange={(e) => setDistance(e.target.value)}
+                  min="0"
+                  step="0.01"
+                />
+              </label>
             )}
           </div>
         </div>
 
         <div
-          id="map"
           ref={mapRef}
           style={{
             width: "100%",
-            height: "340px",
-            borderRadius: 12,
-            marginBottom: 8,
-            background: "#eef2ff",
-            boxShadow: "0 2px 8px rgba(108,99,255,0.08)",
+            height: "300px",
+            borderRadius: "0px",
+            marginBottom: "12px",
           }}
         />
-        <div className="cost-controls">
-          <label className="hotels-label">
-            Vehicle Type
-            <select
-              className="hotels-select"
-              value={vehicleType}
-              onChange={e => {
-                setVehicleType(e.target.value);
-                setPubCategory("");
-                setSubType("");
-              }}
-            >
-              <option value="">Select...</option>
-              {VEHICLE_TYPES.map(type => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-          {vehicleType === "PUB" && (
-            <label className="hotels-label">
-              PUB Category
-              <select
-                className="hotels-select"
-                value={pubCategory}
-                onChange={e => {
-                  setPubCategory(e.target.value);
-                  setSubType("");
-                }}
-              >
-                <option value="">Select...</option>
-                {PUB_CATEGORIES.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {(vehicleType !== "" && (vehicleType !== "PUB" || pubCategory)) && (
-            <label className="hotels-label">
-              Sub-Type
-              <select
-                className="hotels-select"
-                value={subType}
-                onChange={e => setSubType(e.target.value)}
-              >
-                <option value="">Select...</option>
-                {subTypeOptions.map((sub, i) => (
-                  <option key={i} value={sub}>
-                    {sub}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label className="hotels-label">
-            Distance (km)
-            <input
-              className="hotels-input"
-              type="text"
-              value={distance}
-              onChange={e => setDistance(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="Auto-filled from route"
-              readOnly
-            />
-          </label>
-          <label className="hotels-label">
-            Travel Time (minutes)
-            <input
-              className="hotels-input"
-              type="text"
-              value={minutes}
-              onChange={e => setMinutes(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="Enter travel time in minutes"
-            />
-          </label>
-        </div>
+
         <div className="cost-body">
           {result ? (
-            <ul className="hotels-list">
-              <li className="hotels-item">
-                <div className="hotels-item-main">
-                  <div className="hotels-name">
-                    {vehicleType === "PUB" && pubCategory
-                      ? `${pubCategory} - ${result["Sub-Type"]}`
-                      : `${result["Vehicle Type"]} - ${result["Sub-Type"]}`}
+            <>
+              <ul className="hotels-list">
+                <li className="hotels-item">
+                  <div className="hotels-item-main">
+                    <div className="hotels-name">
+                      {vehicleType === "PUB" && pubCategory
+                        ? `${pubCategory} - ${result["Sub-Type"]}`
+                        : `${result["Vehicle Type"]} - ${result["Sub-Type"]}`}
+                    </div>
+                    <div className="hotels-meta">
+                      Base Rate: ₱{result["Base Rate(First 5 or 4 kilometers)"]}
+                      <span className="hotels-dot">•</span>
+                      Rate/km: ₱{result["Rate per km (₱)"]}
+                      <span className="hotels-dot">•</span>
+                      Per Min: ₱{result["Per Minute Travel time"]}
+                    </div>
                   </div>
-                  <div className="hotels-meta">
-                    Base Rate: ₱{result["Base Rate(First 5 or 4 kilometers)"]}
-                    <span className="hotels-dot">•</span>
-                    Rate/km: ₱{result["Rate per km (₱)"]}
-                    <span className="hotels-dot">•</span>
-                    Per Min: ₱{result["Per Minute Travel time"]}
-                  </div>
-                </div>
-              </li>
-            </ul>
+                </li>
+              </ul>
+              <div style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "32px",
+                padding: "12px 18px 0 18px",
+                fontWeight: 700,
+                fontSize: "1.18rem"
+              }}>
+                <span style={{ color: "#2563eb" }}>
+                  Regular Fare: ₱{result.price.toFixed(2)}
+                </span>
+                <span style={{ color: "#10b981" }}>
+                  Discounted Fare: ₱{discountedFare}
+                </span>
+              </div>
+            </>
           ) : (
             <div className="hotels-info">
-              Enter all details to automatically see the fare.
-            </div>
-          )}
-          {result && (
-            <div style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "32px",
-              padding: "12px 18px 0 18px",
-              fontWeight: 700,
-              fontSize: "1.18rem"
-            }}>
-              <span style={{ color: "#2563eb" }}>
-                Regular Fare: ₱{result.price.toFixed(2)}
-              </span>
-              <span style={{ color: "#10b981" }}>
-                Discounted Fare: ₱{discountedFare}
-              </span>
+              {!fromPlace || !toPlace 
+                ? "Enter origin and destination to calculate route distance."
+                : !vehicleType
+                ? "Select a vehicle type to see fare estimates."
+                : vehicleType === "PUB" && !pubCategory
+                ? "Select PUB category."
+                : !subType
+                ? "Select a sub-type to see fare estimate."
+                : "Enter all details to automatically see the fare."}
             </div>
           )}
         </div>
       </div>
     </div>
   );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
 }

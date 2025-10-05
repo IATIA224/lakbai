@@ -1,8 +1,8 @@
 /* Only hotels modal styles */
 .hotels-modal {
+  z-index: 9999999; /* Above backdrop */
   width: min(935px, 83vw);
-  height: 600px;         /* Fixed height for both modals */
-  max-height: 600px;
+  max-height: 90vh;
   border-radius: 18.7px;
   font-size: 0.935rem;
   background: #fff;
@@ -11,6 +11,7 @@
   display: flex;
   flex-direction: column;
   padding: 0 !important;
+  animation: scaleIn 0.3s ease-out;
 }
 
 @keyframes hotels-modal-in {
@@ -525,9 +526,11 @@
   position: fixed;
   inset: 0;
   background: rgba(40, 48, 80, 0.55);
-  z-index: 100000;
+  z-index: 9999998; /* Very high - just below summary modal */
   display: flex;
-  align-items: center;      /* Center vertically */
-  justify-content: center;  /* Center horizontally */
+  align-items: center;
+  justify-content: center;
   padding: 5vh 2vw;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
 }
