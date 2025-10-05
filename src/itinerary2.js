@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import ReactDOM from "react-dom"; // ADD THIS IMPORT
 import {
   collection,
   doc,
@@ -16,9 +17,9 @@ import {
   limit,
   arrayRemove
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import './itinerary2.css';
-import ItineraryHotelsModal from "./itineraryHotels"; // NEW
+import ItineraryHotelsModal from "./itineraryHotels";
 import ItineraryCostEstimationModal from "./itineraryCostEstimation";
 import { unlockAchievement } from "./profile";
 import {
@@ -31,8 +32,6 @@ import {
 // Helper function to ensure collections exist
 async function ensureCollectionExists(path) {
   try {
-    // Create a dummy document and immediately delete it
-    // This ensures the collection path exists
     const tempDoc = doc(collection(db, path));
     await setDoc(tempDoc, { _temp: true });
     await deleteDoc(tempDoc);
@@ -44,7 +43,7 @@ async function ensureCollectionExists(path) {
   }
 }
 
-// Share Modal Component
+// Share Modal Component with Portal
 export function ShareItineraryModal({ items, friends, selected, onToggleItem, onShare, onClose }) {
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [itemsFilter, setItemsFilter] = useState("");
@@ -92,9 +91,9 @@ export function ShareItineraryModal({ items, friends, selected, onToggleItem, on
     }
   };
   
-  return (
-    <div className="itn-modal-backdrop">
-      <div className="itn-modal">
+  const modalContent = (
+    <div className="itn-modal-backdrop" onClick={onClose}>
+      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
         <div className="itn-modal-header">
           <div className="itn-modal-title">
             <span role="img" aria-label="share">🔗</span> 
@@ -259,6 +258,9 @@ export function ShareItineraryModal({ items, friends, selected, onToggleItem, on
       </div>
     </div>
   );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 // Enhanced DestinationCard that supports read-only mode for shared itineraries
@@ -294,119 +296,121 @@ export function SharedDestinationCard({
   const showToggle = activities.length > 3;
 
   return (
-    <div className="itn-card">
-      <div className="itn-card-head">
-        <div className="itn-card-title">
-          <span className="itn-step">{index + 1}</span>
-          <div>
-            <div className="itn-name">{item.name || "Destination"}</div>
-            <div className="itn-sub">{item.region}</div>
+    <>
+      <div className="itn-card">
+        <div className="itn-card-head">
+          <div className="itn-card-title">
+            <span className="itn-step">{index + 1}</span>
+            <div>
+              <div className="itn-name">{item.name || "Destination"}</div>
+              <div className="itn-sub">{item.region}</div>
+            </div>
           </div>
-        </div>
-        <div className="itn-actions">
-          <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
-          
-          {!readOnly && (
-            <>
-              {/* FIX: Pass both sharedId and item.id to the callbacks */}
-              <button className="itn-btn" onClick={() => onToggleStatus(sharedId, item.id)}>
-                Toggle Status
-              </button>
-              <button className="itn-btn" onClick={() => onEdit(sharedId, item)}>
-                Edit
-              </button>
-              <button className="itn-btn danger" onClick={() => onRemove(sharedId, item.id)}>
-                Remove
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="itn-stats">
-        <div className="itn-stat blue">
-          <div className="itn-stat-title">Dates</div>
-          <div className="itn-stat-body">
-            {item.arrival || item.departure ? (
+          <div className="itn-actions">
+            <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
+            
+            {!readOnly && (
               <>
-                <div>{item.arrival || "—"}</div>
-                <div>{item.departure || "—"}</div>
-                <div className="itn-muted">{days} {days === 1 ? "day" : "days"} total</div>
+                <button className="itn-btn" onClick={() => onToggleStatus(sharedId, item.id)}>
+                  Toggle Status
+                </button>
+                <button className="itn-btn" onClick={() => onEdit(sharedId, item)}>
+                  Edit
+                </button>
+                <button className="itn-btn danger" onClick={() => onRemove(sharedId, item.id)}>
+                  Remove
+                </button>
               </>
-            ) : (
-              <div className="itn-muted">Not set</div>
             )}
           </div>
         </div>
 
-        <div className="itn-stat green">
-          <div className="itn-stat-title">Estimated expenditure</div>
-          <div className="itn-stat-body">
-            <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
-            <div className="itn-muted">Estimated total cost for this trip</div>
+        <div className="itn-stats">
+          <div className="itn-stat blue">
+            <div className="itn-stat-title">Dates</div>
+            <div className="itn-stat-body">
+              {item.arrival || item.departure ? (
+                <>
+                  <div>{item.arrival || "—"}</div>
+                  <div>{item.departure || "—"}</div>
+                  <div className="itn-muted">{days} {days === 1 ? "day" : "days"} total</div>
+                </>
+              ) : (
+                <div className="itn-muted">Not set</div>
+              )}
+            </div>
+          </div>
+
+          <div className="itn-stat green">
+            <div className="itn-stat-title">Estimated expenditure</div>
+            <div className="itn-stat-body">
+              <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+              <div className="itn-muted">Estimated total cost for this trip</div>
+            </div>
+          </div>
+
+          <div className="itn-stat purple">
+            <div className="itn-stat-title">Stay</div>
+            <div className="itn-stat-body">
+              <div>{item.accomType || "Not planned"}</div>
+              <div className="itn-muted">{item.accomName || "No details"}</div>
+            </div>
+          </div>
+
+          <div className="itn-stat orange">
+            <div className="itn-stat-title">Activities</div>
+            <div className="itn-stat-body">
+              <div>{activities.length} planned</div>
+              {activities.length ? (
+                <>
+                  <div className="itn-muted" style={{ wordBreak: "break-word" }}>
+                    {showAllActivities
+                      ? activities.join(", ")
+                      : activities.slice(0, 3).join(", ")}
+                    {showToggle && !showAllActivities && "…"}
+                  </div>
+                  {showToggle && (
+                    <button
+                      className="itn-btn ghost"
+                      style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
+                      onClick={() => setShowAllActivities((v) => !v)}
+                    >
+                      {showAllActivities ? "Show Less" : "Show All"}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="itn-muted">—</div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="itn-stat purple">
-          <div className="itn-stat-title">Stay</div>
-          <div className="itn-stat-body">
-            <div>{item.accomType || "Not planned"}</div>
-            <div className="itn-muted">{item.accomName || "No details"}</div>
-          </div>
-        </div>
-
-        <div className="itn-stat orange">
-          <div className="itn-stat-title">Activities</div>
-          <div className="itn-stat-body">
-            <div>{activities.length} planned</div>
-            {activities.length ? (
-              <>
-                <div className="itn-muted" style={{ wordBreak: "break-word" }}>
-                  {showAllActivities
-                    ? activities.join(", ")
-                    : activities.slice(0, 3).join(", ")}
-                  {showToggle && !showAllActivities && "…"}
-                </div>
-                {showToggle && (
-                  <button
-                    className="itn-btn ghost"
-                    style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
-                    onClick={() => setShowAllActivities((v) => !v)}
-                  >
-                    {showAllActivities ? "Show Less" : "Show All"}
-                  </button>
-                )}
-              </>
-            ) : (
-              <div className="itn-muted">—</div>
-            )}
-          </div>
+        <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button
+            className="itn-btn ghost"
+            onClick={() => setShowSummary(true)}
+          >
+            View Summary
+          </button>
+          <button
+            className="itn-btn ghost"
+            onClick={() => setShowCostEstimation(true)}
+            title="Estimate transportation cost"
+          >
+            Estimate Transport Cost
+          </button>
+          <button
+            className="itn-btn ghost"
+            onClick={() => setShowHotels(true)}
+            title="Show DOT-accredited hotels and accommodations"
+          >
+            View accredited hotels
+          </button>
         </div>
       </div>
 
-      <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button
-          className="itn-btn ghost"
-          onClick={() => setShowSummary(true)}
-        >
-          View Summary
-        </button>
-        <button
-          className="itn-btn ghost"
-          onClick={() => setShowCostEstimation(true)}
-          title="Estimate transportation cost"
-        >
-          Estimate Transport Cost
-        </button>
-        <button
-          className="itn-btn ghost"
-          onClick={() => setShowHotels(true)}
-          title="Show DOT-accredited hotels and accommodations"
-        >
-          View accredited hotels
-        </button>
-      </div>
-
+      {/* Render modals using Portal */}
       {showSummary && (
         <ItinerarySummaryModal
           item={item}
@@ -438,11 +442,11 @@ export function SharedDestinationCard({
           onClose={() => setShowCostEstimation(false)}
         />
       )}
-    </div>
+    </>
   );
 }
 
-// EditDestinationModal component for shared itineraries
+// EditDestinationModal component for shared itineraries with Portal
 export function SharedEditModal({ initial, onSave, onClose }) {
   const [notif, setNotif] = useState("");
   const [form, setForm] = useState({
@@ -495,7 +499,6 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     }
   };
 
-  // Allow Enter to add activity
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose();
@@ -508,7 +511,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [addActivity, onClose]);
 
-  return (
+  const modalContent = (
     <div className="itn-modal-backdrop" onClick={onClose}>
       <form className="itn-modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="itn-modal-header">
@@ -592,7 +595,6 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                 </label>
               </div>
 
-              {/* Activities Section - ADDED */}
               <div className="itn-field">
                 <span className="itn-label">Activities & Things to Do</span>
                 <div className="itn-grid-2">
@@ -730,13 +732,142 @@ export function SharedEditModal({ initial, onSave, onClose }) {
           <button type="submit" className="itn-btn primary">Save Details</button>
         </div>
         {notif && (
-          <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: "#6c63ff", color: "#fff", padding: "8px 16px", borderRadius: 8 }}>
+          <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: "#6c63ff", color: "#fff", padding: "8px 16px", borderRadius: 8, zIndex: 10001 }}>
             {notif}
           </div>
         )}
       </form>
     </div>
   );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
+}
+
+// Summary Modal with Portal
+export function ItinerarySummaryModal({ item, onClose }) {
+  if (!item) return null;
+
+  const totalDays = item.arrival && item.departure 
+    ? Math.ceil((new Date(item.departure) - new Date(item.arrival)) / (1000 * 60 * 60 * 24)) 
+    : 0;
+
+  const modalContent = (
+    <div className="itn-modal-backdrop itn-summary-backdrop" onClick={onClose}>
+      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header">
+          <div className="itn-modal-title">📋 Trip Summary</div>
+          <button className="itn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="itn-modal-body">
+          <div className="itn-summary-content">
+            <div className="itn-summary-section">
+              <h3 className="itn-summary-heading">📍 Destination</h3>
+              <div className="itn-summary-item">
+                <strong>{item.name}</strong>
+                {item.region && <span className="itn-summary-region">{item.region}</span>}
+              </div>
+            </div>
+
+            {(item.arrival || item.departure) && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">📅 Travel Dates</h3>
+                <div className="itn-summary-grid">
+                  {item.arrival && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Arrival:</span>
+                      <span>{new Date(item.arrival).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {item.departure && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Departure:</span>
+                      <span>{new Date(item.departure).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {totalDays > 0 && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Duration:</span>
+                      <span>{totalDays} day{totalDays !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {item.estimatedExpenditure > 0 && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">💰 Budget</h3>
+                <div className="itn-summary-item">
+                  <span className="itn-summary-amount">
+                    ${Number(item.estimatedExpenditure).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {item.activities && item.activities.length > 0 && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">🎯 Activities</h3>
+                <div className="itn-summary-tags">
+                  {item.activities.map((activity, idx) => (
+                    <span key={idx} className="itn-summary-tag">{activity}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(item.accomType || item.accomName) && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">🏨 Accommodation</h3>
+                <div className="itn-summary-item">
+                  {item.accomType && <span className="itn-summary-badge">{item.accomType}</span>}
+                  {item.accomName && <strong>{item.accomName}</strong>}
+                  {item.accomNotes && <p className="itn-summary-notes">{item.accomNotes}</p>}
+                </div>
+              </div>
+            )}
+
+            {item.transport && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">🚗 Transportation</h3>
+                <div className="itn-summary-item">
+                  <span className="itn-summary-badge">{item.transport}</span>
+                  {item.transportNotes && <p className="itn-summary-notes">{item.transportNotes}</p>}
+                </div>
+              </div>
+            )}
+
+            {item.notes && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">📝 Notes</h3>
+                <div className="itn-summary-item">
+                  <p className="itn-summary-notes">{item.notes}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="itn-summary-section">
+              <h3 className="itn-summary-heading">✅ Status</h3>
+              <div className="itn-summary-item">
+                <span className={`itn-summary-status ${item.status.toLowerCase()}`}>
+                  {item.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="itn-modal-footer">
+          <button className="itn-btn primary" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Render to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 // Enhanced function to share itineraries with friends
