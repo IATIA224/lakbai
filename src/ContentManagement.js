@@ -19,7 +19,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import ImagesCMS from './images-cms';
 import NotFoundCMS from './notfound-cms';
 import destImages from './dest-images.json';
-import settings, { getSetting, setSetting } from './settings';
+
 // ...existing code...
 
 

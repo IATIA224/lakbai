@@ -1,15 +1,33 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import {
   deleteDoc, collection, getDocs,
-  orderBy, query as fsQuery, onSnapshot // removed: addDoc, where, limit
+  orderBy, query as fsQuery, onSnapshot
 } from 'firebase/firestore';
 import './Styles/bookmark.css';
 import { unlockAchievement } from './profile';
 import { addTripForCurrentUser } from './Itinerary';
-import destImages from './dest-images.json'; // <-- Add this import at the top
+import { trackDestinationAdded } from './itinerary_Stats';
+import destImages from './dest-images.json';
+
+// Add this helper function after the imports
+async function logActivity(text, icon = "🔵") {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    await addDoc(collection(db, "activities"), {
+      userId: user.uid,
+      text,
+      icon,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+}
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -32,7 +50,7 @@ function Bookmark() {
   // NEW: average ratings loaded from destinations/{id}/ratings
   const [ratingsByDest, setRatingsByDest] = useState({});
 
-  // Confirm “unbookmark”
+  // Confirm "unbookmark"
   const [confirmingUnbookmark, setConfirmingUnbookmark] = useState(false);
   const confirmTimerRef = useRef(null);
 
@@ -149,6 +167,11 @@ function Bookmark() {
   const removeBookmark = async (destinationId) => {
     try {
       if (!currentUser) { alert('Please login to manage bookmarks'); return; }
+      
+      // Get destination name before removing for activity log
+      const dest = items.find(item => item.id === destinationId);
+      const destName = dest?.name || "destination";
+      
       await deleteDoc(doc(db, 'users', currentUser.uid, 'bookmarks', destinationId)).catch(() => {});
       const legacyRef = doc(db, 'userBookmarks', currentUser.uid);
       const legacyDoc = await getDoc(legacyRef);
@@ -161,11 +184,14 @@ function Bookmark() {
           { merge: true }
         );
       }
+      
+      // Log activity after successful removal
+      await logActivity(`Removed "${destName}" from bookmarks`, "💔");
+      
       setItems((prev) => prev.filter((d) => d.id !== destinationId));
     } catch (error) {
-      // console.error('Error removing bookmark:', error);
       showError('Failed to remove bookmark.');
-      alert('Failed to remove bookmark. Please try again.'); // keep existing UX
+      alert('Failed to remove bookmark. Please try again.');
     }
   };
 
@@ -254,7 +280,39 @@ function Bookmark() {
     if (!u) { alert('Please sign in to add to My Trips.'); return; }
     setAddingTripId(dest.id);
     try {
-      await addTripForCurrentUser(dest);
+      // Prepare the destination object with all required fields
+      const destinationData = {
+        id: dest.id,
+        name: dest.name || '',
+        display_name: dest.name || '', // Itinerary expects display_name
+        region: dest.region || dest.locationRegion || '',
+        description: dest.description || '',
+        lat: dest.lat || dest.latitude,
+        lon: dest.lon || dest.longitude,
+        place_id: dest.place_id || dest.id,
+        rating: dest.rating || 0,
+        price: dest.price || '',
+        priceTier: dest.priceTier || null,
+        tags: Array.isArray(dest.tags) ? dest.tags : [],
+        categories: Array.isArray(dest.categories) ? dest.categories : [],
+        bestTime: dest.bestTime || dest.best_time || '',
+        image: dest.image || '',
+      };
+
+      await addTripForCurrentUser(destinationData);
+      
+      // Track destination added to itinerary
+      await trackDestinationAdded(u.uid, {
+        id: dest.id,
+        name: dest.name,
+        region: dest.region || dest.locationRegion,
+        latitude: dest.lat || dest.latitude,
+        longitude: dest.lon || dest.longitude,
+      });
+      
+      // Log activity for adding to trip
+      await logActivity(`Added "${dest.name}" to your trip itinerary`, "🗺️");
+      
       setAddedTripId(dest.id);
       setTimeout(() => setAddedTripId(null), 1200);
 
@@ -277,14 +335,14 @@ function Bookmark() {
           {
             destId: String(dest.id),
             name: dest.name || '',
-            region: dest.region || '',
+            region: dest.region || dest.locationRegion || '',
             rating: dest.rating ?? null,
             price: dest.price || '',
             priceTier: dest.priceTier || null,
             estimatedExpenditure: estimated,
             tags: Array.isArray(dest.tags) ? dest.tags : [],
             categories: Array.isArray(dest.categories) ? dest.categories : [],
-            bestTime: dest.bestTime || '',
+            bestTime: dest.bestTime || dest.best_time || '',
             image: dest.image || '',
             addedBy: u.uid,
             createdAt: serverTimestamp(),
@@ -296,9 +354,8 @@ function Bookmark() {
         console.warn('users/{uid}/trips write skipped:', e.code || e.message);
       }
     } catch (e) {
-      // console.error('Add to trip failed:', e?.code || e?.message, e);
-      showError('Failed to add to My Trips.');
-      alert('Failed to add to My Trips.');
+      console.error('Failed to add to My Trips:', e);
+      showError(`Failed to add to My Trips: ${e.message || 'Unknown error'}`);
     } finally {
       setAddingTripId(null);
     }
@@ -404,12 +461,16 @@ function Bookmark() {
       confirmTimerRef.current = setTimeout(() => setConfirmingUnbookmark(false), 2500);
       return;
     }
+    
+    // Get destination name for activity log BEFORE removing
+    const destName = selected.name || "destination";
+    
     try {
       await removeBookmark(selected.id);
+      // Activity is already logged inside removeBookmark
       setConfirmingUnbookmark(false);
       closeDetails();
     } catch (e) {
-      // console.error('Remove bookmark failed:', e);
       showError('Failed to remove bookmark.');
       setConfirmingUnbookmark(false);
       alert('Failed to remove bookmark. Please try again.');
@@ -424,23 +485,46 @@ function Bookmark() {
         return;
       }
       
-      // Check if this is the first bookmark
       const userRef = doc(db, 'userBookmarks', currentUser.uid);
       const docSnap = await getDoc(userRef);
       const isFirstBookmark = !docSnap.exists() || !(docSnap.data()?.bookmarks || []).length;
       
-      // Fetch the user's current bookmarks
       const bookmarks = new Set(docSnap.data()?.bookmarks || []);
-
-      // Regular bookmark logic...
+      const isRemoving = bookmarks.has(destinationId);
       
-      // If this is the first bookmark, unlock the achievement
-      if (isFirstBookmark && !bookmarks.has(destinationId)) {
-        await unlockAchievement(2, "First Bookmark");
+      // Get destination name for activity log
+      const dest = items.find(item => item.id === destinationId);
+      const destName = dest?.name || "destination";
+
+      if (isRemoving) {
+        bookmarks.delete(destinationId);
+        await logActivity(`Removed "${destName}" from bookmarks`, "💔");
+      } else {
+        bookmarks.add(destinationId);
+        await logActivity(`Bookmarked "${destName}"`, "⭐");
+        
+        // If this is the first bookmark, unlock achievement
+        if (isFirstBookmark) {
+          await unlockAchievement(2, "First Bookmark");
+        }
       }
+
+      // Update Firestore
+      await setDoc(
+        userRef,
+        {
+          userId: currentUser.uid,
+          bookmarks: Array.from(bookmarks),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+
+      // Update local state
+      setItems(prev => prev.filter(item => item.id !== destinationId || !isRemoving));
       
     } catch (error) {
-      // console.error('Error toggling bookmark:', error);
+      console.error('Error toggling bookmark:', error);
       showError('Failed to update bookmark.');
     }
   };
@@ -646,10 +730,15 @@ function Bookmark() {
                     e.stopPropagation();
                     triggerCardPop(d.id);
                     beginRemove(d.id);
+                    
+                    // Get destination name for activity log BEFORE removing
+                    const destName = d.name || "destination";
+                    
                     try {
                       await removeBookmark(d.id);
+                      // Activity is already logged inside removeBookmark
                     } finally {
-                        endRemove(d.id);
+                      endRemove(d.id);
                     }
                   }}
                   aria-label="Remove from bookmarks"
@@ -708,8 +797,13 @@ function Bookmark() {
                     onClick={async () => {
                       triggerCardPop(d.id);       // quick bump
                       beginRemove(d.id);          // start pulse
+                      
+                      // Get destination name for activity log BEFORE removing
+                      const destName = d.name || "destination";
+                      
                       try {
                         await removeBookmark(d.id);
+                        // Activity is already logged inside removeBookmark
                       } finally {
                         endRemove(d.id);
                       }
