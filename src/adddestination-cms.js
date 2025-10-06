@@ -54,7 +54,7 @@ const TagInput = ({ tags = [], onChange, placeholder }) => {
         }}
         onBlur={() => val && add(val)}
         placeholder={placeholder}
-        className="form-input"
+        className="form-input-dest"
       />
     </div>
   );
@@ -555,7 +555,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
               required
               value={data.name}
               onChange={(e) => setData({ ...data, name: e.target.value })}
-              className="form-input"
+              className="form-input-dest"
               style={nameError ? { borderColor: '#f87171' } : undefined}
             />
             {nameError && (
@@ -570,7 +570,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <select
               value={data.category}
               onChange={(e) => setData({ ...data, category: e.target.value })}
-              className="form-input"
+              className="form-input-dest"
             >
               <option value="">Select category</option>
               <option>Beach</option>
@@ -595,7 +595,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <textarea
               value={data.description}
               onChange={(e) => setData({ ...data, description: e.target.value })}
-              className="form-input"
+              className="form-input-dest"
             />
           </div>
 
@@ -608,7 +608,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
                 setData({ ...data, packingSuggestions: e.target.value });
               }}
               placeholder="Auto-generated based on category (you can edit)..."
-              className="form-input"
+              className="form-input-dest"
               style={{ minHeight: 220, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
@@ -653,7 +653,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <input
               value={data.location}
               onChange={(e) => setData({ ...data, location: e.target.value })}
-              className="form-input"
+              className="form-input-dest"
             />
           </div>
 
@@ -695,7 +695,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
                     price: e.target.value.replace(/[^\d]/g, '')
                   })
                 }
-                className="form-input"
+                className="form-input-dest"
                 style={{ paddingLeft: 32 }}
               />
             </div>
@@ -706,7 +706,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <input
               value={data.bestTime}
               onChange={(e) => setData({ ...data, bestTime: e.target.value })}
-              className="form-input"
+              className="form-input-dest"
               placeholder="e.g., March to May"
             />
           </div>
@@ -716,7 +716,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <select
               value={region}
               onChange={e => setRegion(e.target.value)}
-              className="form-input"
+              className="form-input-dest"
             >
               <option value="">Select region</option>
               {REGION_LIST.map(r => (
@@ -780,7 +780,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             onChange={(e) =>
               setData({ ...data, seo: { ...(data.seo || {}), metaTitle: e.target.value } })
             }
-            className="form-input"
+            className="form-input-dest"
           />
           <label>Meta Description</label>
           <textarea
@@ -788,7 +788,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             onChange={(e) =>
               setData({ ...data, seo: { ...(data.seo || {}), metaDescription: e.target.value } })
             }
-            className="form-input"
+            className="form-input-dest"
           />
           <label>Keywords</label>
           <TagInput
@@ -805,7 +805,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
           <select
             value={data.status}
             onChange={(e) => setData({ ...data, status: e.target.value })}
-            className="form-input"
+            className="form-input-dest"
           >
             <option value="draft">Draft</option>
             <option value="published">Published</option>
