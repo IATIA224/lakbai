@@ -12,7 +12,7 @@ import AddFromCsvCMS from './addfromcsv-cms'; // NEW
 import ReportDetailModal from './reportdetails-cms'; //NEW
 import TakeActionModal from './takeaction-cms'; // NEW
 import AuditLogsCMS from './auditlogs-cms'; // NEW
-import { signOut } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import { publishAllDrafts } from './publishAllDrafts';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -291,6 +291,9 @@ function ContentManagement() {
 
   // Audit Logs modal state
   const [showAuditLogs, setShowAuditLogs] = useState(false);
+
+  // Sign-out confirmation modal state
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   // Activity state for User Profile
   const [userActivity, setUserActivity] = useState([]);
@@ -1390,18 +1393,19 @@ useEffect(() => {
         <button
           className="btn-danger-signout"
           style={{ marginTop: 8 }}
-          onClick={async () => {
-            await signOut(auth);
-            window.location.href = "/admin/login"; // or your login route
-            }}
-          >
-            Sign Out
-          </button>
+          onClick={() => {
+            console.log('Sign Out clicked');
+            setShowSignOutConfirm(true);
+          }}
+        >
+          Sign Out
+        </button>
+
           </div>
           </aside>
           <main className="main-content">
           <div className="page-wrap">
-
+          
           {active === 'dashboard' && (
             <div className="dashboard">
             <header style={{ marginBottom: 18, textAlign: 'left', alignItems: 'flex-start', justifyContent: 'flex-start' }}>
@@ -2165,8 +2169,52 @@ useEffect(() => {
 
         {/* images tab - placeholder for now */}
         {active === 'images' && <ImagesCMS />}
-
+      {showSignOutConfirm && (
+          <div className="modal-overlay signout-modal" onClick={e => { if (e.target === e.currentTarget) setShowSignOutConfirm(false); }}>
+            <div className="modal-box signout-modal-content">
+              <div className="modal-header">
+                <span className="modal-title">Confirm Sign Out</span>
+                <button className="modal-close" onClick={() => setShowSignOutConfirm(false)}>&times;</button>
+              </div>
+              <div className="modal-body">
+                <div style={{ textAlign: 'center', marginBottom: 18 }}>
+                  <img src="/warning%20(1).png" alt="Warning" style={{ width: 48, marginBottom: 12, animation: "shake 0.5s" }} />
+                  <h3 style={{ margin: 0, fontWeight: 600 }}>Are you sure you want to sign out?</h3>
+                  <div className="muted" style={{ marginTop: 8 }}>You will be redirected to the admin login page.</div>
+                </div>
+                <div className="form-actions" style={{ justifyContent: 'center', marginTop: 18 }}>
+                  <button
+                    className="btn-danger"
+                    style={{ minWidth: 120, fontWeight: 700, fontSize: 15 }}
+                    onClick={async () => {
+                      console.log('Yes, Sign Out');
+                      setShowSignOutConfirm(false);
+                      try {
+                        await signOut(auth);
+                        console.log('Sign out successful');
+                        window.location.href = "/admin/login";
+                      } catch (err) {
+                        console.error('Sign out failed:', err);
+                        alert('Sign out failed: ' + err.message);
+                      }
+                    }}
+                  >
+                    Yes, Sign Out
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ minWidth: 120, fontWeight: 700, fontSize: 15 }}
+                    onClick={() => setShowSignOutConfirm(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
   {deleteConfirmOpen && deleteTarget && (
   <div
     style={{
