@@ -7,10 +7,6 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('✅ Lakbai CMS Server is running successfully');
-});
-
 // Mount Cloudinary routes
 app.use('/api', require('./cloudinaryRoutes'));
 
@@ -35,15 +31,7 @@ app.post('/api/cloudinary/delete', async (req, res) => {
 
 const updateDestImage = require('./update-dest-image');
 
-// If admin was a separate express app, require it as a router.
-// Replace the old separate listen on 10010 with mounting:
-const adminApp = require('./admin'); // admin should export an express.Router() or app
-
-// mount admin under /admin (or root) so it is reachable on the same public port
-app.use('/admin', adminApp);
-
-// use Render-provided PORT (or fallback)
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
-  console.log(`Main server (with admin) listening on port ${PORT}`);
+    console.log(`Admin API listening on http://localhost:${PORT}`);
 });
