@@ -7,6 +7,10 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+app.get('/', (req, res) => {
+  res.send('✅ Lakbai CMS Server is running successfully');
+});
+
 // Mount Cloudinary routes
 app.use('/api', require('./cloudinaryRoutes'));
 
