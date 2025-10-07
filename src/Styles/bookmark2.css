@@ -925,11 +925,12 @@
 }
 .section-title { font-weight: 800; margin: 16px 0 8px; color: #1a1a1a; text-align: left;}
 .details-paragraph { color: #4b5563; line-height: 1.6; justify-content: left; text-align: left;}
-.badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;}
 .badge {
   background: #eef2f7; color: #475569; border-radius: 999px; padding: 6px 10px; font-weight: 600; font-size: 13px;
 }
-.badge.purple { background: #f0eaff; color: #6b21a8; }
+.badge.purple { background: #f0eaff; color: #6b21a8; align-items: center; justify-content: center;}
+.badge.blue { background: #e8f0fe; color: #1e40af; width: auto; text-align: center; height: auto; border-radius: 10px;}
 
 .packing-box {
   background: #f8fafc; border: 1px solid #eef2f7; padding: 12px; border-radius: 10px; color: #475569;
@@ -940,7 +941,7 @@
   background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; padding: 16px;
 }
 .trip-title { font-weight: 800; margin-bottom: 12px; color: #1a1a1a; }
-.trip-item { margin-bottom: 14px; }
+.trip-item { margin-bottom: 14px; align-items: center; justify-content: center;}
 .trip-label { font-weight: 700; color: #374151; margin-bottom: 6px; }
 .trip-text { color: #475569; }
 .pill.small { padding: 4px 8px; font-size: 12px; }
