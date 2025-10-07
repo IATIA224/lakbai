@@ -201,7 +201,8 @@ export default function ImagesCMS() {
                 // Also update dest-images.json if needed (see previous logic)
                 if (fs) {
                     try {
-                        const jsonPath = require('path').join(__dirname, './dest-images.json');
+                        const path = window.require('path');
+                        const jsonPath = path.join(__dirname, './dest-images.json');
                         let current = [];
                         try {
                             current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -332,7 +333,8 @@ export default function ImagesCMS() {
                 });
                 try {
                     if (fs) {
-                        const jsonPath = require('path').join(__dirname, './dest-images.json');
+                        const path = window.require('path');
+                        const jsonPath = path.join(__dirname, './dest-images.json');
                         let current = [];
                         try {
                             current = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
