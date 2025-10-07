@@ -2,6 +2,15 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
+// Load environment variables from .env file in local/dev environments
+require('dotenv').config();
+
+// Skip sync if no Cloudinary credentials are present, to avoid failing the deploy
+if (!process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_CLOUD_NAME) {
+    console.log('No Cloudinary credentials found; skipping image sync.');
+    process.exit(0);
+}
+
 const CLOUD_NAME = "dcv3eqmde";
 const API_KEY = "213199444474897";
 const API_SECRET = "z0qptwMS1KxJiYb_Z5ssZy39aSo";
@@ -40,19 +49,20 @@ const baseName = nameWithExt.replace(/\.[^/.]+$/, "");
 return baseName.replace(/_/g, " ");
 }
 
-async function main() {
-try {
-    const images = await fetchCloudinaryImages();
-    const json = images.map(img => ({
+(async function main() {
+    try {
+        const images = await fetchCloudinaryImages();
+        const json = images.map(img => ({
     name: normalizeName(img.public_id),
     url: img.secure_url,
     }));
 
     fs.writeFileSync(OUTPUT_FILE, JSON.stringify(json, null, 2));
     console.log(`Updated ${OUTPUT_FILE} with ${json.length} images.`);
-} catch (err) {
-    console.error("Failed to sync Cloudinary images:", err.message);
-}
-}
-
-main();
+    } catch (err) {
+        // Log error but don't throw to prevent deploy failure
+        console.error('Failed to sync Cloudinary images:', err.message || err);
+        // Exit 0 so render start continues; remove or change if you want non-zero exit
+        process.exit(0);
+    }
+})();
