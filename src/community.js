@@ -40,6 +40,8 @@ function ShareTripModal({ onClose, onCreate }) {
   const [previews, setPreviews] = useState([]);
   const [visibility, setVisibility] = useState("Public");
   const [loading, setLoading] = useState(false);
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  
 
   const inputRef = useRef(null);
 
@@ -152,6 +154,10 @@ function ShareTripModal({ onClose, onCreate }) {
       setLoading(false);
     }
   };
+  useEffect(() => {
+  setCarouselIdx(0);
+}, [previews.length]);
+
 
   return (
     <div className="community-modal-backdrop" onClick={onClose}>
@@ -205,19 +211,48 @@ function ShareTripModal({ onClose, onCreate }) {
 
             {previews.length > 0 && (
               <div className="thumbs">
-                {previews.map((src, i) => (
-                  <div className="thumb" key={src}>
-                    <img src={src} alt={`upload ${i + 1}`} />
-                    <button
-                      type="button"
-                      className="thumb-remove"
-                      onClick={() => removePreview(i)}
-                      aria-label="Remove photo"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
+                <div className="thumb">
+                  <img src={previews[carouselIdx]} alt={`upload ${carouselIdx + 1}`} />
+                  {/* Remove button for current image */}
+                  <button
+                    type="button"
+                    className="thumb-remove"
+                    onClick={() => {
+                      // Remove both file and preview at carouselIdx
+                      setFiles(prev => prev.filter((_, i) => i !== carouselIdx));
+                      setPreviews(prev => prev.filter((_, i) => i !== carouselIdx));
+                      // Adjust carousel index if needed
+                      setCarouselIdx(idx => Math.max(0, Math.min(idx, previews.length - 2)));
+                    }}
+                    aria-label="Remove photo"
+                  >
+                    ×
+                  </button>
+                  {/* Carousel arrows if more than 1 image */}
+                  {previews.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        className="thumb-arrow left"
+                        onClick={() => setCarouselIdx(idx => (idx === 0 ? previews.length - 1 : idx - 1))}
+                        aria-label="Previous image"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        className="thumb-arrow right"
+                        onClick={() => setCarouselIdx(idx => (idx === previews.length - 1 ? 0 : idx + 1))}
+                        aria-label="Next image"
+                      >
+                        ›
+                      </button>
+                      <div className="thumb-carousel-indicator">
+                        {carouselIdx + 1} / {previews.length}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </label>
