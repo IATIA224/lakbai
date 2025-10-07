@@ -1140,6 +1140,17 @@ useEffect(() => {
                       )}
                     </div>
                   </div>
+                  
+                  <div className="trip-item">
+                    <div className="trip-label">Location</div>
+                    <div className="badge-row">
+                      {selected.location ? (
+                        <span className="badge blue">{selected.location}</span>
+                      ) : (
+                        <span className="badge blue">No location  </span>
+                      )}
+                    </div>
+                  </div>
                 </aside>
               </div>
             </div>
