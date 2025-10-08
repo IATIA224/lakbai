@@ -40,22 +40,66 @@ import {
   trackDestinationRemoved,
 } from "./itinerary_Stats";
 
-// Add this helper function after the imports
-async function logActivity(text, icon = "🔵") {
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    await addDoc(collection(db, "activities"), {
-      userId: user.uid,
-      text,
-      icon,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error logging activity:", error);
+// ==================== CACHING LAYER ====================
+const ITINERARY_CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
+const itineraryCache = {
+  data: null,
+  timestamp: null,
+  userId: null,
+  isValid(uid) {
+    return (
+      this.data &&
+      this.userId === uid &&
+      this.timestamp &&
+      Date.now() - this.timestamp < ITINERARY_CACHE_DURATION
+    );
+  },
+  set(data, uid) {
+    this.data = data;
+    this.userId = uid;
+    this.timestamp = Date.now();
+    // Cache to localStorage for persistence
+    try {
+      localStorage.setItem('itinerary_cache', JSON.stringify({
+        data,
+        userId: uid,
+        timestamp: this.timestamp
+      }));
+    } catch (e) {
+      console.warn('Failed to cache itinerary to localStorage:', e);
+    }
+  },
+  get(uid) {
+    // Try memory cache first
+    if (this.isValid(uid)) return this.data;
+    
+    // Try localStorage cache
+    try {
+      const cached = localStorage.getItem('itinerary_cache');
+      if (cached) {
+        const { data, userId, timestamp } = JSON.parse(cached);
+        if (userId === uid && Date.now() - timestamp < ITINERARY_CACHE_DURATION) {
+          this.data = data;
+          this.userId = userId;
+          this.timestamp = timestamp;
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read itinerary cache from localStorage:', e);
+    }
+    
+    return null;
+  },
+  clear() {
+    this.data = null;
+    this.userId = null;
+    this.timestamp = null;
+    try {
+      localStorage.removeItem('itinerary_cache');
+    } catch (e) {}
   }
-}
+};
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -392,6 +436,16 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
             <div>
               <div className="itn-name">{item.name || "Destination"}</div>
               <div className="itn-sub">{item.region}</div>
+              {/* ADD THIS - Show location below region */}
+              {item.location && (
+                <div className="itn-location" style={{ 
+                  fontSize: '0.85rem', 
+                  color: '#94a3b8',
+                  marginTop: '2px'
+                }}>
+                  📌 {item.location}
+                </div>
+              )}
             </div>
           </div>
           <div className="itn-actions">
@@ -548,6 +602,17 @@ function ItinerarySummaryModal({ item, onClose }) {
                 <strong>{item.name}</strong>
                 {item.region && <span className="itn-summary-region">{item.region}</span>}
               </div>
+              {/* ADD THIS NEW SECTION FOR LOCATION */}
+              {item.location && (
+                <div className="itn-summary-item" style={{ marginTop: '12px' }}>
+                  <span className="itn-summary-label" style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                    📌 Location: 
+                  </span>
+                  <span style={{ marginLeft: '8px', color: '#475569' }}>
+                    {item.location}
+                  </span>
+                </div>
+              )}
             </div>
 
             {(item.arrival || item.departure) && (
@@ -744,29 +809,79 @@ export default function Itinerary() {
   useEffect(() => {
     if (!user) {
       setItems([]);
+      itineraryCache.clear();
       return;
     }
+
+    // Check cache first
+    const cached = itineraryCache.get(user.uid);
+    if (cached) {
+      console.log('✅ Using cached itinerary items');
+      setItems(cached);
+    }
+
+    // Then set up listener for real-time updates
     const colRef = collection(db, "itinerary", user.uid, "items");
     const q = fsQuery(colRef, orderBy("createdAt", "asc"));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = [];
-      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-      setItems(list);
-    });
+    
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        
+        // Update cache
+        itineraryCache.set(list, user.uid);
+        setItems(list);
+      },
+      (error) => {
+        console.error('Itinerary listener error:', error);
+        // On error, try to use cached data
+        const cachedData = itineraryCache.get(user.uid);
+        if (cachedData) {
+          setItems(cachedData);
+        }
+      }
+    );
+    
     return () => unsub();
   }, [user]);
 
   useEffect(() => {
-    if (map) return;
-    const m = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(
-      [14.5995, 120.9842],
-      11
-    );
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "",
-    }).addTo(m);
-    setMap(m);
-  }, [map]);
+    if (map || !mapRef.current) return; // Add check for mapRef.current
+    
+    // Clear any existing map instance
+    if (mapRef.current._leaflet_id) {
+      return; // Map already initialized
+    }
+    
+    try {
+      const m = L.map(mapRef.current, { 
+        zoomControl: false, 
+        attributionControl: false 
+      }).setView([14.5995, 120.9842], 11);
+      
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "",
+      }).addTo(m);
+      
+      setMap(m);
+    } catch (error) {
+      console.error("Map initialization error:", error);
+      // If map exists but errored, clean it up
+      if (mapRef.current._leaflet_id) {
+        mapRef.current._leaflet_id = undefined;
+      }
+    }
+    
+    // Cleanup function
+    return () => {
+      if (map) {
+        map.remove();
+        setMap(null);
+      }
+    };
+  }, []); // Empty dependency array - only run once
 
   useEffect(() => {
     if (!map || !selected) return;
@@ -809,6 +924,7 @@ export default function Itinerary() {
     });
   };
 
+  // ==================== OPTIMIZED: Save with optimistic updates ====================
   const saveItem = async (data) => {
     if (!user) {
       alert("Please sign in to save your itinerary.");
@@ -816,6 +932,19 @@ export default function Itinerary() {
     }
 
     if (!data.name) data.name = "Untitled destination";
+    
+    // Optimistic update
+    if (data.id) {
+      // Update existing item optimistically
+      setItems(prev => prev.map(item => 
+        item.id === data.id ? { ...item, ...data } : item
+      ));
+    } else {
+      // Add new item optimistically with temporary ID
+      const tempId = `temp_${Date.now()}`;
+      const tempItem = { ...data, id: tempId, createdAt: new Date() };
+      setItems(prev => [...prev, tempItem]);
+    }
     
     try {
       if (data.id) {
@@ -832,6 +961,13 @@ export default function Itinerary() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp() 
         });
+        
+        // Replace temp item with real ID
+        setItems(prev => prev.map(item => 
+          item.id?.startsWith('temp_') && item.name === data.name 
+            ? { ...item, id: newDocRef.id, createdAt: serverTimestamp() }
+            : item
+        ));
         
         await trackDestinationAdded(user.uid, {
           id: newDocRef.id,
@@ -852,6 +988,11 @@ export default function Itinerary() {
       }
     } catch (e) {
       console.error("[Itinerary] saveItem write failed:", e);
+      // Rollback optimistic update on error
+      const cached = itineraryCache.get(user.uid);
+      if (cached) {
+        setItems(cached);
+      }
       alert(`Failed to save itinerary item: ${e?.code || e?.message || e}`);
     }
   };
@@ -988,11 +1129,69 @@ export default function Itinerary() {
     setShowExport(false);
   };
 
+  // ==================== OPTIMIZED: Toggle status with optimistic update ====================
+  const toggleStatus = async (id) => {
+    if (!user) return;
+    const current = items.find((i) => i.id === id);
+    if (!current) return;
+    
+    const next =
+      current.status === "Upcoming"
+        ? "Ongoing"
+        : current.status === "Ongoing"
+        ? "Completed"
+        : "Upcoming";
+    
+    // Optimistic update
+    setItems(prev => prev.map(item => 
+      item.id === id ? { ...item, status: next } : item
+    ));
+    
+    try {
+      await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
+        status: next,
+        updatedAt: serverTimestamp(),
+      });
+
+      if (next === "Completed" && current.status !== "Completed") {
+        await trackDestinationCompleted(user.uid, {
+          id: current.id,
+          name: current.name,
+          region: current.region,
+          arrival: current.arrival,
+          departure: current.departure,
+        });
+        
+        try {
+          await unlockAchievement(8, "Checklist Champ");
+        } catch (error) {
+          console.error("Error unlocking Checklist Champ achievement:", error);
+        }
+      } else if (current.status === "Completed" && next !== "Completed") {
+        await trackDestinationUncompleted(user.uid, {
+          id: current.id,
+          name: current.name,
+          region: current.region,
+        });
+      }
+    } catch (e) {
+      console.error("Toggle status failed:", e);
+      // Rollback on error
+      setItems(prev => prev.map(item => 
+        item.id === id ? { ...item, status: current.status } : item
+      ));
+    }
+  };
+
+  // ==================== OPTIMIZED: Remove with optimistic update ====================
   const removeItem = async (id) => {
     if (!user) return;
     if (!window.confirm("Remove this destination?")) return;
     
     const itemToRemove = items.find((i) => i.id === id);
+    
+    // Optimistic update
+    setItems(prev => prev.filter(item => item.id !== id));
     
     try {
       await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
@@ -1010,51 +1209,21 @@ export default function Itinerary() {
       }
     } catch (e) {
       console.error("Remove failed:", e);
-    }
-  };
-
-  const toggleStatus = async (id) => {
-    if (!user) return;
-    const current = items.find((i) => i.id === id);
-    if (!current) return;
-    
-    const next =
-      current.status === "Upcoming"
-        ? "Ongoing"
-        : current.status === "Ongoing"
-        ? "Completed"
-        : "Upcoming";
-    
-    await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
-      status: next,
-      updatedAt: serverTimestamp(),
-    });
-
-    if (next === "Completed" && current.status !== "Completed") {
-      await trackDestinationCompleted(user.uid, {
-        id: current.id,
-        name: current.name,
-        region: current.region,
-        arrival: current.arrival,
-        departure: current.departure,
-      });
-      
-      try {
-        await unlockAchievement(8, "Checklist Champ");
-      } catch (error) {
-        console.error("Error unlocking Checklist Champ achievement:", error);
+      // Rollback on error
+      if (itemToRemove) {
+        setItems(prev => [...prev, itemToRemove]);
       }
-    } else if (current.status === "Completed" && next !== "Completed") {
-      await trackDestinationUncompleted(user.uid, {
-        id: current.id,
-        name: current.name,
-        region: current.region,
-      });
     }
   };
 
+  // ==================== OPTIMIZED: Batch operations ====================
   const markAllComplete = async () => {
     if (!user || !items.length) return;
+    
+    // Optimistic update
+    const previousItems = [...items];
+    setItems(prev => prev.map(item => ({ ...item, status: "Completed" })));
+    
     try {
       const promises = items.map(async (it) => {
         await updateDoc(doc(db, "itinerary", user.uid, "items", it.id), {
@@ -1083,6 +1252,8 @@ export default function Itinerary() {
       }
     } catch (e) {
       console.error("Mark All Complete failed:", e);
+      // Rollback on error
+      setItems(previousItems);
       alert("Failed to mark all complete. Please try again.");
     }
   };
@@ -1090,14 +1261,112 @@ export default function Itinerary() {
   const clearAll = async () => {
     if (!user || !items.length) return;
     if (!window.confirm("Clear ALL destinations? This cannot be undone.")) return;
+    
+    // Optimistic update
+    const previousItems = [...items];
+    setItems([]);
+    itineraryCache.clear();
+    
     try {
       await Promise.all(
-        items.map((it) => deleteDoc(doc(db, "itinerary", user.uid, "items", it.id)))
+        previousItems.map((it) => deleteDoc(doc(db, "itinerary", user.uid, "items", it.id)))
       );
       console.log("[Itinerary] Cleared all for", user.uid);
     } catch (e) {
       console.error("Clear All failed:", e);
+      // Rollback on error
+      setItems(previousItems);
+      itineraryCache.set(previousItems, user.uid);
       alert("Failed to clear all. Please try again.");
+    }
+  };
+
+  const onAddToTrip = async (dest) => {
+    const u = auth.currentUser;
+    if (!u) { alert('Please sign in to add to My Trips.'); return; }
+    setAddingTripId(dest.id);
+    try {
+      // Prepare the destination object with all required fields INCLUDING LOCATION
+      const destinationData = {
+        id: dest.id,
+        name: dest.name || '',
+        display_name: dest.name || '', // Itinerary expects display_name
+        region: dest.region || dest.locationRegion || '',
+        location: dest.location || '', // ADD THIS - Include location
+        description: dest.description || '',
+        lat: dest.lat || dest.latitude,
+        lon: dest.lon || dest.longitude,
+        place_id: dest.place_id || dest.id,
+        rating: dest.rating || 0,
+        price: dest.price || '',
+        priceTier: dest.priceTier || null,
+        tags: Array.isArray(dest.tags) ? dest.tags : [],
+        categories: Array.isArray(dest.categories) ? dest.categories : [],
+        bestTime: dest.bestTime || dest.best_time || '',
+        image: dest.image || '',
+      };
+
+      await addTripForCurrentUser(destinationData);
+      
+      // Track destination added to itinerary
+      await trackDestinationAdded(u.uid, {
+        id: dest.id,
+        name: dest.name,
+        region: dest.region,
+        location: dest.location, // ALSO ADD HERE
+        latitude: dest.lat || dest.latitude,
+        longitude: dest.lon || dest.longitude,
+      });
+      
+      // Log activity for adding to trip
+      await logActivity(`Added "${dest.name}" to your trip itinerary`, "🗺️");
+      
+      setAddedTripId(dest.id);
+      setTimeout(() => setAddedTripId(null), 1200);
+
+      // parse estimated expenditure from price and save to users/{uid}/trips
+      const parseEstimatedFromPrice = (p) => {
+        if (p == null) return 0;
+        if (typeof p === "number") return p;
+        const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
+        const nums = s.match(/\d+/g);
+        if (!nums || nums.length === 0) return 0;
+        const numbers = nums.map(Number).filter(Number.isFinite);
+        const sum = numbers.reduce((a, b) => a + b, 0);
+        return Math.round(sum / numbers.length);
+      };
+      const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.estimatedExpenditure ?? dest?.budget);
+
+      try {
+        await setDoc(
+          doc(db, 'users', u.uid, 'trips', String(dest.id)),
+          {
+            destId: String(dest.id),
+            name: dest.name || '',
+            region: dest.region || dest.locationRegion || '',
+            location: dest.location || '', // ADD THIS - Save location to trips collection too
+            rating: dest.rating ?? null,
+            price: dest.price || '',
+            priceTier: dest.priceTier || null,
+            estimatedExpenditure: estimated,
+            tags: Array.isArray(dest.tags) ? dest.tags : [],
+            categories: Array.isArray(dest.categories) ? dest.categories : [],
+            bestTime: dest.bestTime || dest.best_time || '',
+            image: dest.image || '',
+            addedBy: u.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn('users/{uid}/trips write skipped:', e.code || e.message);
+      }
+    } catch (e) {
+      console.error('Failed to add to My Trips:', e);
+      showError(`Failed to add to My Trips: ${e.message || 'Unknown error'}`);
+    } finally {
+      setAddingTripId(null);
     }
   };
 
@@ -1290,22 +1559,18 @@ export async function addTripForCurrentUser(dest) {
   const u = auth.currentUser;
   if (!u) throw new Error("AUTH_REQUIRED");
 
-  // small helper: parse price-like strings (₱1,200 or "500–2,000" etc) -> number (average if range)
   const parseEstimatedFromPrice = (p) => {
     if (p == null) return 0;
     if (typeof p === "number") return p;
     const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
-    // capture number groups
     const nums = s.match(/\d+/g);
     if (!nums || nums.length === 0) return 0;
     const numbers = nums.map(Number).filter(Number.isFinite);
     if (numbers.length === 0) return 0;
-    // if a range (two+ numbers) return average, otherwise return first
     const sum = numbers.reduce((a, b) => a + b, 0);
     return Math.round(sum / numbers.length);
   };
 
-  // Ensure parent doc exists
   await setDoc(
     doc(db, "itinerary", u.uid),
     { owner: u.uid, updatedAt: serverTimestamp() },
@@ -1314,16 +1579,15 @@ export async function addTripForCurrentUser(dest) {
 
   const id = String(dest?.id || dest?.place_id || dest?.name || Date.now())
     .replace(/[^\w-]/g, "_");
-
   const ref = doc(db, "itinerary", u.uid, "items", id);
   const now = serverTimestamp();
 
-  // compute estimatedExpenditure from dest.price if available
   const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.budget ?? dest?.estimatedExpenditure);
 
   const payload = {
     name: dest?.name || "Untitled destination",
     region: dest?.region || "",
+    location: dest?.location || "", // MAKE SURE THIS IS HERE
     display_name:
       dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
     categories: dest?.categories || dest?.tags || [],
@@ -1335,6 +1599,8 @@ export async function addTripForCurrentUser(dest) {
     createdAt: now,
     updatedAt: now,
   };
+
+  console.log("[Itinerary] Saving trip with location:", payload.location); // DEBUG LOG
 
   try {
     await setDoc(ref, payload, { merge: true });
