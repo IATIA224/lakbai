@@ -894,6 +894,7 @@ useEffect(() => {
 
           <div className="grid-container">
             {pageItems.map((d) => (
+              <div className="grid-card-anim">
               <div className="grid-card" key={d.id}>
                 <div className="card-image">
                   {cloudImages.length === 0 ? (
@@ -969,6 +970,7 @@ useEffect(() => {
                     View Details
                   </button>
                 </div>
+              </div>
               </div>
             ))}
           </div>
