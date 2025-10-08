@@ -304,6 +304,16 @@ export function SharedDestinationCard({
             <div>
               <div className="itn-name">{item.name || "Destination"}</div>
               <div className="itn-sub">{item.region}</div>
+              {/* ADD THIS - Show location */}
+              {item.location && (
+                <div className="itn-location" style={{ 
+                  fontSize: '0.85rem', 
+                  color: '#94a3b8',
+                  marginTop: '2px'
+                }}>
+                  📌 {item.location}
+                </div>
+              )}
             </div>
           </div>
           <div className="itn-actions">
@@ -767,6 +777,13 @@ export function ItinerarySummaryModal({ item, onClose }) {
               <div className="itn-summary-item">
                 <strong>{item.name}</strong>
                 {item.region && <span className="itn-summary-region">{item.region}</span>}
+                {/* ADD THIS - Display location */}
+                {item.location && (
+                  <div style={{ marginTop: 8, fontSize: '0.95rem', color: '#64748b' }}>
+                    <span className="itn-summary-label">📌 Location: </span>
+                    <span>{item.location}</span>
+                  </div>
+                )}
               </div>
             </div>
 
