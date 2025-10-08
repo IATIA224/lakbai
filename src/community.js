@@ -367,7 +367,10 @@ function ReportPostModal({ post, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!reason) return;
+    if (!reason) {
+      alert("Please select a reason for reporting.");
+      return;
+    }
     
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -378,31 +381,39 @@ function ReportPostModal({ post, onClose }) {
     setLoading(true);
     try {
       const selected = reasons.find(r => r.value === reason);
-      await addDoc(collection(db, "report"), {
-        reporterId: currentUser.uid,           // ID of the user submitting the report
-        reporterName: currentUser.displayName || "Anonymous user", // Name of reporter
-        reportedUserId: post.authorId,         // ID of the user who created the reported content
-        reportedUserName: post.author?.name || "Unknown user", // Name of reported user
+      
+      const reportData = {
+        reporterId: currentUser.uid,
+        reporterName: currentUser.displayName || "Anonymous user",
+        reportedUserId: post.authorId || "unknown",
+        reportedUserName: post.author?.name || "Unknown user",
         postId: post.id,
         contentType: "post",
-        contentSnapshot: {                     // Save snapshot of reported content
+        contentSnapshot: {
           title: post.title || "",
           details: post.details || "",
           location: post.location || "",
         },
         reason,
         reasonLabel: selected?.label || reason,
-        details,
+        details: details || "",
         priority: selected?.priority || "Low",
         status: "pending",
-        reviewedBy: null,                      // Admin who reviews this report
-        reviewNotes: null,                     // Admin review notes
-        reviewedAt: null,                      // When review happened
-        createdAt: serverTimestamp(),          // When report was created
-      });
+        reviewedBy: null,
+        reviewNotes: null,
+        reviewedAt: null,
+        createdAt: serverTimestamp(),
+      };
+      
+      console.log("Submitting report:", reportData);
+      
+      // Add the report to Firestore
+      const docRef = await addDoc(collection(db, "report"), reportData);
+      console.log("Report submitted with ID:", docRef.id);
+      
       setShowSuccess(true);
       
-      // Also log this action for moderation history
+      // Also log this action for moderation history (non-blocking)
       try {
         await addDoc(collection(db, "moderationLogs"), {
           action: "report_submitted",
@@ -413,9 +424,9 @@ function ReportPostModal({ post, onClose }) {
           reason: selected?.label || reason,
           timestamp: serverTimestamp()
         });
+        console.log("Moderation log created");
       } catch (logErr) {
         console.error("Failed to log moderation action:", logErr);
-        // Non-blocking error - main report was still created
       }
       
       setTimeout(() => {
@@ -423,8 +434,13 @@ function ReportPostModal({ post, onClose }) {
         onClose();
       }, 2200);
     } catch (err) {
-      alert("Failed to submit report.");
-      console.error(err);
+      console.error("Failed to submit report:", err);
+      console.error("Error details:", {
+        code: err.code,
+        message: err.message,
+        stack: err.stack
+      });
+      alert(`Failed to submit report: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -436,6 +452,153 @@ function ReportPostModal({ post, onClose }) {
         <div className="community-modal" onClick={e => e.stopPropagation()}>
           <div className="share-modal-header">
             <h3>Report Post</h3>
+          </div>
+          <form className="modal-form" onSubmit={handleSubmit}>
+            <label className="modal-label">
+              <span className="field-title">Reason</span>
+              <select
+                className="modal-input"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                required
+              >
+                <option value="">Select reason</option>
+                {reasons.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Details</span>
+              <textarea
+                className="modal-textarea"
+                rows={3}
+                placeholder="Describe the issue (optional)"
+                value={details}
+                onChange={e => setDetails(e.target.value)}
+                maxLength={500}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={!reason || loading}>
+                {loading ? "Reporting..." : "Submit Report"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
+    </>
+  );
+}
+
+function ReportCommentModal({ comment, post, onClose }) {
+  const [reason, setReason] = useState("");
+  const [details, setDetails] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const reasons = [
+    { value: "inappropriate", label: "Inappropriate Content", priority: "High" },
+    { value: "spam", label: "Spam/Promotional Content", priority: "Medium" },
+    { value: "harassment", label: "Harassment/Bullying", priority: "High" },
+    { value: "fake", label: "Fake/Misleading Content", priority: "Medium" },
+    { value: "hate", label: "Hate Speech", priority: "High" },
+    { value: "violence", label: "Violence/Threats", priority: "High" },
+    { value: "copyright", label: "Copyright Violation", priority: "Medium" },
+    { value: "privacy", label: "Privacy Violation", priority: "High" },
+    { value: "other", label: "Other", priority: "Low" }
+  ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!reason) {
+      alert("Please select a reason for reporting.");
+      return;
+    }
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("You must be signed in to report content.");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const selected = reasons.find(r => r.value === reason);
+      
+      const reportData = {
+        reporterId: currentUser.uid,
+        reporterName: currentUser.displayName || "Anonymous user",
+        reportedUserId: comment.userId || "unknown",
+        reportedUserName: comment.userName || "Unknown user",
+        postId: post.id,
+        commentId: comment.id,
+        contentType: "comment",
+        contentSnapshot: {
+          text: comment.text || "",
+          createdAt: comment.createdAt || null,
+        },
+        reason,
+        reasonLabel: selected?.label || reason,
+        details: details || "",
+        priority: selected?.priority || "Low",
+        status: "pending",
+        reviewedBy: null,
+        reviewNotes: null,
+        reviewedAt: null,
+        createdAt: serverTimestamp(),
+      };
+      
+      console.log("Submitting comment report:", reportData);
+      
+      // Add the report to Firestore
+      const docRef = await addDoc(collection(db, "report"), reportData);
+      console.log("Comment report submitted with ID:", docRef.id);
+      
+      setShowSuccess(true);
+      
+      // Also log this action for moderation history (non-blocking)
+      try {
+        await addDoc(collection(db, "moderationLogs"), {
+          action: "report_submitted",
+          contentType: "comment",
+          contentId: comment.id,
+          postId: post.id,
+          reporterId: currentUser.uid,
+          reportedUserId: comment.userId,
+          reason: selected?.label || reason,
+          timestamp: serverTimestamp()
+        });
+        console.log("Comment moderation log created");
+      } catch (logErr) {
+        console.error("Failed to log moderation action:", logErr);
+      }
+      
+      setTimeout(() => {
+        setShowSuccess(false);
+        onClose();
+      }, 2200);
+    } catch (err) {
+      console.error("Failed to submit comment report:", err);
+      console.error("Error details:", {
+        code: err.code,
+        message: err.message,
+        stack: err.stack
+      });
+      alert(`Failed to submit report: ${err.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="community-modal-backdrop" onClick={onClose}>
+        <div className="community-modal" onClick={e => e.stopPropagation()}>
+          <div className="share-modal-header">
+            <h3>Report Comment</h3>
           </div>
           <form className="modal-form" onSubmit={handleSubmit}>
             <label className="modal-label">
@@ -892,137 +1055,6 @@ function CommentModal({ post, onClose, onCountChange }) {
           onClose={() => setReportingComment(null)}
         />
       )}
-    </>
-  );
-}
-
-function ReportCommentModal({ comment, post, onClose }) {
-  const [reason, setReason] = useState("");
-  const [details, setDetails] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  const reasons = [
-    { value: "inappropriate", label: "Inappropriate Content", priority: "High" },
-    { value: "spam", label: "Spam/Promotional Content", priority: "Medium" },
-    { value: "harassment", label: "Harassment/Bullying", priority: "High" },
-    { value: "fake", label: "Fake/Misleading Content", priority: "Medium" },
-    { value: "hate", label: "Hate Speech", priority: "High" },
-    { value: "violence", label: "Violence/Threats", priority: "High" },
-    { value: "copyright", label: "Copyright Violation", priority: "Medium" },
-    { value: "privacy", label: "Privacy Violation", priority: "High" },
-    { value: "other", label: "Other", priority: "Low" }
-  ];
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!reason) return;
-    
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      alert("You must be signed in to report content.");
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const selected = reasons.find(r => r.value === reason);
-      await addDoc(collection(db, "report"), {
-        reporterId: currentUser.uid,           // ID of user submitting report
-        reporterName: currentUser.displayName || "Anonymous user", // Name of reporter
-        reportedUserId: comment.userId,        // ID of user who created reported content
-        reportedUserName: comment.userName || "Unknown user", // Name of reported user
-        postId: post.id,                       // Parent post ID
-        commentId: comment.id,
-        contentType: "comment",
-        contentSnapshot: {                     // Save snapshot of reported content
-          text: comment.text || "",
-          createdAt: comment.createdAt || null,
-        },
-        reason,
-        reasonLabel: selected?.label || reason,
-        details,
-        priority: selected?.priority || "Low",
-        status: "pending",
-        reviewedBy: null,                      // Admin who reviews this report
-        reviewNotes: null,                     // Admin review notes
-        reviewedAt: null,                      // When review happened
-        createdAt: serverTimestamp(),          // When report was created
-      });
-      setShowSuccess(true);
-      
-      // Also log this action for moderation history
-      try {
-        await addDoc(collection(db, "moderationLogs"), {
-          action: "report_submitted",
-          contentType: "comment",
-          contentId: comment.id,
-          postId: post.id,
-          reporterId: currentUser.uid,
-          reportedUserId: comment.userId,
-          reason: selected?.label || reason,
-          timestamp: serverTimestamp()
-        });
-      } catch (logErr) {
-        console.error("Failed to log moderation action:", logErr);
-        // Non-blocking error - main report was still created
-      }
-      
-      setTimeout(() => {
-        setShowSuccess(false);
-        onClose();
-      }, 2200);
-    } catch (err) {
-      alert("Failed to submit report.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <>
-      <div className="community-modal-backdrop" onClick={onClose}>
-        <div className="community-modal" onClick={e => e.stopPropagation()}>
-          <div className="share-modal-header">
-            <h3>Report Comment</h3>
-          </div>
-          <form className="modal-form" onSubmit={handleSubmit}>
-            <label className="modal-label">
-              <span className="field-title">Reason</span>
-              <select
-                className="modal-input"
-                value={reason}
-                onChange={e => setReason(e.target.value)}
-                required
-              >
-                <option value="">Select reason</option>
-                {reasons.map(r => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="modal-label">
-              <span className="field-title">Details</span>
-              <textarea
-                className="modal-textarea"
-                rows={3}
-                placeholder="Describe the issue (optional)"
-                value={details}
-                onChange={e => setDetails(e.target.value)}
-                maxLength={500}
-              />
-            </label>
-            <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={!reason || loading}>
-                {loading ? "Reporting..." : "Submit Report"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-      {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
     </>
   );
 }

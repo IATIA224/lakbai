@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import PrivacyPolicy from "./privacy_policy";
+import TermsOfService from "./terms"; // ADD THIS IMPORT
 import "./register.css";
 import Header2 from "./header_2";
 import { Link, useNavigate } from "react-router-dom";
@@ -99,7 +100,7 @@ const Register = () => {
   // Popup
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [showPrivacy, setShowPrivacy] = useState(false);
-
+  const [showTerms, setShowTerms] = useState(false); // ADD THIS STATE
 
   const navigate = useNavigate();
   const strength = getPasswordStrength(password);
@@ -517,10 +518,7 @@ const Register = () => {
     <>
       <Header2 />
       {showPrivacy && <PrivacyPolicy onClose={() => setShowPrivacy(false)} />}
-
-      {/* Add the CSS */}
-      <style>{otpAnimationCSS}</style>
-
+      {showTerms && <TermsOfService onClose={() => setShowTerms(false)} />}
 
       {/* Add the CSS */}
       <style>{otpAnimationCSS}</style>
@@ -645,30 +643,23 @@ const Register = () => {
                   <span>
                     I agree to the{" "}
                     <a
-                      href="https://www.messenger.com/t/8823197721118010/"
+                      href="#"
                       className="register-link"
                       onClick={e => {
                         e.preventDefault();
-                        window.tempInfoDelete = window.tempInfoDelete || (() => {
-                          const root = document.createElement("div");
-                          document.body.appendChild(root);
-                          import("./info_delete").then(({ default: InfoDelete }) => {
-                            const close = () => { root.remove(); window.tempInfoDelete = null; };
-                            import("react-dom").then(ReactDOM => {
-                              ReactDOM.createRoot(root).render(<InfoDelete onClose={close} />);
-                            });
-                          });
-                        });
-                        window.tempInfoDelete();
+                        setShowTerms(true); // CHANGED: Open Terms modal instead
                       }}
                     >
                       Terms of Service
                     </a>{" "}
                     and{" "}
                     <a
-                      href="https://www.messenger.com/t/8823197721118010/"
+                      href="#"
                       className="register-link"
-                      onClick={e => { e.preventDefault(); setShowPrivacy(true); }}
+                      onClick={e => { 
+                        e.preventDefault(); 
+                        setShowPrivacy(true); 
+                      }}
                     >
                       Privacy Policy
                     </a>
@@ -841,12 +832,11 @@ const Register = () => {
         </div>
       </div>
 
-
       {popup.show && (
         <div className="register-popup-overlay">
           <div className="register-popup">
             <img
-              src={popup.type === "success" ? "/star.png" : "/warning (1).png"}
+              src={popup.type === "success" ? "/star.png" : "/warning.png"}
               alt={popup.type === "success" ? "Success" : "Error"}
               style={{ width: 48, marginBottom: 12 }}
               onError={e => { e.currentTarget.src = "/star.png"; }}
@@ -857,22 +847,8 @@ const Register = () => {
                 color: popup.type === "success" ? "#3b5fff" : "#b97b7b"
               }}
             >
-            </h3>
-            <h3
-              style={{
-                margin: 0,
-                color: popup.type === "success" ? "#3b5fff" : "#b97b7b"
-              }}
-            >
               {popup.type === "success" ? "Success!" : "Error"}
             </h3>
-            <p style={{ margin: "8px 0 16px" }}>{popup.message}</p>
-            <button
-              className="register-btn"
-              onClick={handleClosePopup}
-              style={{ width: "100%" }}
-            >
-            </button>
             <p style={{ margin: "8px 0 16px" }}>{popup.message}</p>
             <button
               className="register-btn"
