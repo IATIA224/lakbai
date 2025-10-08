@@ -870,9 +870,6 @@ useEffect(() => {
         {/* Main Content */}
         <main className="bp2-content">
           <div className="bp2-header-row">
-            <h1 className="bp2-title">
-              Discover Philippines <span className="bp2-count-link">({filtered.length} destinations)</span>
-            </h1>
             <div className="bp2-sort">
               <label htmlFor="bp2-sort-select">Sort by</label>
               <select
