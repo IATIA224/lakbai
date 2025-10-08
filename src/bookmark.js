@@ -29,6 +29,14 @@ async function logActivity(text, icon = "🔵") {
   }
 }
 
+// Add at the top after imports:
+const BOOKMARK_CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
+let bookmarkCache = {
+  data: null,
+  timestamp: null,
+  userId: null
+};
+
 function Bookmark() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -111,6 +119,18 @@ function Bookmark() {
 
   // Read ONLY current user's bookmarks collection and merge with destination data if needed
   const fetchBookmarkedDestinations = async (uid) => {
+    // Check cache
+    if (
+      bookmarkCache.data &&
+      bookmarkCache.userId === uid &&
+      bookmarkCache.timestamp &&
+      Date.now() - bookmarkCache.timestamp < BOOKMARK_CACHE_DURATION
+    ) {
+      console.log('✅ Using cached bookmarks');
+      setItems(bookmarkCache.data);
+      return;
+    }
+
     try {
       const colRef = collection(db, 'users', uid, 'bookmarks');
       const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc')));
@@ -143,7 +163,17 @@ function Bookmark() {
           return merged;
         })
       );
-      setItems(rows.filter(Boolean));
+      
+      const validRows = rows.filter(Boolean);
+      
+      // Cache the results
+      bookmarkCache = {
+        data: validRows,
+        timestamp: Date.now(),
+        userId: uid
+      };
+      
+      setItems(validRows);
     } catch (e) {
       // console.error('Error fetching current user bookmarks:', e);
       showError('Failed to load your bookmarks.');
@@ -280,12 +310,13 @@ function Bookmark() {
     if (!u) { alert('Please sign in to add to My Trips.'); return; }
     setAddingTripId(dest.id);
     try {
-      // Prepare the destination object with all required fields
+      // Prepare the destination object with all required fields INCLUDING LOCATION
       const destinationData = {
         id: dest.id,
         name: dest.name || '',
         display_name: dest.name || '', // Itinerary expects display_name
         region: dest.region || dest.locationRegion || '',
+        location: dest.location || '', // ADD THIS - Include location
         description: dest.description || '',
         lat: dest.lat || dest.latitude,
         lon: dest.lon || dest.longitude,
@@ -299,6 +330,8 @@ function Bookmark() {
         image: dest.image || '',
       };
 
+      console.log("[Bookmark] Adding to trip with location:", destinationData.location); // DEBUG
+
       await addTripForCurrentUser(destinationData);
       
       // Track destination added to itinerary
@@ -306,6 +339,7 @@ function Bookmark() {
         id: dest.id,
         name: dest.name,
         region: dest.region || dest.locationRegion,
+        location: dest.location, // ADD THIS
         latitude: dest.lat || dest.latitude,
         longitude: dest.lon || dest.longitude,
       });
@@ -336,6 +370,7 @@ function Bookmark() {
             destId: String(dest.id),
             name: dest.name || '',
             region: dest.region || dest.locationRegion || '',
+            location: dest.location || '', // ADD THIS - Save location to trips collection
             rating: dest.rating ?? null,
             price: dest.price || '',
             priceTier: dest.priceTier || null,
@@ -350,6 +385,7 @@ function Bookmark() {
           },
           { merge: true }
         );
+        console.log("[Bookmark] Saved to trips with location:", dest.location); // DEBUG
       } catch (e) {
         console.warn('users/{uid}/trips write skipped:', e.code || e.message);
       }
@@ -772,6 +808,7 @@ function Bookmark() {
                     <div className="bm-info-label1">Price:</div>
                     <div className="bm-pill">{d.price ?? '—'}</div>
                   </div>
+                  {/* REMOVED LOCATION FROM CARD - Only shows in details modal */}
                 </div>
 
                 <div className="bm-tags">
@@ -795,15 +832,13 @@ function Bookmark() {
                   <button
                     className="itn-btn danger"
                     onClick={async () => {
-                      triggerCardPop(d.id);       // quick bump
-                      beginRemove(d.id);          // start pulse
+                      triggerCardPop(d.id);
+                      beginRemove(d.id);
                       
-                      // Get destination name for activity log BEFORE removing
                       const destName = d.name || "destination";
                       
                       try {
                         await removeBookmark(d.id);
-                        // Activity is already logged inside removeBookmark
                       } finally {
                         endRemove(d.id);
                       }
@@ -899,6 +934,16 @@ function Bookmark() {
                     <div className="bm-info-key">Best Time to Visit:</div>
                     <div className="bm-info-val">{selected.bestTime || selected.best_time || '—'}</div>
                   </div>
+
+                  {/* ADD THIS NEW SECTION FOR LOCATION */}
+                  {selected.location && (
+                    <div className="bm-info-row">
+                      <div className="bm-info-key">Location:</div>
+                      <div className="bm-info-val">
+                        <span className="bm-chip soft">{selected.location}</span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="bm-info-row">
                     <div className="bm-info-key">Categories:</div>

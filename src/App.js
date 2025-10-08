@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, BrowserRouter, useLocation, useInRouterContext, Navigate, Outlet } from 'react-router-dom';
 import StickyHeader from './header';
 import Login from './login';
@@ -47,6 +47,13 @@ function AppInner() {
       </>
     );
   }
+
+  // GLOBAL SCROLL TO TOP ON ROUTE CHANGE
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.pathname]);
 
   return (
     <UserProvider>

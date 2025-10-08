@@ -1,12 +1,15 @@
 import React, { useState } from "react";
+import ReactDOM from "react-dom";
 import "./privacy_policy.css";
 
 const PrivacyPolicy = ({ onClose }) => {
   const [preferences, setPreferences] = useState({
     marketing: false,
-    analytics: false,
+    analytics: true,
     thirdParty: false,
   });
+
+  const [activeSection, setActiveSection] = useState(null);
 
   const handleChange = (e) => {
     setPreferences({
@@ -17,80 +20,251 @@ const PrivacyPolicy = ({ onClose }) => {
 
   const handleSave = (e) => {
     e.preventDefault();
-    // You can add logic to save preferences here
+    localStorage.setItem('privacyPreferences', JSON.stringify(preferences));
+    alert('Privacy preferences saved successfully!');
     if (onClose) onClose();
   };
 
-  return (
-    <div className="privacy-modal-overlay">
-      <div className="privacy-modal">
+  const toggleSection = (section) => {
+    setActiveSection(activeSection === section ? null : section);
+  };
+
+  const modalContent = (
+    <div className="privacy-modal-overlay" onClick={onClose}>
+      <div className="privacy-modal" onClick={(e) => e.stopPropagation()}>
         <div className="privacy-modal-header">
-          <span className="privacy-modal-title">
-            <span style={{ color: "#7c3aed", fontWeight: 700, marginRight: 8 }}>▸</span> Privacy Policy
-          </span>
+          <div className="privacy-header-content">
+            <span className="privacy-icon">🔒</span>
+            <div>
+              <h2 className="privacy-modal-title">Privacy Policy</h2>
+              <p className="privacy-subtitle">How we protect and use your data</p>
+            </div>
+          </div>
           <button className="privacy-modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
+
         <div className="privacy-modal-content">
-          <div className="privacy-section">
-            <b>1. Information We Collect</b>
-            <p>We collect information you provide directly to us when you create an account, update your profile, or communicate with us. This may include your name, email address, phone number, and other contact information.</p>
+          <div className="privacy-intro">
+            <p><strong>Effective Date:</strong> October 8, 2025</p>
+            <p>At <strong>LakbAI</strong>, we value your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, and safeguard your data when you use our AI-driven travel planning services.</p>
           </div>
-          <div className="privacy-section">
-            <b>2. How We Use Your Information</b>
-            <p>We use the information we collect to provide, maintain, and improve our services, communicate with you, and for security purposes. We may also use your information to personalize your experience and to develop new features.</p>
+
+          <div className="privacy-sections">
+            {/* Section 1 */}
+            <div className={`privacy-accordion ${activeSection === 1 ? 'active' : ''}`}>
+              <button className="privacy-accordion-header" onClick={() => toggleSection(1)}>
+                <span className="privacy-accordion-icon">📊</span>
+                <span className="privacy-accordion-title">1. Information We Collect</span>
+                <span className="privacy-accordion-arrow">{activeSection === 1 ? '−' : '+'}</span>
+              </button>
+              {activeSection === 1 && (
+                <div className="privacy-accordion-content">
+                  <p><strong>Personal Information:</strong></p>
+                  <ul>
+                    <li>Name, email address, phone number</li>
+                    <li>Profile photo and preferences</li>
+                    <li>Travel history and saved destinations</li>
+                  </ul>
+                  <p><strong>Usage Data:</strong></p>
+                  <ul>
+                    <li>Search queries and itinerary preferences</li>
+                    <li>Device information (browser, OS, IP address)</li>
+                    <li>Location data (with your permission)</li>
+                  </ul>
+                  <p><strong>AI Interactions:</strong></p>
+                  <ul>
+                    <li>Chat conversations with our AI assistant</li>
+                    <li>Preferences and recommendations</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Section 2 */}
+            <div className={`privacy-accordion ${activeSection === 2 ? 'active' : ''}`}>
+              <button className="privacy-accordion-header" onClick={() => toggleSection(2)}>
+                <span className="privacy-accordion-icon">⚙️</span>
+                <span className="privacy-accordion-title">2. How We Use Your Information</span>
+                <span className="privacy-accordion-arrow">{activeSection === 2 ? '−' : '+'}</span>
+              </button>
+              {activeSection === 2 && (
+                <div className="privacy-accordion-content">
+                  <ul>
+                    <li><strong>Personalized Recommendations:</strong> AI-powered itinerary suggestions based on your preferences</li>
+                    <li><strong>Service Improvement:</strong> Enhance features, fix bugs, and develop new capabilities</li>
+                    <li><strong>Communication:</strong> Send booking confirmations, updates, and promotional offers (opt-out available)</li>
+                    <li><strong>Security:</strong> Detect fraud, prevent abuse, and protect user accounts</li>
+                    <li><strong>Analytics:</strong> Understand usage patterns to improve user experience</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Section 3 */}
+            <div className={`privacy-accordion ${activeSection === 3 ? 'active' : ''}`}>
+              <button className="privacy-accordion-header" onClick={() => toggleSection(3)}>
+                <span className="privacy-accordion-icon">🔐</span>
+                <span className="privacy-accordion-title">3. Data Sharing & Third Parties</span>
+                <span className="privacy-accordion-arrow">{activeSection === 3 ? '−' : '+'}</span>
+              </button>
+              {activeSection === 3 && (
+                <div className="privacy-accordion-content">
+                  <p><strong>We do NOT sell your personal data.</strong> We may share information with:</p>
+                  <ul>
+                    <li><strong>Service Providers:</strong> Cloud hosting (Firebase), payment processors, analytics tools</li>
+                    <li><strong>AI Partners:</strong> OpenAI/Claude for conversational features (anonymized data)</li>
+                    <li><strong>Legal Compliance:</strong> When required by law or to protect our rights</li>
+                    <li><strong>Business Transfers:</strong> In case of merger or acquisition (you'll be notified)</li>
+                  </ul>
+                  <div className="privacy-highlight">
+                    <strong>🛡️ Your Control:</strong> You can opt out of third-party analytics and marketing below.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Section 4 */}
+            <div className={`privacy-accordion ${activeSection === 4 ? 'active' : ''}`}>
+              <button className="privacy-accordion-header" onClick={() => toggleSection(4)}>
+                <span className="privacy-accordion-icon">🎛️</span>
+                <span className="privacy-accordion-title">4. Your Privacy Rights</span>
+                <span className="privacy-accordion-arrow">{activeSection === 4 ? '−' : '+'}</span>
+              </button>
+              {activeSection === 4 && (
+                <div className="privacy-accordion-content">
+                  <ul>
+                    <li><strong>Access:</strong> Request a copy of your data</li>
+                    <li><strong>Correction:</strong> Update inaccurate information</li>
+                    <li><strong>Deletion:</strong> Request account and data deletion ("right to be forgotten")</li>
+                    <li><strong>Portability:</strong> Export your itineraries and preferences</li>
+                    <li><strong>Opt-Out:</strong> Unsubscribe from marketing emails anytime</li>
+                  </ul>
+                  <p>To exercise these rights, email us at <a href="mailto:privacy@lakbai.com">privacy@lakbai.com</a></p>
+                </div>
+              )}
+            </div>
+
+            {/* Section 5 */}
+            <div className={`privacy-accordion ${activeSection === 5 ? 'active' : ''}`}>
+              <button className="privacy-accordion-header" onClick={() => toggleSection(5)}>
+                <span className="privacy-accordion-icon">🗄️</span>
+                <span className="privacy-accordion-title">5. Data Retention & Security</span>
+                <span className="privacy-accordion-arrow">{activeSection === 5 ? '−' : '+'}</span>
+              </button>
+              {activeSection === 5 && (
+                <div className="privacy-accordion-content">
+                  <p><strong>How Long We Keep Data:</strong></p>
+                  <ul>
+                    <li>Active accounts: Until you delete your account</li>
+                    <li>Inactive accounts: Up to 3 years, then anonymized</li>
+                    <li>Legal obligations: As required by law</li>
+                  </ul>
+                  <p><strong>Security Measures:</strong></p>
+                  <ul>
+                    <li>Encrypted data transmission (HTTPS/TLS)</li>
+                    <li>Secure Firebase authentication</li>
+                    <li>Regular security audits and updates</li>
+                    <li>Access controls and monitoring</li>
+                  </ul>
+                  <div className="privacy-warning">
+                    ⚠️ <strong>Note:</strong> No system is 100% secure. Please use strong passwords and enable two-factor authentication.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Section 6 */}
+            <div className={`privacy-accordion ${activeSection === 6 ? 'active' : ''}`}>
+              <button className="privacy-accordion-header" onClick={() => toggleSection(6)}>
+                <span className="privacy-accordion-icon">🍪</span>
+                <span className="privacy-accordion-title">6. Cookies & Tracking</span>
+                <span className="privacy-accordion-arrow">{activeSection === 6 ? '−' : '+'}</span>
+              </button>
+              {activeSection === 6 && (
+                <div className="privacy-accordion-content">
+                  <p>We use cookies and similar technologies to:</p>
+                  <ul>
+                    <li><strong>Essential Cookies:</strong> Keep you logged in, remember preferences</li>
+                    <li><strong>Analytics Cookies:</strong> Understand how you use the app (Google Analytics)</li>
+                    <li><strong>Marketing Cookies:</strong> Show relevant ads (opt-out available)</li>
+                  </ul>
+                  <p>Manage cookie preferences in your browser settings or use the options below.</p>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="privacy-section">
-            <b>3. Information Sharing</b>
-            <p>We do not sell your personal information. We may share your information with third-party service providers who perform services on our behalf, such as payment processing and data analysis.</p>
-          </div>
-          <div className="privacy-section">
-            <b>4. Your Choices</b>
-            <p>You can access, update, or delete your account information at any time through your account settings. You can also opt out of receiving promotional communications from us by following the instructions in those communications.</p>
-          </div>
-          <div className="privacy-section">
-            <b>5. Data Retention</b>
-            <p>We retain your information for as long as your account is active or as needed to provide you services. We may also retain and use your information as necessary to comply with our legal obligations, resolve disputes, and enforce our agreements.</p>
-          </div>
+
           <hr className="privacy-divider" />
-          <div className="privacy-section">
-            <b>Privacy Preferences</b>
+
+          {/* Privacy Preferences */}
+          <div className="privacy-preferences">
+            <h3 className="privacy-preferences-title">
+              <span className="privacy-icon">⚙️</span> Privacy Preferences
+            </h3>
+            <p className="privacy-preferences-desc">Customize how we use your data</p>
+            
             <form className="privacy-preferences-form" onSubmit={handleSave}>
-              <label className="privacy-checkbox">
+              <label className="privacy-toggle">
+                <div className="privacy-toggle-info">
+                  <strong>📧 Marketing Communications</strong>
+                  <span>Receive travel tips, deals, and feature updates</span>
+                </div>
                 <input
                   type="checkbox"
+                  className="privacy-checkbox-input"
                   name="marketing"
                   checked={preferences.marketing}
                   onChange={handleChange}
                 />
-                Receive marketing emails
+                <span className="privacy-toggle-slider"></span>
               </label>
-              <label className="privacy-checkbox">
+
+              <label className="privacy-toggle">
+                <div className="privacy-toggle-info">
+                  <strong>📊 Analytics & Performance</strong>
+                  <span>Help us improve with usage data (recommended)</span>
+                </div>
                 <input
                   type="checkbox"
+                  className="privacy-checkbox-input"
                   name="analytics"
                   checked={preferences.analytics}
                   onChange={handleChange}
                 />
-                Allow data analytics
+                <span className="privacy-toggle-slider"></span>
               </label>
-              <label className="privacy-checkbox">
+
+              <label className="privacy-toggle">
+                <div className="privacy-toggle-info">
+                  <strong>🤝 Third-Party Sharing</strong>
+                  <span>Share with trusted partners for enhanced features</span>
+                </div>
                 <input
                   type="checkbox"
+                  className="privacy-checkbox-input"
                   name="thirdParty"
                   checked={preferences.thirdParty}
                   onChange={handleChange}
                 />
-                Share data with third parties
+                <span className="privacy-toggle-slider"></span>
               </label>
+
               <button className="privacy-save-btn" type="submit">
-                Save Preferences
+                💾 Save Preferences
               </button>
             </form>
+          </div>
+
+          <div className="privacy-footer">
+            <p>Questions? Contact us at <a href="mailto:privacy@lakbai.com">privacy@lakbai.com</a></p>
+            <p className="privacy-update">Last updated: October 8, 2025</p>
           </div>
         </div>
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(modalContent, document.body);
 };
 
 export default PrivacyPolicy;

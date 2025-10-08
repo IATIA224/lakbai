@@ -15,9 +15,8 @@ import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverT
 import { getAuth } from "firebase/auth";
 import { useUser } from './UserContext';
 
-// Use this path if the image is in public/ as "warning (1).png"
-// If yours is in public/assets/, change to "/assets/warning%20(1).png"
-const ERROR_ICON = "/warning%20(1).png";
+// CHANGED: Updated icon path
+const ERROR_ICON = "/warning.png";
 
 // Function to save user data to Firestore
 const saveUserToFirestore = async (user) => {
