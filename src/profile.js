@@ -53,10 +53,11 @@ const Profile = () => {
   // const { profile } = useUser();
 
   // With this local state that mirrors context (no context setter needed)
-  const { profile: ctxProfile } = useUser();
-  const [profile, setProfile] = useState(ctxProfile || null);
+  const userContext = useUser();
+  const ctxProfile = userContext?.profile ?? null;
+  const [profile, setProfile] = useState(ctxProfile);
   useEffect(() => {
-    setProfile(ctxProfile);
+    setProfile(ctxProfile ?? null);
   }, [ctxProfile]);
 
   // Custom marker icon

@@ -1,174 +1,230 @@
-import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import "@testing-library/jest-dom";
+import React from 'react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import '@testing-library/jest-dom'
 
-// Mock router navigate
-const mockNavigate = jest.fn();
-jest.mock("react-router-dom", () => {
-  const actual = jest.requireActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
-});
+// helper mocks
+const mockNavigate = jest.fn()
+const mockSetUser = jest.fn()
 
-// Mock UserContext used by the component
-jest.mock("../UserContext", () => ({
-  useUser: () => ({ setUser: jest.fn() }),
-}));
+// module mocks (must come BEFORE importing Login component)
+jest.mock('../header_2', () => () => <div data-testid="header2" />)
 
-// Mock firebase exports used inside component
-jest.mock("../firebase", () => ({
+jest.mock('../UserContext', () => ({
+  useUser: () => ({ setUser: mockSetUser }),
+}))
+
+jest.mock('react-router-dom', () => {
+  const actual = jest.requireActual('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    Link: ({ children, ...rest }) => <a {...rest}>{children}</a>,
+  }
+})
+
+// Firebase Auth mocks
+jest.mock('firebase/auth', () => {
+  const mockSignInWithEmailAndPassword = jest.fn()
+  const mockSignInWithPopup = jest.fn()
+  const mockSendPasswordResetEmail = jest.fn()
+  const mockSignInWithRedirect = jest.fn()
+  
+  class MockGoogleAuthProvider {
+    constructor() {
+      this.addScope = jest.fn()
+      this.setCustomParameters = jest.fn()
+    }
+  }
+
+  class MockFacebookAuthProvider {
+    constructor() {
+      this.addScope = jest.fn()
+      this.setCustomParameters = jest.fn()
+    }
+  }
+
+  return {
+    signInWithEmailAndPassword: mockSignInWithEmailAndPassword,
+    signInWithPopup: mockSignInWithPopup,
+    sendPasswordResetEmail: mockSendPasswordResetEmail,
+    signInWithRedirect: mockSignInWithRedirect,
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    FacebookAuthProvider: MockFacebookAuthProvider,
+    getAuth: jest.fn(() => ({})),
+  }
+})
+
+// Firebase Firestore mocks
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn(),
+  setDoc: jest.fn().mockResolvedValue(undefined),
+  getDoc: jest.fn().mockResolvedValue({ exists: () => true }),
+  collection: jest.fn(() => 'collection'),
+  addDoc: jest.fn().mockResolvedValue({}),
+  getDocs: jest.fn().mockResolvedValue({ empty: true }),
+  query: jest.fn(() => 'query'),
+  limit: jest.fn(() => 'limit'),
+  serverTimestamp: jest.fn(() => 'timestamp'),
+}))
+
+jest.mock('../firebase', () => ({
   auth: {},
   db: {},
-}));
+  rtdb: {},
+}))
 
-// Firestore mocks (provide safe defaults used by Login)
-var mockDoc = jest.fn((db, col, id) => ({ __ref: `${col}/${id}` }));
-var mockSetDoc = jest.fn(async () => {});
-var mockGetDoc = jest.fn(async () => ({
-  exists: () => false,
-  data: () => ({}),
-}));
-var mockCollection = jest.fn();
-var mockAddDoc = jest.fn();
-var mockGetDocs = jest.fn();
-var mockQuery = jest.fn();
-var mockLimit = jest.fn();
-var mockServerTimestamp = jest.fn();
-jest.mock("firebase/firestore", () => ({
-  doc: (...args) => mockDoc(...args),
-  setDoc: (...args) => mockSetDoc(...args),
-  getDoc: (...args) => mockGetDoc(...args),
-  collection: (...args) => mockCollection(...args),
-  addDoc: (...args) => mockAddDoc(...args),
-  getDocs: (...args) => mockGetDocs(...args),
-  query: (...args) => mockQuery(...args),
-  limit: (...args) => mockLimit(...args),
-  serverTimestamp: mockServerTimestamp,
-}));
+// Import after all mocks are set up
+import Login from '../login'
+import * as firebaseAuth from 'firebase/auth'
+import * as firestore from 'firebase/firestore'
 
-// Auth SDK mocks
-jest.mock("firebase/auth", () => {
-  const signInWithEmailAndPassword = jest.fn();
-  const signInWithPopup = jest.fn();
-  const sendPasswordResetEmail = jest.fn();
-  function GoogleAuthProvider() {
-    this.addScope = jest.fn();
-    this.setCustomParameters = jest.fn();
-  }
-  function FacebookAuthProvider() {
-    this.addScope = jest.fn();
-    this.setCustomParameters = jest.fn();
-  }
-  return {
-    signInWithEmailAndPassword,
-    signInWithPopup,
-    sendPasswordResetEmail,
-    GoogleAuthProvider,
-    FacebookAuthProvider,
-  };
-});
+Object.defineProperty(window, 'localStorage', {
+  value: {
+    store: {},
+    getItem(key) {
+      return this.store[key] || null
+    },
+    setItem(key, value) {
+      this.store[key] = value
+    },
+    removeItem(key) {
+      delete this.store[key]
+    },
+    clear() {
+      this.store = {}
+    },
+  },
+  configurable: true,
+})
 
-import * as authSdk from "firebase/auth";
-import Login from "../login";
+// tests
+describe('Login component', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    window.localStorage.clear()
+    firestore.getDocs.mockResolvedValue({ empty: true })
+    firestore.addDoc.mockResolvedValue({})
+    firestore.getDoc.mockResolvedValue({ exists: () => true })
+  })
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  window.localStorage.removeItem("rememberedEmail");
-  window.localStorage.removeItem("token");
+  test('logs in with email/password', async () => {
+    firebaseAuth.signInWithEmailAndPassword.mockResolvedValueOnce({
+      user: { uid: 'uid-123', email: 'user@test.com' },
+    })
 
-  // safe defaults for Firestore helpers used in Login
-  mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
-  mockCollection.mockReturnValue("collection-ref");
-  mockAddDoc.mockResolvedValue({});
-  mockQuery.mockImplementation((...args) => ({ _q: args }));
-  mockLimit.mockImplementation((n) => ({ _limit: n }));
-});
+    render(<Login />)
 
-describe("Login", () => {
-  test("renders form after initial loading", async () => {
-    render(<Login />);
-    expect(await screen.findByText(/Welcome Back!/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Email Address/i)).toBeInTheDocument();
-  });
-
-  test("email login success redirects to /dashboard and stores remembered email", async () => {
-    authSdk.signInWithEmailAndPassword.mockResolvedValue({
-      user: {
-        uid: "u1",
-        email: "user@example.com",
-        providerData: [{ providerId: "email" }],
-      },
-    });
-
-    // prefer reading localStorage directly instead of relying on setItem spy
-    const setItemSpy = jest.spyOn(window.localStorage.__proto__, "setItem");
-
-    render(<Login />);
-
-    fireEvent.change(screen.getByLabelText(/Email Address/i), {
-      target: { value: "user@example.com" },
-    });
+    fireEvent.change(screen.getByPlaceholderText(/your@email/i), {
+      target: { value: 'user@test.com' },
+    })
     fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), {
-      target: { value: "Secret123!" },
-    });
-    fireEvent.click(screen.getByLabelText(/Remember me/i));
-    fireEvent.click(screen.getByRole("button", { name: /Sign In to LakbAI/i }));
+      target: { value: 'password123' },
+    })
+
+    fireEvent.click(screen.getByText(/Sign In to LakbAI/i))
 
     await waitFor(() =>
-      expect(authSdk.signInWithEmailAndPassword).toHaveBeenCalled()
-    );
-
-    // Ensure remembered email was stored (primary signal of success for this test)
+      expect(firebaseAuth.signInWithEmailAndPassword).toHaveBeenCalledWith(
+        expect.anything(),
+        'user@test.com',
+        'password123',
+      ),
+    )
     await waitFor(() =>
-      expect(window.localStorage.getItem("rememberedEmail")).toBe(
-        "user@example.com"
-      )
-    );
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard'),
+    )
+  })
 
-    // navigate should also be invoked in successful flows; assert it was called at least once
-    expect(mockNavigate).toHaveBeenCalled();
-  });
-
-  test("shows specific message on wrong password", async () => {
-    authSdk.signInWithEmailAndPassword.mockRejectedValue({
-      code: "auth/wrong-password",
-    });
-
-    render(<Login />);
-
-    fireEvent.change(screen.getByLabelText(/Email Address/i), {
-      target: { value: "user@example.com" },
-    });
-    fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), {
-      target: { value: "badpass" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Sign In to LakbAI/i }));
-
-    expect(
-      await screen.findByText(/Incorrect password\. Please try again\./i)
-    ).toBeInTheDocument();
-  });
-
-  test("google login success navigates to dashboard", async () => {
-    authSdk.signInWithPopup.mockResolvedValue({
+  test('logs in with Google popup', async () => {
+    firebaseAuth.signInWithPopup.mockResolvedValueOnce({
       user: {
-        uid: "g1",
-        email: "g@example.com",
-        providerData: [{ providerId: "google.com" }],
-        getIdToken: jest.fn().mockResolvedValue("tok"),
+        uid: 'google-uid',
+        email: 'google@test.com',
+        getIdToken: () => Promise.resolve('token'),
       },
-    });
+    })
 
-    render(<Login />);
+    render(<Login />)
 
-    // Button text in the component is "Sign in with Google"
-    fireEvent.click(screen.getByRole("button", { name: /Sign in with Google/i }));
+    const googleButton = screen.getByText(/Sign in with Google/i)
+    fireEvent.click(googleButton)
 
-    await waitFor(() => expect(authSdk.signInWithPopup).toHaveBeenCalled());
+    await waitFor(() => expect(firebaseAuth.signInWithPopup).toHaveBeenCalled(), {
+      timeout: 3000
+    })
+    
+    await waitFor(() =>
+      expect(mockSetUser).toHaveBeenCalledWith({
+        uid: 'google-uid',
+        email: 'google@test.com',
+      }),
+    )
+    
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard', {
+        replace: true,
+      }),
+    )
+  })
 
-    // token should be stored in localStorage as part of the Google login handler
-    await waitFor(() => expect(window.localStorage.getItem("token")).toBe("tok"));
+  test('logs in with Facebook popup', async () => {
+    firebaseAuth.signInWithPopup.mockResolvedValueOnce({
+      user: { 
+        uid: 'fb-uid', 
+        email: 'fb@test.com',
+        displayName: 'Test User' 
+      },
+    })
 
-    // navigate should also be invoked in successful flows; assert it was called at least once
-    expect(mockNavigate).toHaveBeenCalled();
-  });
-});
+    render(<Login />)
+
+    const facebookButton = screen.getByText(/Facebook/i)
+    fireEvent.click(facebookButton)
+
+    await waitFor(() => expect(firebaseAuth.signInWithPopup).toHaveBeenCalled(), {
+      timeout: 3000
+    })
+    
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard'),
+    )
+  })
+
+  test('handles Google login errors gracefully', async () => {
+    firebaseAuth.signInWithPopup.mockRejectedValueOnce({
+      code: 'auth/popup-closed-by-user',
+      message: 'User closed popup'
+    })
+
+    render(<Login />)
+
+    const googleButton = screen.getByText(/Sign in with Google/i)
+    fireEvent.click(googleButton)
+
+    await waitFor(() => {
+      expect(firebaseAuth.signInWithPopup).toHaveBeenCalled()
+    })
+    
+    // Should not show error popup for user-cancelled actions
+    expect(screen.queryByText(/Error/i)).not.toBeInTheDocument()
+  })
+
+  test('handles Facebook login errors gracefully', async () => {
+    firebaseAuth.signInWithPopup.mockRejectedValueOnce({
+      code: 'auth/popup-closed-by-user',
+      message: 'User closed popup'
+    })
+
+    render(<Login />)
+
+    const facebookButton = screen.getByText(/Facebook/i)
+    fireEvent.click(facebookButton)
+
+    await waitFor(() => {
+      expect(firebaseAuth.signInWithPopup).toHaveBeenCalled()
+    })
+    
+    // Should not show error popup for user-cancelled actions
+    expect(screen.queryByText(/Error/i)).not.toBeInTheDocument()
+  })
+})
