@@ -579,8 +579,8 @@ const handleTakeAction = async ({ actionType, reason, notes }) => {
           try { const c = await getCountFromServer(collection(db, 'report')); total += c.data().count || 0; } catch {
             try { const s = await getDocs(collection(db, 'report')); total += s.size || 0; } catch {}
           }
-          try { const c = await getCountFromServer(collection(db, 'reports')); total += c.data().count || 0; } catch {
-            try { const s = await getDocs(collection(db, 'reports')); total += s.size || 0; } catch {}
+          try { const c = await getCountFromServer(collection(db, 'report')); total += c.data().count || 0; } catch {
+            try { const s = await getDocs(collection(db, 'report')); total += s.size || 0; } catch {}
           }
           return total;
         };
@@ -616,7 +616,7 @@ const handleTakeAction = async ({ actionType, reason, notes }) => {
           });
         } catch {}
         try {
-          unsubRep2 = onSnapshot(collection(db, 'reports'), (snap) => {
+          unsubRep2 = onSnapshot(collection(db, 'report'), (snap) => {
             r2 = snap.size; setAnalytics((a) => ({ ...a, totalArticles: r1 + r2 }));
           });
         } catch {}
