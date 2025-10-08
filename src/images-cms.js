@@ -557,7 +557,7 @@ export default function ImagesCMS() {
                 />
                 </div>
                 <select
-                    className="images-cms-status-dropdown"
+                    className="form-input"
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
                     style={{ width: 160 }}
