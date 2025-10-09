@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "leaflet-routing-machine"; // ADD THIS - for routing
-import Papa from "papaparse"; // ADD THIS - for CSV parsing
+import "leaflet-routing-machine";
+import Papa from "papaparse";
 import "./itineraryCostEstimation.css";
 
 const CSV_PATH = "/data/transport/Fare_LTFRB.csv";
@@ -13,19 +13,16 @@ const PHILIPPINES_BOUNDS = [
   [21.3, 126.6],
 ];
 
-// New: Metro Manila bounds for a tighter preview
 const METRO_MANILA_BOUNDS = [
-  [14.3, 120.8], // southwest
-  [14.9, 121.3], // northeast
+  [14.3, 120.8],
+  [14.9, 121.3],
 ];
 
-// New: Taguig bounds for a closer preview
 const TAGUIG_BOUNDS = [
-  [14.52, 121.01], // southwest (approx)
-  [14.60, 121.09], // northeast (approx)
+  [14.52, 121.01],
+  [14.60, 121.09],
 ];
 
-// Helper for Nominatim search restricted to Philippines
 async function searchPlacePH(q) {
   if (!q || !q.trim()) return [];
   const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=ph&q=${encodeURIComponent(q)}`;
@@ -51,10 +48,18 @@ function calculateFare(row, distance, minutes) {
   return base + extraDistance * perKm + minutes * perMin;
 }
 
-const VEHICLE_TYPES = ["PUB", "PUJ", "Taxi", "TNVS", "UVE"];
+// User-friendly vehicle type labels
+const VEHICLE_TYPES = [
+  { value: "PUB", label: "🚌 Bus (Public Utility Bus)", description: "Air-conditioned or non-aircon buses" },
+  { value: "PUJ", label: "🚐 Jeepney (Public Utility Jeepney)", description: "Traditional and modern jeepneys" },
+  { value: "Taxi", label: "🚕 Taxi", description: "Metered taxi cabs" },
+  { value: "TNVS", label: "🚗 Ride-hailing (TNVS)", description: "Grab, Uber-style services" },
+  { value: "UVE", label: "🚙 UV Express", description: "Air-conditioned vans" }
+];
+
 const PUB_CATEGORIES = [
-  { value: "PUB City", label: "PUB City" },
-  { value: "PUB Provincial", label: "PUB Provincial" }
+  { value: "PUB City", label: "City Bus (Within Metro Manila/Cities)" },
+  { value: "PUB Provincial", label: "Provincial Bus (Inter-city/Long distance)" }
 ];
 
 export default function ItineraryCostEstimationModal({ onClose }) {
@@ -62,17 +67,16 @@ export default function ItineraryCostEstimationModal({ onClose }) {
   const [map, setMap] = useState(null);
   const markerRefs = useRef({});
   const routeRef = useRef(null);
-  const mapInitialized = useRef(false); // ADD THIS - track initialization
+  const mapInitialized = useRef(false);
 
   const [fares, setFares] = useState([]);
   const [vehicleType, setVehicleType] = useState("");
   const [pubCategory, setPubCategory] = useState("");
   const [subType, setSubType] = useState("");
-  const [distance, setDistance] = useState(""); // will be set by route
+  const [distance, setDistance] = useState("");
   const [minutes, setMinutes] = useState(20);
   const [result, setResult] = useState(null);
 
-  // Two search boxes
   const [fromQuery, setFromQuery] = useState("");
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [fromPlace, setFromPlace] = useState(null);
@@ -91,12 +95,10 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     });
   }, []);
 
-  // Helper to normalize vehicle type
   function normalizeType(type) {
     return type.replace(/\s+/g, " ").replace(/\n/g, " ").trim();
   }
 
-  // Filter sub-types based on selected vehicle type and PUB category
   let subTypeOptions = [];
   if (vehicleType === "PUB" && pubCategory) {
     subTypeOptions = fares
@@ -134,14 +136,12 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     discountedFare = (result.price * 0.8).toFixed(2);
   }
 
-  // Init map - FIX: Add cleanup and prevent re-initialization
   useEffect(() => {
-    if (!mapRef.current || mapInitialized.current) return; // Check if already initialized
+    if (!mapRef.current || mapInitialized.current) return;
     
     try {
       const m = L.map(mapRef.current, { zoomControl: true });
       
-      // Start with a Taguig-focused preview; fallback to Metro Manila / Philippines if needed
       try {
         m.fitBounds(TAGUIG_BOUNDS, { padding: [40, 40] });
       } catch (e) {
@@ -157,25 +157,22 @@ export default function ItineraryCostEstimationModal({ onClose }) {
       }).addTo(m);
       
       setMap(m);
-      mapInitialized.current = true; // Mark as initialized
+      mapInitialized.current = true;
     } catch (error) {
       console.error("Map initialization error:", error);
     }
 
-    // Cleanup function
     return () => {
       if (map) {
         map.remove();
         mapInitialized.current = false;
       }
     };
-  }, []); // Empty dependency array - only run once
+  }, []);
 
-  // Place markers for from/to
   useEffect(() => {
     if (!map) return;
 
-    // Remove old markers
     Object.values(markerRefs.current).forEach(marker => {
       try {
         map.removeLayer(marker);
@@ -204,7 +201,6 @@ export default function ItineraryCostEstimationModal({ onClose }) {
         .bindPopup("To: " + toPlace.display_name)
         .openPopup();
     }
-    // Fit bounds if both
     if (fromPlace && toPlace) {
       map.fitBounds([
         [Number(fromPlace.lat), Number(fromPlace.lon)],
@@ -213,11 +209,9 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     }
   }, [map, fromPlace, toPlace]);
 
-  // Routing and distance calculation
   useEffect(() => {
     if (!map || !fromPlace || !toPlace) return;
 
-    // Remove previous route
     if (routeRef.current) {
       try {
         map.removeControl(routeRef.current);
@@ -266,7 +260,6 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     };
   }, [map, fromPlace, toPlace]);
 
-  // Debounced search for "from"
   const fromDebounceTimer = useRef();
   const handleFromInput = (e) => {
     setFromQuery(e.target.value);
@@ -277,14 +270,13 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     fromDebounceTimer.current = setTimeout(async () => {
       if (value.length > 0) {
         const res = await searchPlacePH(value);
-        setFromSuggestions(res.slice(0, 8)); // limit suggestions
+        setFromSuggestions(res.slice(0, 8));
       } else {
         setFromSuggestions([]);
       }
     }, 400);
   };
 
-  // Debounced search for "to"
   const toDebounceTimer = useRef();
   const handleToInput = (e) => {
     setToQuery(e.target.value);
@@ -302,7 +294,6 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     }, 400);
   };
 
-  // Select suggestion handlers
   const selectFromSuggestion = (s) => {
     setFromPlace(s);
     setFromQuery(s.display_name);
@@ -316,7 +307,6 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     toActiveIndex.current = -1;
   };
 
-  // keyboard navigation for suggestions
   const handleFromKeyDown = (e) => {
     if (!fromSuggestions.length) return;
     if (e.key === "ArrowDown") {
@@ -357,7 +347,6 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     }
   };
 
-  // Only estimate if all required fields are filled
   useEffect(() => {
     if (
       vehicleType &&
@@ -370,8 +359,10 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     } else {
       setResult(null);
     }
-    // eslint-disable-next-line
   }, [vehicleType, pubCategory, subType, distance, minutes]);
+
+  // Get the selected vehicle type object for display
+  const selectedVehicle = VEHICLE_TYPES.find(v => v.value === vehicleType);
 
   const modalContent = (
     <div className="cost-backdrop" onClick={onClose}>
@@ -448,16 +439,16 @@ export default function ItineraryCostEstimationModal({ onClose }) {
                   setSubType("");
                 }}
               >
-                <option value="">Select vehicle type...</option>
+                <option value="">Select transportation...</option>
                 {VEHICLE_TYPES.map(t => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
             </label>
 
             {vehicleType === "PUB" && (
               <label className="cost-label">
-                PUB Category
+                Bus Type
                 <select
                   className="cost-select"
                   value={pubCategory}
@@ -466,7 +457,7 @@ export default function ItineraryCostEstimationModal({ onClose }) {
                     setSubType("");
                   }}
                 >
-                  <option value="">Select category...</option>
+                  <option value="">Select bus type...</option>
                   {PUB_CATEGORIES.map(c => (
                     <option key={c.value} value={c.value}>{c.label}</option>
                   ))}
@@ -476,13 +467,17 @@ export default function ItineraryCostEstimationModal({ onClose }) {
 
             {subTypeOptions.length > 0 && (
               <label className="cost-label">
-                Sub-Type
+                {vehicleType === "PUB" ? "Bus Class" : 
+                 vehicleType === "PUJ" ? "Jeepney Type" :
+                 vehicleType === "Taxi" ? "Taxi Type" :
+                 vehicleType === "TNVS" ? "Service Type" :
+                 vehicleType === "UVE" ? "Van Type" : "Sub-Type"}
                 <select
                   className="cost-select"
                   value={subType}
                   onChange={(e) => setSubType(e.target.value)}
                 >
-                  <option value="">Select sub-type...</option>
+                  <option value="">Select option...</option>
                   {subTypeOptions.map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -515,66 +510,74 @@ export default function ItineraryCostEstimationModal({ onClose }) {
               </label>
             )}
           </div>
+
+          {selectedVehicle && (
+            <div style={{
+              marginTop: "12px",
+              padding: "12px 16px",
+              background: "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)",
+              borderRadius: "10px",
+              border: "1px solid #c4b5fd",
+              fontSize: "0.88rem",
+              color: "#5b21b6",
+              fontWeight: 500
+            }}>
+              ℹ️ {selectedVehicle.description}
+            </div>
+          )}
         </div>
 
         <div
           ref={mapRef}
           style={{
             width: "100%",
-            height: "300px",
+            height: "525px",
             borderRadius: "0px",
-            marginBottom: "12px",
+            marginBottom: "0px",
           }}
         />
 
         <div className="cost-body">
           {result ? (
             <>
-              <ul className="hotels-list">
-                <li className="hotels-item">
-                  <div className="hotels-item-main">
-                    <div className="hotels-name">
-                      {vehicleType === "PUB" && pubCategory
-                        ? `${pubCategory} - ${result["Sub-Type"]}`
-                        : `${result["Vehicle Type"]} - ${result["Sub-Type"]}`}
-                    </div>
-                    <div className="hotels-meta">
-                      Base Rate: ₱{result["Base Rate(First 5 or 4 kilometers)"]}
-                      <span className="hotels-dot">•</span>
-                      Rate/km: ₱{result["Rate per km (₱)"]}
-                      <span className="hotels-dot">•</span>
-                      Per Min: ₱{result["Per Minute Travel time"]}
-                    </div>
+              <div className="hotels-item" style={{ marginBottom: 0 }}>
+                <div className="hotels-item-main">
+                  <div className="hotels-name">
+                    {vehicleType === "PUB" && pubCategory
+                      ? `${pubCategory} - ${result["Sub-Type"]}`
+                      : `${selectedVehicle?.label.split(" ")[1] || result["Vehicle Type"]} - ${result["Sub-Type"]}`}
                   </div>
-                </li>
-              </ul>
-              <div style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "32px",
-                padding: "12px 18px 0 18px",
-                fontWeight: 700,
-                fontSize: "1.18rem"
-              }}>
-                <span style={{ color: "#2563eb" }}>
-                  Regular Fare: ₱{result.price.toFixed(2)}
-                </span>
-                <span style={{ color: "#10b981" }}>
-                  Discounted Fare: ₱{discountedFare}
-                </span>
+                  <div className="hotels-meta">
+                    Base Fare: ₱{result["Base Rate(First 5 or 4 kilometers)"]}
+                    <span className="hotels-dot">•</span>
+                    Per Kilometer: ₱{result["Rate per km (₱)"]}
+                    <span className="hotels-dot">•</span>
+                    Per Minute: ₱{result["Per Minute Travel time"]}
+                  </div>
+                </div>
+              </div>
+              <div className="cost-fare-summary">
+                <div className="cost-fare-regular">
+                  <div style={{ fontSize: "0.85rem", opacity: 0.8 }}>Regular Fare</div>
+                  <div>₱{result.price.toFixed(2)}</div>
+                </div>
+                <div className="cost-fare-discounted">
+                  <div style={{ fontSize: "0.85rem", opacity: 0.8 }}>Discounted Fare (PWD/Senior/Student)</div>
+                  <div>₱{discountedFare}</div>
+                </div>
               </div>
             </>
           ) : (
-            <div className="hotels-info">
+            <div className="cost-info">
               {!fromPlace || !toPlace 
-                ? "Enter origin and destination to calculate route distance."
+                ? "📍 Enter origin and destination to calculate route distance."
                 : !vehicleType
-                ? "Select a vehicle type to see fare estimates."
+                ? "🚗 Select a vehicle type to see fare estimates."
                 : vehicleType === "PUB" && !pubCategory
-                ? "Select PUB category."
+                ? "🚌 Select bus type (City or Provincial)."
                 : !subType
-                ? "Select a sub-type to see fare estimate."
-                : "Enter all details to automatically see the fare."}
+                ? `🎯 Select ${vehicleType === "PUB" ? "bus class" : "service type"} to see fare estimate.`
+                : "✨ Enter all details to automatically calculate the fare."}
             </div>
           )}
         </div>
@@ -582,6 +585,5 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     </div>
   );
 
-  // Render to body using Portal
   return ReactDOM.createPortal(modalContent, document.body);
 }
