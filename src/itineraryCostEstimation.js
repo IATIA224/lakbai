@@ -62,6 +62,7 @@ export default function ItineraryCostEstimationModal({ onClose }) {
   const [map, setMap] = useState(null);
   const markerRefs = useRef({});
   const routeRef = useRef(null);
+  const mapInitialized = useRef(false); // ADD THIS - track initialization
 
   const [fares, setFares] = useState([]);
   const [vehicleType, setVehicleType] = useState("");
@@ -133,32 +134,55 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     discountedFare = (result.price * 0.8).toFixed(2);
   }
 
-  // Init map
+  // Init map - FIX: Add cleanup and prevent re-initialization
   useEffect(() => {
-    if (map) return;
-    const m = L.map(mapRef.current, { zoomControl: true });
-    // Start with a Taguig-focused preview; fallback to Metro Manila / Philippines if needed
+    if (!mapRef.current || mapInitialized.current) return; // Check if already initialized
+    
     try {
-      m.fitBounds(TAGUIG_BOUNDS, { padding: [40, 40] });
-    } catch (e) {
+      const m = L.map(mapRef.current, { zoomControl: true });
+      
+      // Start with a Taguig-focused preview; fallback to Metro Manila / Philippines if needed
       try {
-        m.fitBounds(METRO_MANILA_BOUNDS, { padding: [40, 40] });
-      } catch (err) {
-        m.fitBounds(PHILIPPINES_BOUNDS);
+        m.fitBounds(TAGUIG_BOUNDS, { padding: [40, 40] });
+      } catch (e) {
+        try {
+          m.fitBounds(METRO_MANILA_BOUNDS, { padding: [40, 40] });
+        } catch (err) {
+          m.fitBounds(PHILIPPINES_BOUNDS);
+        }
       }
+      
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+      }).addTo(m);
+      
+      setMap(m);
+      mapInitialized.current = true; // Mark as initialized
+    } catch (error) {
+      console.error("Map initialization error:", error);
     }
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
-    }).addTo(m);
-    setMap(m);
-  }, [map]);
+
+    // Cleanup function
+    return () => {
+      if (map) {
+        map.remove();
+        mapInitialized.current = false;
+      }
+    };
+  }, []); // Empty dependency array - only run once
 
   // Place markers for from/to
   useEffect(() => {
     if (!map) return;
 
     // Remove old markers
-    Object.values(markerRefs.current).forEach(marker => map.removeLayer(marker));
+    Object.values(markerRefs.current).forEach(marker => {
+      try {
+        map.removeLayer(marker);
+      } catch (e) {
+        // Marker already removed
+      }
+    });
     markerRefs.current = {};
 
     const pinIcon = L.icon({
@@ -195,36 +219,48 @@ export default function ItineraryCostEstimationModal({ onClose }) {
 
     // Remove previous route
     if (routeRef.current) {
-      map.removeControl(routeRef.current);
+      try {
+        map.removeControl(routeRef.current);
+      } catch (e) {
+        // Control already removed
+      }
       routeRef.current = null;
     }
 
-    routeRef.current = L.Routing.control({
-      waypoints: [
-        L.latLng(Number(fromPlace.lat), Number(fromPlace.lon)),
-        L.latLng(Number(toPlace.lat), Number(toPlace.lon)),
-      ],
-      router: L.Routing.osrmv1({
-        serviceUrl: "https://router.project-osrm.org/route/v1",
-      }),
-      show: false,
-      addWaypoints: false,
-      draggableWaypoints: false,
-      fitSelectedRoutes: true,
-      lineOptions: { styles: [{ color: "#6c63ff", weight: 5 }] },
-      createMarker: () => null,
-    }).addTo(map);
+    try {
+      routeRef.current = L.Routing.control({
+        waypoints: [
+          L.latLng(Number(fromPlace.lat), Number(fromPlace.lon)),
+          L.latLng(Number(toPlace.lat), Number(toPlace.lon)),
+        ],
+        router: L.Routing.osrmv1({
+          serviceUrl: "https://router.project-osrm.org/route/v1",
+        }),
+        show: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: true,
+        lineOptions: { styles: [{ color: "#6c63ff", weight: 5 }] },
+        createMarker: () => null,
+      }).addTo(map);
 
-    routeRef.current.on("routesfound", function (e) {
-      const route = e.routes[0];
-      if (route && route.summary) {
-        setDistance((route.summary.totalDistance / 1000).toFixed(2));
-      }
-    });
+      routeRef.current.on("routesfound", function (e) {
+        const route = e.routes[0];
+        if (route && route.summary) {
+          setDistance((route.summary.totalDistance / 1000).toFixed(2));
+        }
+      });
+    } catch (error) {
+      console.error("Routing error:", error);
+    }
 
     return () => {
-      if (routeRef.current) {
-        map.removeControl(routeRef.current);
+      if (routeRef.current && map) {
+        try {
+          map.removeControl(routeRef.current);
+        } catch (e) {
+          // Control already removed
+        }
         routeRef.current = null;
       }
     };
