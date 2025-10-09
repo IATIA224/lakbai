@@ -149,7 +149,7 @@ export async function trackDestinationCompleted(userId, destination) {
           [destination.id || destination.name]: {
             name: destination.name || "Unknown",
             region: destination.region || "",
-            location: destination.location || "", // Include location field
+            location: destination.location || "", // ✅ Already here!
             completedBy: userId,
             completedAt: serverTimestamp(),
             latitude: coords?.latitude || null,
