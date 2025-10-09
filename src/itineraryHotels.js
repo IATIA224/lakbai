@@ -6,20 +6,20 @@ import "./itineraryHotels.css";
 const REGION_FILES = [
   { label: "NCR", file: "NCR.csv" },
   { label: "CAR", file: "CAR.csv" },
-  { label: "Region 1", file: "Region 1.csv" },
-  { label: "Region 2", file: "Region 2.csv" },
-  { label: "Region 3", file: "Region 3.csv" },
-  { label: "Region 4A", file: "Region 4A.csv" },
-  { label: "Region 4b", file: "Region 4b.csv" },
-  { label: "Region 5", file: "Region 5.csv" },
-  { label: "Region 6", file: "Region 6.csv" },
-  { label: "Region 7", file: "Region 7.csv" },
-  { label: "Region 8", file: "Region 8.csv" },
-  { label: "Region 9", file: "Region 9.csv" },
-  { label: "Region 10", file: "Region 10.csv" },
-  { label: "Region 11", file: "Region 11.csv" },
-  { label: "Region 12", file: "Region 12.csv" },
-  { label: "Region 13", file: "Region 13.csv" },
+  { label: "Region 1", file: "Region1.csv" },
+  { label: "Region 2", file: "Region2.csv" },
+  { label: "Region 3", file: "Region3.csv" },
+  { label: "Region 4A", file: "Region4A.csv" },
+  { label: "Region 4b", file: "Region4b.csv" },
+  { label: "Region 5", file: "Region5.csv" },
+  { label: "Region 6", file: "Region6.csv" },
+  { label: "Region 7", file: "Region7.csv" },
+  { label: "Region 8", file: "Region8.csv" },
+  { label: "Region 9", file: "Region9.csv" },
+  { label: "Region 10", file: "Region10.csv" },
+  { label: "Region 11", file: "Region11.csv" },
+  { label: "Region 12", file: "Region12.csv" },
+  { label: "Region 13", file: "Region13.csv" },
 ];
 
 // Minimal CSV parsing that supports quotes and commas
@@ -47,10 +47,12 @@ function splitCSVLine(line) {
   return out;
 }
 function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
+  text = text.replace(/^\uFEFF/, "").replace(/\u200B/g, "");
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (!lines.length) return { header: [], rows: [] };
   const header = splitCSVLine(lines[0]);
   const rows = [];
+
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCSVLine(lines[i]);
     if (cols.every((c) => !c.trim())) continue;
@@ -104,150 +106,165 @@ function isAccommodationType(t) {
 }
 
 // Load and normalize ALL rows for a region
-async function loadAllRows(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed to load CSV: ${res.status}`);
-  const text = await res.text();
-  const { rows } = parseCSV(text);
+async function loadAllRows(regionLabel) {
+  const config = REGION_FILES.find((r) => r.label === regionLabel);
+  if (!config) throw new Error(`Unknown region: ${regionLabel}`);
 
-  return rows.map((r) => ({
-    region: norm(r["Region"]),
-    type: norm(r["Enterprise Type"]),
-    accNo: norm(r["Accreditation No"]),
-    name: norm(r["Enterprise Name"]),
-    city: norm(r["City"]), // Only for NCR
-    province: norm(r["Province"]), // For other regions
-    municipality: norm(r["Municipality"]), // For other regions
-    address: norm(r["Business Address"]),
-    phone: norm(r["Contact Numbers"]),
-    website: norm(r["Business Website"]),
-    validity: norm(r["Accreditation Validity"]),
-  }));
+  const fileName = config.file; // No need to encode anymore since no spaces
+  const publicRoot = process.env.PUBLIC_URL || "";
+
+  const candidates = [
+    `${publicRoot}/data/${fileName}`,
+    `${publicRoot}/assets/data/${fileName}`,
+  ];
+
+  let lastError = null;
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        lastError = new Error(`Failed to load CSV: ${res.status}`);
+        continue;
+      }
+      const text = await res.text();
+      const { rows } = parseCSV(text);
+      return rows.map((r) => ({
+        region: norm(r["Region"]),
+        type: norm(r["Enterprise Type"]),
+        accNo: norm(r["Accreditation No"]),
+        name: norm(r["Enterprise Name"]),
+        city: norm(r["City"]),
+        province: norm(r["Province"]),
+        municipality: norm(r["Municipality"]),
+        address: norm(r["Business Address"]),
+        phone: norm(r["Contact Numbers"]),
+        website: norm(r["Business Website"]),
+        validity: norm(r["Accreditation Validity"]),
+      }));
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error(`Unable to load ${config.file}`);
+}
+
+function normalizeCity(city) {
+  if (!city) return "";
+  return city
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/ city$/i, "")
+    .replace(/\b./g, (c) => c.toUpperCase());
+}
+
+function normalizeProvince(province) {
+  if (!province) return "";
+  return province
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\b./g, (c) => c.toUpperCase());
 }
 
 export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
+  const [region, setRegion] = useState("NCR");
+  const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(null);
-  const [all, setAll] = useState([]);
-  const [region, setRegion] = useState(REGION_FILES[0].label); // Default to NCR
-  const [citySel, setCitySel] = useState("");
-  const [provinceSel, setProvinceSel] = useState("");
-  const [cityText, setCityText] = useState(""); // <-- Add this
-  const [regionFilter, setRegionFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
 
-  // Load CSV when region changes
+  const [locationFilter, setLocationFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
     if (!open) return;
-    let mounted = true;
+    let active = true;
     setLoading(true);
-    setErr(null);
-    setAll([]);
-    setCitySel("");
-    setProvinceSel("");
-    const regionObj = REGION_FILES.find((r) => r.label === region);
-    const url = `/data/${regionObj.file}`;
-    loadAllRows(url)
+    setError(null);
+    setAllRows([]);
+    setLocationFilter("");
+
+    loadAllRows(region)
       .then((rows) => {
-        if (!mounted) return;
-        setAll(rows);
+        if (!active) return;
+        setAllRows(rows);
         setLoading(false);
       })
-      .catch((e) => {
-        if (!mounted) return;
-        setErr(e);
+      .catch((err) => {
+        if (!active) return;
+        console.error(`Failed loading ${region}:`, err);
+        setError(err);
         setLoading(false);
       });
+
     return () => {
-      mounted = false;
+      active = false;
     };
   }, [open, region]);
 
-  // Get cities for NCR, provinces for others
-  function normalizeCity(city) {
-    if (!city) return "";
-    let c = city.trim().toLowerCase();
-    c = c.replace(/ city$/, "");
-    c = c.replace(/\s+/g, " ");
-    return c.charAt(0).toUpperCase() + c.slice(1);
-  }
+  const locations = useMemo(() => {
+    const set = new Set();
+    allRows.forEach((row) => {
+      if (!isAccommodationType(row.type)) return;
+      if (region === "NCR" && row.city) {
+        const c = normalizeCity(row.city);
+        if (c) set.add(`${c} City`);
+      } else if (region !== "NCR" && row.province) {
+        set.add(normalizeProvince(row.province));
+      }
+    });
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [allRows, region]);
 
-  function normalizeProvince(province) {
-    if (!province) return "";
-    let p = province.trim().toLowerCase();
-    p = p.replace(/\s+/g, " ");
-    return p.charAt(0).toUpperCase() + p.slice(1);
-  }
+  const filtered = useMemo(() => {
+    let rows = allRows.filter((row) => isAccommodationType(row.type));
 
-  const cities = useMemo(() => {
-    if (region === "NCR") {
-      const set = new Set();
-      all.forEach((r) => {
-        if (r.city) set.add(normalizeCity(r.city));
-      });
-      return Array.from(set)
-        .map((c) => c + " City")
-        .sort((a, b) => a.localeCompare(b));
+    if (locationFilter) {
+      if (region === "NCR") {
+        rows = rows.filter(
+          (row) => `${normalizeCity(row.city)} City` === locationFilter
+        );
+      } else {
+        rows = rows.filter(
+          (row) =>
+            normalizeProvince(row.province) === normalizeProvince(locationFilter)
+        );
+      }
     }
-    return [];
-  }, [all, region]);
 
-  const provinces = useMemo(() => {
-    if (region !== "NCR") {
-      const set = new Set();
-      all.forEach((r) => {
-        if (r.province && isAccommodationType(r.type)) {
-          set.add(normalizeProvince(r.province));
-        }
-      });
-      return Array.from(set).sort((a, b) => a.localeCompare(b));
-    }
-    return [];
-  }, [all, region]);
-
-  // Filter results
-  const results = useMemo(() => {
-    let rows = all.filter((r) => isAccommodationType(r.type));
-    if (region === "NCR" && citySel) {
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
       rows = rows.filter(
-        (r) => normalizeCity(r.city) + " City" === citySel
-      );
-    } else if (region !== "NCR" && provinceSel) {
-      rows = rows.filter(
-        (r) => normalizeProvince(r.province) === normalizeProvince(provinceSel)
+        (row) =>
+          row.name.toLowerCase().includes(q) ||
+          row.address.toLowerCase().includes(q) ||
+          row.city.toLowerCase().includes(q) ||
+          row.municipality.toLowerCase().includes(q) ||
+          row.province.toLowerCase().includes(q)
       );
     }
-    if (cityText) {
-      const normText = cityText.trim().toLowerCase();
-      rows = rows.filter(
-        (r) =>
-          (r.city && r.city.toLowerCase().includes(normText)) ||
-          (r.municipality && r.municipality.toLowerCase().includes(normText)) ||
-          (r.province && r.province.toLowerCase().includes(normText))
-      );
-    }
-    // Deduplicate by name + address
+
     const seen = new Set();
-    const unique = [];
-    for (const r of rows) {
-      const key = `${r.name}|${r.address}`.toLowerCase();
-      if (seen.has(key)) continue;
+    return rows.filter((row) => {
+      const key = `${row.name}|${row.address}`.toLowerCase();
+      if (seen.has(key)) return false;
       seen.add(key);
-      unique.push(r);
-    }
-    return unique;
-  }, [all, region, citySel, provinceSel, cityText]);
+      return true;
+    });
+  }, [allRows, region, locationFilter, searchQuery]);
 
   if (!open) return null;
 
-  const modalContent = (
+  return ReactDOM.createPortal(
     <div className="hotels-backdrop" onClick={onClose}>
       <div className="hotels-modal" onClick={(e) => e.stopPropagation()}>
         <div className="hotels-header">
-          <div className="hotels-title">🏨 DOT-Accredited Hotels & Accommodations</div>
-          <button className="hotels-close" onClick={onClose}>×</button>
+          <div className="hotels-title">
+            🏨 DOT-Accredited Hotels & Accommodations
+          </div>
+          <button className="hotels-close" onClick={onClose}>
+            ×
+          </button>
         </div>
 
         <div className="hotels-controls">
@@ -255,26 +272,31 @@ export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
             Region
             <select
               className="hotels-select"
-              value={regionFilter}
-              onChange={(e) => setRegionFilter(e.target.value)}
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
             >
-              <option value="">All Regions</option>
               {REGION_FILES.map((r) => (
-                <option key={r.label} value={r.label}>{r.label}</option>
+                <option key={r.label} value={r.label}>
+                  {r.label}
+                </option>
               ))}
             </select>
           </label>
 
           <label className="hotels-label">
-            Type
+            {region === "NCR" ? "City" : "Province"}
             <select
               className="hotels-select"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
             >
-              <option value="">All Types</option>
-              {all.map((a) => (
-                <option key={a.type} value={a.type}>{a.type}</option>
+              <option value="">
+                All {region === "NCR" ? "Cities" : "Provinces"}
+              </option>
+              {locations.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
               ))}
             </select>
           </label>
@@ -291,59 +313,63 @@ export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
         </div>
 
         <div className="hotels-body">
-          {error ? (
-            <div className="hotels-error">{error}</div>
-          ) : results.length === 0 ? (
+          {loading ? (
+            <div className="hotels-info">Loading accommodations…</div>
+          ) : error ? (
+            <div className="hotels-error">{error.message}</div>
+          ) : filtered.length === 0 ? (
             <div className="hotels-info">
-              No hotels found matching your criteria. Try adjusting the filters.
+              No hotels found. Try adjusting the filters.
             </div>
           ) : (
             <ul className="hotels-list">
-              {results.map((r) => (
-                <li className="hotels-item" key={`${r.accNo}-${r.name}-${r.address}`}>
+              {filtered.map((row) => (
+                <li
+                  className="hotels-item"
+                  key={`${row.accNo}-${row.name}-${row.address}`}
+                >
                   <div className="hotels-item-main">
-                    <div className="hotels-name">{r.name || "—"}</div>
+                    <div className="hotels-name">{row.name || "—"}</div>
                     <div className="hotels-meta">
-                      <span className="hotels-badge">{r.type || "Accommodation"}</span>
+                      <span className="hotels-badge">
+                        {row.type || "Accommodation"}
+                      </span>
                       <span className="hotels-dot">•</span>
-                      {region === "NCR" ? (
-                        <span>{r.city}</span>
-                      ) : (
-                        <span>{r.province}</span>
-                      )}
+                      <span>
+                        {region === "NCR"
+                          ? row.city || "N/A"
+                          : row.province || "N/A"}
+                      </span>
                     </div>
-                    <div className="hotels-address">{r.address || "No address"}</div>
+                    <div className="hotels-address">
+                      {row.address || "No address"}
+                    </div>
                     <div className="hotels-contact">
-                      {r.phone ? <span>☎ {r.phone}</span> : null}
-                      {r.website ? (
-                        /^[\w\-.]+@(?:gmail\.com|yahoo\.com|outlook\.com|hotmail\.com)$/i.test(r.website.trim())
-                          ? (
-                            <a
-                              href={`mailto:${r.website.trim()}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Email
-                            </a>
-                          )
-                          : (
-                            <a
-                              href={r.website.trim().startsWith("http") ? r.website.trim() : `https://${r.website.trim()}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Website
-                            </a>
-                          )
-                      ) : null}
-                      {r.validity ? <span className="hotels-valid">Valid until: {r.validity}</span> : null}
+                      {row.phone && <span>☎ {row.phone}</span>}
+                      {row.website && (
+                        <a
+                          href={
+                            row.website.startsWith("http")
+                              ? row.website
+                              : `https://${row.website}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Website
+                        </a>
+                      )}
+                      {row.validity && (
+                        <span className="hotels-valid">
+                          Valid until: {row.validity}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="hotels-item-actions">
                     <button
                       className="hotels-select-btn"
-                      onClick={() => onSelect && onSelect(r)}
-                      title="Add this accommodation to itinerary"
+                      onClick={() => onSelect?.(row)}
                     >
                       Add in itinerary
                     </button>
@@ -354,9 +380,7 @@ export default function ItineraryHotelsModal({ open, onClose, onSelect }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
-
-  // Render to body using Portal
-  return ReactDOM.createPortal(modalContent, document.body);
 }
