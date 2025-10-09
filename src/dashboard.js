@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { addTripForCurrentUser } from './Itinerary';
+import { trackDestinationAdded } from './itinerary_Stats';
 
 import { signOut } from 'firebase/auth';
 import { 
-  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc, onSnapshot
+  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import './dashboardBanner.css';
@@ -119,6 +122,104 @@ function Dashboard({ setShowAIModal }) {
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarksLoading, setBookmarksLoading] = useState(true);
 
+  // ref to the container that holds the bookmark items (popup will be positioned relative to this)
+  const bookmarksContainerRef = useRef(null);
+  // which bookmark's action-bar is open (id or null)
+  const actionsRef = useRef(null);
+  const anchorRef = useRef(null); // store the anchor button element
+  const [openActionsId, setOpenActionsId] = useState(null);
+  const [actionsPos, setActionsPos] = useState({ top: 0, left: 0, anchorRect: null });
+  
+  // compute popup position relative to bookmarksContainerRef so it stays inside that parent
+  const computeAndSetPos = (anchorEl) => {
+    if (!anchorEl || !bookmarksContainerRef.current) return;
+    const anchorRect = anchorEl.getBoundingClientRect();
+    const parent = bookmarksContainerRef.current;
+    const parentRect = parent.getBoundingClientRect();
+
+    // We want the popup to appear on the RIGHT side of the parent container.
+    // Compute left as parent.width - popupWidth - margin (relative to parent + scroll)
+    const margin = 8;
+    const popup = actionsRef.current;
+
+    // provisional left/top relative to parent
+    let left = margin + parent.scrollLeft; // will be adjusted once we know popup width
+    // vertically center the popup against the anchor by default
+    let top = anchorRect.top - parentRect.top + parent.scrollTop;
+
+    if (popup) {
+      const popupRect = popup.getBoundingClientRect();
+      const popupW = popupRect.width || 160;
+      const popupH = popupRect.height || 120;
+
+      // Left positioned so popup's right edge aligns with parent's right edge (inside parent)
+      left = Math.max(margin, parentRect.width - popupW - margin) + parent.scrollLeft;
+
+      // center vertically on anchor
+      const anchorCenter = anchorRect.top + (anchorRect.height / 2);
+      top = Math.round(anchorCenter - parentRect.top - popupH / 2 + parent.scrollTop);
+
+      // clamp top so popup stays inside parent vertically
+      const maxTop = Math.max(margin, parentRect.height - popupH - margin) + parent.scrollTop;
+      top = Math.min(Math.max(margin + parent.scrollTop, top), maxTop);
+    } else {
+      // if popup not yet rendered, position top roughly at anchor top (will refine after mount)
+      top = anchorRect.top - parentRect.top + parent.scrollTop;
+      // left will be adjusted after popup measures
+      left = Math.max(margin, parentRect.width - 160 - margin) + parent.scrollLeft;
+    }
+
+    setActionsPos({ top, left, anchorRect });
+  };
+  
+  const toggleBookmarkActions = (e, id) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    if (openActionsId === id) {
+      setOpenActionsId(null);
+      anchorRef.current = null;
+      return;
+    }
+    anchorRef.current = btn; // store anchor element so we can track it
+    computeAndSetPos(btn); // initial position inside parent
+    setOpenActionsId(id);
+  };
+  
+  // close popup when clicking outside
+  useEffect(() => {
+    const handleDocClick = (ev) => {
+      if (!actionsRef.current) return;
+      if (!actionsRef.current.contains(ev.target) && !anchorRef.current?.contains(ev.target)) {
+        setOpenActionsId(null);
+        anchorRef.current = null;
+      }
+    };
+    document.addEventListener('click', handleDocClick);
+    return () => document.removeEventListener('click', handleDocClick);
+  }, []);
+  
+  // recompute position on parent scroll/resize so popup stays attached to anchor inside parent
+  useEffect(() => {
+    if (!openActionsId) return;
+    let raf = null;
+    const onChange = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (anchorRef.current) computeAndSetPos(anchorRef.current);
+      });
+    };
+    const parent = bookmarksContainerRef.current || window;
+    parent.addEventListener ? parent.addEventListener('scroll', onChange, { passive: true }) : window.addEventListener('scroll', onChange, { passive: true });
+    window.addEventListener('resize', onChange);
+    const t = setTimeout(() => computeAndSetPos(anchorRef.current), 0);
+    return () => {
+      clearTimeout(t);
+      if (raf) cancelAnimationFrame(raf);
+      parent.removeEventListener ? parent.removeEventListener('scroll', onChange) : window.removeEventListener('scroll', onChange);
+      window.removeEventListener('resize', onChange);
+    };
+  }, [openActionsId]);
+
   // Fetch 2 most recent bookmarks for the current user
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -228,6 +329,110 @@ function Dashboard({ setShowAIModal }) {
     }
   ];
 
+  // --- Bookmark preview action handlers (add inside Dashboard before return) ---
+  const openBookmarkDetails = (bm) => {
+    try {
+      // show details modal for the bookmark
+      if (typeof setSelectedCard === 'function') setSelectedCard(bm);
+      if (typeof setDetailsModalOpen === 'function') setDetailsModalOpen(true);
+    } catch (err) {
+      console.error('openBookmarkDetails error', err);
+    }
+  };
+
+  const addBookmarkToTrip = (bm) => {
+    try {
+      // lightweight: navigate to itinerary and pass bookmark as prefill
+      if (typeof navigate === 'function') {
+        navigate('/itinerary', { state: { prefill: bm } });
+      }
+    } catch (err) {
+      console.error('addBookmarkToTrip error', err);
+    }
+  };
+
+  const removeBookmarkPreview = async (id) => {
+    try {
+      // optimistic UI remove
+      if (typeof setBookmarks === 'function') {
+        setBookmarks(prev => prev ? prev.filter(b => b.id !== id) : []);
+      }
+
+      // try remove from Firestore if user present
+      const user = auth && auth.currentUser ? auth.currentUser : null;
+      if (user && db && typeof deleteDoc === 'function' && typeof doc === 'function') {
+        await deleteDoc(doc(db, 'users', user.uid, 'bookmarks', id));
+      }
+    } catch (err) {
+      console.error('removeBookmarkPreview error', err);
+      // ensure UI consistency
+      if (typeof setBookmarks === 'function') {
+        setBookmarks(prev => prev ? prev.filter(b => b.id !== id) : []);
+      }
+    }
+  };
+
+  // Add-to-trip UI state (to mirror bookmark.js behavior)
+  const [addingTripId, setAddingTripId] = useState(null);
+  const [addedTripId, setAddedTripId] = useState(null);
+  
+  // Add-to-trip handler (similar to bookmark.js)
+  const onAddToTrip = async (dest) => {
+    const u = auth.currentUser;
+    if (!u) { alert('Please sign in to add to My Trips.'); return; }
+    setAddingTripId(dest.id);
+    try {
+      const destinationData = {
+        id: dest.id,
+        name: dest.name || '',
+        display_name: dest.name || '',
+        region: dest.region || dest.locationRegion || '',
+        location: dest.location || '',
+        description: dest.description || '',
+        lat: dest.lat || dest.latitude,
+        lon: dest.lon || dest.longitude,
+        place_id: dest.place_id || dest.id,
+        rating: dest.rating || 0,
+        price: dest.price || '',
+        priceTier: dest.priceTier || null,
+        tags: Array.isArray(dest.tags) ? dest.tags : [],
+        categories: Array.isArray(dest.categories) ? dest.categories : [],
+        bestTime: dest.bestTime || dest.best_time || '',
+        image: dest.image || '',
+      };
+
+      // add to itinerary (helper from Itinerary.js)
+      if (typeof addTripForCurrentUser === 'function') {
+        await addTripForCurrentUser(destinationData);
+      } else {
+        // fallback: navigate to itinerary with prefill
+        if (typeof navigate === 'function') navigate('/itinerary', { state: { prefill: destinationData } });
+      }
+
+      // optional analytics / stats helper
+      try {
+        if (typeof trackDestinationAdded === 'function') {
+          await trackDestinationAdded(u.uid, {
+            id: dest.id,
+            name: dest.name,
+            region: dest.region || dest.locationRegion,
+            location: dest.location,
+            latitude: dest.lat || dest.latitude,
+            longitude: dest.lon || dest.longitude,
+          });
+        }
+      } catch (e) { /* ignore tracking errors */ }
+
+      setAddedTripId(dest.id);
+      setTimeout(() => setAddedTripId(null), 1200);
+    } catch (e) {
+      console.error('Failed to add to My Trips:', e);
+      alert('Failed to add to My Trips.');
+    } finally {
+      setAddingTripId(null);
+    }
+  };
+
   return (
     <>
       {/* Hero Banner */}
@@ -299,7 +504,7 @@ function Dashboard({ setShowAIModal }) {
             {tripsLoading ? (
               <div className="dashboard-preview-empty">Loading trips…</div>
             ) : trips && trips.length > 0 ? (
-              trips.map(trip => (
+              trips.slice(0, 2).map(trip => (
                 <div className="dashboard-preview-trip" key={trip.id || trip.name}>
                   <img src={trip.image || '/placeholder.png'} alt={trip.name || trip.title} className="dashboard-preview-img" />
                   <div className="dashboard-preview-info">
@@ -333,7 +538,7 @@ function Dashboard({ setShowAIModal }) {
           >
             + Add new bookmark
           </button>
-          <div className="dashboard-preview-list">
+          <div className="dashboard-preview-list" ref={bookmarksContainerRef} style={{ position: 'relative' }}>
             {bookmarksLoading ? (
               <div className="dashboard-preview-empty">Loading bookmarks…</div>
             ) : bookmarks.length === 0 ? (
@@ -342,23 +547,98 @@ function Dashboard({ setShowAIModal }) {
               </div>
             ) : (
               bookmarks.map(bm => (
-                <div className="dashboard-preview-bookmark" key={bm.id}>
-                  <img 
-                    src={bm.image || getImageForDestination(bm.name)} 
-                    alt={bm.title || bm.name} 
-                    className="dashboard-preview-img" 
-                  />
-                  <div className="dashboard-preview-bookmark-info">
-                    <div className="dashboard-preview-bookmark-title">{bm.title || bm.name}</div>
-                    <div className="dashboard-preview-bookmark-desc">{bm.desc || bm.description}</div>
+                <div
+                  className="dashboard-preview-bookmark"
+                  key={bm.id}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                    <img
+                      src={bm.image || getImageForDestination(bm.name) || '/placeholder.png'}
+                      alt={bm.title || bm.name}
+                      className="dashboard-preview-img"
+                    />
+                    <div className="dashboard-preview-bookmark-info">
+                      <div className="dashboard-preview-bookmark-title">{bm.title || bm.name}</div>
+                      <div className="dashboard-preview-bookmark-desc">{bm.desc || bm.description}</div>
+                    </div>
                   </div>
-                  <span className="dashboard-preview-dots">⋯</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+
+                  {/* three-dot toggle + conditional action bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+                    <button
+                      className="dashboard-preview-dots"
+                      aria-label="Actions"
+                      title="Actions"
+                      onClick={(e) => toggleBookmarkActions(e, bm.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        fontSize: 20,
+                        cursor: 'pointer',
+                        padding: '6px'
+                      }}
+                    >
+                      ⋯
+                    </button>
+
+                    {/* render popup inside parent so it stays positioned relative to the list */}
+                    {openActionsId === bm.id && (
+                      <div
+                        ref={actionsRef}
+                        className="dashboard-preview-actions"
+                        style={{
+                          position: 'absolute',
+                          top: actionsPos.top,
+                          left: actionsPos.left,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                          background: '#fff',
+                          borderRadius: 8,
+                          padding: 8,
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                          zIndex: 2000,
+                          minWidth: 160
+                        }}
+                      >
+                        <button
+                          className="dashboard-preview-btn"
+                          onClick={() => { openBookmarkDetails(bm); setOpenActionsId(null); }}
+                          aria-label="View details"
+                          title="View details"
+                          style={{ padding: '6px 10px', textAlign: 'left' }}
+                        >
+                          🔎 View
+                        </button>
+                        <button
+                          className={`itn-btn success ${addedTripId === bm.id ? 'btn-success' : ''}`}
+                          onClick={() => { onAddToTrip(bm); setOpenActionsId(null); }}
+                          disabled={addingTripId === bm.id}
+                          aria-busy={addingTripId === bm.id}
+                          title="Add to Trip"
+                          style={{ padding: '6px 10px', textAlign: 'left' }}
+                        >
+                          ＋ Add to Trip
+                        </button>
+                        <button
+                          className="dashboard-preview-btn"
+                          onClick={() => { removeBookmarkPreview(bm.id); setOpenActionsId(null); }}
+                          aria-label="Remove bookmark"
+                          title="Remove"
+                          style={{ padding: '6px 10px', background: '#ffecec', textAlign: 'left' }}
+                        >
+                          🗑️ Remove
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                 </div>
+               ))
+             )}
+           </div>
+         </div>
+       </div>
 
       {/* Personalized Section */}
       <div className="personalized-section-dashboard">
