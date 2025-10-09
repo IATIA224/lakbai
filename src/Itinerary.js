@@ -39,6 +39,7 @@ import {
   trackDestinationUncompleted,
   trackDestinationRemoved,
 } from "./itinerary_Stats";
+import { logActivity } from "./profile"; // ADD THIS IMPORT
 
 // ==================== CACHING LAYER ====================
 const ITINERARY_CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
@@ -794,6 +795,10 @@ export default function Itinerary() {
   const [shareSelected, setShareSelected] = useState(new Set());
   const [activeTab, setActiveTab] = useState("personal");
 
+  // ADD THESE MISSING STATE VARIABLES
+  const [addingTripId, setAddingTripId] = useState(null);
+  const [addedTripId, setAddedTripId] = useState(null);
+
   const [user, setUser] = useState(null);
 
   const friends = useFriendsList(user);
@@ -1367,7 +1372,7 @@ export default function Itinerary() {
       }
     } catch (e) {
       console.error('Failed to add to My Trips:', e);
-      showError(`Failed to add to My Trips: ${e.message || 'Unknown error'}`);
+      alert(`Failed to add to My Trips: ${e.message || 'Unknown error'}`);
     } finally {
       setAddingTripId(null);
     }
