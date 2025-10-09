@@ -98,11 +98,11 @@ async function logActivity(text, icon = "🔵") {
   }
 }
 
-// ADD THIS HELPER FUNCTION after logActivity (around line 90)
+// Fix 1: Import 'query' from firebase/firestore (it's already imported as fsQuery)
 async function ensureCollectionExists(path) {
   try {
     const colRef = collection(db, path);
-    const snap = await getDocs(query(colRef, limit(1)));
+    const snap = await getDocs(fsQuery(colRef, limit(1))); // CHANGE: query -> fsQuery
     if (snap.empty) {
       const tempRef = doc(colRef);
       await setDoc(tempRef, { _placeholder: true, createdAt: serverTimestamp() });
@@ -167,7 +167,7 @@ export default function Bookmarks2() {
   const [totalCount, setTotalCount] = useState(0);
 
   const [viewedDestinations, setViewedDestinations] = useState(new Set());
-  const [copyingId, setCopyingId] = useState(null);
+  const [copyingId, setCopyingId] = useState(null); // Fix 2: This is already here, good!
 
   // ==================== OPTIMIZED: Load destinations with caching ====================
   useEffect(() => {
