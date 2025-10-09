@@ -1678,4 +1678,21 @@ export async function unlockAchievement(achievementId, achievementName) {
   }
 }
 
+// ADD THIS EXPORT - find the logActivity function and add export keyword
+export async function logActivity(text, icon = "🔵") {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    await addDoc(collection(db, "activities"), {
+      userId: user.uid,
+      text,
+      icon,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+}
+
 export default Profile;
