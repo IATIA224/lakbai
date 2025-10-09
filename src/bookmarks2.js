@@ -141,7 +141,7 @@ export default function Bookmarks2() {
   const [isLoading, setIsLoading] = useState(true);
   const [cloudImages, setCloudImages] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [regions, setRegions] = useState([]); // ADD THIS LINE - was missing!
+  const [regions, setRegions] = useState([]);
 
   // UI state
   const [query, setQuery] = useState('');
@@ -167,7 +167,7 @@ export default function Bookmarks2() {
   const [totalCount, setTotalCount] = useState(0);
 
   const [viewedDestinations, setViewedDestinations] = useState(new Set());
-  const [copyingId, setCopyingId] = useState(null); // Fix 2: This is already here, good!
+  const [copyingId, setCopyingId] = useState(null);
 
   // ==================== OPTIMIZED: Load destinations with caching ====================
   useEffect(() => {
@@ -892,6 +892,43 @@ export default function Bookmarks2() {
     }
   }, []);
 
+  // MOVE handleCopyToMyItinerary INSIDE the component (before the return statement)
+  const handleCopyToMyItinerary = useCallback(async (shared) => {
+    const user = auth.currentUser;
+    if (!user || !shared) return;
+    if (!shared.items || shared.items.length === 0) return;
+    
+    try {
+      setCopyingId(shared.id); // Now this works!
+      const batch = writeBatch(db);
+      
+      for (const it of shared.items) {
+        const { id: sharedItemId, ...payload } = it;
+        const destRef = doc(collection(db, "itinerary", user.uid, "items"));
+        batch.set(destRef, {
+          ...payload,
+          location: it.location || '',
+          importedAt: serverTimestamp(),
+          isShared: false,
+          sharedFrom: shared.id
+        });
+      }
+      
+      await batch.commit();
+      await updateDoc(doc(db, "sharedItineraries", shared.id), {
+        lastUpdated: serverTimestamp()
+      });
+      
+      alert('Itinerary copied successfully!');
+      navigate('/itinerary');
+    } catch (e) {
+      console.error("Copy to My Itinerary failed:", e);
+      alert("Failed to copy. Please try again.");
+    } finally {
+      setCopyingId(null); // Now this works too!
+    }
+  }, [navigate]);
+
   return (
     <div className="App">
       {isLoading && (
@@ -1529,35 +1566,4 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
     throw err;
   }
 }
-
-// Around line 1050-1100, update handleCopyToMyItinerary to include location:
-const handleCopyToMyItinerary = async (shared) => {
-  const user = auth.currentUser; // ADD THIS LINE - get user from auth
-  if (!user || !shared) return;
-  if (!shared.items || shared.items.length === 0) return;
-  try {
-    setCopyingId(shared.id);
-    const batch = writeBatch(db);
-    for (const it of shared.items) {
-      const { id: sharedItemId, ...payload } = it;
-      const destRef = doc(collection(db, "itinerary", user.uid, "items"));
-      batch.set(destRef, {
-        ...payload,
-        location: it.location || '',
-        importedAt: serverTimestamp(),
-        isShared: false,
-        sharedFrom: shared.id
-      });
-    }
-    await batch.commit();
-    await updateDoc(doc(db, "sharedItineraries", shared.id), {
-      lastUpdated: serverTimestamp()
-    });
-  } catch (e) {
-    console.error("Copy to My Itinerary failed:", e);
-    alert("Failed to copy. Please try again.");
-  } finally {
-    setCopyingId(null);
-  }
-};
 
