@@ -29,14 +29,6 @@ async function logActivity(text, icon = "🔵") {
   }
 }
 
-// Add at the top after imports:
-const BOOKMARK_CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
-let bookmarkCache = {
-  data: null,
-  timestamp: null,
-  userId: null
-};
-
 function Bookmark() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -119,18 +111,6 @@ function Bookmark() {
 
   // Read ONLY current user's bookmarks collection and merge with destination data if needed
   const fetchBookmarkedDestinations = async (uid) => {
-    // Check cache
-    if (
-      bookmarkCache.data &&
-      bookmarkCache.userId === uid &&
-      bookmarkCache.timestamp &&
-      Date.now() - bookmarkCache.timestamp < BOOKMARK_CACHE_DURATION
-    ) {
-      console.log('✅ Using cached bookmarks');
-      setItems(bookmarkCache.data);
-      return;
-    }
-
     try {
       const colRef = collection(db, 'users', uid, 'bookmarks');
       const snap = await getDocs(fsQuery(colRef, orderBy('createdAt', 'desc')));
@@ -165,13 +145,6 @@ function Bookmark() {
       );
       
       const validRows = rows.filter(Boolean);
-      
-      // Cache the results
-      bookmarkCache = {
-        data: validRows,
-        timestamp: Date.now(),
-        userId: uid
-      };
       
       setItems(validRows);
     } catch (e) {

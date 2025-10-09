@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import ReactDOM from 'react-dom'; // ADD THIS IMPORT
 import './Styles/bookmark2.css';
 import { db, auth } from './firebase';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +21,9 @@ import {
   limit,
   startAfter,
   orderBy,
-  getCountFromServer, // ADD THIS
+  getCountFromServer,
+  writeBatch, // ADD THIS IMPORT
+  updateDoc,  // ADD THIS IMPORT
 } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary';
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
@@ -95,6 +98,41 @@ async function logActivity(text, icon = "🔵") {
   }
 }
 
+// ADD THIS HELPER FUNCTION after logActivity (around line 90)
+async function ensureCollectionExists(path) {
+  try {
+    const colRef = collection(db, path);
+    const snap = await getDocs(query(colRef, limit(1)));
+    if (snap.empty) {
+      const tempRef = doc(colRef);
+      await setDoc(tempRef, { _placeholder: true, createdAt: serverTimestamp() });
+      await deleteDoc(tempRef);
+    }
+  } catch (error) {
+    console.warn(`Could not ensure collection ${path} exists:`, error);
+  }
+}
+
+// ADD THIS HELPER FUNCTION after ensureCollectionExists
+async function checkMiniPlannerAchievement(user) {
+  try {
+    if (!user?.uid) return;
+    
+    const sharedQuery = fsQuery(
+      collection(db, 'sharedItineraries'),
+      fsWhere('sharedBy', '==', user.uid)
+    );
+    
+    const snapshot = await getDocs(sharedQuery);
+    
+    if (snapshot.size >= 1) {
+      await unlockAchievement(11, "Mini Planner");
+    }
+  } catch (error) {
+    console.error('Error checking Mini Planner achievement:', error);
+  }
+}
+
 export default function Bookmarks2() {
   const [destinations, setDestinations] = useState([]);
   const navigate = useNavigate();
@@ -103,6 +141,7 @@ export default function Bookmarks2() {
   const [isLoading, setIsLoading] = useState(true);
   const [cloudImages, setCloudImages] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [regions, setRegions] = useState([]); // ADD THIS LINE - was missing!
 
   // UI state
   const [query, setQuery] = useState('');
@@ -125,9 +164,10 @@ export default function Bookmarks2() {
   const pageSize = 21;
   const [lastVisible, setLastVisible] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState(0); // ADD THIS LINE - it was missing!
+  const [totalCount, setTotalCount] = useState(0);
 
   const [viewedDestinations, setViewedDestinations] = useState(new Set());
+  const [copyingId, setCopyingId] = useState(null);
 
   // ==================== OPTIMIZED: Load destinations with caching ====================
   useEffect(() => {
@@ -226,12 +266,6 @@ export default function Bookmarks2() {
   }, []);
 
   // Regions/Categories derived from Firestore data
-  const regions = useMemo(
-    () => [...new Set(destinations.map((d) => d.region || '').filter(Boolean))]
-      .sort((a, b) => String(a).localeCompare(String(b))),
-    [destinations]
-  );
-
   const categoriesMemo = useMemo(() => {
     const s = new Set();
     destinations.forEach((d) => (d.categories || []).forEach((c) => s.add(c || '')));
@@ -1498,6 +1532,7 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
 
 // Around line 1050-1100, update handleCopyToMyItinerary to include location:
 const handleCopyToMyItinerary = async (shared) => {
+  const user = auth.currentUser; // ADD THIS LINE - get user from auth
   if (!user || !shared) return;
   if (!shared.items || shared.items.length === 0) return;
   try {
@@ -1508,7 +1543,7 @@ const handleCopyToMyItinerary = async (shared) => {
       const destRef = doc(collection(db, "itinerary", user.uid, "items"));
       batch.set(destRef, {
         ...payload,
-        location: it.location || '', // ADD THIS - Preserve location when copying
+        location: it.location || '',
         importedAt: serverTimestamp(),
         isShared: false,
         sharedFrom: shared.id
