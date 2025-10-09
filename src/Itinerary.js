@@ -1158,6 +1158,7 @@ export default function Itinerary() {
           id: current.id,
           name: current.name,
           region: current.region,
+          location: current.location, // ADD THIS LINE
           arrival: current.arrival,
           departure: current.departure,
         });
@@ -1172,6 +1173,7 @@ export default function Itinerary() {
           id: current.id,
           name: current.name,
           region: current.region,
+          location: current.location, // ADD THIS LINE TOO
         });
       }
     } catch (e) {
@@ -1236,6 +1238,7 @@ export default function Itinerary() {
             id: it.id,
             name: it.name,
             region: it.region,
+            location: it.location, // ADD THIS LINE
             arrival: it.arrival,
             departure: it.departure,
           });
