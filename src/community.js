@@ -211,7 +211,7 @@ function ShareTripModal({ onClose, onCreate }) {
 
             {previews.length > 0 && (
               <div className="thumbs">
-                <div className="thumb">
+                <div className="thumb-community">
                   <img src={previews[carouselIdx]} alt={`upload ${carouselIdx + 1}`} />
                   {/* Remove button for current image */}
                   <button
