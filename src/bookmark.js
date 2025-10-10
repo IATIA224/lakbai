@@ -819,7 +819,7 @@ function Bookmark() {
                     disabled={removingIds[d.id] === true}
                     aria-busy={removingIds[d.id] === true}
                   >
-                    <span>🗑️</span> Remove
+                    <span className="bm-trash-responsive">🗑️</span> <span className='bm-remove-text'>Remove</span>
                   </button>
                 </div>
               </div>
@@ -834,10 +834,25 @@ function Bookmark() {
           <div className="bm-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <button className="bm-modal-close" onClick={closeDetails} aria-label="Close details">✕</button>
 
-            <div className="bm-modal-hero">
-              <div className="bm-modal-sky" />
-              <div className="bm-modal-wave" />
-            </div>
+              <div className="bm-modal-hero">
+                {selected && getImageForDestination(selected.name) ? (
+                  <img
+                    src={getImageForDestination(selected.name)}
+                    alt={selected.name}
+                    className="bm-modal-img"
+                    style={{
+                      width: '100%',
+                      maxHeight: 300,
+                      objectFit: 'cover',
+                      borderTopLeftRadius: 10,
+                      borderTopRightRadius: 10,
+                      background: '#eee'
+                    }}
+                  />
+                ) : (
+                  <div className="bm-modal-sky" />
+                )}
+              </div>
 
             <div className="bm-modal-body">
               <div className="bm-modal-main">
