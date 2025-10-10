@@ -220,6 +220,10 @@ export default function Bookmarks2() {
       if (unsubscribe) unsubscribe();
     };
   }, []);
+  // ==================== OPTIMIZED: Load regions and categories separately ====================
+  useEffect(() => {
+  loadFiltersData();
+}, []);
 
   // ==================== OPTIMIZED: Load bookmarks (remove real-time listener) ====================
   useEffect(() => {
