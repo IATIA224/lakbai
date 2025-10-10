@@ -254,14 +254,14 @@ select.modal-input {
   gap: 12px;
   margin-top: 8px;
 }
-.thumb {
+.thumb-community {
   position: relative;
   border-radius: var(--control-radius);
   overflow: hidden;
   box-shadow: 0 4px 14px rgba(17,24,39,.12);
   width: 100%;
   height: 280px; /* or adjust as needed */
-  max-width: 100%;
+  max-width: 480px;
   margin: 0 auto;
   background: #f3f4f6;
   display: flex;
