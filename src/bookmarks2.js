@@ -142,6 +142,7 @@ export default function Bookmarks2() {
   const [cloudImages, setCloudImages] = useState([]);
   const [categories, setCategories] = useState([]);
   const [regions, setRegions] = useState([]);
+  const [firebaseImages, setFirebaseImages] = useState([]);
 
   // UI state
   const [query, setQuery] = useState('');
@@ -224,6 +225,25 @@ export default function Bookmarks2() {
   useEffect(() => {
   loadFiltersData();
 }, []);
+
+  // Fetch regions and categories from Firestore
+  useEffect(() => {
+    async function fetchFirebaseImages() {
+      try {
+        const snap = await getDocs(collection(db, 'photos'));
+        const imgs = snap.docs.map(doc => ({
+          name: doc.data().name,
+          publicId: doc.data().publicId, // <-- fetch publicId
+          url: doc.data().url
+        })).filter(img => img.name && img.url);
+        setFirebaseImages(imgs);
+      } catch (e) {
+        console.warn('Failed to fetch images from Firestore:', e);
+        setFirebaseImages([]);
+      }
+    }
+    fetchFirebaseImages();
+  }, []);
 
   // ==================== OPTIMIZED: Load bookmarks (remove real-time listener) ====================
   useEffect(() => {
@@ -471,6 +491,16 @@ export default function Bookmarks2() {
       alert('Could not update bookmark. Please try again.');
     }
   }, [bookmarks]);
+
+    function getFirebaseImageForDestination(firebaseImages, destName) {
+      if (!destName) return null;
+      const normalized = destName.trim().toLowerCase();
+      const found = firebaseImages.find(img =>
+        (img.name && img.name.trim().toLowerCase() === normalized) ||
+        (img.publicId && img.publicId.trim().toLowerCase() === normalized)
+      );
+      return found && found.url ? found.url : null;
+    }
 
   // ==================== OPTIMIZED: Load ratings only for visible items ====================
   useEffect(() => {
@@ -1101,37 +1131,44 @@ export default function Bookmarks2() {
                 <div className="card-image">
                   {cloudImages.length === 0 ? (
                     <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
-                  ) : getImageForDestination(cloudImages, d.name) ? (
-                    <img
-                      src={getImageForDestination(cloudImages, d.name)}
-                      alt={d.name}
-                      className="destination-img"
-                      style={{
-                        width: "100%",
-                        height: 200,
-                        objectFit: "cover",
-                        borderRadius: "12px 12px 0 0",
-                        marginBottom: 6,
-                        background: "#e0e7ef"
-                      }}
-                    />
                   ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: 180,
-                        borderRadius: "12px 12px 0 0",
-                        background: "#e0e7ef",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#94a3b8",
-                        fontSize: 32,
-                        marginBottom: 6
-                      }}
-                    >
-                      🏝️
-                    </div>
+                    (() => {
+                      const cloudUrl = getImageForDestination(cloudImages, d.name);
+                      const firebaseUrl = getFirebaseImageForDestination(firebaseImages, d.name);
+                      const imgUrl = cloudUrl || firebaseUrl;
+                      return imgUrl ? (
+                        <img
+                          src={imgUrl}
+                          alt={d.name}
+                          className="destination-img"
+                          style={{
+                            width: "100%",
+                            height: 200,
+                            objectFit: "cover",
+                            borderRadius: "12px 12px 0 0",
+                            marginBottom: 6,
+                            background: "#e0e7ef"
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: 180,
+                            borderRadius: "12px 12px 0 0",
+                            background: "#e0e7ef",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#94a3b8",
+                            fontSize: 32,
+                            marginBottom: 6
+                          }}
+                        >
+                          🏝️
+                        </div>
+                      );
+                    })()
                   )}
                   <button
                     className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
@@ -1570,4 +1607,3 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
     throw err;
   }
 }
-
