@@ -1254,11 +1254,9 @@ export default function Bookmarks2() {
                           width: "100%",
                           height: 180,
                           borderRadius: 12,
-                          background: "#e0e7ef",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          color: "#94a3b8",
                           fontSize: 48,
                           marginBottom: 8
                         }}
