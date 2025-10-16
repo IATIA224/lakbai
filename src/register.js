@@ -524,6 +524,13 @@ const Register = () => {
       <style>{otpAnimationCSS}</style>
 
       <div className="register-bg">
+        {/* Animated background elements */}
+        <div className="register-bg-circle"></div>
+        <div className="register-bg-circle"></div>
+        <div className="register-bg-circle"></div>
+        <div className="register-bg-wave"></div>
+        <div className="register-bg-dots"></div>
+
         <div className="register-container minimized">
           <img src="/star.png" alt="Join LakbAI" className="register-logo" />
           <h2 className="register-title">Join LakbAI</h2>
@@ -826,7 +833,7 @@ const Register = () => {
 
           {step !== "otp" && (
             <div className="register-signin">
-              Already have an account? <Link to="/">Sign in here</Link>
+              Already have an account? <Link to="/login">Sign in here</Link>
             </div>
           )}
         </div>

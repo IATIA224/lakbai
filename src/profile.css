@@ -1,4 +1,358 @@
-/* Add these animations at the top of your CSS file */
+/* ============================================
+   ANIMATED BACKGROUND STYLES
+============================================ */
+
+@keyframes profileGradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes profileFloat {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(25px, -25px) rotate(5deg);
+  }
+  50% {
+    transform: translate(-20px, 25px) rotate(-5deg);
+  }
+  75% {
+    transform: translate(20px, 15px) rotate(3deg);
+  }
+}
+
+@keyframes profilePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.6;
+  }
+}
+
+@keyframes profileDots {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 60px 60px;
+  }
+}
+
+@keyframes profileWave {
+  0% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(-25%) translateY(-10px);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Profile page wrapper with animated background */
+body {
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    #e0e7ff 0%,
+    #ddd6fe 25%,
+    #fce7f3 50%,
+    #e0e7ff 75%,
+    #ddd6fe 100%
+  );
+  background-size: 400% 400%;
+  animation: profileGradientFlow 12s ease infinite;
+  z-index: -3;
+}
+
+/* Animated shapes in background */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 15% 30%, rgba(108, 99, 255, 0.25) 0%, transparent 50%),
+    radial-gradient(circle at 85% 70%, rgba(160, 132, 238, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.2) 0%, transparent 50%);
+  animation: profileFloat 18s ease-in-out infinite;
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Floating circles - MORE VISIBLE */
+.profile-bg-circle {
+  position: fixed;
+  border-radius: 50%;
+  background: rgba(108, 99, 255, 0.35);
+  animation: profilePulse 8s ease-in-out infinite;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(40px);
+}
+
+.profile-bg-circle:nth-child(1) {
+  width: 500px;
+  height: 500px;
+  top: -150px;
+  left: -150px;
+  animation-delay: 0s;
+  background: rgba(99, 102, 241, 0.4);
+}
+
+.profile-bg-circle:nth-child(2) {
+  width: 400px;
+  height: 400px;
+  top: 35%;
+  right: -120px;
+  background: rgba(160, 132, 238, 0.38);
+  animation-delay: 2s;
+}
+
+.profile-bg-circle:nth-child(3) {
+  width: 350px;
+  height: 350px;
+  bottom: 5%;
+  left: 10%;
+  background: rgba(236, 72, 153, 0.3);
+  animation-delay: 4s;
+}
+
+.profile-bg-circle:nth-child(4) {
+  width: 280px;
+  height: 280px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(168, 85, 247, 0.25);
+  animation-delay: 1s;
+}
+
+/* Dotted pattern overlay - MORE VISIBLE */
+.profile-bg-dots {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(circle, rgba(108, 99, 255, 0.3) 2px, transparent 2px);
+  background-size: 60px 60px;
+  animation: profileDots 35s linear infinite;
+  z-index: -1;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Wave pattern at bottom */
+.profile-bg-wave {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 200px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath d='M0,0 C150,80 350,80 600,40 C850,0 1050,0 1200,40 L1200,120 L0,120 Z' fill='rgba(108,99,255,0.15)'/%3E%3C/svg%3E");
+  background-size: 50% 100%;
+  background-repeat: repeat-x;
+  animation: profileWave 20s linear infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Geometric shapes */
+.profile-bg-shapes {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.profile-bg-shape {
+  position: absolute;
+  opacity: 0.15;
+}
+
+.profile-bg-shape:nth-child(1) {
+  width: 120px;
+  height: 120px;
+  top: 15%;
+  right: 20%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  animation: profileFloat 15s ease-in-out infinite;
+}
+
+.profile-bg-shape:nth-child(2) {
+  width: 100px;
+  height: 100px;
+  bottom: 25%;
+  right: 15%;
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+  border-radius: 50%;
+  animation: profileFloat 18s ease-in-out infinite reverse;
+}
+
+.profile-bg-shape:nth-child(3) {
+  width: 80px;
+  height: 80px;
+  top: 40%;
+  left: 10%;
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  transform: rotate(45deg);
+  animation: profileFloat 20s ease-in-out infinite;
+}
+
+/* Ensure profile content is above background */
+.profile-main {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 110px auto;
+  padding: 0 16px;
+}
+
+/* Enhanced card styling with glassmorphism */
+.profile-header {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.96) 0%, rgba(139, 92, 246, 0.96) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #fff;
+  border-radius: 20px;
+  padding: 32px 32px 24px 32px;
+  margin-bottom: 24px;
+  gap: 32px;
+  box-shadow: 
+    0 20px 50px rgba(99, 102, 241, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Stronger shimmer effect on header */
+.profile-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Enhanced stats cards */
+.profile-stat {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 22px 0 12px 0;
+  text-align: center;
+  font-size: 1.1rem;
+  box-shadow: 
+    0 10px 40px rgba(99, 102, 241, 0.25),
+    0 0 0 1px rgba(99, 102, 241, 0.1) inset;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.profile-stat::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+  border-radius: 16px 16px 0 0;
+}
+
+.profile-stat:hover {
+  transform: translateY(-6px);
+  box-shadow: 
+    0 15px 50px rgba(99, 102, 241, 0.35),
+    0 0 0 1px rgba(99, 102, 241, 0.2) inset;
+}
+
+/* Enhanced content cards */
+.profile-card {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 18px;
+  box-shadow: 
+    0 10px 40px rgba(99, 102, 241, 0.2),
+    0 0 0 1px rgba(99, 102, 241, 0.1) inset;
+  padding: 22px 22px 18px 22px;
+  margin-bottom: 0;
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  transition: all 0.3s ease;
+}
+
+.profile-card:hover {
+  box-shadow: 
+    0 15px 50px rgba(99, 102, 241, 0.28),
+    0 0 0 1px rgba(99, 102, 241, 0.15) inset;
+  transform: translateY(-3px);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+/* Mobile responsive - keep some effects */
+@media (max-width: 768px) {
+  .profile-bg-circle {
+    filter: blur(60px);
+  }
+  
+  .profile-bg-shape {
+    opacity: 0.1;
+  }
+}
+
+/* ============================================
+   EXISTING ANIMATIONS
+============================================ */
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -109,27 +463,14 @@
   }
 }
 
+/* ============================================
+   EXISTING PROFILE STYLES
+============================================ */
+
 :root{
-  --brand-primary: #6c63ff;      /* community blue */
-  --brand-secondary: #a084ee;    /* community purple */
+  --brand-primary: #6c63ff;
+  --brand-secondary: #a084ee;
   --brand-primary-rgb: 108,99,255;
-}
-
-.profile-main {
-  max-width: 1200px;
-  margin: 110px auto;
-  padding: 0 16px;
-}
-
-.profile-header {
-  display: flex;
-  align-items: center;
-  background: linear-gradient(90deg, #6c63ff 60%, #a084ee 100%);
-  color: #fff;
-  border-radius: 18px;
-  padding: 32px 32px 24px 32px;
-  margin-bottom: 24px;
-  gap: 32px;
 }
 
 .profile-avatar {
@@ -228,12 +569,12 @@
 }
 
 .profile-interest-like {
-  background: rgba(34, 197, 94, 0.2); /* More transparent but stronger green */
+  background: rgba(34, 197, 94, 0.2);
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .profile-interest-dislike {
-  background: rgba(239, 68, 68, 0.2); /* More transparent but stronger red */
+  background: rgba(239, 68, 68, 0.2);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
@@ -254,15 +595,7 @@
   margin-bottom: 24px;
   gap: 18px;
 }
-.profile-stat {
-  flex: 1;
-  background: #fff;
-  border-radius: 12px;
-  padding: 22px 0 12px 0;
-  text-align: center;
-  font-size: 1.1rem;
-  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
-}
+
 .profile-stat span {
   display: block;
   font-size: 2.1rem;
@@ -295,14 +628,6 @@
   top: 100px;
 }
 
-.profile-card {
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
-  padding: 22px 22px 18px 22px;
-  margin-bottom: 0;
-}
-
 .profile-card-title {
   font-size: 1.15rem;
   font-weight: 700;
@@ -321,7 +646,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22);
 }
 .profile-map-ph {
   font-size: 2.5rem;
@@ -356,7 +681,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22);
   border-radius: 12px;
   background: #fff;
   padding: 8px 0;
@@ -390,22 +715,22 @@
 
 .profile-gallery-scroll {
   display: flex;
-  gap: 8px; /* Reduced gap for closer spacing */
+  gap: 8px;
   overflow-x: auto;
-  overflow-y: hidden; /* Prevent vertical scrolling */
+  overflow-y: hidden;
   padding-bottom: 6px;
   margin-bottom: 2px;
-  flex-wrap: nowrap; /* Absolutely no wrapping */
+  flex-wrap: nowrap;
   align-items: center;
-  max-height: 132px; /* one line only */
-  white-space: nowrap; /* Additional prevention of wrapping */
-  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
+  max-height: 132px;
+  white-space: nowrap;
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22);
   border-radius: 12px;
   background: #fff;
   padding: 8px 0;
 }
 .profile-gallery-scroll::-webkit-scrollbar { 
-  height: 6px; /* Thinner scrollbar */
+  height: 6px;
 }
 .profile-gallery-scroll::-webkit-scrollbar-thumb {
   background: rgba(0,0,0,0.2);
@@ -418,8 +743,8 @@
 .profile-gallery-photo {
   min-width: 120px;
   min-height: 120px;
-  max-width: 120px; /* Prevent expansion */
-  max-height: 120px; /* Prevent expansion */
+  max-width: 120px;
+  max-height: 120px;
   width: 120px;
   height: 120px;
   border-radius: 14px;
@@ -433,8 +758,8 @@
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  flex-shrink: 0; /* Prevent shrinking */
-  flex-grow: 0; /* Prevent growing */
+  flex-shrink: 0;
+  flex-grow: 0;
 }
 .profile-gallery-photo img {
   width: 100% !important;
@@ -490,14 +815,14 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 8px 32px rgba(108,99,255,0.22); /* More noticeable shadow */
+  box-shadow: 0 8px 32px rgba(108,99,255,0.22);
   border-radius: 12px;
   background: #fff;
   padding: 8px 0;
 }
 .profile-action-btn {
-  width: calc(100% - 32px); /* Reduce width for left/right margin */
-  margin: 0 auto 12px auto;  /* Center and add bottom margin */
+  width: calc(100% - 32px);
+  margin: 0 auto 12px auto;
   padding: 13px 0;
   border: none;
   border-radius: 8px;
@@ -791,7 +1116,7 @@
   color: #6b7280;
 }
 
-/* View All Achievements modal: keep original look, just fix close button */
+/* View All Achievements modal */
 .achv-backdrop { z-index: 10000; }
 
 .achv-modal {
@@ -800,22 +1125,20 @@
   overflow: auto;
 }
 
-/* Keep the purple header visible on scroll (does not change its look) */
 .achv-header {
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-/* Nudge the X a bit higher and ensure good hit area */
 .achv-close,
 .achievements-close,
 .achievements-modal .close,
 button[aria-label="Close achievements"] {
-  position: absolute;        /* respect your existing positioning */
-  top: 8px !important;       /* a little higher than before */
+  position: absolute;
+  top: 8px !important;
   right: 12px !important;
-  transform: translateY(-6px); /* gentle upward nudge */
+  transform: translateY(-6px);
   width: 32px;
   height: 32px;
   border-radius: 10px;
@@ -833,8 +1156,8 @@ button[aria-label="Close achievements"] {
 }
 
 .achv-modal {
-  width: min(720px, 92vw);   /* smaller */
-  max-height: 80vh;          /* a bit shorter */
+  width: min(720px, 92vw);
+  max-height: 80vh;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 24px 72px rgba(2,6,23,0.35);
@@ -846,19 +1169,19 @@ button[aria-label="Close achievements"] {
 
 .achv-header {
   display: flex;
-  align-items: center;         /* Vertically center all children */
+  align-items: center;
   justify-content: space-between;
   background: linear-gradient(135deg, #818cf8 0%, #6c63ff 100%);
   color: #fff;
   padding: 14px 16px;
   z-index: 1;
-  min-height: 56px;            /* Ensures enough height for icon and button */
+  min-height: 56px;
   position: relative;
 }
 
 .achv-title {
   display: flex;
-  align-items: center;         /* Vertically center icon and text */
+  align-items: center;
   gap: 10px;
   font-weight: 800;
   font-size: 24px;
@@ -867,7 +1190,7 @@ button[aria-label="Close achievements"] {
 }
 
 .achv-title-icon {
-  width: 28px;                 /* Slightly larger for better alignment */
+  width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
@@ -941,7 +1264,7 @@ button[aria-label="Close achievements"] {
 @media (max-width: 768px) {
   .profile-main {
     max-width: 100%;
-    margin: 40px 0; /* Reduced from 156px */
+    margin: 40px 0;
     padding: 0 12px;
   }
 
@@ -1030,23 +1353,21 @@ button[aria-label="Close achievements"] {
     position: static;
   }
 
-  /* Reduce card padding and margin to give more space to photos */
   .profile-card {
-    padding: 14px 16px 8px 16px; /* Reduced bottom padding from 12px to 8px */
-    margin-bottom: 12px; /* Reduced margin */
-    min-height: 140px; /* Slightly increased to accommodate larger photos */
+    padding: 14px 16px 8px 16px;
+    margin-bottom: 12px;
+    min-height: 140px;
     width: 100%;
     box-sizing: border-box;
   }
 
   .profile-card-title {
     font-size: 1rem;
-    margin-bottom: 8px; /* Reduced margin from 10px to 8px */
+    margin-bottom: 8px;
   }
 
-  /* Travel Map - Much wider and taller */
   .profile-map {
-    height: 140px; /* Increased from 80px */
+    height: 140px;
     width: 100%;
     min-width: 100%;
     border-radius: 12px;
@@ -1054,31 +1375,30 @@ button[aria-label="Close achievements"] {
   }
 
   .profile-map-ph {
-    font-size: 2.5rem; /* Larger placeholder text */
+    font-size: 2.5rem;
     font-weight: 600;
   }
 
   .profile-map-caption {
-    font-size: 1.1rem; /* Larger caption */
+    font-size: 1.1rem;
     font-weight: 500;
   }
 
-  /* Recent Activity - Wider with more spacing */
   .profile-activity-list {
-    min-height: 120px; /* Minimum height even with no activities */
+    min-height: 120px;
     width: 100%;
   }
 
   .profile-activity-item {
-    padding: 14px 16px; /* Increased padding */
-    font-size: 1rem; /* Larger text */
-    margin-bottom: 10px; /* More space between items */
-    min-height: 50px; /* Minimum height per item */
+    padding: 14px 16px;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    min-height: 50px;
     border-radius: 10px;
   }
 
   .profile-activity-icon {
-    font-size: 1.6rem; /* Larger icons */
+    font-size: 1.6rem;
     width: 36px;
     height: 36px;
     margin-right: 12px;
@@ -1092,45 +1412,42 @@ button[aria-label="Close achievements"] {
 
   .profile-activity-time {
     font-size: 0.9rem;
-    min-width: 70px; /* Wider time column */
-    color: #6b7280; /* Fixed color */
+    min-width: 70px;
+    color: #6b7280;
   }
 
-  /* Photo Gallery - Single row with only 4 photos visible on mobile */
   .profile-gallery-scroll {
-    display: flex !important; /* Force flex layout */
-    flex-direction: row !important; /* Force horizontal */
-    gap: 6px; /* Smaller gap for mobile */
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 6px;
     padding-bottom: 4px;
     max-height: 88px;
     min-height: 88px;
     overflow-x: auto;
     overflow-y: hidden;
     width: 100%;
-    flex-wrap: nowrap !important; /* Force no wrapping */
+    flex-wrap: nowrap !important;
     white-space: nowrap;
-    max-width: calc(4 * 80px + 3 * 6px + 12px); /* 4 photos + 3 gaps + padding */
+    max-width: calc(4 * 80px + 3 * 6px + 12px);
   }
 
   .profile-gallery-photo {
     min-width: 80px !important;
     min-height: 80px !important;
-    max-width: 80px !important; /* Prevent expansion */
-    max-height: 80px !important; /* Prevent expansion */
+    max-width: 80px !important;
+    max-height: 80px !important;
     width: 80px !important;
     height: 80px !important;
-    flex-shrink: 0 !important; /* Prevent shrinking */
-    flex-grow: 0 !important; /* Prevent growing */
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
     border-radius: 8px;
     font-size: 2rem;
   }
 
-  /* Hide photos beyond the 4th one on mobile */
   .profile-gallery-photo:nth-child(n+5) {
     display: none;
   }
 
-  /* Empty state styling for photo gallery */
   .profile-gallery-empty {
     display: flex;
     flex-direction: column;
@@ -1166,7 +1483,7 @@ button[aria-label="Close achievements"] {
 
   .profile-gallery-actions {
     gap: 8px !important;
-    margin-top: 8px; /* Reduced from 10px */
+    margin-top: 8px;
     flex-wrap: wrap;
   }
 
@@ -1209,8 +1526,6 @@ button[aria-label="Close achievements"] {
      min-width: 100% !important;
      max-width: 100% !important;
   }
-
-  /* ...existing code... */
 }
 
 /* Very small screens (phones in portrait) */
@@ -1230,7 +1545,7 @@ button[aria-label="Close achievements"] {
 
   .profile-main {
     padding: 0 10px;
-    margin: 24px 0; /* Reduced from default, matches desktop closer */
+    margin: 24px 0;
   }
 
   .profile-header {
@@ -1255,22 +1570,20 @@ button[aria-label="Close achievements"] {
     font-size: 1.4rem;
   }
 
-  /* Maintain larger card sizing on small screens */
   .profile-card {
-    padding: 12px 14px 6px 14px; /* Further reduced bottom padding */
+    padding: 12px 14px 6px 14px;
     margin-bottom: 10px;
     border-radius: 10px;
-    min-height: 130px; /* Adjusted */
+    min-height: 130px;
   }
 
   .profile-card-title {
     font-size: 0.95rem;
-    margin-bottom: 6px; /* Further reduced */
+    margin-bottom: 6px;
   }
 
-  /* Travel Map - Still large on small screens */
   .profile-map {
-    height: 120px; /* Still substantial height */
+    height: 120px;
     border-radius: 10px;
   }
 
@@ -1278,7 +1591,6 @@ button[aria-label="Close achievements"] {
     font-size: 2.2rem;
   }
 
-  /* Recent Activity - Maintain good sizing */
   .profile-activity-list {
     min-height: 100px;
   }
@@ -1302,15 +1614,14 @@ button[aria-label="Close achievements"] {
     min-width: 60px;
   }
 
-  /* Photo Gallery - Single row with only 4 photos on very small screens */
   .profile-gallery-scroll {
-    gap: 4px; /* Even smaller gap */
+    gap: 4px;
     padding-bottom: 3px;
     max-height: 83px;
     min-height: 83px;
     flex-wrap: nowrap !important;
     white-space: nowrap;
-    max-width: calc(4 * 75px + 3 * 4px + 12px); /* 4 photos + 3 gaps + padding */
+    max-width: calc(4 * 75px + 3 * 4px + 12px);
   }
 
   .profile-gallery-photo {
@@ -1326,7 +1637,6 @@ button[aria-label="Close achievements"] {
     font-size: 1.8rem;
   }
 
-  /* Hide photos beyond the 4th one on very small screens */
   .profile-gallery-photo:nth-child(n+5) {
     display: none;
   }
@@ -1345,8 +1655,6 @@ button[aria-label="Close achievements"] {
   .profile-gallery-empty-text {
     font-size: 0.8rem;
   }
-
-  /* ...existing code... */
 }
 
 /* Add empty state placeholders */
@@ -1391,14 +1699,12 @@ button[aria-label="Close achievements"] {
 }
 
 @media (max-width: 768px) {
-  /* Keep only these: */
   .profile-map,
   .profile-activity-list,
   .profile-gallery-scroll {
-    /* reduced from 105% → 90% (≈ 15% smaller) */
     width: 89% !important;
     max-width: 80% !important;
-    margin-left: auto !important;   /* center the smaller placeholder */
+    margin-left: auto !important;
     margin-right: auto !important;
     box-sizing: border-box;
     padding-left: 5% !important;
@@ -1407,11 +1713,9 @@ button[aria-label="Close achievements"] {
 }
 
 @media (max-width: 480px) {
-  /* Keep only these: */
   .profile-map,
   .profile-activity-list,
   .profile-gallery-scroll {
-    /* reduced from 105vw → 90vw (≈ 15% smaller on very small screens) */
     width: 90vw !important;
     max-width: 87vw !important;
     margin-left: auto !important;
@@ -1434,7 +1738,6 @@ button[aria-label="Close achievements"] {
 }
 .photo-gallery-modal {
   z-index: 100001;
-  /* ...other styles... */
 }
 
 /* achv.css */
@@ -1449,5 +1752,4 @@ button[aria-label="Close achievements"] {
 }
 .achv-modal {
   z-index: 100001;
-  /* ...other styles... */
 }
