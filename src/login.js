@@ -438,6 +438,13 @@ const Login = () => {
           </div>
         ) : (
         <div className="login-bg">
+          {/* Animated background elements */}
+          <div className="login-bg-circle"></div>
+          <div className="login-bg-circle"></div>
+          <div className="login-bg-circle"></div>
+          <div className="login-bg-wave"></div>
+          <div className="login-bg-dots"></div>
+          
           <div className="login-container-1">
             <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
             <h2 className="login-title">Welcome Back!</h2>

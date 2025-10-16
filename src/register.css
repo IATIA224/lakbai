@@ -20,26 +20,177 @@
   --radius-sm: 10px;
 }
 
-/* Page background */
+/* Page background with animations */
 .register-bg {
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 600px at 0% 0%, rgba(255,255,255,0.08), transparent 60%),
-    radial-gradient(800px 500px at 100% 100%, rgba(255,255,255,0.08), transparent 55%),
-    linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text-900);
+  position: relative;
+  background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
 }
 
-/* Card */
+/* Animated gradient background */
+.register-bg::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    135deg,
+    #6c63ff 0%,
+    #a084ee 25%,
+    #6c63ff 50%,
+    #a084ee 75%,
+    #6c63ff 100%
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  z-index: 0;
+}
+
+/* Floating shapes */
+.register-bg::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+  animation: float 20s ease-in-out infinite;
+  z-index: 1;
+}
+
+/* Animated circles */
+.register-bg-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  animation: pulse 8s ease-in-out infinite;
+  z-index: 1;
+}
+
+.register-bg-circle:nth-child(1) {
+  width: 300px;
+  height: 300px;
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.register-bg-circle:nth-child(2) {
+  width: 200px;
+  height: 200px;
+  top: 60%;
+  right: 15%;
+  animation-delay: 2s;
+}
+
+.register-bg-circle:nth-child(3) {
+  width: 150px;
+  height: 150px;
+  bottom: 20%;
+  left: 20%;
+  animation-delay: 4s;
+}
+
+/* Wave lines animation */
+.register-bg-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 150px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath d='M0,0 C300,100 900,100 1200,0 L1200,120 L0,120 Z' fill='rgba(255,255,255,0.1)'/%3E%3C/svg%3E");
+  background-size: cover;
+  animation: wave 10s linear infinite;
+  z-index: 1;
+}
+
+/* Particle dots */
+.register-bg-dots {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: moveDots 30s linear infinite;
+  z-index: 1;
+}
+
+/* Gradient animation */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(10px, -10px) rotate(5deg);
+  }
+  50% {
+    transform: translate(-5px, 10px) rotate(-5deg);
+  }
+  75% {
+    transform: translate(5px, 5px) rotate(3deg);
+  }
+}
+
+/* Pulse animation for circles */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.5;
+  }
+}
+
+@keyframes wave {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 1200px 0;
+  }
+}
+
+@keyframes moveDots {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 50px 50px;
+  }
+}
+
+/* Card with glassmorphism */
 .register-container {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-strong);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   padding: 36px clamp(20px, 4vw, 36px);
   width: 100%;
   max-width: 520px;
@@ -48,12 +199,21 @@
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  animation: fadeIn 0.45s ease-out;
+  animation: fadeInUp 0.8s ease-out;
+  position: relative;
+  z-index: 10;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .register-container.minimized {
@@ -66,6 +226,16 @@
   width: 52px;
   height: 52px;
   margin-bottom: 6px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 .register-title {
@@ -125,9 +295,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 1rem;
-  background: var(--input-bg);
+  background: rgba(250, 251, 252, 0.8);
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  transition: all 0.3s;
   color: var(--text-900);
   box-sizing: border-box;
 }
@@ -138,31 +308,22 @@
 
 .register-input:focus {
   border-color: var(--ring);
-  box-shadow: 0 0 0 4px var(--ring-soft);
   background: #fff;
-}
-
-/* Make the wrapper not shrink the input */
-.register-password-wrapper {
-  position: relative;
-  display: block;      /* avoid flex shrinking */
-  width: 100%;
-}
-
-/* Ensure input fills the row and leaves space for the eye */
-.register-password-wrapper .register-input {
-  width: 100%;
-  min-height: 44px;    /* consistent height */
-  padding-right: 44px; /* room for eye button */
-  box-sizing: border-box;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
 }
 
 /* Password field */
 .register-password-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+  display: block;
   width: 100%;
+}
+
+.register-password-wrapper .register-input {
+  width: 100%;
+  min-height: 44px;
+  padding-right: 44px;
+  box-sizing: border-box;
 }
 
 .register-eye {
@@ -180,11 +341,13 @@
   border: none;
   color: var(--text-500);
   border-radius: 8px;
+  transition: all 0.2s;
 }
 
 .register-eye:hover {
   background: #f3f4f6;
   color: var(--text-700);
+  transform: translateY(-50%) scale(1.1);
 }
 
 .register-eye svg,
@@ -201,15 +364,7 @@
   color: var(--text-500);
 }
 
-/* Collapse empty strength line (removes gap above "Forgot password?") */
 .register-password-strength:empty {
-  display: none;
-  margin-top: 0;
-  min-height: 0;
-}
-
-/* If your login uses a different class, keep this too */
-.login-password-strength:empty {
   display: none;
   margin-top: 0;
   min-height: 0;
@@ -244,6 +399,7 @@
   color: #4f6ef7;
   text-decoration: none;
   font-weight: 600;
+  transition: color 0.2s;
 }
 
 .register-link:hover {
@@ -263,13 +419,13 @@
   font-weight: 800;
   margin-top: 6px;
   cursor: pointer;
-  box-shadow: var(--shadow-soft);
-  transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
+  box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+  transition: all 0.3s;
 }
 
 .register-btn:hover {
-  filter: brightness(1.02);
-  box-shadow: 0 10px 24px rgba(108, 99, 255, 0.28);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
 }
 
 .register-btn:active {
@@ -279,6 +435,7 @@
 .register-btn:disabled {
   opacity: .6;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Sign-in hint */
@@ -293,6 +450,7 @@
   color: #4f6ef7;
   text-decoration: none;
   font-weight: 600;
+  transition: color 0.2s;
 }
 
 .register-signin a:hover {
@@ -324,4 +482,11 @@
 /* Utility spacing for tighter vertical rhythm */
 .register-form .register-label + .register-label {
   margin-top: 2px;
+}
+
+/* Mobile responsive - hide circles */
+@media (max-width: 600px) {
+  .register-bg-circle {
+    display: none;
+  }
 }
