@@ -728,8 +728,36 @@ const Profile = () => {
     fetchCompletedDestinations();
   }, [userId]);
 
+  // Add this function:
+  async function getUserFriendsCount(uid) {
+    const snap = await getDocs(collection(db, "users", uid, "friends"));
+    return snap.size;
+  }
+
+  // In Profile, fetch and display the count:
+  useEffect(() => {
+    if (userId) {
+      getUserFriendsCount(userId).then(count =>
+        setStats(prev => ({ ...prev, friends: count }))
+      );
+    }
+  }, [userId]);
+
   return (
     <>
+      {/* Animated background elements - MORE VISIBLE */}
+      <div className="profile-bg-circle"></div>
+      <div className="profile-bg-circle"></div>
+      <div className="profile-bg-circle"></div>
+      <div className="profile-bg-circle"></div>
+      <div className="profile-bg-dots"></div>
+      <div className="profile-bg-wave"></div>
+      <div className="profile-bg-shapes">
+        <div className="profile-bg-shape"></div>
+        <div className="profile-bg-shape"></div>
+        <div className="profile-bg-shape"></div>
+      </div>
+
       <div className="profile-main">
         {/* Profile Header */}
         <div className="profile-header">

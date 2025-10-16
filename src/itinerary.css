@@ -63,6 +63,29 @@
   50% { transform: translateY(-6px); }
 }
 
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Add this animation at the end of the file */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ============================================
    ROOT VARIABLES
 ============================================ */
@@ -209,6 +232,9 @@
   grid-template-columns: 400px 1fr;
   gap: 24px;
   margin: 20px 16px 0;
+  position: relative;
+  z-index: 1; /* Base stacking context */
+  transform: translateZ(0); /* ADD THIS */
 }
 
 @media (max-width: 980px) { 
@@ -224,6 +250,9 @@
   border: 1px solid rgba(108,99,255,0.08);
   transition: all 0.3s ease;
   animation: fadeInUp 0.6s ease-out both;
+  position: relative;
+  z-index: 100;
+  transform: translateZ(0); /* ADD THIS - Prevents flickering */
 }
 
 .itn-left .itn-panel { animation-delay: 0.2s; }
@@ -231,7 +260,7 @@
 
 .itn-left .itn-panel:hover,
 .itn-right .itn-panel:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px) translateZ(0); /* CHANGED - Keep z translation */
   box-shadow: 0 20px 60px rgba(108,99,255,0.3);
   border-color: var(--brand-secondary);
 }
@@ -263,6 +292,8 @@
   position: relative;
   overflow: hidden;
   animation: scaleIn 0.4s ease-out both;
+  isolation: isolate;
+  will-change: transform; /* ADD THIS - Optimizes transform animations */
 }
 
 .itn-card::before {
@@ -274,22 +305,16 @@
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(108,99,255,0.08), transparent);
   transition: left 0.5s;
-}
-
-.itn-card:hover::before {
-  left: 100%;
+  z-index: -1;
+  pointer-events: none; /* ADD THIS - Prevents interference with map clicks */
 }
 
 .itn-card:hover {
-  transform: translateY(-4px) scale(1.01);
+  transform: translateY(-4px) scale(1.01) translateZ(0); /* ADD translateZ */
   box-shadow: var(--shadow-lg);
   border-color: var(--brand-secondary);
+  z-index: 2; /* CHANGED - Lower than map */
 }
-
-.itn-card:nth-child(1) { animation-delay: 0.1s; }
-.itn-card:nth-child(2) { animation-delay: 0.2s; }
-.itn-card:nth-child(3) { animation-delay: 0.3s; }
-.itn-card:nth-child(4) { animation-delay: 0.4s; }
 
 .itn-step {
   width: 40px;
@@ -459,6 +484,12 @@
 /* ============================================
    MAP WITH SHADOW
 ============================================ */
+.itn-map-wrap {
+  position: relative;
+  z-index: 10;
+  isolation: isolate; /* ADD THIS - Prevents z-index conflicts */
+}
+
 .itn-map { 
   height: 280px;
   border-radius: 16px;
@@ -466,12 +497,11 @@
   margin-top: 12px;
   box-shadow: var(--shadow-md);
   border: 2px solid rgba(108,99,255,0.1);
-  transition: all 0.3s;
-}
-
-.itn-map:hover {
-  box-shadow: var(--shadow-lg);
-  transform: scale(1.01);
+  transition: none; /* REMOVE transition to prevent flickering */
+  position: relative;
+  z-index: 10;
+  transform: translateZ(0); /* ADD THIS - Forces GPU acceleration and fixes rendering */
+  will-change: auto; /* ADD THIS - Prevents unnecessary compositing */
 }
 
 /* ============================================
@@ -988,4 +1018,32 @@
   overflow: hidden;
   z-index: 10000000;
   animation: scaleIn 0.3s ease-out;
+}
+
+/* Ensure cards don't clip the dropdown */
+.itn-card {
+  overflow: visible !important;
+}
+
+/* ADD THESE STYLES FOR THE TOOLS MENU */
+.itn-tools-menu-item {
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+  transition: all 0.2s;
+}
+
+.itn-tools-menu-item:hover {
+  background: #f0f0ff;
+  padding-left: 22px;
+  color: #6366f1;
 }
