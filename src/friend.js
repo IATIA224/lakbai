@@ -23,7 +23,10 @@ const FriendPopup = ({ onClose }) => {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(false);
   const [removingFriend, setRemovingFriend] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
 
+  
   // Helper to fetch profile snapshots for a set of userIds
   const fetchProfiles = async (ids) => {
     if (!ids || ids.length === 0) return [];
@@ -111,8 +114,6 @@ const FriendPopup = ({ onClose }) => {
       await updateDoc(doc(db, "users", receiverId), {
         friendRequests: arrayUnion(user.uid)
       });
-
-      alert("Friend request sent!");
       setCodeInput("");
     } catch (err) {
       console.error(err);
@@ -188,7 +189,10 @@ const FriendPopup = ({ onClose }) => {
       await addActivity(me.uid, "You added a friend!", "👥");
       await addActivity(requesterId, "You became friends!", "👥");
 
-      alert("Friend request accepted!");
+      // Show toast with friend's name
+      setToastMsg(`Friend request accepted! You are now friends with ${profile?.name || 'your friend'}.`);
+      setTimeout(() => setToastMsg(''), 3500);
+
     } catch (err) {
       console.error("Error accepting friend request:", err);
       alert("Failed to accept request: " + (err.message || err));
@@ -232,7 +236,6 @@ const FriendPopup = ({ onClose }) => {
   };
 
   const handleRemoveFriend = async  (friendId) => {
-    if (!window.confirm("Are you sure you want to remove this friend?")) return;
 
     const user = auth.currentUser;
     if (!user) return;
@@ -307,13 +310,13 @@ const FriendPopup = ({ onClose }) => {
                   <div className="friend-meta">
                     <div className="friend-name">{f.name}</div>
                   </div>
-                  <button
-                    className="friend-btn friend-btn-danger"
-                    onClick={() => handleRemoveFriend(f.id)}
-                    disabled={removingFriend === f.id}
-                  >
-                    {removingFriend === f.id ? "Removing..." : "Unfriend"}
-                  </button>
+                    <button
+                      className="friend-btn friend-btn-danger"
+                      onClick={() => setConfirmRemoveId(f.id)}
+                      disabled={removingFriend === f.id}
+                    >
+                      {removingFriend === f.id ? "Removing..." : "Unfriend"}
+                    </button>
                 </div>
               )))
             }
@@ -356,9 +359,87 @@ const FriendPopup = ({ onClose }) => {
             }
           </div>
         </div>
+
+        {toastMsg && (
+          <div
+            className="friend-toast"
+            style={{
+              position: 'fixed',
+              top: 24,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#2563eb',
+              color: '#fff',
+              padding: '12px 28px',
+              borderRadius: 10,
+              fontWeight: 600,
+              fontSize: 16,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+              zIndex: 9999,
+              transition: 'opacity 0.3s'
+            }}
+          >
+            {toastMsg}
+          </div>
+        )}
+
+        {confirmRemoveId && (
+          <div
+            className="friend-confirm-backdrop"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.25)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onClick={() => setConfirmRemoveId(null)}
+          >
+            <div
+              className="friend-confirm-modal"
+              style={{
+                background: '#fff',
+                borderRadius: 12,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                padding: 32,
+                minWidth: 320,
+                maxWidth: '90vw',
+                textAlign: 'center'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 style={{ marginBottom: 16 }}>Remove Friend</h3>
+              <div style={{ marginBottom: 18 }}>
+                Are you sure you want to remove <b>{friends.find(f => f.id === confirmRemoveId)?.name || 'this friend'}</b>?
+              </div>
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+                <button
+                  className="friend-btn friend-btn-danger"
+                  style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+                  onClick={async () => {
+                    await handleRemoveFriend(confirmRemoveId);
+                    setConfirmRemoveId(null);
+                  }}
+                >
+                  Yes, Remove
+                </button>
+                <button
+                  className="friend-btn"
+                  style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+                  onClick={() => setConfirmRemoveId(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
 
 export default FriendPopup;
