@@ -1307,6 +1307,7 @@ export function SharedItinerariesTab({ user }) {
   const [editing, setEditing] = useState(null);
   const [sharedItineraryId, setSharedItineraryId] = useState(null);
   const { sharedWithMe, loading, error } = useSharedItineraries(user);
+  const [copyingId, setCopyingId] = useState(null); // <-- ADD THIS LINE
   
   // ADD THESE NEW STATES
   const [groupBy, setGroupBy] = useState('none');
@@ -1540,7 +1541,6 @@ export function SharedItinerariesTab({ user }) {
         
         // Count shared items
         const sharedCount = sharedWithMe.reduce(
-          (total, shared) => total + (shared.items?.length || 0),
           0
         );
         

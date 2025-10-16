@@ -970,43 +970,6 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
   return ReactDOM.createPortal(modalContent, document.body);
 }
 
-// Update handleExport to include more details in PDF
-const handleExport = async () => {
-  const toExport = items.filter(it => exportSelected.has(it.id));
-  if (!toExport.length) {
-    alert("No items selected for export");
-    return;
-  }
-
-  const doc = new jsPDF();
-  doc.setFontSize(18);
-  doc.text("My Itinerary", 14, 20);
-
-  // Improved table data with more details
-  const tableData = toExport.map(item => [
-    item.name || "",
-    item.region || "",
-    item.location || "",
-    item.arrival || "",
-    item.departure || "",
-    item.status || "",
-    `$${Number(item.estimatedExpenditure || 0).toLocaleString()}`,
-    (item.activities && item.activities.length > 0) ? item.activities.join(", ") : ""
-  ]);
-
-  autoTable(doc, {
-    head: [["Destination", "Region", "Location", "Arrival", "Departure", "Status", "Budget", "Activities"]],
-    body: tableData,
-    startY: 30,
-    theme: 'grid',
-    headStyles: { fillColor: [41, 128, 185] },
-    styles: { fontSize: 9 }
-  });
-
-  doc.save("itinerary.pdf");
-  setShowExport(false);
-};
-
 export default function Itinerary() {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -1217,7 +1180,7 @@ export default function Itinerary() {
           departure: data.departure,
         });
         
-        await logActivity(`Added "${data.name}" to your itinerary`, "📍");
+        await logActivity(`Added "${data.name}" to your trip itinerary`, "📍");
         
         const snap = await getDocs(colRef);
         if (snap.size === 1) {

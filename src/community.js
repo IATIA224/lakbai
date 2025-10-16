@@ -1432,6 +1432,194 @@ const Community = () => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
   };
 
+  // Add handleSavePost
+  async function handleSavePost(post) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("Please sign in to save posts.");
+      return;
+    }
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        savedPosts: arrayUnion(post.id)
+      });
+      setSavedSet(prev => new Set([...prev, post.id]));
+    } catch (err) {
+      console.error("Failed to save post:", err);
+      alert("Failed to save post.");
+    }
+  }
+
+  // Add handleUnsavePost
+  async function handleUnsavePost(postId) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        savedPosts: arrayRemove(postId)
+      });
+      setSavedSet(prev => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to unsave post:", err);
+      alert("Failed to unsave post.");
+    }
+  }
+
+  // Add EditPostModal (minimal version)
+  function EditPostModal({ post, onClose, onUpdate }) {
+    const [title, setTitle] = useState(post.title || "");
+    const [details, setDetails] = useState(post.details || "");
+    const [location, setLocation] = useState(post.location || "");
+    const [duration, setDuration] = useState(post.duration || "");
+    const [budget, setBudget] = useState(post.budget || "");
+    const [highlights, setHighlights] = useState(post.highlights || "");
+    const [visibility, setVisibility] = useState(post.visibility || "Public");
+    const [uploading, setUploading] = useState(false);
+
+    const handleSubmit = async () => {
+      if (!title.trim()) {
+        alert("Please enter a title for your trip");
+        return;
+      }
+      setUploading(true);
+      try {
+        const updatedData = {
+          title: title.trim(),
+          details: details.trim() || "",
+          location: location.trim() || "",
+          duration: duration.trim() || "",
+          budget: budget.trim() || "",
+          highlights: highlights.trim() || "",
+          visibility,
+          updatedAt: serverTimestamp()
+        };
+        await updateDoc(doc(db, "community", post.id), updatedData);
+        onUpdate({ ...post, ...updatedData });
+        onClose();
+        alert("Post updated successfully! ✨");
+      } catch (err) {
+        console.error("Failed to update post:", err);
+        alert("Failed to update post. Please try again.");
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    return ReactDOM.createPortal(
+      <div className="community-modal-backdrop" onClick={onClose}>
+        <div className="community-modal share-trip-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="share-modal-header">
+            <h3>✏️ Edit Your Travel Story</h3>
+          </div>
+          <div className="modal-form">
+            <label className="modal-label">
+              <span className="field-title">Trip Title *</span>
+              <input
+                className="modal-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={100}
+              />
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Location</span>
+              <input
+                className="modal-input"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                maxLength={100}
+              />
+            </label>
+            <div className="modal-row">
+              <label className="modal-label">
+                <span className="field-title">Duration</span>
+                <input
+                  className="modal-input"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                />
+              </label>
+              <label className="modal-label">
+                <span className="field-title">Budget (PHP)</span>
+                <input
+                  className="modal-input"
+                  type="number"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                />
+              </label>
+            </div>
+            <label className="modal-label">
+              <span className="field-title">Trip Details</span>
+              <textarea
+                className="modal-textarea"
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                maxLength={2000}
+                rows={5}
+              />
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Highlights</span>
+              <textarea
+                className="modal-textarea"
+                value={highlights}
+                onChange={(e) => setHighlights(e.target.value)}
+                maxLength={500}
+                rows={3}
+              />
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Who can see this?</span>
+              <div className="segmented">
+                <button
+                  type="button"
+                  className={`seg-btn ${visibility === "Public" ? "is-active" : ""}`}
+                  onClick={() => setVisibility("Public")}
+                >
+                  🌍 Public
+                </button>
+                <button
+                  type="button"
+                  className={`seg-btn ${visibility === "Friends" ? "is-active" : ""}`}
+                  onClick={() => setVisibility("Friends")}
+                >
+                  👥 Friends
+                </button>
+                <button
+                  type="button"
+                  className={`seg-btn ${visibility === "Only Me" ? "is-active" : ""}`}
+                  onClick={() => setVisibility("Only Me")}
+                >
+                  🔒 Only Me
+                </button>
+              </div>
+            </label>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={onClose} disabled={uploading}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSubmit}
+                disabled={uploading || !title.trim()}
+              >
+                {uploading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   return (
     <div className="community-bg">
       <div className="community-grid-main">
