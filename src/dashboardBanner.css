@@ -1102,3 +1102,26 @@
   padding-top: 10px;
   padding-bottom: 10px;
 }
+.dashboard-preview-status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  text-transform: capitalize;
+  color: #fff;
+  display: inline-block;
+  min-width: 64px;
+  text-align: center;
+}
+
+/* status colors */
+.dashboard-preview-status.upcoming { background: #f59e0b; } /* amber */
+.dashboard-preview-status.ongoing  { background: #10b981; } /* green */
+.dashboard-preview-status.completed { background: #6366f1; } /* indigo */
+.dashboard-preview-status.cancelled { background: #ef4444; } /* red */
+/* fallback */
+.dashboard-preview-status { background: #6b7280; }
+/* responsive tweak */
+@media (max-width: 480px) {
+  .dashboard-preview-status { min-width: 48px; padding: 3px 6px; font-size: 11px; }
+}
