@@ -43,6 +43,7 @@ body > #root {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 20px;
 }
 
 .header2-logo {
@@ -74,6 +75,7 @@ body > #root {
   gap: 14px;
   justify-content: flex-end;
   flex-shrink: 0;
+  padding: 20px;
 }
 
 /* keep buttons compact and consistent */
@@ -122,6 +124,7 @@ body > #root {
     width: 100%;
     order: 1;
     justify-content: flex-start;
+    padding: 20px;
   }
   .header2-logo {
     width: 28px;
