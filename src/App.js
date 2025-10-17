@@ -72,18 +72,6 @@ function AppInner() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Admin routes (no main header/footer) */}
-        <Route path="/admin/login" element={<LoginCMS />} />
-        <Route
-          path="/admin/ContentManagement"
-          element={
-            <ProtectedRoute>
-              <ContentManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
-
         {/* Protected routes that should include header + footer */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
