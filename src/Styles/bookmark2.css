@@ -1,10 +1,10 @@
 .App {
   font-family: 'Segoe UI', sans-serif;
   padding: 40px;
-  background-color: #f7f8fa;
+
   display: flex;
   flex-direction: column ;
-  border: 1px solid #f7f8fa;
+
 }
 
 .title {
