@@ -130,12 +130,11 @@ const Profile = () => {
 
       setShareCode(data.shareCode || "");
 
-      // DON'T set friends from the user doc here (may be stale).
-      // Preserve current friends value (initially 0) and update other stats immediately.
+      // DON'T include reviewsWritten here - let the real-time listener handle it
       setStats((prev) => ({
         placesVisited: data.stats?.placesVisited || 0,
         photosShared: data.stats?.photosShared || 0,
-        reviewsWritten: data.stats?.reviewsWritten || 0,
+        reviewsWritten: prev.reviewsWritten ?? 0,  // Keep existing value
         friends: prev.friends ?? 0,
       }));
 
@@ -174,7 +173,7 @@ const Profile = () => {
       setStats((prev) => ({
         placesVisited: data.stats?.placesVisited || prev.placesVisited || 0,
         photosShared: data.stats?.photosShared || prev.photosShared || 0,
-        reviewsWritten: data.stats?.reviewsWritten || prev.reviewsWritten || 0,
+        reviewsWritten: prev.reviewsWritten ?? 0,  // Don't overwrite
         friends: typeof friendsCount === "number" ? friendsCount : prev.friends ?? 0,
       }));
     } catch (error) {
@@ -633,30 +632,7 @@ const Profile = () => {
     return () => unsubscribe();
   }, [userId]);
 
-  // Fetch reviews written count for current user
-  useEffect(() => {
-    const fetchReviewsWritten = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-        // Count the number of docs in users/{uid}/ratings
-        const ratingsSnap = await getDocs(collection(db, "users", user.uid, "ratings"));
-        setStats((prev) => ({
-          ...prev,
-          reviewsWritten: ratingsSnap.size,
-        }));
-      } catch (e) {
-        // fallback to 0 if error
-        setStats((prev) => ({
-          ...prev,
-          reviewsWritten: 0,
-        }));
-      }
-    };
-    fetchReviewsWritten();
-  }, [userId]);
-
-  // Add this useEffect in Profile component
+  // Add real-time listener for ratings (similar to dashboard.js)
   useEffect(() => {
     if (!userId) return;
     const ratingsCol = collection(db, "users", userId, "ratings");
