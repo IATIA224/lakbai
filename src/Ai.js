@@ -312,9 +312,7 @@ export default function ChatbaseAI({ onClose }) {
                   <button className="ai-suggestion" onClick={() => setInput('Plan a 3-day trip to Baguio')}>
                     🗺️ Trip planning
                   </button>
-                  <button className="ai-suggestion" onClick={() => setInput('Budget-friendly destinations')}>
-                    💰 Budget travel
-                  </button>
+        
                 </div>
               </div>
             ) : (
