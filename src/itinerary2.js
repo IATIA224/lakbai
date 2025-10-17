@@ -1306,10 +1306,10 @@ export function useFriendsList(user) {
 export function SharedItinerariesTab({ user }) {
   const [editing, setEditing] = useState(null);
   const [sharedItineraryId, setSharedItineraryId] = useState(null);
+  const [expandedMembers, setExpandedMembers] = useState(new Set()); // ADD THIS
   const { sharedWithMe, loading, error } = useSharedItineraries(user);
-  const [copyingId, setCopyingId] = useState(null); // <-- ADD THIS LINE
+  const [copyingId, setCopyingId] = useState(null);
   
-  // ADD THESE NEW STATES
   const [groupBy, setGroupBy] = useState('none');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -1640,7 +1640,7 @@ export function SharedItinerariesTab({ user }) {
         </div>
       </div>
 
-      {/* Grouped Items */}
+      {/* Grouped Items with Sharer Info */}
       {groupedSharedItems.every(([_, items]) => items.length === 0) ? (
         <div className="itn-empty-state">
           <div className="itn-empty-icon">🔍</div>
@@ -1690,6 +1690,200 @@ export function SharedItinerariesTab({ user }) {
               
               return (
                 <div key={item.id} style={{ marginBottom: 12 }}>
+                  {/* ADD THIS: Sharer Info & Members Section */}
+                  {shared && (
+                    <div style={{
+                      padding: '12px 16px',
+                      background: 'linear-gradient(135deg, #f0f4ff 0%, #f8faff 100%)',
+                      borderLeft: '4px solid #6c63ff',
+                      borderRadius: '8px 8px 0 0',
+                      marginBottom: '-1px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12
+                    }}>
+                      {/* Sharer Info */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                        <img 
+                          src={shared.sharedBy.profilePicture} 
+                          alt={shared.sharedBy.name}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            border: '2px solid #6c63ff',
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <div>
+                          <div style={{
+                            fontSize: 13,
+                            color: '#64748b',
+                            fontWeight: 500
+                          }}>
+                            Shared by
+                          </div>
+                          <div style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: '#0f172a'
+                          }}>
+                            {shared.sharedBy.name}
+                          </div>
+                          <div style={{
+                            fontSize: 12,
+                            color: '#94a3b8',
+                            marginTop: 2
+                          }}>
+                            {shared.sharedAt instanceof Date 
+                              ? shared.sharedAt.toLocaleDateString() 
+                              : new Date(shared.sharedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Members Dropdown */}
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => setExpandedMembers(prev => {
+                            const next = new Set(prev);
+                            if (next.has(shared.id)) {
+                              next.delete(shared.id);
+                            } else {
+                              next.add(shared.id);
+                            }
+                            return next;
+                          })}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '8px 12px',
+                            background: '#6c63ff',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 8,
+                            fontWeight: 600,
+                            fontSize: 13,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: expandedMembers.has(shared.id) 
+                              ? '0 4px 12px rgba(108, 99, 255, 0.3)' 
+                              : 'none'
+                          }}
+                        >
+                          👥 {shared.sharedWith?.length || 0} Member{(shared.sharedWith?.length || 0) !== 1 ? 's' : ''}
+                          <span style={{
+                            fontSize: 10,
+                            transform: expandedMembers.has(shared.id) ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s'
+                          }}>▼</span>
+                        </button>
+
+                        {/* Members List Dropdown */}
+                        {expandedMembers.has(shared.id) && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 'calc(100% + 8px)',
+                            right: 0,
+                            background: '#fff',
+                            border: '2px solid #6c63ff',
+                            borderRadius: 12,
+                            boxShadow: '0 10px 40px rgba(99, 102, 241, 0.25)',
+                            zIndex: 9999,
+                            minWidth: 280,
+                            overflow: 'hidden'
+                          }}>
+                            <div style={{
+                              padding: '12px 16px',
+                              background: 'linear-gradient(135deg, #6c63ff 0%, #a084ee 100%)',
+                              color: '#fff',
+                              fontWeight: 600,
+                              fontSize: 14,
+                              borderBottom: '1px solid #e5e7eb'
+                            }}>
+                              Collaborators ({shared.sharedWith?.length || 0})
+                            </div>
+                            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                              {shared.sharedWith && shared.sharedWith.length > 0 ? (
+                                shared.sharedWith.map((memberId, idx) => {
+                                  const isOwner = shared.sharedBy.id === memberId;
+                                  const isSelf = user?.uid === memberId;
+                                  
+                                  return (
+                                    <div
+                                      key={idx}
+                                      style={{
+                                        padding: '12px 16px',
+                                        borderBottom: idx < (shared.sharedWith.length - 1) ? '1px solid #f0f0f0' : 'none',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        background: isSelf ? '#f8faff' : '#fff',
+                                        transition: 'background 0.2s'
+                                      }}
+                                    >
+                                      <div style={{
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius: '50%',
+                                        background: '#e5e7eb',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: 16,
+                                        flexShrink: 0
+                                      }}>
+                                        👤
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                          fontSize: 14,
+                                          fontWeight: 600,
+                                          color: '#0f172a',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 6
+                                        }}>
+                                          {isOwner ? '👑 Owner' : 'Collaborator'}
+                                          {isSelf && <span style={{
+                                            fontSize: 11,
+                                            background: '#6c63ff',
+                                            color: '#fff',
+                                            padding: '2px 8px',
+                                            borderRadius: 4,
+                                            fontWeight: 600
+                                          }}>You</span>}
+                                        </div>
+                                        <div style={{
+                                          fontSize: 12,
+                                          color: '#64748b',
+                                          marginTop: 2
+                                        }}>
+                                          {isOwner ? shared.sharedBy.name : `Member ${idx + 1}`}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <div style={{
+                                  padding: '16px',
+                                  textAlign: 'center',
+                                  color: '#94a3b8',
+                                  fontSize: 13
+                                }}>
+                                  No members yet
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <SharedDestinationCard
                     item={item}
                     index={0}
