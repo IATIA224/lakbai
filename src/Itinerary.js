@@ -312,7 +312,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
 
               <div className="itn-grid">
                 <label className="itn-field">
-                  <span className="itn-label">Estimated Expenditure ($)</span>
+                  <span className="itn-label">Estimated Expenditure (₱)</span>
                   <input
                     className="itn-input"
                     type="number"
@@ -556,7 +556,7 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
           <div className="itn-stat green">
             <div className="itn-stat-title">Estimated expenditure</div>
             <div className="itn-stat-body">
-              <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+              <div>₱{Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
               <div className="itn-muted">Estimated total cost for this trip</div>
             </div>
           </div>
@@ -830,7 +830,7 @@ function ItinerarySummaryModal({ item, onClose }) {
                 <h3 className="itn-summary-heading">💰 Budget</h3>
                 <div className="itn-summary-item">
                   <span className="itn-summary-amount">
-                    ${Number(item.estimatedExpenditure).toLocaleString()}
+                    ₱{Number(item.estimatedExpenditure).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -939,7 +939,7 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
                     {item.arrival && <>Arrival: {item.arrival} &nbsp;</>}
                     {item.departure && <>Departure: {item.departure} &nbsp;</>}
                     {item.status && <>Status: {item.status} &nbsp;</>}
-                    {item.estimatedExpenditure && <>Budget: ${Number(item.estimatedExpenditure).toLocaleString()} &nbsp;</>}
+                    {item.estimatedExpenditure && <>Budget: ₱{Number(item.estimatedExpenditure).toLocaleString()} &nbsp;</>}
                     {item.activities && item.activities.length > 0 && (
                       <>Activities: {item.activities.join(", ")} &nbsp;</>
                     )}
@@ -1318,12 +1318,12 @@ export default function Itinerary() {
       item.arrival || "",
       item.departure || "",
       item.status || "",
-      `$${Number(item.estimatedExpenditure || 0).toLocaleString()}`,
+      `₱${Number(item.estimatedExpenditure || 0).toLocaleString()}`,
       (item.activities && item.activities.length > 0) ? item.activities.join(", ") : ""
     ]);
 
     autoTable(doc, {
-      head: [["Destination", "Region", "Location", "Arrival", "Departure", "Status", "Budget", "Activities"]],
+      head: [["Destination", "Region", "Location", "Arrival", "Departure", "Status", "Budget (₱)", "Activities"]],
       body: tableData,
       startY: 30,
       theme: 'grid',
