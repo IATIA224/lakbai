@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import './Ai.css';
 import StickyHeader from './header';
 import { db, auth } from './firebase';
 import { collection, doc, setDoc, serverTimestamp, arrayUnion, updateDoc, getDocs, query, orderBy, onSnapshot, addDoc } from 'firebase/firestore';
@@ -8,14 +9,19 @@ import { Client } from "@gradio/client";
 function ChatModal({ open, onClose, content, onAddToItinerary }) {
   if (!open) return null;
   return (
-    <div style={overlayStyle} role="dialog" aria-modal="true">
-      <div style={modalStyle}>
-        <button onClick={onClose} style={closeBtnStyle} aria-label="Close">×</button>
-        <h3 style={{ color: '#6c63ff' }}>LakbAI Answer</h3>
-        <div style={{ whiteSpace: 'pre-wrap', marginTop: 8 }}>{content}</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-          <button className="btn-outline" onClick={onAddToItinerary}>Add to Itinerary</button>
-          <button className="btn-primary" onClick={onClose}>Close</button>
+    <div className="ai-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="ai-modal-content" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="ai-modal-close" aria-label="Close">×</button>
+        <div className="ai-modal-header">
+          <span className="ai-modal-icon">✨</span>
+          <h3>LakbAI Response</h3>
+        </div>
+        <div className="ai-modal-body">{content}</div>
+        <div className="ai-modal-footer">
+          <button className="ai-btn ai-btn-outline" onClick={onAddToItinerary}>
+            📋 Add to Itinerary
+          </button>
+          <button className="ai-btn ai-btn-primary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -184,20 +190,28 @@ export default function ChatbaseAI() {
   }
 
   const handleSend = async () => {
-    const text = input.trim(); if (!text) return;
-    setInput(''); addMessage(text, 'user'); setLoading(true);
+    const text = input.trim(); 
+    if (!text) return;
+    setInput(''); 
+    addMessage(text, 'user'); 
+    setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
     const reply = await sendToGradio(payload);
     // If the reply starts with 'Error:' show it but don't open modal
     addMessage(reply, 'assistant');
     if (!reply.toLowerCase().startsWith('error:')) {
-      setModalContent(reply); setModalOpen(true);
+      setModalContent(reply); 
+      setModalOpen(true);
     }
     setLoading(false);
   };
 
   const handleAddToItinerary = async () => {
-    const user = auth.currentUser; if (!user) { alert('Please sign in to add to your itinerary'); return; }
+    const user = auth.currentUser; 
+    if (!user) { 
+      alert('Please sign in to add to your itinerary'); 
+      return; 
+    }
     try {
       // Create a lightweight destination from the AI content
       const dest = {
@@ -223,33 +237,26 @@ export default function ChatbaseAI() {
 
   return (
     <>
-      <div style={containerStyle}>
+      <div className="ai-container">
         {/* Chat History Sidebar */}
         {showHistory && (
-          <div style={sidebarStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: '#6c63ff' }}>Chat History</h3>
-              <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+          <div className="ai-sidebar">
+            <div className="ai-sidebar-header">
+              <h3>💬 Chat History</h3>
+              <button onClick={() => setShowHistory(false)} className="ai-sidebar-close">×</button>
             </div>
-            <button onClick={createNewChat} style={{ width: '100%', marginBottom: 12, padding: '8px 12px', background: '#6c63ff', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
-              + New Chat
+            <button onClick={createNewChat} className="ai-btn ai-btn-new-chat">
+              ✨ New Chat
             </button>
-            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+            <div className="ai-sidebar-chats">
               {chatHistory.map(chat => (
                 <div
                   key={chat.id}
                   onClick={() => { loadChat(chat.id); setShowHistory(false); }}
-                  style={{
-                    padding: 10,
-                    marginBottom: 8,
-                    background: currentChatId === chat.id ? '#e0e7ff' : '#f9f9f9',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    border: currentChatId === chat.id ? '2px solid #6c63ff' : '1px solid #ddd'
-                  }}
+                  className={`ai-chat-item ${currentChatId === chat.id ? 'active' : ''}`}
                 >
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{chat.title}</div>
-                  <div style={{ fontSize: 12, color: '#666' }}>
+                  <div className="ai-chat-title">{chat.title}</div>
+                  <div className="ai-chat-meta">
                     {chat.messages?.length || 0} messages
                   </div>
                 </div>
@@ -258,62 +265,103 @@ export default function ChatbaseAI() {
           </div>
         )}
 
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 12 }}>
-            <div>
-              <h2 style={{ color: '#6c63ff', margin: 0 }}>LakbAI Assistant</h2>
-              <p style={{ color: '#444', margin: '4px 0 0 0', fontSize: 14 }}>Ask anything about travel planning, destinations, or get personalized tips for your next adventure in the Philippines!</p>
+        <div className="ai-card">
+          <div className="ai-header">
+            <div className="ai-header-content">
+              <div className="ai-header-icon">🤖</div>
+              <div>
+                <h2 className="ai-title">LakbAI Assistant</h2>
+                <p className="ai-subtitle">Ask anything about travel planning, destinations, or get personalized tips for your next adventure in the Philippines!</p>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowHistory(!showHistory)} style={{ padding: '8px 16px', background: '#6c63ff', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
-                {showHistory ? 'Hide' : 'History'}
+            <div className="ai-header-actions">
+              <button onClick={() => setShowHistory(!showHistory)} className="ai-btn ai-btn-secondary">
+                📚 {showHistory ? 'Hide' : 'History'}
               </button>
-              <button onClick={createNewChat} style={{ padding: '8px 16px', background: '#28a745', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
-                New Chat
+              <button onClick={createNewChat} className="ai-btn ai-btn-success">
+                ✨ New Chat
               </button>
             </div>
           </div>
 
-          <div ref={chatRef} style={chatContainerStyle} aria-live="polite">
+          <div ref={chatRef} className="ai-chat-container" aria-live="polite">
             {messages.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#999', padding: 40 }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
-                <div>Start a conversation with LakbAI!</div>
+              <div className="ai-empty-state">
+                <div className="ai-empty-icon">💬</div>
+                <div className="ai-empty-text">Start a conversation with LakbAI!</div>
+                <div className="ai-empty-suggestions">
+                  <button className="ai-suggestion" onClick={() => setInput('What are the best beaches in the Philippines?')}>
+                    🏖️ Best beaches
+                  </button>
+                  <button className="ai-suggestion" onClick={() => setInput('Plan a 3-day trip to Baguio')}>
+                    🗺️ Trip planning
+                  </button>
+                  <button className="ai-suggestion" onClick={() => setInput('Budget-friendly destinations')}>
+                    💰 Budget travel
+                  </button>
+                </div>
               </div>
             ) : (
-              messages.map((m,i) => (
-                <div key={i} style={m.role === 'user' ? userMsgStyle : aiMsgStyle}>
-                  <strong style={{ display: 'block', fontSize: 12 }}>{m.role === 'user' ? 'You' : 'AI'}</strong>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
+              messages.map((m, i) => (
+                <div key={i} className={`ai-message ${m.role === 'user' ? 'ai-message-user' : 'ai-message-assistant'}`}>
+                  <div className="ai-message-avatar">
+                    {m.role === 'user' ? '👤' : '🤖'}
+                  </div>
+                  <div className="ai-message-content">
+                    <div className="ai-message-role">{m.role === 'user' ? 'You' : 'LakbAI'}</div>
+                    <div className="ai-message-text">{m.text}</div>
+                  </div>
                 </div>
               ))
             )}
+            {loading && (
+              <div className="ai-message ai-message-assistant">
+                <div className="ai-message-avatar">🤖</div>
+                <div className="ai-message-content">
+                  <div className="ai-message-role">LakbAI</div>
+                  <div className="ai-typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} rows={3} style={{ flex: 1 }} placeholder="Ask the AI..." />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button onClick={handleSend} disabled={loading} style={{ minWidth: 100 }}>{loading ? 'Sending...' : 'Send'}</button>
+          <div className="ai-input-container">
+            <div className="ai-input-wrapper">
+              <button className="ai-input-icon" title="Attach file">📎</button>
+              <textarea 
+                value={input} 
+                onChange={e => setInput(e.target.value)} 
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} 
+                className="ai-textarea"
+                placeholder="Ask the AI..." 
+                rows={1}
+              />
+              <button 
+                onClick={handleSend} 
+                disabled={loading || !input.trim()} 
+                className="ai-send-btn"
+                title="Send message"
+              >
+                {loading ? '⏳' : '🚀'}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-  <ChatModal open={modalOpen} onClose={() => setModalOpen(false)} content={modalContent} onAddToItinerary={handleAddToItinerary} />
+      <ChatModal 
+        open={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        content={modalContent} 
+        onAddToItinerary={handleAddToItinerary} 
+      />
     </>
   );
 }
 
-const containerStyle = { width: '100%', minHeight: '700px', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(120deg, #e0e7ff 0%, #f3f4f6 100%)', padding: '48px 0', position: 'relative' };
-const sidebarStyle = { position: 'absolute', left: 20, top: 60, background: '#fff', borderRadius: 12, boxShadow: '0 4px 24px rgba(60,60,120,0.15)', padding: 20, width: 280, maxHeight: 600, zIndex: 10 };
-const cardStyle = { background: '#fff', borderRadius: 18, boxShadow: '0 8px 32px rgba(60,60,120,0.12)', padding: 32, width: 900, maxWidth: '96vw', minHeight: 650, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' };
-const chatContainerStyle = { height: 320, overflow: 'auto', border: '1px solid #ddd', padding: 10, borderRadius: 6, background: '#fff', width: '100%' };
-const userMsgStyle = { background: '#f1f1f8', padding: 10, borderRadius: 8, marginBottom: 8, alignSelf: 'flex-end' };
-const aiMsgStyle = { background: '#eef6ff', padding: 10, borderRadius: 8, marginBottom: 8, alignSelf: 'flex-start' };
-const overlayStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.25)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' };
-const modalStyle = { background: '#fff', borderRadius: 18, boxShadow: '0 8px 32px rgba(60,60,120,0.18)', width: '60vw', minWidth: 340, maxWidth: 700, minHeight: 300, position: 'relative', padding: 24 };
-const closeBtnStyle = { position: 'absolute', top: 12, right: 12, background: '#6c63ff', color: '#fff', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: '1rem', cursor: 'pointer' };
-
 export { ChatbaseAI, ChatModal };
-// Backwards-compatible named export used by App.js
 export { ChatModal as ChatbaseAIModal };
