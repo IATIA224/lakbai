@@ -5,7 +5,7 @@ import { addTripForCurrentUser } from './Itinerary';
 import { trackDestinationAdded } from './itinerary_Stats';
 import { 
   collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc, serverTimestamp,
-  where as fsWhere // ADD
+  where as fsWhere, setDoc, arrayUnion, arrayRemove // ADD
 } from 'firebase/firestore';
 import { fetchCloudinaryImages, getImageForDestination as getCloudImageForDestination } from "./image-router";
 
@@ -830,13 +830,98 @@ function Dashboard({ setShowAIModal }) {
   // Demo: local state for bookmarks for personalized cards
   const [personalizedBookmarks, setPersonalizedBookmarks] = useState({});
 
+  // Sync hearts from Firestore bookmarks so existing saved items show as active
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(async (u) => {
+      if (!u) { setPersonalizedBookmarks({}); return; }
+      try {
+        // Merge ids from both the subcollection and the userBookmarks doc
+        const [subsSnap, listSnap] = await Promise.all([
+          getDocs(collection(db, 'users', u.uid, 'bookmarks')),
+          getDoc(doc(db, 'userBookmarks', u.uid)).catch(() => null)
+        ]);
+
+        const map = {};
+        subsSnap.forEach(d => { map[d.id] = true; });
+
+        if (listSnap && listSnap.exists()) {
+          const arr = Array.isArray(listSnap.data()?.bookmarks) ? listSnap.data().bookmarks : [];
+          arr.forEach(id => { map[String(id)] = true; });
+        }
+
+        setPersonalizedBookmarks(map);
+      } catch {
+        setPersonalizedBookmarks({});
+      }
+    });
+    return () => typeof unsub === 'function' && unsub();
+  }, []);
+
   // Modal state for personalized details
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
 
   // Handler for toggling bookmark for personalized cards
-  const handlePersonalizedBookmark = (id) => {
-    setPersonalizedBookmarks((prev) => ({ ...prev, [id]: !prev[id] }));
+  const handlePersonalizedBookmark = async (id) => {
+    const user = auth.currentUser;
+    if (!user) { alert('Please sign in to use bookmarks.'); return; }
+
+    const next = !personalizedBookmarks[id];
+    // optimistic UI
+    setPersonalizedBookmarks(prev => ({ ...prev, [id]: next }));
+
+    try {
+      const d = (recommendedDestinations || []).find(x => String(x.id) === String(id)) || {};
+      const ref = doc(db, 'users', user.uid, 'bookmarks', String(id));
+      const listRef = doc(db, 'userBookmarks', user.uid); // keep Bookmarks2 in sync
+
+      if (next) {
+        const payload = {
+          id: d.id || String(id),
+          name: d.name || '',
+          description: d.description || '',
+          region: d.region || '',
+          rating: d.rating || 0,
+          price: d.price || '',
+          priceTier: d.priceTier || null,
+          tags: Array.isArray(d.tags) ? d.tags : [],
+          category: Array.isArray(d.category) ? d.category
+            : (typeof d.category === 'string' ? [d.category] : []),
+          location: d.location || '',
+          image: d.image || pickCardImage(d.name) || getImageForDestination(d.name) || '',
+          bestTime: d.bestTime || '',
+          createdAt: serverTimestamp()
+        };
+        await setDoc(ref, payload, { merge: true });
+
+        // Update list doc (used by bookmarks2.js)
+        await setDoc(
+          listRef,
+          {
+            userId: user.uid,
+            updatedAt: serverTimestamp(),
+            bookmarks: arrayUnion(String(id))
+          },
+          { merge: true }
+        );
+      } else {
+        await deleteDoc(ref);
+        await setDoc(
+          listRef,
+          {
+            userId: user.uid,
+            updatedAt: serverTimestamp(),
+            bookmarks: arrayRemove(String(id))
+          },
+          { merge: true }
+        );
+      }
+    } catch (e) {
+      console.error('bookmark toggle failed', e);
+      // rollback UI
+      setPersonalizedBookmarks(prev => ({ ...prev, [id]: !next }));
+      alert('Failed to update bookmark. Please try again.');
+    }
   };
 
   // Handler for view details (open modal)
