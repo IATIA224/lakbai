@@ -619,6 +619,15 @@ function Dashboard({ setShowAIModal }) {
   const anchorRef = useRef(null); // store the anchor button element
   const [openActionsId, setOpenActionsId] = useState(null);
   const [actionsPos, setActionsPos] = useState({ top: 0, left: 0, anchorRect: null });
+
+  // ADD: Rating & modal state for personalized details
+  const [ratingsByDest, setRatingsByDest] = useState({});
+  const [selected, setSelected] = useState(null);
+  const [userRating, setUserRating] = useState(0);
+  const [savingRating, setSavingRating] = useState(false);
+  const [destinations, setDestinations] = useState([]);
+
+  // ...existing code...
   
   // compute popup position relative to bookmarksContainerRef so it stays inside that parent
   const computeAndSetPos = (anchorEl) => {
@@ -662,6 +671,8 @@ function Dashboard({ setShowAIModal }) {
     setActionsPos({ top, left, anchorRect });
   };
   
+  
+
   // compute popup position relative to tripsContainerRef (right-side popup, vertically centered)
   const computeAndSetTripPos = (anchorEl) => {
     if (!anchorEl || !tripsContainerRef.current) return;
@@ -823,6 +834,7 @@ function Dashboard({ setShowAIModal }) {
       if (typeof unsubscribe === "function") unsubscribe();
     };
   }, []);
+  
 
   // Use the custom hook for live stats
   const { loading: statsLoading, error: statsError, stats } = useUserDashboardStats();
@@ -928,12 +940,101 @@ function Dashboard({ setShowAIModal }) {
   const handlePersonalizedDetails = (card) => {
     setSelectedCard(card);
     setDetailsModalOpen(true);
+    setSelected(card);
+    setUserRating(0);
   };
 
   // Handler to close modal
   const closeDetailsModal = () => {
     setDetailsModalOpen(false);
     setSelectedCard(null);
+  };
+
+    const loadDestinationAvg = async (d) => {
+    if (!ratingsByDest[d.id]) {
+      try {
+        const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
+        let sum = 0, count = 0;
+        rsnap.forEach((r) => {
+          const v = Number(r.data()?.value) || 0;
+          if (v > 0) { sum += v; count += 1; }
+        });
+        const avg = count ? sum / count : 0;
+        setRatingsByDest((m) => ({ ...m, [d.id]: { avg, count } }));
+      } catch (e) {
+        console.error('Load selected avg failed', e);
+      }
+    }
+  };
+
+  
+  // ADD: load all published destinations (for potential future use or stats)
+  useEffect(() => {
+    const loadDestinations = async () => {
+      try {
+        const q = fsQuery(
+          collection(db, 'destinations'),
+          fsWhere('status', 'in', ['published', 'PUBLISHED'])
+        );
+        const snap = await getDocs(q);
+        const items = snap.docs.map((x) => ({
+          id: x.id,
+          ...x.data(),
+          category: x.data().category || '',
+        }));
+        setDestinations(items);
+      } catch (err) {
+        console.error('Failed to load destinations:', err);
+        setDestinations([]);
+      }
+    };
+    loadDestinations();
+  }, []);
+
+
+  // ADD: Save user rating
+  const rateSelected = async (value) => {
+    const u = auth.currentUser;
+    if (!u) { alert('Please sign in to rate.'); return; }
+    if (!selected) return;
+    const v = Math.max(1, Math.min(5, Number(value) || 0));
+    setSavingRating(true);
+    try {
+      const ref = doc(db, 'destinations', String(selected.id), 'ratings', u.uid);
+      await setDoc(ref, {
+        value: v,
+        userId: u.uid,
+        updatedAt: serverTimestamp(),
+        name: selected.name || '',
+      }, { merge: true });
+
+      setUserRating(v);
+
+      const userRatingRef = doc(db, 'users', u.uid, 'ratings', String(selected.id));
+      await setDoc(
+        userRatingRef,
+        {
+          destId: String(selected.id),
+          value: v,
+          updatedAt: serverTimestamp(),
+          name: selected.name || '',
+        },
+        { merge: true }
+      );
+
+      const rsnap = await getDocs(collection(db, 'destinations', String(selected.id), 'ratings'));
+      let sum = 0, count = 0;
+      rsnap.forEach((r) => { const val = Number(r.data()?.value) || 0; if (val > 0) { sum += val; count += 1; } });
+      const avg = count ? sum / count : 0;
+
+      setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
+      setDestinations((prev) => prev.map((x) => (x.id === selected.id ? { ...x, rating: avg } : x)));
+    } catch (e) {
+      console.error('Save rating failed:', e);
+      alert('Failed to save rating.');
+    } finally {
+      setSavingRating(false);
+    }
   };
 
   const personalizedCards = [
@@ -1516,13 +1617,13 @@ function Dashboard({ setShowAIModal }) {
                       </div>
                     )}
                   </div>
-                 </div>
-               ))
-             ) : (
-               <div className="dashboard-preview-empty">No trips found. Start planning your first trip!</div>
-             )}
-           </div>
-         </div>
+                  </div>
+                ))
+              ) : (
+                <div className="dashboard-preview-empty">No trips found. Start planning your first trip!</div>
+              )}
+            </div>
+          </div>
         <div className="dashboard-preview-col">
           <div className="dashboard-preview-title">Bookmarks</div>
           <button 
@@ -1626,12 +1727,12 @@ function Dashboard({ setShowAIModal }) {
                       </div>
                     )}
                   </div>
-                 </div>
-               ))
-             )}
-           </div>
-         </div>
-       </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
 
       {/* Personalized Section */}
       <div className="personalized-section-dashboard">
@@ -1756,13 +1857,24 @@ function Dashboard({ setShowAIModal }) {
                   <div className="details-rating-row">
                     <span className="star">⭐</span>
                     <span className="avg">
-                      {Number(selectedCard.rating || 0) > 0 ? Number(selectedCard.rating).toFixed(1) : '—'}
+                      {(ratingsByDest[selected.id]?.count ?? 0) > 0
+                      ? (ratingsByDest[selected.id].avg).toFixed(1)
+                      : '—'}                    
                     </span>
                     <span className="muted"> (Average Rating)</span>
                     <span className="muted sep">Your Rating:</span>
                     <div className="your-stars">
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <button key={n} className="star-btn" disabled aria-label={`${n} star${n>1?'s':''}`}>★</button>
+                      <button
+                        key={n}
+                        className={`star-btn ${userRating >= n ? 'filled' : ''}`}
+                        onClick={() => rateSelected(n)}
+                        disabled={savingRating}
+                        aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                        title={`${n} star${n > 1 ? 's' : ''}`}
+                      >
+                        ★
+                      </button>
                       ))}
                     </div>
                   </div>
