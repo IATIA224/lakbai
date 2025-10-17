@@ -1052,6 +1052,42 @@
     font-size: 0.85rem;
   }
 }
+
+.grid-card {
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(108,99,255,0.22);
+  transition: transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+  position: relative;
+  min-width: 340px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  /* Remove or comment out the next line: */
+  /* animation: scaleIn 0.4s ease-out both; */
+}
+
+.grid-card-anim {
+
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+}
+
+.grid-card-anim:hover {
+  transition: transform 0.2s ease;
+  transform: translateY(-5px);
+}
+
+.grid-card:hover {
+  transform: translateY(-5px);
+}
+
 .loading-spinner {
   border: 3px solid #f3f4f6;
   border-top: 3px solid #3b82f6;
