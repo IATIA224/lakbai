@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { addTripForCurrentUser } from './Itinerary';
 import { trackDestinationAdded } from './itinerary_Stats';
+import { 
+  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc, serverTimestamp,
+  where as fsWhere // ADD
+} from 'firebase/firestore';
+import { fetchCloudinaryImages, getImageForDestination as getCloudImageForDestination } from "./image-router";
 
 import { signOut } from 'firebase/auth';
-import { 
-  collection, getDocs, orderBy, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc, serverTimestamp
-} from 'firebase/firestore';
 import { updateDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import './dashboardBanner.css';
@@ -507,6 +509,55 @@ function ItinerarySummaryModal({ item, onClose }) {
   );
 
   return createPortal(modalContent, document.body);
+}
+
+// Interest → category rules (case-sensitive keys as in your profile)
+const INTEREST_RULES = {
+  "Surfer": ["Beach"],
+  "Backpacker": ["Mountain", "Tourist", "Natural"],
+  "Foodie Traveler": ["Cultural", "Tourist", "Heritage"],
+  "Culture Seeker": ["Cultural", "Heritage", "Museums"],
+  "Adventure Junkie": ["Mountain", "Waterfalls", "Caves"],
+  "Nature Enthusiast": ["Natural", "Parks", "Lakes"],
+  "Digital Nomad": ["City Explorer", "Tourist", "Landmarks"],
+  "Road Tripper": ["Landmarks", "Tourist", "Natural"],
+  "Beach Lover": ["Beach", "Islands", "Natural"],
+  "City Explorer": ["Tourist", "Museums", "Cultural"],
+  "Photographer": ["Landmarks", "Natural", "Heritage"],
+  "Historian": ["Historical", "Heritage", "Museums"],
+  "Festival Hopper": ["Cultural", "Tourist", "Heritage"],
+  "Hiker": ["Mountain"],
+  "Luxury Traveler": ["Islands", "Beach", "Heritage"],
+  "Eco-Traveler": ["Parks", "Natural", "Caves"],
+  "Cruise Lover": ["Islands", "Beach", "Lakes"],
+  "Winter Sports Enthusiast": ["Mountain", "Natural", "Parks"],
+  "Solo Wanderer": ["Tourist", "Cultural", "Landmarks"]
+};
+
+const INTEREST_RULES_LC = Object.fromEntries(
+  Object.entries(INTEREST_RULES).map(([k, v]) => [k.toLowerCase(), v])
+);
+
+
+// Helper to prefer cloud -> firebase -> local -> placeholder (same strategy as bookmarks2)
+function getFirebaseImageForDestination(firebaseImages, destName) {
+  if (!destName) return null;
+  const normalized = destName.trim().toLowerCase();
+  const found = (firebaseImages || []).find(img =>
+    (img.name && img.name.trim().toLowerCase() === normalized) ||
+    (img.publicId && img.publicId.trim().toLowerCase() === normalized)
+  );
+  return found && found.url ? found.url : null;
+}
+function formatPeso(v) {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'number') return '₱' + v.toLocaleString();
+  if (typeof v === 'string') {
+    if (v.trim().startsWith('₱')) return v;
+    const digits = v.replace(/[^\d]/g, '');
+    return digits ? '₱' + Number(digits).toLocaleString() : v;
+  }
+  return '—';
 }
 
 function Dashboard({ setShowAIModal }) {
@@ -1015,6 +1066,197 @@ function Dashboard({ setShowAIModal }) {
     }
   };
 
+  // Images used by grid-card
+  const [cloudImages, setCloudImages] = useState([]);
+  const [firebaseImages, setFirebaseImages] = useState([]);
+
+  useEffect(() => {
+    fetchCloudinaryImages().then(setCloudImages).catch(() => setCloudImages([]));
+  }, []);
+  useEffect(() => {
+    async function fetchFirebaseImages() {
+      try {
+        const snap = await getDocs(collection(db, 'photos'));
+        const imgs = snap.docs.map(doc => ({
+          name: doc.data().name,
+          publicId: doc.data().publicId,
+          url: doc.data().url
+        })).filter(img => img.name && img.url);
+        setFirebaseImages(imgs);
+      } catch {
+        setFirebaseImages([]);
+      }
+    }
+    fetchFirebaseImages();
+  }, []);
+  const pickCardImage = (name) =>
+    getCloudImageForDestination(cloudImages, name) ||
+    getFirebaseImageForDestination(firebaseImages, name) ||
+    getImageForDestination(name) ||
+    '/placeholder.png';
+
+  // Personalized recommendations from profile interests
+  const [userInterests, setUserInterests] = useState([]);
+  const [recoLoading, setRecoLoading] = useState(false);
+  const [recommendedDestinations, setRecommendedDestinations] = useState([]);
+
+  // Read current user's interests (normalize to labels)
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => {
+      if (!u) { setUserInterests([]); return; }
+      const uref = doc(db, 'users', u.uid);
+      const unsubUser = onSnapshot(uref, (snap) => {
+        const raw = Array.isArray(snap.data()?.interests) ? snap.data().interests : [];
+        const arr = raw.map(v => (typeof v === 'string' ? v : v?.label)).filter(Boolean);
+        setUserInterests(arr);
+      });
+      return () => typeof unsubUser === 'function' && unsubUser();
+    });
+    return () => typeof unsubAuth === 'function' && unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    const norm = (s) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+    const uniqCasePreserve = (arr) => {
+      const seen = new Set();
+      const out = [];
+      for (const v of arr) {
+        const k = norm(v);
+        if (!seen.has(k)) { seen.add(k); out.push(v); }
+      }
+      return out;
+    };
+    // ADD: generate plural/singular + case variants for Firestore (case-sensitive) matches
+    const expandForQuery = (values) => {
+      const set = new Set();
+      const cap = (t) => t.replace(/\b\w/g, (m) => m.toUpperCase());
+      const singularize = (t) => t.endsWith('s') ? t.slice(0, -1) : t;
+      const pluralize = (t) => t.endsWith('s') ? t : t + 's';
+
+      const synonyms = {
+        Mountain: ['Mountains', 'Volcano', 'Highland', 'Highlands', 'Trail', 'Trails', 'Hiking', 'Hike'],
+        Mountains: ['Mountain', 'Volcano', 'Highland', 'Highlands', 'Trail', 'Trails', 'Hiking', 'Hike'],
+        Park: ['Parks'],
+        Parks: ['Park'],
+        Island: ['Islands', 'Beach'],
+        Islands: ['Island'],
+        Beach: ['Beaches', 'Coast'],
+        Museum: ['Museums'],
+        Museums: ['Museum'],
+        Waterfall: ['Waterfalls'],
+        Waterfalls: ['Waterfall'],
+        Lake: ['Lakes'],
+        Lakes: ['Lake'],
+        Landmark: ['Landmarks'],
+        Landmarks: ['Landmark'],
+        Cultural: [],
+        Heritage: [],
+        Tourist: [],
+        Natural: [],
+        Hiking: ['Hike', 'Trail', 'Trails']
+      };
+
+      for (const v of values) {
+        if (!v) continue;
+        const base = String(v).trim();
+        const lc = base.toLowerCase();
+        const title = cap(lc);
+        const sing = singularize(title);
+        const plur = pluralize(title);
+
+        [base, lc, title, sing, plur].forEach(x => set.add(x));
+        (synonyms[title] || []).forEach(x => {
+          set.add(x);
+          set.add(x.toLowerCase());
+          set.add(cap(x));
+        });
+      }
+      return Array.from(set);
+    };
+
+    const run = async () => {
+      try {
+        const mappedExact = (userInterests || []).flatMap((i) => {
+          if (!i) return [];
+          return INTEREST_RULES[i] || INTEREST_RULES_LC[i.toLowerCase()] || [];
+        });
+
+        const targetCatsExact = uniqCasePreserve(mappedExact);
+        if (targetCatsExact.length === 0) { setRecommendedDestinations([]); return; }
+
+        setRecoLoading(true);
+
+        // USE expanded variants for querying (covers Mountain/Mountains and case)
+        const queryTerms = expandForQuery(targetCatsExact);
+
+        const all = new Map();
+        const chunkSize = 10;
+
+        const fetchByField = async (field) => {
+          for (let i = 0; i < queryTerms.length; i += chunkSize) {
+            const chunk = queryTerms.slice(i, i + chunkSize);
+            const q = fsQuery(
+              collection(db, 'destinations'),
+              fsWhere(field, 'array-contains-any', chunk),
+              limit(50)
+            );
+            const snap = await getDocs(q);
+            snap.forEach((d) => { if (!all.has(d.id)) all.set(d.id, { id: d.id, ...d.data() }); });
+          }
+        };
+
+        await Promise.all([
+          fetchByField('categories'),
+          fetchByField('tags'),
+          fetchByField('Categories')
+        ]);
+
+        // Score overlap vs expanded normalized set
+        const targetSet = new Set(expandForQuery(targetCatsExact).map(norm));
+        const scored = Array.from(all.values()).map((d) => {
+          const cats = Array.isArray(d.categories) ? d.categories : (Array.isArray(d.Categories) ? d.Categories : []);
+          const tags = Array.isArray(d.tags) ? d.tags : [];
+          const combined = [...cats, ...tags].map(norm);
+          const score = combined.reduce((acc, c) => acc + (targetSet.has(c) ? 1 : 0), 0);
+          return { ...d, _matchScore: score };
+        });
+
+        const results = scored
+          .filter((d) => d._matchScore > 0)
+          .sort((a, b) => {
+            if (b._matchScore !== a._matchScore) return b._matchScore - a._matchScore;
+            return (b.rating || 0) - (a.rating || 0);
+          })
+          .map((d) => ({
+            id: d.id,
+            name: d.name || d.title || '',
+            region: d.region || d.locationRegion || '',
+            description: d.description || d.desc || '',
+            rating: d.rating || 0,
+            price: d.price || '',
+            priceTier: d.priceTier || null,
+            tags: Array.isArray(d.tags) ? d.tags : [],
+            categories: Array.isArray(d.categories) ? d.categories : (Array.isArray(d.Categories) ? d.Categories : []),
+            location: d.location || '',
+            image: d.image || d.imageUrl || '',
+            bestTime: d.bestTime || '',
+            lat: d.lat || d.latitude,
+            lon: d.lon || d.longitude,
+            place_id: d.place_id || d.id
+          }));
+
+        setRecommendedDestinations(results);
+      } catch (e) {
+        console.error('recommendation fetch failed', e);
+        setRecommendedDestinations([]);
+      } finally {
+        setRecoLoading(false);
+      }
+    };
+
+    run();
+  }, [userInterests]);
+
   return (
     <>
       {/* Hero Banner */}
@@ -1297,20 +1539,83 @@ function Dashboard({ setShowAIModal }) {
       {/* Personalized Section */}
       <div className="personalized-section-dashboard">
         <div className="personalized-title">Personalized for You</div>
+
+        {recoLoading && (
+          <div className="dashboard-preview-empty">Finding destinations based on your interests…</div>
+        )}
+
+        {!recoLoading && recommendedDestinations.length === 0 && (
+          <div className="dashboard-preview-empty">
+            No personalized destinations yet. Add interests on your profile to get recommendations.
+          </div>
+        )}
+
         <div className="personalized-cards-grid">
-          {personalizedCards.map(card => (
-            <DestinationCard
-              key={card.id}
-              {...card}
-              isBookmarked={!!personalizedBookmarks[card.id]}
-              onBookmarkClick={() => handlePersonalizedBookmark(card.id)}
-              onDetails={() => handlePersonalizedDetails(card)}
-            />
+          {recommendedDestinations.map((d) => (
+            <div className="grid-card-anim" key={d.id}>
+              <div className="grid-card">
+                <div className="card-image">
+                  {cloudImages.length === 0 ? (
+                    <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
+                  ) : (
+                    <img
+                      src={pickCardImage(d.name)}
+                      alt={d.name}
+                      className="destination-img"
+                      style={{
+                        width: "100%",
+                        height: 200,
+                        objectFit: "cover",
+                        borderRadius: "12px 12px 0 0",
+                        marginBottom: 6,
+                        background: "#e0e7ef"
+                      }}
+                    />
+                  )}
+                  <button
+                    className={`bookmark-bubble ${personalizedBookmarks[d.id] ? 'active' : ''}`}
+                    onClick={() => handlePersonalizedBookmark(d.id)}
+                    aria-label="Toggle bookmark"
+                    title="Bookmark"
+                  >
+                    {personalizedBookmarks[d.id] ? '❤️' : '🤍'}
+                  </button>
+                </div>
+
+                <div className="card-header">
+                  <h2>{d.name}</h2>
+                  <div className="mini-rating" title="Average Rating">
+                    <span>⭐</span> {Number(d.rating || 0) > 0 ? Number(d.rating).toFixed(1) : '—'}
+                  </div>
+                </div>
+
+                <div className="bp2-region-line">{d.region}</div>
+                <p className="description">{d.description}</p>
+
+                <div className="tag-container">
+                  {(d.tags || d.categories || []).slice(0, 8).map((t, i) => (
+                    <span key={i} className="tag">{t}</span>
+                  ))}
+                </div>
+
+                <div className="card-footer">
+                  <div
+                    className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}
+                    title={d.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                  >
+                    {formatPeso(d.price)}
+                  </div>
+                  <button className="details-btn" onClick={() => handlePersonalizedDetails(d)}>
+                    View Details
+                  </button>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* Details Modal for Personalized Cards */}
+      {/* Details Modal for Personalized Cards (bookmarks2 style) */}
       {detailsModalOpen && selectedCard && (
         <div
           className="modal-overlay active"
@@ -1320,29 +1625,29 @@ function Dashboard({ setShowAIModal }) {
             <button className="modal-close-floating" onClick={closeDetailsModal} aria-label="Close">
               ✕
             </button>
+
             <div className="details-hero">
-              <div
-                className="details-hero-art"
-                style={{
-                  backgroundImage: `url(${selectedCard.image || getImageForDestination(selectedCard.name) || '/placeholder.png'})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  minHeight: 160,
-                  borderRadius: 8,
-                  overflow: 'hidden'
-                }}
-                aria-hidden="true"
-              >
-                {/* decorative bars over the hero image */}
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                  <div className="hero-art-bg" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                    <div className="hero-green-bar" />
-                    <div className="hero-blue-bar" />
-                    <div className="hero-yellow-bar" />
-                  </div>
-                </div>
+              <div className="details-hero-image">
+                {cloudImages.length === 0 ? (
+                  <div style={{ width: "100%", height: 240, background: "#e0e7ef", borderRadius: 16 }} />
+                ) : (
+                  <img
+                    src={pickCardImage(selectedCard.name)}
+                    alt={selectedCard.name}
+                    style={{
+                      width: "100%",
+                      height: 240,
+                      objectFit: "cover",
+                      objectPosition: "center",
+                      borderRadius: "16px 16px 0 0",
+                      marginBottom: 8,
+                      background: "#e0e7ef"
+                    }}
+                  />
+                )}
               </div>
             </div>
+
             <div className="details-body">
               <div className="details-head-row">
                 <div className="details-title-col">
@@ -1350,20 +1655,29 @@ function Dashboard({ setShowAIModal }) {
                   <a href="#" className="details-region" onClick={(e) => e.preventDefault()}>
                     {selectedCard.region}
                   </a>
+
                   <div className="details-rating-row">
-                    <span>⭐</span>
-                    <span>{selectedCard.rating}</span>
-                    <span className="muted">(Average Rating)</span>
-                    <span className="sep">Your Rating:</span>
-                    <span className="your-stars">★ ★ ★ ★ ★</span>
+                    <span className="star">⭐</span>
+                    <span className="avg">
+                      {Number(selectedCard.rating || 0) > 0 ? Number(selectedCard.rating).toFixed(1) : '—'}
+                    </span>
+                    <span className="muted"> (Average Rating)</span>
+                    <span className="muted sep">Your Rating:</span>
+                    <div className="your-stars">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button key={n} className="star-btn" disabled aria-label={`${n} star${n>1?'s':''}`}>★</button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+
                 <div className="details-actions">
                   <button 
                     className={`btn-outline ${personalizedBookmarks[selectedCard.id] ? 'active' : ''}`}
                     onClick={() => handlePersonalizedBookmark(selectedCard.id)}
                   >
-                    <span>❤️</span> {personalizedBookmarks[selectedCard.id] ? 'Bookmarked' : 'Bookmark'}
+                    <span className="icon">{personalizedBookmarks[selectedCard.id] ? '❤️' : '🤍'}</span>
+                    {personalizedBookmarks[selectedCard.id] ? 'Bookmarked' : 'Bookmark'}
                   </button>
                   <button
                     className={`btn-green ${addedTripId === selectedCard.id ? 'btn-success' : ''}`}
@@ -1382,40 +1696,60 @@ function Dashboard({ setShowAIModal }) {
                   </button>
                 </div>
               </div>
+
               <div className="details-grid">
                 <div className="details-left">
                   <div className="section-title">Description</div>
                   <p className="details-paragraph">{selectedCard.description}</p>
+
                   <div className="section-title">Tags</div>
                   <div className="badge-row">
-                    {(selectedCard.tags || []).map((t, i) => (
+                    {(selectedCard.tags || selectedCard.categories || []).map((t, i) => (
                       <span key={i} className="badge">{t}</span>
                     ))}
                   </div>
+
                   <div className="section-title">Packing Suggestions</div>
                   <div className="packing-box">
-                    Swimwear, sunscreen, light clothing, waterproof bag, snorkeling gear
+                    {selectedCard.packingSuggestions || "No packing suggestions available."}
                   </div>
                 </div>
+
                 <aside className="trip-info-box">
                   <div className="trip-title">Trip Information</div>
+
                   <div className="trip-item">
                     <div className="trip-label">Price</div>
-                    <span className={`pill small ${selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
-                      {selectedCard.price}
+                    <span
+                      className={`pill small ${selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}
+                      title={selectedCard.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                    >
+                      {formatPeso(selectedCard.price)}
                     </span>
                   </div>
+
                   <div className="trip-item">
                     <div className="trip-label">Best Time to Visit</div>
-                    <div className="trip-text">December to May</div>
+                    <div className="trip-text">{selectedCard.bestTime || '—'}</div>
                   </div>
+
                   <div className="trip-item">
                     <div className="trip-label">Categories</div>
                     <div className="badge-row">
-                      <span className="badge purple">Mountains</span>
-                      <span className="badge purple">Cultural</span>
+                      {(selectedCard.categories || selectedCard.tags || []).slice(0, 6).map((c, i) => (
+                        <span key={i} className="badge purple">{c}</span>
+                      ))}
                     </div>
                   </div>
+
+                  {selectedCard.location && (
+                    <div className="trip-item">
+                      <div className="trip-label">Location</div>
+                      <div className="badge-row">
+                        <span className="badge blue">{selectedCard.location}</span>
+                      </div>
+                    </div>
+                  )}
                 </aside>
               </div>
             </div>

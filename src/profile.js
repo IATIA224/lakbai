@@ -117,12 +117,15 @@ const Profile = () => {
 
       setProfile((prev) => ({
         ...prev,
-        name: data.travelerName || user?.displayName || "",
-        bio: data.bio || "",
-        profilePicture: data.profilePicture || "/user.png",
-        likes: Array.isArray(data.likes) ? data.likes : [],
-        dislikes: Array.isArray(data.dislikes) ? data.dislikes : [],
-        joined,
+        name: data.travelerName ?? prev?.travelerName ?? "",
+        bio: data.bio ?? prev?.bio ?? "",
+        profilePicture: data.profilePicture ?? prev?.profilePicture ?? "/user.png",
+        // LIVE interests from 'interests' (fallback to legacy 'likes')
+        interests: Array.isArray(data.interests)
+          ? data.interests
+          : (Array.isArray(data.likes) ? data.likes : (prev?.interests || [])),
+        likes: Array.isArray(data.likes) ? data.likes : prev?.likes || [],
+        dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev?.dislikes || [],
       }));
 
       setShareCode(data.shareCode || "");
@@ -815,9 +818,9 @@ const Profile = () => {
               <span>• 🎂 Joined {profile?.joined || ""}</span>   {/* null-safe */}
             </div>
             <div className="profile-badges">
-              {(profile?.likes || []).map((like) => (
-                <div className="profile-interest profile-interest-like" key={like}>
-                  <span className="profile-interest-label">{like}</span>
+              {( (profile?.interests && profile.interests.length > 0 ? profile.interests : (profile?.likes || [])) ).map((interest) => (
+                <div className="profile-interest profile-interest-like" key={interest}>
+                  <span className="profile-interest-label">{interest}</span>
                 </div>
               ))}
               {(profile?.dislikes || []).map((dislike) => (
