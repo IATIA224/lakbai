@@ -23,13 +23,19 @@
   box-sizing: border-box;
 }
 
-/* push page content down so header does not overlap */
+/* OPTION 1: Remove global padding entirely */
 body > #root,
 main,
 .app,
 .page,
 .page-content {
-  padding-top: var(--header2-height) !important;
+  padding-top: 0 !important; /* CHANGED: removed padding */
+}
+
+/* Or if you need some spacing for the header: */
+/* OPTION 2: Use margin instead of padding */
+body > #root {
+  margin-top: 70px; /* Same as header height */
 }
 
 /* desktop / default positioning: logo + title left, actions right */
@@ -37,6 +43,7 @@ main,
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 20px;
 }
 
 .header2-logo {
@@ -68,6 +75,7 @@ main,
   gap: 14px;
   justify-content: flex-end;
   flex-shrink: 0;
+  padding: 20px;
 }
 
 /* keep buttons compact and consistent */
@@ -116,6 +124,7 @@ main,
     width: 100%;
     order: 1;
     justify-content: flex-start;
+    padding: 20px;
   }
   .header2-logo {
     width: 28px;
@@ -176,9 +185,18 @@ main,
   /* Slightly larger header on very small screens to keep coverage */
   :root { --header2-height: 124px; } /* 146px * 0.85 ≈ 124.1 → 124px */
   .header2-sticky { height: var(--header2-height); }
+  
+  /* Remove or adjust padding */
   body > #root,
   main,
   .app,
   .page,
-  .page-content { padding-top: var(--header2-height) !important; }
+  .page-content { 
+    padding-top: 0 !important; /* CHANGED */
+  }
+  
+  /* Use margin instead if needed */
+  body > #root {
+    margin-top: 124px;
+  }
 }

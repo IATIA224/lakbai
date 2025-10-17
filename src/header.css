@@ -249,7 +249,7 @@ main,
     flex-wrap: nowrap;
     overflow-x: auto;
     justify-content: flex-start;
-    margin-top: 6px;
+
     width: 100%;
     scrollbar-width: none;
     order: 3;

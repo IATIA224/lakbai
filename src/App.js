@@ -70,24 +70,12 @@ function AppInner() {
             isAuthenticated() ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/login" replace />  // This should work correctly
             )
           }
         />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
-        {/* Admin routes (no main header/footer) */}
-        <Route path="/admin/login" element={<LoginCMS />} />
-        <Route
-          path="/admin/ContentManagement"
-          element={
-            <ProtectedRoute>
-              <ContentManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
 
         {/* Protected routes that should include header + footer */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

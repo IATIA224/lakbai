@@ -610,20 +610,26 @@ body { overflow-y: auto; }
 .p-4 { padding: 16px; }
 .flex-end { display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; }
 
-.btn { background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-.btn-small { padding: 6px 8px; border-radius: 6px; }
+.btn {
+  background: #fff !important;
+  color: #6c63ff !important;
+  border: 2px solid #6c63ff !important;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.08);
+  transition: background 0.2s, color 0.2s, border 0.2s, transform 0.2s;
+}
 
-.rich-controls { margin-bottom: 8px; display: flex; gap: 8px; }
-.inline-input { width: 120px; border: none; background: transparent; padding: 6px; }
-
-.muted { color: #6b7280; }
-.small { font-size: 12px; }
-
-.actions { display: flex; gap: 8px; }
-
-.grid.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.content-form { display: block; }
-.form-actions { display: flex; gap: 12px; justify-content: flex-start; margin-top: 16px; }
+.btn:hover {
+  background: #f3f4fe !important;
+  color: #4f3cc9 !important;
+  border-color: #4f3cc9 !important;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 6px 18px rgba(108, 99, 255, 0.18);
+}
 
 /* Dashboard stat card visuals — exact gradients / shapes to match screenshot */
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px; }
@@ -1280,4 +1286,34 @@ display:grid;place-items:center;font-size:18px
   .reports-table-responsive .reports-table-row > .reports-table-cell:nth-child(7) {
     display: none !important;
   }
+}
+
+/* Add this at the END of your contentManager.css to override .btn-primary for profile page buttons */
+.profile-edit-btn,
+.profile-achievements-btn,
+.profile-upload-btn,
+.profile-viewall-btn {
+  background: #fff !important;
+  color: #6c63ff !important;
+  border: 2px solid #6c63ff !important;
+  font-weight: 700;
+  font-size: 1rem;
+  border-radius: 10px;
+  padding: 10px 22px;
+  margin: 8px 0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.08);
+  transition: background 0.2s, color 0.2s, border 0.2s, transform 0.2s;
+  display: inline-block;
+}
+
+.profile-edit-btn:hover,
+.profile-achievements-btn:hover,
+.profile-upload-btn:hover,
+.profile-viewall-btn:hover {
+  background: #f3f4fe !important;
+  color: #4f3cc9 !important;
+  border-color: #4f3cc9 !important;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 6px 18px rgba(108, 99, 255, 0.18);
 }

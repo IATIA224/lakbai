@@ -21,6 +21,7 @@ import { db, auth } from "./firebase";
 import './itinerary2.css';
 import ItineraryHotelsModal from "./itineraryHotels";
 import ItineraryCostEstimationModal from "./itineraryCostEstimation";
+import ItineraryAgencyModal from "./itineraryAgency";
 import { unlockAchievement } from "./profile";
 import {
   trackDestinationAdded,
@@ -280,6 +281,8 @@ export function SharedDestinationCard({
   const [showSummary, setShowSummary] = useState(false);
   const [showHotels, setShowHotels] = useState(false);
   const [showCostEstimation, setShowCostEstimation] = useState(false);
+  const [showAgency, setShowAgency] = useState(false); // ADD THIS
+  const [showToolsMenu, setShowToolsMenu] = useState(false); // ADD THIS
 
   const days =
     item.arrival && item.departure
@@ -295,9 +298,18 @@ export function SharedDestinationCard({
   const activities = item.activities || [];
   const showToggle = activities.length > 3;
 
+  // ADD THIS - Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setShowToolsMenu(false);
+    if (showToolsMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showToolsMenu]);
+
   return (
     <>
-      <div className="itn-card">
+      <div className="itn-card" style={{ overflow: 'visible' }}>
         <div className="itn-card-head">
           <div className="itn-card-title">
             <span className="itn-step">{index + 1}</span>
@@ -354,7 +366,7 @@ export function SharedDestinationCard({
           <div className="itn-stat green">
             <div className="itn-stat-title">Estimated expenditure</div>
             <div className="itn-stat-body">
-              <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+              <div>₱{Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
               <div className="itn-muted">Estimated total cost for this trip</div>
             </div>
           </div>
@@ -396,27 +408,115 @@ export function SharedDestinationCard({
           </div>
         </div>
 
-        <div style={{ textAlign: "right", marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        {/* UPDATED Tools dropdown - now opens UPWARD */}
+        <div style={{ 
+          textAlign: "right", 
+          marginTop: 12, 
+          display: "flex", 
+          gap: 8, 
+          justifyContent: "flex-end",
+          position: "relative",
+          zIndex: 10
+        }}>
           <button
-            className="itn-btn ghost"
-            onClick={() => setShowSummary(true)}
+            className="itn-btn primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowToolsMenu(!showToolsMenu);
+            }}
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              color: "#fff",
+              border: "none",
+              padding: "10px 18px",
+              borderRadius: "10px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              boxShadow: showToolsMenu ? "0 4px 12px rgba(99, 102, 241, 0.3)" : "none"
+            }}
           >
-            View Summary
+            🛠️ Tools
+            <span style={{ 
+              fontSize: "10px",
+              transform: showToolsMenu ? "rotate(0deg)" : "rotate(180deg)", // CHANGED: Flip rotation
+              transition: "transform 0.2s"
+            }}>▲</span> {/* CHANGED: Changed from ▼ to ▲ */}
           </button>
-          <button
-            className="itn-btn ghost"
-            onClick={() => setShowCostEstimation(true)}
-            title="Estimate transportation cost"
-          >
-            Estimate Transport Cost
-          </button>
-          <button
-            className="itn-btn ghost"
-            onClick={() => setShowHotels(true)}
-            title="Show DOT-accredited hotels and accommodations"
-          >
-            View accredited hotels
-          </button>
+
+          {/* Tools Dropdown Menu - CHANGED: Now opens upward */}
+          {showToolsMenu && (
+            <div 
+              className="itn-tools-menu"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 8px)", // CHANGED: from 'top' to 'bottom'
+                right: 0,
+                background: "#fff",
+                border: "2px solid #6366f1",
+                borderRadius: 12,
+                boxShadow: "0 10px 40px rgba(99, 102, 241, 0.25)",
+                zIndex: 9999,
+                minWidth: 240,
+                overflow: "hidden",
+                animation: "slideUp 0.2s ease-out" // CHANGED: from slideDown to slideUp
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowSummary(true);
+                  setShowToolsMenu(false);
+                }}
+                className="itn-tools-menu-item"
+              >
+                <span style={{ fontSize: "18px" }}>📋</span>
+                <span>View Summary</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowCostEstimation(true);
+                  setShowToolsMenu(false);
+                }}
+                className="itn-tools-menu-item"
+              >
+                <span style={{ fontSize: "18px" }}>🚗</span>
+                <span>Estimate Transport Cost</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowHotels(true);
+                  setShowToolsMenu(false);
+                }}
+                className="itn-tools-menu-item"
+              >
+                <span style={{ fontSize: "18px" }}>🏨</span>
+                <span>View Accredited Hotels</span>
+              </button>
+
+              <div style={{ 
+                height: "1px", 
+                background: "linear-gradient(90deg, transparent, #e5e7eb, transparent)",
+                margin: "4px 0"
+              }}></div>
+
+              <button
+                onClick={() => {
+                  setShowAgency(true);
+                  setShowToolsMenu(false);
+                }}
+                className="itn-tools-menu-item"
+              >
+                <span style={{ fontSize: "18px" }}>✈️</span>
+                <span>Travel Agencies</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -450,6 +550,24 @@ export function SharedDestinationCard({
       {showCostEstimation && (
         <ItineraryCostEstimationModal
           onClose={() => setShowCostEstimation(false)}
+        />
+      )}
+
+      {/* ADD THIS - Travel Agency Modal */}
+      {showAgency && (
+        <ItineraryAgencyModal
+          open={showAgency}
+          onClose={() => setShowAgency(false)}
+          onSelect={(agency) => {
+            setShowAgency(false);
+            if (setEditing && setSharedItineraryId && !readOnly) {
+              setEditing({
+                ...item,
+                transportNotes: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
+              });
+              setSharedItineraryId(sharedId);
+            }
+          }}
         />
       )}
     </>
@@ -594,7 +712,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
 
               <div className="itn-grid">
                 <label className="itn-field">
-                  <span className="itn-label">Estimated Expenditure ($)</span>
+                  <span className="itn-label">Estimated Expenditure (₱)</span>
                   <input
                     className="itn-input"
                     name="estimatedExpenditure"
@@ -818,7 +936,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
                 <h3 className="itn-summary-heading">💰 Budget</h3>
                 <div className="itn-summary-item">
                   <span className="itn-summary-amount">
-                    ${Number(item.estimatedExpenditure).toLocaleString()}
+                    ₱{Number(item.estimatedExpenditure).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -1189,13 +1307,62 @@ export function SharedItinerariesTab({ user }) {
   const [editing, setEditing] = useState(null);
   const [sharedItineraryId, setSharedItineraryId] = useState(null);
   const { sharedWithMe, loading, error } = useSharedItineraries(user);
+  const [copyingId, setCopyingId] = useState(null); // <-- ADD THIS LINE
+  
+  // ADD THESE NEW STATES
+  const [groupBy, setGroupBy] = useState('none');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   const visibleShared = useMemo(
     () => sharedWithMe.filter(s => Array.isArray(s.items) && s.items.length > 0),
     [sharedWithMe]
   );
 
-  const [copyingId, setCopyingId] = useState(null);
+  // ADD THIS HELPER FUNCTION
+  const groupedSharedItems = useMemo(() => {
+    const allItems = visibleShared.flatMap(shared => 
+      shared.items.map(item => ({ ...item, sharedId: shared.id, sharedBy: shared.sharedBy }))
+    );
+    
+    let filtered = allItems;
+    
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(item => 
+        (item.status || 'upcoming').toLowerCase() === filterStatus.toLowerCase()
+      );
+    }
+    
+    if (groupBy === 'status') {
+      const groups = { upcoming: [], ongoing: [], completed: [], cancelled: [] };
+      filtered.forEach(item => {
+        const status = (item.status || 'upcoming').toLowerCase();
+        if (groups[status]) groups[status].push(item);
+      });
+      return Object.entries(groups).filter(([_, items]) => items.length > 0);
+    } else if (groupBy === 'date') {
+      const groups = {};
+      filtered.forEach(item => {
+        const year = item.arrival ? new Date(item.arrival).getFullYear() : 'No Date';
+        if (!groups[year]) groups[year] = [];
+        groups[year].push(item);
+      });
+      return Object.entries(groups).sort((a, b) => {
+        if (a[0] === 'No Date') return 1;
+        if (b[0] === 'No Date') return -1;
+        return Number(b[0]) - Number(a[0]);
+      });
+    } else if (groupBy === 'owner') {
+      const groups = {};
+      filtered.forEach(item => {
+        const owner = item.sharedBy?.name || 'Unknown';
+        if (!groups[owner]) groups[owner] = [];
+        groups[owner].push(item);
+      });
+      return Object.entries(groups);
+    }
+    
+    return [['all', filtered]];
+  }, [visibleShared, groupBy, filterStatus]);
 
   const canEditShared = (shared) =>
     !!user &&
@@ -1233,12 +1400,36 @@ export function SharedItinerariesTab({ user }) {
   const handleToggleStatus = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
     if (!shared || !canEditShared(shared)) return;
+    
     try {
       const item = shared.items.find(i => i.id === itemId);
       if (!item) return;
-      const nextStatus =
-        item.status === "Upcoming" ? "Ongoing" :
-        item.status === "Ongoing" ? "Completed" : "Upcoming";
+      
+      const statusFlow = {
+        'Upcoming': 'Ongoing',
+        'Ongoing': 'Completed',
+        'Completed': 'Cancelled',
+        'Cancelled': 'Upcoming'
+      };
+      
+      const currentStatus = item.status || 'Upcoming';
+      const nextStatus = statusFlow[currentStatus] || 'Upcoming';
+      
+      // CONFIRMATION DIALOG WITH EMOJIS
+      const statusEmojis = {
+        'Upcoming': '🔜',
+        'Ongoing': '⏳',
+        'Completed': '✅',
+        'Cancelled': '❌'
+      };
+      
+      const confirmMessage = `Are you sure you want to change the status for "${item.name}"?\n\n` +
+        `${statusEmojis[currentStatus]} Current: ${currentStatus}\n` +
+        `${statusEmojis[nextStatus]} Next: ${nextStatus}`;
+      
+      if (!window.confirm(confirmMessage)) {
+        return; // User cancelled
+      }
       
       await updateDoc(doc(db, "sharedItineraries", sharedId, "items", itemId), {
         status: nextStatus,
@@ -1246,12 +1437,13 @@ export function SharedItinerariesTab({ user }) {
         lastEditedBy: user.uid,
         lastEditedByName: user.displayName || user.email || 'User'
       });
+      
       await updateDoc(doc(db, "sharedItineraries", sharedId), {
         lastUpdated: serverTimestamp()
       });
 
       // Track completion stats
-      if (nextStatus === "Completed" && item.status !== "Completed") {
+      if (nextStatus === "Completed" && currentStatus !== "Completed") {
         await trackDestinationCompleted(user.uid, {
           id: item.id,
           name: item.name,
@@ -1265,7 +1457,7 @@ export function SharedItinerariesTab({ user }) {
         } catch (error) {
           console.error("Error unlocking Checklist Champ achievement:", error);
         }
-      } else if (item.status === "Completed" && nextStatus !== "Completed") {
+      } else if (currentStatus === "Completed" && nextStatus !== "Completed") {
         await trackDestinationUncompleted(user.uid, {
           id: item.id,
           name: item.name,
@@ -1274,6 +1466,7 @@ export function SharedItinerariesTab({ user }) {
       }
     } catch (e) {
       console.error("Toggle status failed:", e);
+      alert("Failed to update status. Please try again.");
     }
   };
 
@@ -1348,7 +1541,7 @@ export function SharedItinerariesTab({ user }) {
         
         // Count shared items
         const sharedCount = sharedWithMe.reduce(
-          (total, shared) => total + (shared.items?.length || 0),
+          (sum, s) => sum + (s.items?.length || 0),
           0
         );
         
@@ -1373,11 +1566,12 @@ export function SharedItinerariesTab({ user }) {
       </div>
     );
   }
+  
   if (error) {
     return (
       <div className="itn-error">
         <div className="itn-error-icon">❌</div>
-        <div className="itn-error-message">Failed to load shared itineraries. Please try again later.</div>
+        <div className="itn-error-message">Failed to load shared itineraries.</div>
       </div>
     );
   }
@@ -1388,46 +1582,108 @@ export function SharedItinerariesTab({ user }) {
         <div className="itn-empty-icon">📭</div>
         <div className="itn-empty-title">No Shared Itineraries</div>
         <div className="itn-empty-description">
-          You don't have any shared itineraries yet. Ask your friends to share their itineraries with you!
+          You don't have any shared itineraries yet.
         </div>
       </div>
     );
   }
 
+  const totalItems = visibleShared.reduce((sum, s) => sum + (s.items?.length || 0), 0);
+
   return (
     <div className="itn-shared-itineraries-tab">
-      {visibleShared.map((shared, idx) => {
-        const canEdit = canEditShared(shared);
-        return (
-          <div key={shared.id} className="itn-shared-itinerary">
-            <div className="itn-shared-header">
-              <div className="itn-shared-title">
-                <span className="itn-shared-step">{idx + 1}</span>
-                <div>
-                  <div className="itn-shared-name">{shared.name}</div>
-                  <div className="itn-shared-meta">
-                    Shared by {shared.sharedBy.name} • {shared.items?.length || 0} destinations
-                    {canEdit && " • You can edit"}
-                  </div>
-                </div>
-              </div>
-              <div className="itn-shared-actions">
-                <button 
-                  className="itn-btn" 
-                  onClick={() => handleCopyToMyItinerary(shared)} 
-                  disabled={copyingId === shared.id}
-                >
-                  {copyingId === shared.id ? "Copying..." : "Copy to My Itinerary"}
-                </button>
-              </div>
-            </div>
+      {/* Grouping & Filter Controls */}
+      <div style={{
+        display: 'flex',
+        gap: 12,
+        marginBottom: 16,
+        flexWrap: 'wrap',
+        padding: '12px 16px',
+        background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
+        borderRadius: 12,
+        border: '1px solid #e5e7eb'
+      }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+            Group By
+          </label>
+          <select className="itn-input" value={groupBy} onChange={(e) => setGroupBy(e.target.value)} 
+            style={{ fontSize: 14, padding: '8px 12px', background: '#fff' }}>
+            <option value="none">No Grouping</option>
+            <option value="status">Status</option>
+            <option value="date">Year</option>
+            <option value="owner">Shared By</option>
+          </select>
+        </div>
+        
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+            Filter Status
+          </label>
+          <select className="itn-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+            style={{ fontSize: 14, padding: '8px 12px', background: '#fff' }}>
+            <option value="all">All ({totalItems})</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="ongoing">Ongoing</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
 
-            <div className="itn-shared-content">
-              {shared.items.map((item, i) => (
-                <div key={item.id} className="itn-shared-item">
+      {/* Grouped Items */}
+      {groupedSharedItems.every(([_, items]) => items.length === 0) ? (
+        <div className="itn-empty-state">
+          <div className="itn-empty-icon">🔍</div>
+          <div className="itn-empty-title">No destinations match your filter</div>
+        </div>
+      ) : (
+        groupedSharedItems.map(([groupName, groupItems]) => (
+          <div key={groupName} style={{ marginBottom: 24 }}>
+            {groupBy !== 'none' && (
+              <div style={{
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, #6c63ff 0%, #a084ee 100%)',
+                color: '#fff',
+                borderRadius: 12,
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontWeight: 700,
+                fontSize: 16,
+                boxShadow: '0 4px 12px rgba(108, 99, 255, 0.3)'
+              }}>
+                {groupBy === 'status' && (
+                  <>
+                    {groupName === 'upcoming' && '🔜'}
+                    {groupName === 'ongoing' && '⏳'}
+                    {groupName === 'completed' && '✅'}
+                    {groupName === 'cancelled' && '❌'}
+                  </>
+                )}
+                {groupBy === 'date' && '📅'}
+                {groupBy === 'owner' && '👤'}
+                <span style={{ textTransform: 'capitalize' }}>{groupName}</span>
+                <span style={{ 
+                  marginLeft: 'auto', 
+                  background: 'rgba(255,255,255,0.2)',
+                  padding: '4px 12px',
+                  borderRadius: 16,
+                  fontSize: 14
+                }}>{groupItems.length}</span>
+              </div>
+            )}
+            
+            {groupItems.map((item) => {
+              const shared = visibleShared.find(s => s.id === item.sharedId);
+              const canEdit = canEditShared(shared);
+              
+              return (
+                <div key={item.id} style={{ marginBottom: 12 }}>
                   <SharedDestinationCard
                     item={item}
-                    index={i}
+                    index={0}
                     onEdit={handleEditItem}
                     onRemove={handleRemoveItem}
                     onToggleStatus={handleToggleStatus}
@@ -1435,14 +1691,14 @@ export function SharedItinerariesTab({ user }) {
                     isOwner={shared.sharedBy.id === user.uid}
                     setEditing={setEditing}
                     setSharedItineraryId={setSharedItineraryId}
-                    sharedId={shared.id}
+                    sharedId={item.sharedId}
                   />
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        );
-      })}
+        ))
+      )}
 
       {editing && sharedItineraryId && (
         <SharedEditModal
@@ -1470,20 +1726,11 @@ async function checkMiniPlannerAchievement(user) {
     );
     const personalCount = personalSnap.size;
     
-    // Count shared itinerary items
-    let sharedCount = 0;
-    const sharedQuery = query(
-      collection(db, "sharedItineraries"),
-      where("sharedWith", "array-contains", user.uid)
+    // Count shared items
+    const sharedCount = sharedWithMe.reduce(
+      (sum, s) => sum + (s.items?.length || 0),
+      0
     );
-    const sharedSnap = await getDocs(sharedQuery);
-    
-    for (const doc of sharedSnap.docs) {
-      const itemsSnap = await getDocs(
-        collection(db, "sharedItineraries", doc.id, "items")
-      );
-      sharedCount += itemsSnap.size;
-    }
     
     const totalDestinations = personalCount + sharedCount;
     

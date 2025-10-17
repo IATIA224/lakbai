@@ -342,6 +342,17 @@
   }
 }
 
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .itn-modal-backdrop {
   animation: fadeIn 0.2s ease;
 }
@@ -356,6 +367,15 @@
   overflow: hidden;
   margin-right: 12px;
   margin-left: 12px;
+  position: relative;
+  transition: all 0.3s;
+  isolation: isolate; /* ADD THIS - Creates new stacking context */
+}
+
+.itn-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+  z-index: 1; /* ADD THIS - Keep hover card above others */
 }
 
 .itn-card-head {
@@ -1138,4 +1158,102 @@ textarea.itn-form-input {
 .itn-summary-status.cancelled {
   background: #fee2e2;
   color: #991b1b;
+}
+
+/* Ensure cards don't clip the dropdown */
+.itn-card {
+  overflow: visible !important;
+}
+
+/* ADD THESE STYLES FOR THE TOOLS MENU */
+.itn-tools-menu-item {
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+  transition: all 0.2s;
+}
+
+.itn-tools-menu-item:hover {
+  background: #f0f0ff;
+  padding-left: 22px;
+  color: #6366f1;
+}
+
+/* UPDATE: Fix shared card hover shadow overlap */
+.itn-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  margin-bottom: 12px;
+  overflow: hidden;
+  margin-right: 12px;
+  margin-left: 12px;
+  position: relative;
+  transition: all 0.3s;
+  isolation: isolate; /* ADD THIS - Creates new stacking context */
+}
+
+.itn-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+  z-index: 1; /* ADD THIS - Keep hover card above others */
+}
+
+/* UPDATE: Shared itineraries tab stacking */
+.itn-shared-itineraries-tab {
+  position: relative;
+  z-index: 1; /* Base stacking for shared items */
+}
+
+/* UPDATE: Tools menu should be above everything in card */
+.itn-tools-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 2px solid #6366f1;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(99, 102, 241, 0.25);
+  z-index: 9999; /* Very high to be above all cards */
+  min-width: 240;
+  overflow: hidden;
+  animation: slideUp 0.2s ease-out;
+}
+
+/* UPDATE: Ensure modals are highest */
+.itn-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(40, 48, 80, 0.55);
+  z-index: 100000; /* Very high for modals */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vh 2vw;
+}
+
+.itn-modal {
+  z-index: 100001; /* Modal above backdrop */
+  max-width: 900px;
+  width: 95vw;
+  max-height: 90vh;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
