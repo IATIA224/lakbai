@@ -304,7 +304,7 @@ function ShareTripModal({ onClose, onCreate }) {
             )}
           </label>
 
-          {/* Actions */}
+          {/* wtions */}
           <div className="modal-actions">
             <button className="btn-secondary" onClick={onClose} disabled={uploading}>
               Cancel
