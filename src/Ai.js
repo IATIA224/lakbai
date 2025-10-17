@@ -128,41 +128,54 @@ export default function ChatbaseAI() {
   async function sendToGradio(messagesPayload) {
     try {
       const client = await Client.connect("Chuxia-sys/gemma-merged-v2");
-      
+
       // Convert messagesPayload to Gradio history format
-      // Gradio expects: [{"role":"user","metadata":null,"content":"...","options":null}, ...]
       const history = messagesPayload.slice(0, -1).map(m => ({
         role: m.role,
         metadata: null,
         content: m.content,
         options: null
       }));
-      
+
       // Get the latest user message
       const latestMessage = messagesPayload[messagesPayload.length - 1];
       const message = latestMessage?.content || '';
-      
-      const result = await client.predict("/chat", { 
+
+      const result = await client.predict("/chat", {
         message,
         history
       });
-      
+
       console.log('Gradio full result:', JSON.stringify(result, null, 2));
       console.log('Gradio result.data:', result.data);
-      
-      // Extract the reply from result.data
-      // Gradio returns: { data: [[{user_obj}, {assistant_obj}], ""] }
-      // We want the assistant's content from the first array element
+
+      // Extract only the new assistant response (avoid repeats)
       if (result?.data && Array.isArray(result.data)) {
         const conversation = result.data[0];
-        if (Array.isArray(conversation) && conversation.length > 1) {
-          const assistantResponse = conversation[1];
-          if (assistantResponse?.content) {
-            return String(assistantResponse.content);
+        // Find the last assistant message in the conversation
+        if (Array.isArray(conversation)) {
+          // Find all assistant messages
+          const assistantMessages = conversation.filter(m => m.role === 'assistant' && m.content);
+          if (assistantMessages.length > 0) {
+            // Get the last assistant message
+            const lastAssistant = assistantMessages[assistantMessages.length - 1];
+            // To avoid repeats, try to subtract previous assistant responses
+            // Gather all previous assistant responses from our local messages
+            const prevAssistantTexts = messagesPayload.filter(m => m.role === 'assistant').map(m => m.content);
+            let response = String(lastAssistant.content).trim();
+            // Remove any previous assistant responses from the end
+            for (let prev of prevAssistantTexts) {
+              if (response.endsWith(prev)) {
+                response = response.slice(0, -prev.length).trim();
+              }
+            }
+            // If response is empty, fallback to full content
+            if (!response) response = String(lastAssistant.content).trim();
+            return response;
           }
         }
       }
-      
+
       return `Debug: Could not parse response. Check console for structure.`;
     } catch (e) {
       console.error('Gradio send failed', e);
