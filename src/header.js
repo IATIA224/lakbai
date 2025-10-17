@@ -4,6 +4,7 @@ import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import "./header.css";
+import { ChatbaseAI } from "./Ai"; // Import the chatbot
 
 const navTabs = [
 	{ label: "Dashboard", path: "/dashboard" },
@@ -13,11 +14,10 @@ const navTabs = [
 	{ label: "Community", path: "/community" },
 ];
 
-const StickyHeader = ({ setShowAIModal }) => {
-	const [messages, setMessages] = useState([]);
-	const [inputMessage, setInputMessage] = useState("");
+const StickyHeader = () => {
 	const [activeTab, setActiveTab] = useState("Dashboard");
 	const [profilePic, setProfilePic] = useState("/user.png");
+	const [showAIPopup, setShowAIPopup] = useState(false);
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -46,22 +46,10 @@ const StickyHeader = ({ setShowAIModal }) => {
 		}
 	}, [location.pathname]);
 
-	const handleSendMessage = () => {
-		if (inputMessage.trim()) {
-			setMessages([
-				...messages,
-				{ type: "user", text: inputMessage },
-				{ type: "ai", text: "Hello! I'm your AI assistant. How can I help you today?" },
-			]);
-			setInputMessage("");
-		}
-	};
-
 	const handleTabClick = (tab) => {
 		if (tab.path) {
 			navigate(tab.path);
 		}
-		// If no path, do nothing (still clickable)
 	};
 
 	return (
@@ -94,14 +82,7 @@ const StickyHeader = ({ setShowAIModal }) => {
 				<div className="header-right">
 					<button
 						className="ai-assistant-btn"
-						onClick={() => {
-							navigate('/ai');
-							if (typeof setShowAIModal === 'function') {
-								setShowAIModal(true);
-							} else {
-								try { window.dispatchEvent(new Event('lakbai:open-ai')); } catch (e) {}
-							}
-						}}
+						onClick={() => setShowAIPopup(true)}
 					>
 						<span className="dot"></span> AI Assistant
 					</button>
@@ -114,7 +95,22 @@ const StickyHeader = ({ setShowAIModal }) => {
 					/>
 				</div>
 			</header>
-			{/* Chatbox code is commented out for now */}
+			{/* AI Chatbot Popup */}
+			{showAIPopup && (
+				<div style={{ position: "fixed", inset: 0, zIndex: 99999 }}>
+					<ChatbaseAI onClose={() => setShowAIPopup(false)} />
+					{/* Close overlay when clicking outside the chatbot */}
+					<div
+						style={{
+							position: "fixed",
+							inset: 0,
+							zIndex: 99998,
+							background: "transparent",
+						}}
+						onClick={() => setShowAIPopup(false)}
+					/>
+				</div>
+			)}
 		</>
 	);
 };

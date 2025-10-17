@@ -1,3 +1,59 @@
+/* Overlay for popup */
+.ai-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 32, 38, 0.45);
+  backdrop-filter: blur(8px);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Remove background and centering from .ai-container */
+.ai-container {
+  width: auto;
+  min-height: auto;
+  display: block;
+  justify-content: unset;
+  align-items: unset;
+  background: none;
+  padding: 0;
+  position: static;
+}
+
+/* Make .ai-card look like a floating modal */
+.ai-card {
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 420px;
+  max-width: 96vw;
+  min-height: 540px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeInUp 0.3s ease-out;
+  padding-bottom: 0; /* Remove any bottom padding */
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Container */
 .ai-container {
   width: 100%;
@@ -106,17 +162,18 @@
 
 /* Main Card */
 .ai-card {
-  background: #fff;
+  background: #ffffff;
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   padding: 0;
   width: 950px;
   max-width: 96vw;
-  min-height: 700px;
+  min-height: 500px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: fadeInUp 0.4s ease-out;
+  padding-bottom: -25px; /* Remove any bottom padding */
 }
 
 @keyframes fadeInUp {
@@ -426,7 +483,7 @@
 
 /* Input Container */
 .ai-input-container {
-  padding: 20px 32px;
+  padding: 12px 16px 12px 16px;
   background: #fff;
   border-top: 2px solid #f3f4f6;
 }
@@ -471,7 +528,8 @@
   font-family: inherit;
   color: #1f2937;
   max-height: 120px;
-  min-height: 24px;
+  min-height: 20px;
+ 
 }
 
 .ai-textarea:focus {
@@ -660,5 +718,13 @@
 
   .ai-suggestion {
     width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .ai-card {
+    width: 98vw;
+    min-height: 80vh;
+    border-radius: 12px;
   }
 }
