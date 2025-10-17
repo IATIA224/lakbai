@@ -954,7 +954,7 @@ function Dashboard({ setShowAIModal }) {
         price: dest.price || '',
         priceTier: dest.priceTier || null,
         tags: Array.isArray(dest.tags) ? dest.tags : [],
-        categories: Array.isArray(dest.categories) ? dest.categories : [],
+        category: Array.isArray(dest.category) ? dest.category : [],
         bestTime: dest.bestTime || dest.best_time || '',
         // prefer explicit image fields, fall back to name-based lookup
         image: dest.image || dest.imageUrl || getImageForDestination(dest.name) || '',
@@ -1126,35 +1126,13 @@ function Dashboard({ setShowAIModal }) {
       }
       return out;
     };
-    // ADD: generate plural/singular + case variants for Firestore (case-sensitive) matches
+
+    // STRICT: only use categories from INTEREST_RULES (no synonyms), but allow case/plural variants
     const expandForQuery = (values) => {
       const set = new Set();
       const cap = (t) => t.replace(/\b\w/g, (m) => m.toUpperCase());
       const singularize = (t) => t.endsWith('s') ? t.slice(0, -1) : t;
       const pluralize = (t) => t.endsWith('s') ? t : t + 's';
-
-      const synonyms = {
-        Mountain: ['Mountains', 'Volcano', 'Highland', 'Highlands', 'Trail', 'Trails', 'Hiking', 'Hike'],
-        Mountains: ['Mountain', 'Volcano', 'Highland', 'Highlands', 'Trail', 'Trails', 'Hiking', 'Hike'],
-        Park: ['Parks'],
-        Parks: ['Park'],
-        Island: ['Islands', 'Beach'],
-        Islands: ['Island'],
-        Beach: ['Beaches', 'Coast'],
-        Museum: ['Museums'],
-        Museums: ['Museum'],
-        Waterfall: ['Waterfalls'],
-        Waterfalls: ['Waterfall'],
-        Lake: ['Lakes'],
-        Lakes: ['Lake'],
-        Landmark: ['Landmarks'],
-        Landmarks: ['Landmark'],
-        Cultural: [],
-        Heritage: [],
-        Tourist: [],
-        Natural: [],
-        Hiking: ['Hike', 'Trail', 'Trails']
-      };
 
       for (const v of values) {
         if (!v) continue;
@@ -1163,15 +1141,16 @@ function Dashboard({ setShowAIModal }) {
         const title = cap(lc);
         const sing = singularize(title);
         const plur = pluralize(title);
-
-        [base, lc, title, sing, plur].forEach(x => set.add(x));
-        (synonyms[title] || []).forEach(x => {
-          set.add(x);
-          set.add(x.toLowerCase());
-          set.add(cap(x));
-        });
+        [title, lc, sing, plur, sing.toLowerCase(), plur.toLowerCase()].forEach(x => set.add(x));
       }
       return Array.from(set);
+    };
+
+    // canonical compare: lowercase singular
+    const canon = (s) => {
+      let t = (s || '').toString().trim().toLowerCase();
+      if (t.endsWith('s')) t = t.slice(0, -1);
+      return t;
     };
 
     const run = async () => {
@@ -1186,13 +1165,14 @@ function Dashboard({ setShowAIModal }) {
 
         setRecoLoading(true);
 
-        // USE expanded variants for querying (covers Mountain/Mountains and case)
+        // STRICT query terms (case/plural variants only)
         const queryTerms = expandForQuery(targetCatsExact);
 
         const all = new Map();
         const chunkSize = 10;
 
-        const fetchByField = async (field) => {
+        // for array fields
+        const fetchByArrayField = async (field) => {
           for (let i = 0; i < queryTerms.length; i += chunkSize) {
             const chunk = queryTerms.slice(i, i + chunkSize);
             const q = fsQuery(
@@ -1205,19 +1185,38 @@ function Dashboard({ setShowAIModal }) {
           }
         };
 
+        // for string field (category is often a string)
+        const fetchByStringField = async (field) => {
+          for (let i = 0; i < queryTerms.length; i += chunkSize) {
+            const chunk = queryTerms.slice(i, i + chunkSize);
+            const q = fsQuery(
+              collection(db, 'destinations'),
+              fsWhere(field, 'in', chunk),
+              limit(50)
+            );
+            const snap = await getDocs(q);
+            snap.forEach((d) => { if (!all.has(d.id)) all.set(d.id, { id: d.id, ...d.data() }); });
+          }
+        };
+
         await Promise.all([
-          fetchByField('categories'),
-          fetchByField('tags'),
-          fetchByField('Categories')
+          fetchByStringField('category'),
+          fetchByArrayField('categories'),
+          fetchByArrayField('Category'),
+          fetchByArrayField('tags')
         ]);
 
-        // Score overlap vs expanded normalized set
-        const targetSet = new Set(expandForQuery(targetCatsExact).map(norm));
+        // STRICT scoring: only categories present in the rules
+        const allowedCanon = new Set(targetCatsExact.map(canon));
+
         const scored = Array.from(all.values()).map((d) => {
-          const cats = Array.isArray(d.categories) ? d.categories : (Array.isArray(d.Categories) ? d.Categories : []);
-          const tags = Array.isArray(d.tags) ? d.tags : [];
-          const combined = [...cats, ...tags].map(norm);
-          const score = combined.reduce((acc, c) => acc + (targetSet.has(c) ? 1 : 0), 0);
+          const catsArr = Array.isArray(d.categories) ? d.categories
+                        : Array.isArray(d.Category) ? d.Category
+                        : Array.isArray(d.category) ? d.category
+                        : (typeof d.category === 'string' ? [d.category] : []);
+
+          // score using CATEGORIES ONLY
+          const score = catsArr.reduce((acc, c) => acc + (allowedCanon.has(canon(c)) ? 1 : 0), 0);
           return { ...d, _matchScore: score };
         });
 
@@ -1236,7 +1235,20 @@ function Dashboard({ setShowAIModal }) {
             price: d.price || '',
             priceTier: d.priceTier || null,
             tags: Array.isArray(d.tags) ? d.tags : [],
-            categories: Array.isArray(d.categories) ? d.categories : (Array.isArray(d.Categories) ? d.Categories : []),
+            // Normalize category to array (string/array variants)
+            category: Array.isArray(d.category)
+              ? d.category
+              : Array.isArray(d.Category)
+              ? d.Category
+              : Array.isArray(d.categories)
+              ? d.categories
+              : (typeof d.category === 'string' && d.category.trim())
+              ? [d.category.trim()]
+              : (typeof d.Category === 'string' && d.Category.trim())
+              ? [d.Category.trim()]
+              : (typeof d.categories === 'string' && d.categories.trim())
+              ? [d.categories.trim()]
+              : [],
             location: d.location || '',
             image: d.image || d.imageUrl || '',
             bestTime: d.bestTime || '',
@@ -1736,7 +1748,17 @@ function Dashboard({ setShowAIModal }) {
                   <div className="trip-item">
                     <div className="trip-label">Categories</div>
                     <div className="badge-row">
-                      {(selectedCard.categories || selectedCard.tags || []).slice(0, 6).map((c, i) => (
+                      {(
+                        Array.isArray(selectedCard.category)
+                          ? selectedCard.category
+                          : Array.isArray(selectedCard.categories)
+                          ? selectedCard.categories
+                          : typeof selectedCard.category === 'string'
+                          ? [selectedCard.category]
+                          : typeof selectedCard.categories === 'string'
+                          ? [selectedCard.categories]
+                          : []
+                      ).slice(0, 6).map((c, i) => (
                         <span key={i} className="badge purple">{c}</span>
                       ))}
                     </div>
