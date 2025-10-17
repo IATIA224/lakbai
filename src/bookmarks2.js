@@ -1231,41 +1231,48 @@ export default function Bookmarks2() {
             </button>
 
             <div className="details-hero">
-                      <div className="details-hero-image">
+                    <div className="details-hero-image">
                       {cloudImages.length === 0 ? (
                         <div style={{ width: "100%", height: 240, background: "#e0e7ef", borderRadius: 16  }} />
-                      ) : getImageForDestination(cloudImages, selected.name) ? (
-                        <img
-                        src={getImageForDestination(cloudImages, selected.name)}
-                        alt={selected.name}
-                        style={{
-                          width: "100%",
-                          height: 240,
-                          objectFit: "cover",
-                          objectPosition: "center", // always show bottom part
-                          borderRadius: "16px 16px 0 0",
-                          marginBottom: 8,
-                          background: "#e0e7ef"
-                        }}
-                        />
                       ) : (
-                        <div
-                        style={{
-                          width: "100%",
-                          height: 180,
-                          borderRadius: 12,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 48,
-                          marginBottom: 8
-                        }}
-                        >
-                        🏝️
-                        </div>
+                        (() => {
+                          const cloudUrl = getImageForDestination(cloudImages, selected.name);
+                          const firebaseUrl = getFirebaseImageForDestination(firebaseImages, selected.name);
+                          const imgUrl = cloudUrl || firebaseUrl;
+                          return imgUrl ? (
+                            <img
+                              src={imgUrl}
+                              alt={selected.name}
+                              style={{
+                                width: "100%",
+                                height: 240,
+                                objectFit: "cover",
+                                objectPosition: "center",
+                                borderRadius: "16px 16px 0 0",
+                                marginBottom: 8,
+                                background: "#e0e7ef"
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: "100%",
+                                height: 180,
+                                borderRadius: 12,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 48,
+                                marginBottom: 8
+                              }}
+                            >
+                              🏝️
+                            </div>
+                          );
+                        })()
                       )}
-                      </div>
                     </div>
+                  </div>
 
                     <div className="details-body">
                       <div className="details-head-row">
