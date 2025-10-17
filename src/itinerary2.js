@@ -366,7 +366,7 @@ export function SharedDestinationCard({
           <div className="itn-stat green">
             <div className="itn-stat-title">Estimated expenditure</div>
             <div className="itn-stat-body">
-              <div>${Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+              <div>₱{Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
               <div className="itn-muted">Estimated total cost for this trip</div>
             </div>
           </div>
@@ -712,7 +712,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
 
               <div className="itn-grid">
                 <label className="itn-field">
-                  <span className="itn-label">Estimated Expenditure ($)</span>
+                  <span className="itn-label">Estimated Expenditure (₱)</span>
                   <input
                     className="itn-input"
                     name="estimatedExpenditure"
@@ -936,7 +936,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
                 <h3 className="itn-summary-heading">💰 Budget</h3>
                 <div className="itn-summary-item">
                   <span className="itn-summary-amount">
-                    ${Number(item.estimatedExpenditure).toLocaleString()}
+                    ₱{Number(item.estimatedExpenditure).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -1541,6 +1541,7 @@ export function SharedItinerariesTab({ user }) {
         
         // Count shared items
         const sharedCount = sharedWithMe.reduce(
+          (sum, s) => sum + (s.items?.length || 0),
           0
         );
         
@@ -1725,20 +1726,11 @@ async function checkMiniPlannerAchievement(user) {
     );
     const personalCount = personalSnap.size;
     
-    // Count shared itinerary items
-    let sharedCount = 0;
-    const sharedQuery = query(
-      collection(db, "sharedItineraries"),
-      where("sharedWith", "array-contains", user.uid)
+    // Count shared items
+    const sharedCount = sharedWithMe.reduce(
+      (sum, s) => sum + (s.items?.length || 0),
+      0
     );
-    const sharedSnap = await getDocs(sharedQuery);
-    
-    for (const doc of sharedSnap.docs) {
-      const itemsSnap = await getDocs(
-        collection(db, "sharedItineraries", doc.id, "items")
-      );
-      sharedCount += itemsSnap.size;
-    }
     
     const totalDestinations = personalCount + sharedCount;
     
