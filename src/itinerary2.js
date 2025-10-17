@@ -1539,11 +1539,20 @@ export function SharedItinerariesTab({ user }) {
         );
         const personalCount = personalSnap.size;
         
-        // Count shared items
-        const sharedCount = sharedWithMe.reduce(
-          (sum, s) => sum + (s.items?.length || 0),
-          0
+        // Count shared items - FIXED: Query directly instead of using undefined variable
+        const sharedQuery = query(
+          collection(db, "sharedItineraries"),
+          where("sharedWith", "array-contains", user.uid)
         );
+        const sharedSnap = await getDocs(sharedQuery);
+        
+        let sharedCount = 0;
+        for (const sharedDoc of sharedSnap.docs) {
+          const itemsSnap = await getDocs(
+            collection(db, "sharedItineraries", sharedDoc.id, "items")
+          );
+          sharedCount += itemsSnap.size;
+        }
         
         const totalDestinations = personalCount + sharedCount;
         
@@ -1726,11 +1735,20 @@ async function checkMiniPlannerAchievement(user) {
     );
     const personalCount = personalSnap.size;
     
-    // Count shared items
-    const sharedCount = sharedWithMe.reduce(
-      (sum, s) => sum + (s.items?.length || 0),
-      0
+    // Count shared items - FIXED: Query directly instead of using undefined variable
+    const sharedQuery = query(
+      collection(db, "sharedItineraries"),
+      where("sharedWith", "array-contains", user.uid)
     );
+    const sharedSnap = await getDocs(sharedQuery);
+    
+    let sharedCount = 0;
+    for (const sharedDoc of sharedSnap.docs) {
+      const itemsSnap = await getDocs(
+        collection(db, "sharedItineraries", sharedDoc.id, "items")
+      );
+      sharedCount += itemsSnap.size;
+    }
     
     const totalDestinations = personalCount + sharedCount;
     
