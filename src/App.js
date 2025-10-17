@@ -8,7 +8,7 @@ import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2';
 import Community from './community';
 import Profile from './profile';
-import { ChatbaseAIModal } from './Ai';
+import ChatbaseAI, { ChatbaseAIModal } from './Ai';
 import './App.css';
 import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
@@ -32,6 +32,11 @@ function isAdminAuthenticated() {
 function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
   const location = useLocation();
+  useEffect(() => {
+    const handler = () => setShowAIModal(true);
+    window.addEventListener('lakbai:open-ai', handler);
+    return () => window.removeEventListener('lakbai:open-ai', handler);
+  }, []);
 
   // MainLayout used only for pages that should have header + footer.
   // Footer is keyed by location so it remounts on navigation.
@@ -75,6 +80,7 @@ function AppInner() {
         {/* Protected routes that should include header + footer */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
+          <Route path="/ai" element={<ChatbaseAI />} />
           <Route path="/bookmark" element={<Bookmark />} />
           <Route path="/bookmarks2" element={<Bookmarks2 />} />
           <Route path="/community" element={<Community />} />

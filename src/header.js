@@ -94,7 +94,14 @@ const StickyHeader = ({ setShowAIModal }) => {
 				<div className="header-right">
 					<button
 						className="ai-assistant-btn"
-						onClick={() => setShowAIModal && setShowAIModal(true)}
+						onClick={() => {
+							navigate('/ai');
+							if (typeof setShowAIModal === 'function') {
+								setShowAIModal(true);
+							} else {
+								try { window.dispatchEvent(new Event('lakbai:open-ai')); } catch (e) {}
+							}
+						}}
 					>
 						<span className="dot"></span> AI Assistant
 					</button>
