@@ -206,7 +206,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
               <div className="edit-profile-avatar-change">Click to change photo</div>
             </div>
             <label className="edit-profile-label">
-              Travel Name
+              Traveler Name
               <input
                 type="text"
                 className="edit-profile-input"
