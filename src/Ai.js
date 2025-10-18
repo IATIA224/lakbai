@@ -173,31 +173,18 @@ export default function ChatbaseAI({ onClose }) {
   async function sendToGradio(messagesPayload) {
     try {
       const client = await Client.connect("Chuxia-sys/gemma-merged-v2");
-      
-      // Convert messagesPayload to Gradio history format
-      // Gradio expects: [{"role":"user","metadata":null,"content":"...","options":null}, ...]
       const history = messagesPayload.slice(0, -1).map(m => ({
         role: m.role,
         metadata: null,
         content: m.content,
         options: null
       }));
-      
-      // Get the latest user message
       const latestMessage = messagesPayload[messagesPayload.length - 1];
       const message = latestMessage?.content || '';
-      
       const result = await client.predict("/chat", { 
         message,
         history
       });
-      
-      console.log('Gradio full result:', JSON.stringify(result, null, 2));
-      console.log('Gradio result.data:', result.data);
-      
-      // Extract the reply from result.data
-      // Gradio returns: { data: [[{user_obj}, {assistant_obj}], ""] }
-      // We want the assistant's content from the first array element
       if (result?.data && Array.isArray(result.data)) {
         const conversation = result.data[0];
         // Find the last assistant message in the conversation
@@ -223,7 +210,6 @@ export default function ChatbaseAI({ onClose }) {
           }
         }
       }
-      
       return `Debug: Could not parse response. Check console for structure.`;
     } catch (e) {
       console.error('Gradio send failed', e);
