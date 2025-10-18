@@ -254,25 +254,32 @@ export default function Bookmarks2() {
       }
 
       try {
-        const userRef = doc(db, 'userBookmarks', user.uid);
-        const snap = await getDoc(userRef);
-        
-        if (!snap.exists()) {
-          await setDoc(
-            userRef,
-            {
-              userId: user.uid,
-              bookmarks: [],
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-          setBookmarks(new Set());
-        } else {
-          const ids = snap.data().bookmarks || [];
-          setBookmarks(new Set(ids));
+        const listRef = doc(db, 'userBookmarks', user.uid);
+        const [listSnap, subsSnap] = await Promise.all([
+          getDoc(listRef),
+          getDocs(collection(db, 'users', user.uid, 'bookmarks')).catch(() => ({ empty: true, docs: [] }))
+        ]);
+
+        // Merge ids from userBookmarks doc and subcollection
+        const merged = new Set();
+
+        if (listSnap.exists()) {
+          (listSnap.data().bookmarks || []).forEach(id => merged.add(String(id)));
         }
+        subsSnap.docs.forEach(d => merged.add(String(d.id)));
+
+        // Create or backfill the list doc so Dashboard can read it too
+        await setDoc(
+          listRef,
+          {
+            userId: user.uid,
+            bookmarks: Array.from(merged),
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        setBookmarks(merged);
       } catch (e) {
         console.warn('Failed to load bookmarks:', e);
         setBookmarks(new Set());
