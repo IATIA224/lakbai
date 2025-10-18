@@ -970,6 +970,19 @@ export default function Bookmarks2() {
     }
   }, [navigate]);
 
+  // Zoom effect for details modal
+  useEffect(() => {
+    const detailsModal = document.querySelector('.details-modal');
+    if (detailsModal && modalOpen) {
+      detailsModal.style.zoom = '75%';
+    }
+    return () => {
+      if (detailsModal) {
+        detailsModal.style.zoom = '100%';
+      }
+    };
+  }, [modalOpen]);
+
   return (
     <div className="App">
       {isLoading && (
