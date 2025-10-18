@@ -70,7 +70,7 @@ function AppInner() {
             isAuthenticated() ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <Navigate to="/login" replace />  // This should work correctly
+              <Navigate to="/login" replace />  
             )
           }
         />
