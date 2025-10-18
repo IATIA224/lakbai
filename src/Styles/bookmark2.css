@@ -879,7 +879,7 @@
   transform: translateX(-50%);
 }
 
-.details-body { padding: 40px 40px 40px 40px; height: 520px; overflow-y: auto; }
+.details-body { padding: 40px 40px 40px 40px; height: 620px; overflow-y: auto; }
 .details-head-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -937,6 +937,7 @@
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 20px;
+  height: 550px;
 }
 .section-title { font-weight: 800; margin: 16px 0 8px; color: #1a1a1a; text-align: left;}
 .details-paragraph { color: #4b5563; line-height: 1.6; justify-content: left; text-align: left;}
@@ -1694,4 +1695,8 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 .modal-content {
   z-index: 100001;
   position: relative;
+}
+
+.details-modal .details-body {
+  zoom: 80%;
 }
