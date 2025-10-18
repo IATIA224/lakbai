@@ -1,10 +1,24 @@
 import React, { useEffect, useRef, useState } from "react";
 import './Ai.css';
-import StickyHeader from './header';
 import { db, auth } from './firebase';
-import { collection, doc, setDoc, serverTimestamp, arrayUnion, updateDoc, getDocs, query, orderBy, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp, updateDoc, getDocs, query, orderBy, onSnapshot, addDoc, getDoc } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary';
 import { Client } from "@gradio/client";
+
+// Helper to get user profile from Firestore
+async function fetchUserProfile(uid) {
+  if (!uid) return null;
+  try {
+    const docRef = doc(db, "users", uid);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data();
+    }
+  } catch (e) {
+    console.error("Failed to fetch user profile:", e);
+  }
+  return null;
+}
 
 function ChatModal({ open, onClose, content, onAddToItinerary }) {
   if (!open) return null;
@@ -28,20 +42,45 @@ function ChatModal({ open, onClose, content, onAddToItinerary }) {
   );
 }
 
-export default function ChatbaseAI() {
+export default function ChatbaseAI({ onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState('');
   const chatRef = useRef(null);
+  const shouldScrollRef = useRef(true); // Add this flag
 
   // Chat history state
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; }, [messages]);
+  // User profile state
+  const [profile, setProfile] = useState(null);
+
+  // Fetch profile on mount
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      fetchUserProfile(user.uid).then(setProfile);
+    }
+  }, []);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (shouldScrollRef.current && chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
+
+  // Detect if user scrolled up manually
+  const handleScroll = () => {
+    if (!chatRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
+    // If user is not at the bottom, disable auto-scroll
+    shouldScrollRef.current = scrollHeight - scrollTop - clientHeight < 50;
+  };
 
   // Load chat history on mount
   useEffect(() => {
@@ -134,28 +173,31 @@ export default function ChatbaseAI() {
   async function sendToGradio(messagesPayload) {
     try {
       const client = await Client.connect("Chuxia-sys/gemma-merged-v2");
-
+      
       // Convert messagesPayload to Gradio history format
+      // Gradio expects: [{"role":"user","metadata":null,"content":"...","options":null}, ...]
       const history = messagesPayload.slice(0, -1).map(m => ({
         role: m.role,
         metadata: null,
         content: m.content,
         options: null
       }));
-
+      
       // Get the latest user message
       const latestMessage = messagesPayload[messagesPayload.length - 1];
       const message = latestMessage?.content || '';
-
-      const result = await client.predict("/chat", {
+      
+      const result = await client.predict("/chat", { 
         message,
         history
       });
-
+      
       console.log('Gradio full result:', JSON.stringify(result, null, 2));
       console.log('Gradio result.data:', result.data);
-
-      // Extract only the new assistant response (avoid repeats)
+      
+      // Extract the reply from result.data
+      // Gradio returns: { data: [[{user_obj}, {assistant_obj}], ""] }
+      // We want the assistant's content from the first array element
       if (result?.data && Array.isArray(result.data)) {
         const conversation = result.data[0];
         // Find the last assistant message in the conversation
@@ -181,7 +223,7 @@ export default function ChatbaseAI() {
           }
         }
       }
-
+      
       return `Debug: Could not parse response. Check console for structure.`;
     } catch (e) {
       console.error('Gradio send failed', e);
@@ -197,7 +239,6 @@ export default function ChatbaseAI() {
     setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
     const reply = await sendToGradio(payload);
-    // If the reply starts with 'Error:' show it but don't open modal
     addMessage(reply, 'assistant');
     if (!reply.toLowerCase().startsWith('error:')) {
       setModalContent(reply); 
@@ -213,14 +254,12 @@ export default function ChatbaseAI() {
       return; 
     }
     try {
-      // Create a lightweight destination from the AI content
       const dest = {
         name: `AI Plan - ${new Date().toLocaleDateString()}`,
         region: '',
         location: '',
       };
       const id = await addTripForCurrentUser(dest);
-      // Attach the full AI answer as notes
       const itemRef = doc(db, 'itinerary', user.uid, 'items', id);
       await updateDoc(itemRef, { notes: modalContent, updatedAt: serverTimestamp() });
       alert('Added to your itinerary. You can edit details in My Trips.');
@@ -237,35 +276,35 @@ export default function ChatbaseAI() {
 
   return (
     <>
-      <div className="ai-container">
-        {/* Chat History Sidebar */}
-        {showHistory && (
-          <div className="ai-sidebar">
-            <div className="ai-sidebar-header">
-              <h3>💬 Chat History</h3>
-              <button onClick={() => setShowHistory(false)} className="ai-sidebar-close">×</button>
-            </div>
-            <button onClick={createNewChat} className="ai-btn ai-btn-new-chat">
-              ✨ New Chat
-            </button>
-            <div className="ai-sidebar-chats">
-              {chatHistory.map(chat => (
-                <div
-                  key={chat.id}
-                  onClick={() => { loadChat(chat.id); setShowHistory(false); }}
-                  className={`ai-chat-item ${currentChatId === chat.id ? 'active' : ''}`}
-                >
-                  <div className="ai-chat-title">{chat.title}</div>
-                  <div className="ai-chat-meta">
-                    {chat.messages?.length || 0} messages
+      <div className="ai-popup-overlay" onClick={onClose}>
+        <div className="ai-card" onClick={e => e.stopPropagation()}>
+          {/* Chat History Sidebar */}
+          {showHistory && (
+            <div className="ai-sidebar">
+              <div className="ai-sidebar-header">
+                <h3>💬 Chat History</h3>
+                <button onClick={() => setShowHistory(false)} className="ai-sidebar-close">×</button>
+              </div>
+              <button onClick={createNewChat} className="ai-btn ai-btn-new-chat">
+                ✨ New Chat
+              </button>
+              <div className="ai-sidebar-chats">
+                {chatHistory.map(chat => (
+                  <div
+                    key={chat.id}
+                    onClick={() => { loadChat(chat.id); setShowHistory(false); }}
+                    className={`ai-chat-item ${currentChatId === chat.id ? 'active' : ''}`}
+                  >
+                    <div className="ai-chat-title">{chat.title}</div>
+                    <div className="ai-chat-meta">
+                      {chat.messages?.length || 0} messages
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="ai-card">
           <div className="ai-header">
             <div className="ai-header-content">
               <div className="ai-header-icon">🤖</div>
@@ -284,7 +323,14 @@ export default function ChatbaseAI() {
             </div>
           </div>
 
-          <div ref={chatRef} className="ai-chat-container" aria-live="polite">
+          {/* Make chat scrollable with scroll handler */}
+          <div 
+            ref={chatRef} 
+            className="ai-chat-container" 
+            aria-live="polite" 
+            style={{ maxHeight: '340px', overflowY: 'auto' }}
+            onScroll={handleScroll}
+          >
             {messages.length === 0 ? (
               <div className="ai-empty-state">
                 <div className="ai-empty-icon">💬</div>
@@ -296,19 +342,25 @@ export default function ChatbaseAI() {
                   <button className="ai-suggestion" onClick={() => setInput('Plan a 3-day trip to Baguio')}>
                     🗺️ Trip planning
                   </button>
-                  <button className="ai-suggestion" onClick={() => setInput('Budget-friendly destinations')}>
-                    💰 Budget travel
-                  </button>
+        
                 </div>
               </div>
             ) : (
               messages.map((m, i) => (
                 <div key={i} className={`ai-message ${m.role === 'user' ? 'ai-message-user' : 'ai-message-assistant'}`}>
                   <div className="ai-message-avatar">
-                    {m.role === 'user' ? '👤' : '🤖'}
+                    {m.role === 'user'
+                      ? (profile?.profilePicture
+                          ? <img src={profile.profilePicture} alt="User" style={{ width: 40, height: 40, borderRadius: '50%' }} />
+                          : '👤')
+                      : '🤖'}
                   </div>
                   <div className="ai-message-content">
-                    <div className="ai-message-role">{m.role === 'user' ? 'You' : 'LakbAI'}</div>
+                    <div className="ai-message-role">
+                      {m.role === 'user'
+                        ? (profile?.name || 'You')
+                        : 'LakbAI'}
+                    </div>
                     <div className="ai-message-text">{m.text}</div>
                   </div>
                 </div>
