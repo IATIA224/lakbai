@@ -187,26 +187,10 @@ export default function ChatbaseAI({ onClose }) {
       });
       if (result?.data && Array.isArray(result.data)) {
         const conversation = result.data[0];
-        // Find the last assistant message in the conversation
-        if (Array.isArray(conversation)) {
-          // Find all assistant messages
-          const assistantMessages = conversation.filter(m => m.role === 'assistant' && m.content);
-          if (assistantMessages.length > 0) {
-            // Get the last assistant message
-            const lastAssistant = assistantMessages[assistantMessages.length - 1];
-            // To avoid repeats, try to subtract previous assistant responses
-            // Gather all previous assistant responses from our local messages
-            const prevAssistantTexts = messagesPayload.filter(m => m.role === 'assistant').map(m => m.content);
-            let response = String(lastAssistant.content).trim();
-            // Remove any previous assistant responses from the end
-            for (let prev of prevAssistantTexts) {
-              if (response.endsWith(prev)) {
-                response = response.slice(0, -prev.length).trim();
-              }
-            }
-            // If response is empty, fallback to full content
-            if (!response) response = String(lastAssistant.content).trim();
-            return response;
+        if (Array.isArray(conversation) && conversation.length > 1) {
+          const assistantResponse = conversation[1];
+          if (assistantResponse?.content) {
+            return String(assistantResponse.content);
           }
         }
       }
