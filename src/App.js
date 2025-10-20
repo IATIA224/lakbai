@@ -18,15 +18,13 @@ import LoginCMS from './login-cms';
 import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
 import { ToastContainer } from 'react-toastify';
+import { getAuth, signOut } from "firebase/auth";
 
 // Authentication helpers (unchanged)
 function isAuthenticated() {
   const token = localStorage.getItem('token');
-  return typeof token === 'string' && token.trim().length > 0;
-}
-function isAdminAuthenticated() {
-  const adminToken = localStorage.getItem('adminToken');
-  return typeof adminToken === 'string' && adminToken.trim().length > 0;
+  const user = getAuth().currentUser;
+  return (typeof token === 'string' && token.trim().length > 0) || !!user;
 }
 
 function AppInner() {
@@ -60,36 +58,51 @@ function AppInner() {
     document.body.scrollTop = 0;
   }, [location.pathname]);
 
+  const handleLogout = async () => {
+    localStorage.removeItem('token');
+    await signOut(getAuth());
+    window.location.href = "/dashboard"; // Force reload to clear state
+  };
+
   return (
     <UserProvider>
       <Routes>
-        {/* Public / auth routes (no header/footer) */}
-        <Route
-          path="/"
-          element={
-            isAuthenticated() ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Navigate to="/login" replace />  
-            )
-          }
-        />
+        {/* Redirect root to dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Protected routes that should include header + footer */}
-        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+        {/* MainLayout for all pages with header/footer */}
+        <Route element={<MainLayout />}>
+          {/* Public pages */}
           <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
-          <Route path="/ai" element={<ChatbaseAI />} />
-          <Route path="/bookmark" element={<Bookmark />} />
           <Route path="/bookmarks2" element={<Bookmarks2 />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/itinerary" element={<Itinerary />} />
+
+          {/* Protected pages */}
+          <Route
+            path="/bookmark"
+            element={isAuthenticated() ? <Bookmark /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/community"
+            element={isAuthenticated() ? <Community /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/profile"
+            element={isAuthenticated() ? <Profile /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/itinerary"
+            element={isAuthenticated() ? <Itinerary /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/ai"
+            element={isAuthenticated() ? <ChatbaseAI /> : <Navigate to="/login" replace />}
+          />
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}

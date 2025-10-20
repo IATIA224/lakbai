@@ -522,8 +522,9 @@ const Profile = () => {
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('token'); // <-- Clear token from localStorage
       await signOut(auth);
-      navigate("/login");
+      navigate("/dashboard"); // Redirect to dashboard after logout
     } catch (err) {
       console.error("Logout failed:", err);
     }
