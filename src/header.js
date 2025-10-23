@@ -67,7 +67,10 @@ const StickyHeader = () => {
 			<header className="sticky-header">
 				<div className="header-left">
 					<img src="/coconut-tree.png" alt="LakbAI Logo" className="logo-icon" />
-					<span className="logo-text">LakbAI</span>
+					<div className="logo-brand">
+						<span className="logo-text">LakbAI</span>
+						<div className="logo-subtitle">AI-Driven Itinerary <br/>Travel Itinerary Planner</div>
+					</div>
 				</div>
 				<nav className="header-nav">
 					{navTabs.map((tab) => (
