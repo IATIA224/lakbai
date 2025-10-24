@@ -637,36 +637,62 @@
   backdrop-filter: blur(2px);
   display: grid; place-items: center; z-index: 60;
 }
+
 .bm-modal {
-  width: min(880px, 92vw);
+  width: min(890px, 92vw);
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 900px;
+  max-height: 92vh;
   position: relative;
+  overflow: hidden;
 }
 
+.bm-modal-hero {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 300px;
+  min-height: 200px;
+  background: #e0e7ef;
+  /* Optionally add a border or shadow for separation */
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.bm-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  max-height: calc(100% - 300px);
+  /* Ensure content starts below the hero */
+  background: #fff;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 24px;
+  padding: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Responsive: stack modal body on mobile */
 @media (max-width: 768px) {
   .bm-modal {
-    width: 100vw;
     height: 100vh;
-    border-radius: 0;
-    box-shadow: none;
-    position: fixed;
+    max-height: 100vh;
+  }
+  .bm-modal-hero {
+    height: 160px;
+    min-height: 120px;
+    position: sticky;
     top: 0;
-    left: 0;
-    z-index: 1000;
-    overflow-y: auto; /* Ensure contents are scrollable */
-    padding: 20px; /* Add padding for content */
+    z-index: 2;
   }
-
   .bm-modal-body {
-    display: block; /* Stack content vertically */
-    padding: 20px; /* Adjust padding for smaller screens */
-  }
-
-  .bm-modal-title, .bm-modal-region, .bm-modal-desc {
-    text-align: center; /* Center-align text for better readability */
+    max-height: calc(100% - 160px);
+    padding: 20px 16px;
+    display: block;
   }
 }
 .bm-modal-close {
@@ -697,7 +723,7 @@
 /* ...existing code... */
 
 /* Hero art identical style */
-.bm-modal-hero { height: 300px; position: relative; overflow: hidden; }
+
 .bm-modal-sky { position: absolute; inset: 0;
   background: linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%); }
 .bm-modal-wave { position: absolute; left:0; right:0; bottom:0; height: 70px;
@@ -715,7 +741,7 @@
 }
 
 /* Layout */
-.bm-modal-body { display: grid; grid-template-columns: 1fr 300px; gap: 24px; padding: 40px; }
+
 .bm-modal-title { font-size: 28px; margin: 6px 0 2px; color:#0f172a; text-align: left; justify-content: left;}
 .bm-modal-region { 
   text-align: left; 
