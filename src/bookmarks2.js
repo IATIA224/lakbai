@@ -344,11 +344,16 @@ export default function Bookmarks2() {
         subsSnap.docs.forEach(d => merged.add(String(d.id)));
 
         // Create or backfill the list doc so Dashboard can read it too
+        if (!user || !user.uid) {
+          console.error("User is not authenticated.");
+          return;
+        }
+        const bookmarkIds = Array.from(merged).filter(id => typeof id === "string" || typeof id === "number");
         await setDoc(
           listRef,
           {
             userId: user.uid,
-            bookmarks: Array.from(merged),
+            bookmarks: bookmarkIds,
             updatedAt: serverTimestamp()
           },
           { merge: true }
@@ -1539,6 +1544,25 @@ const getTotalPrice = (basePrice) => {
                         ))}
                       </div>
                     </div>
+                  
+                  <div className="section-title">Write a Review</div>
+                  <div
+                    className="review-box"
+                    style={{
+                      width: '100%',          // fill available width
+                      gridColumn: '1 / -1',   // span all columns of the parent grid
+                      marginBottom: 18,
+                      zIndex: 1
+                    }}
+                  >
+                    <WriteReview
+                      destId={selected.id}
+                      user={currentUser}
+                      onReviewSaved={() => {
+                        // Optionally reload reviews or show a message
+                      }}
+                    />
+                  </div>
 
                   <div className="section-title">Packing Suggestions</div>
                   <div className="packing-box">
@@ -1862,4 +1886,99 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
     console.error("Error sharing itinerary:", err);
     throw err;
   }
+}
+
+function WriteReview({ destId, user, onReviewSaved }) {
+  const [review, setReview] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      if (!user) throw new Error("You must be signed in to write a review.");
+      if (!review.trim()) throw new Error("Review cannot be empty.");
+      const reviewData = {
+        userId: user.uid,
+        userName: user.displayName || user.email || "Anonymous",
+        review: review.trim(),
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Write to: destinations/{destId}/reviews/{userId}/review
+      await setDoc(
+        doc(db, "destinations", String(destId), "reviews", user.uid),
+        {
+          userId: user.uid,
+          userName: user.displayName || user.email || "Anonymous",
+          review: review.trim(),
+          createdAt: new Date().toISOString(),
+        },
+        { merge: true } // allow update without overwrite
+      );
+      setSuccess("Review submitted!");
+      setReview('');
+      if (onReviewSaved) onReviewSaved();
+    } catch (err) {
+      setError(err.message || "Failed to submit review.");
+      console.error("Firestore error:", err);
+      console.log("destId:", destId);
+      console.log("user:", user);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ position: 'relative' }}>
+        <textarea
+          value={review}
+          onChange={e => setReview(e.target.value)}
+          placeholder="Write your review here..."
+          rows={3}
+          style={{
+            width: '100%',
+            borderRadius: 8,
+            border: '1px solid #e5e7eb',
+            padding: 12,
+            paddingRight: 50, // space for the send button
+            fontSize: 15,
+            resize: 'vertical'
+          }}
+          disabled={saving}
+        />
+        <button
+          type="submit"
+          aria-label="Submit review"
+          disabled={saving || !review.trim()}
+          style={{
+            position: 'absolute',
+            right: 8,
+            bottom: 8,
+            width: 36,
+            height: 36,
+            borderRadius: '999px',
+            background: 'transparent',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: saving || !review.trim() ? 'not-allowed' : 'pointer',
+            opacity: saving || !review.trim() ? 0.6 : 1
+          }}
+        >
+          <img src="send.png" alt="Send" style={{ width: 18, height: 18 }} />
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {success && <span style={{ color: "#22c55e" }}>{success}</span>}
+        {error && <span style={{ color: "#e74c3c" }}>{error}</span>}
+      </div>
+    </form>
+  );
 }
