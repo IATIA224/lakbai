@@ -11,6 +11,7 @@ import { unlockAchievement } from './profile';
 import { addTripForCurrentUser } from './Itinerary';
 import { trackDestinationAdded } from './itinerary_Stats';
 import destImages from './dest-images.json';
+import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
 
 // Add this helper function after the imports
 async function logActivity(text, icon = "🔵") {
@@ -58,6 +59,11 @@ function Bookmark() {
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [isClearingAll, setIsClearingAll] = useState(false);
 
+  const [reviewsByDest, setReviewsByDest] = useState({});
+  const [ratingsCountByDest, setRatingsCountByDest] = useState({});
+  const [cloudImages, setCloudImages] = useState([]);
+  const [firebaseImages, setFirebaseImages] = useState([]);
+
   // NEW: app-themed error toast state
   const [errorMsg, setErrorMsg] = useState('');
   const errorTimerRef = useRef(null);
@@ -73,6 +79,93 @@ function Bookmark() {
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current); // NEW: clear toast timer
     };
+  }, []);
+
+    useEffect(() => {
+      if (!modalOpen || !selected) return;
+  
+      async function fetchReviewCount() {
+        try {
+          const docRef = doc(db, 'destinations', selected.id,);
+          const snap = await getDoc(docRef);
+          if (snap.exists()) {
+            const review = snap.data().review;
+            setReviewsByDest(prev => ({
+              ...prev,
+              [selected.id]: typeof review === 'number' ? review : 0
+            }));
+          } else {
+            setReviewsByDest(prev => ({
+              ...prev,
+              [selected.id]: 0
+            }));
+          }
+        } catch (e) {
+          setReviewsByDest(prev => ({
+            ...prev,
+            [selected.id]: 0
+          }));
+        }
+      }
+  
+      fetchReviewCount();
+    }, [modalOpen, selected]);
+
+  useEffect(() => {
+  if (!modalOpen || !selected) return;
+
+  async function fetchRatingsCount() {
+    try {
+      const ratingsSnap = await getDocs(collection(db, 'destinations', selected.id, 'ratings'));
+      setRatingsCountByDest(prev => ({
+        ...prev,
+        [selected.id]: ratingsSnap.size || 0
+      }));
+    } catch (e) {
+      setRatingsCountByDest(prev => ({
+        ...prev,
+        [selected.id]: 0
+      }));
+    }
+  }
+
+  fetchRatingsCount();
+}, [modalOpen, selected]);
+    
+    const formatPackingSuggestions = (text) => {
+    if (!text) return "No packing suggestions available.";
+    
+    // Split by bullet points (•, -, or *)
+    const lines = text
+      .split(/[•\-*]/)
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    if (lines.length === 0) return "No packing suggestions available.";
+    
+    return lines;
+  };
+
+  useEffect(() => {
+    async function fetchFirebaseImages() {
+      try {
+        const snap = await getDocs(collection(db, 'photos'));
+        const imgs = snap.docs.map(doc => ({
+          name: doc.data().name,
+          publicId: doc.data().publicId, // <-- fetch publicId
+          url: doc.data().url
+        })).filter(img => img.name && img.url);
+        setFirebaseImages(imgs);
+      } catch (e) {
+        console.warn('Failed to fetch images from Firestore:', e);
+        setFirebaseImages([]);
+      }
+    }
+    fetchFirebaseImages();
+  }, []);
+
+  useEffect(() => {
+    fetchCloudinaryImages().then(setCloudImages);
   }, []);
 
   useEffect(() => {
@@ -562,11 +655,15 @@ function Bookmark() {
     });
 
   // Helper to get image URL by destination name
-  const getImageForDestination = (name) => {
-    if (!name) return undefined;
-    const found = destImages.find(img => img.name.trim().toLowerCase() === name.trim().toLowerCase());
-    return found ? found.url : undefined;
-  };
+const getImageForDestination = (name) => {
+  if (typeof name !== "string") return undefined;
+  const found = destImages.find(
+    img =>
+      typeof img.name === "string" &&
+      img.name.trim().toLowerCase() === name.trim().toLowerCase()
+  );
+  return found ? found.url : undefined;
+};
 
   // Fetch and attach ratings for all bookmarks after loading items
   useEffect(() => {
@@ -598,6 +695,16 @@ function Bookmark() {
     if (items.length > 0) fetchAllRatings();
     // eslint-disable-next-line
   }, [items]);
+
+  function getFirebaseImageForDestination(firebaseImages, destName) {
+    if (!destName) return null;
+    const normalized = destName.trim().toLowerCase();
+    const found = firebaseImages.find(img =>
+      (img.name && img.name.trim().toLowerCase() === normalized) ||
+      (img.publicId && img.publicId.trim().toLowerCase() === normalized)
+    );
+    return found && found.url ? found.url : null;
+  }
 
   return (
     <div className="App bm-page" aria-busy={loading}>
@@ -716,9 +823,16 @@ function Bookmark() {
             >
               {/* Top art */}
               <div className="bm-card-hero">
-                {d.image && (
+              {cloudImages.length === 0 ? (
+                <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
+              ) : (
+                (() => {
+                  const cloudUrl = getImageForDestination(cloudImages, d.name);
+                  const firebaseUrl = getFirebaseImageForDestination(firebaseImages, d.name);
+                  const imgUrl = cloudUrl || firebaseUrl;
+                  return imgUrl ? (
                   <img
-                    src={d.image}
+                    src={imgUrl}
                     alt={d.name}
                     className="bm-card-img"
                     style={{
@@ -731,38 +845,40 @@ function Bookmark() {
                       background: '#eee'
                     }}
                   />
-                )}
-                <div className="bm-saved-badge">Saved {fmtSaved(d.savedAt)}</div>
-                <button
-                  className="bm-heart-bubble"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    triggerCardPop(d.id);
-                    beginRemove(d.id);
-                    
-                    // Get destination name for activity log BEFORE removing
-                    const destName = d.name || "destination";
-                    
-                    try {
-                      await removeBookmark(d.id);
-                      // Activity is already logged inside removeBookmark
-                    } finally {
-                      endRemove(d.id);
-                    }
-                  }}
-                  aria-label="Remove from bookmarks"
-                  title="Remove"
-                >
-                  ❤️
-                </button>
-              </div>
+                ) : null;
+            })()
+            )}
+            </div>
+            <div className="bm-saved-badge">Saved {fmtSaved(d.savedAt)}</div>
+              <button
+                className="bm-heart-bubble"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  triggerCardPop(d.id);
+                  beginRemove(d.id);
+                  
+                  // Get destination name for activity log BEFORE removing
+                  const destName = d.name || "destination";
+                  
+                  try {
+                    await removeBookmark(d.id);
+                    // Activity is already logged inside removeBookmark
+                  } finally {
+                    endRemove(d.id);
+                  }
+                }}
+                aria-label="Remove from bookmarks"
+                title="Remove"
+              >
+                ❤️
+              </button>
 
               {/* Content */}
               <div className="bm-card-body">
                 <div className="bm-card-head">
                   <h3 className="bm-card-title">{d.name}</h3>
                   <div className="bm-card-rating" title="Average Rating">
-                    <span>⭐</span> {ratingsByDest[d.id]?.avg?.toFixed(1) || '—'}
+                    <span>⭐</span> {Number(d.rating || 0) > 0 ? Number(d.rating).toFixed(1) : '0'}
                   </div>
                 </div>
 
@@ -832,12 +948,19 @@ function Bookmark() {
       {modalOpen && selected && (
         <div className="bm-modal-backdrop" onClick={closeDetails}>
           <div className="bm-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <button className="bm-modal-close" onClick={closeDetails} aria-label="Close details">✕</button>
+            <button className="bm-modal-close" onClick={closeDetails} aria-label="Close">✕</button>
 
               <div className="bm-modal-hero">
-                {selected && getImageForDestination(selected.name) ? (
+              {cloudImages.length === 0 ? (
+                <div style={{ width: "100%", background: "#e0e7ef", borderRadius: 16  }} />
+              ) : (
+                (() => {
+                const cloudUrl = getImageForDestination(cloudImages, selected.name);
+                const firebaseUrl = getFirebaseImageForDestination(firebaseImages, selected.name);
+                const imgUrl = cloudUrl || firebaseUrl;
+                return imgUrl ? (
                   <img
-                    src={getImageForDestination(selected.name)}
+                    src={imgUrl}
                     alt={selected.name}
                     className="bm-modal-img"
                     style={{
@@ -851,8 +974,10 @@ function Bookmark() {
                   />
                 ) : (
                   <div className="bm-modal-sky" />
-                )}
-              </div>
+                );
+            })()
+            )}
+          </div>
 
             <div className="bm-modal-body">
               <div className="bm-modal-main">
@@ -867,8 +992,21 @@ function Bookmark() {
                     <span className="star">⭐</span>
                     {(ratingsByDest[selected.id]?.count ?? 0) > 0
                       ? ratingsByDest[selected.id].avg.toFixed(1)
-                      : '—'} <span className="muted">(Average Rating)</span>
+                      : '0'} <span className="muted">(Average Rating)</span>
                   </div>
+                    <span className="muted">
+                      ({ratingsCountByDest[selected.id] !== undefined
+                        ? ratingsCountByDest[selected.id]
+                        : 0} ratings)
+                    </span>
+                    <span className="label">
+                      Reviews: {
+                        reviewsByDest[selected.id] !== undefined
+                          ? reviewsByDest[selected.id]
+                          : (selected.review ?? 0)
+                      }
+                    </span>
+
                   <div className="bm-user-rating">
                     <span className="label">Your Rating:</span>
                     <div className="bm-stars" aria-label="Your Rating">
@@ -901,11 +1039,24 @@ function Bookmark() {
 
                 <section>
                   <h3 className="bm-section-title">Packing Suggestions</h3>
-                  <div className="bm-pack-card">
-                    {selected.packing || 'Swimwear, sunscreen, light clothing, waterproof bag, snorkeling gear'}
+                  <div className="packing-box">
+                    {(() => {
+                      const suggestions = formatPackingSuggestions(selected.packingSuggestions);
+                      if (typeof suggestions === 'string') {
+                        return suggestions;
+                      }
+                      return (
+                        <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
+                          {suggestions.map((s, i) => (
+                            <li key={i}>{s}</li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
                   </div>
                 </section>
               </div>
+              
 
               <aside className="bm-modal-aside">
                 <div className="bm-info-panel">
@@ -928,7 +1079,7 @@ function Bookmark() {
                     <div className="bm-info-row">
                       <div className="bm-info-key">Location:</div>
                       <div className="bm-info-val">
-                        <span className="bm-chip soft">{selected.location}</span>
+                        <span className="badge blue">{selected.location}</span>
                       </div>
                     </div>
                   )}
@@ -936,9 +1087,11 @@ function Bookmark() {
                   <div className="bm-info-row">
                     <div className="bm-info-key">Categories:</div>
                     <div className="bm-info-val">
-                      {(selected.categories || selected.tags || []).map((c, i) => (
-                        <span key={i} className="bm-chip soft">{c}</span>
-                      ))}
+                      {selected.category ? (
+                        <span className="badge purple">{selected.category}</span>
+                      ) : (
+                        <span className="badge purple">No category</span>
+                      )}
                     </div>
                   </div>
                 </div>
