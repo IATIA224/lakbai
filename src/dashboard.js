@@ -511,7 +511,6 @@ function ItinerarySummaryModal({ item, onClose }) {
   return createPortal(modalContent, document.body);
 }
 
-// Interest → category rules (case-sensitive keys as in your profile)
 const INTEREST_RULES = {
   "Surfer": ["Beach"],
   "Backpacker": ["Mountain", "Tourist", "Natural"],
@@ -521,7 +520,7 @@ const INTEREST_RULES = {
   "Nature Enthusiast": ["Natural", "Parks", "Lakes"],
   "Digital Nomad": ["City Explorer", "Tourist", "Landmarks"],
   "Road Tripper": ["Landmarks", "Tourist", "Natural"],
-  "Beach Lover": ["Beach", "Islands", "Natural"],
+  "Beach Lover": ["Beach"],
   "City Explorer": ["Tourist", "Museums", "Cultural"],
   "Photographer": ["Landmarks", "Natural", "Heritage"],
   "Historian": ["Historical", "Heritage", "Museums"],
@@ -530,7 +529,7 @@ const INTEREST_RULES = {
   "Luxury Traveler": ["Islands", "Beach", "Heritage"],
   "Eco-Traveler": ["Parks", "Natural", "Caves"],
   "Cruise Lover": ["Islands", "Beach", "Lakes"],
-  "Winter Sports Enthusiast": ["Mountain", "Natural", "Parks"],
+  "Winter Sports Enthusiast": [],
   "Solo Wanderer": ["Tourist", "Cultural", "Landmarks"]
 };
 
@@ -539,7 +538,6 @@ const INTEREST_RULES_LC = Object.fromEntries(
 );
 
 
-// Helper to prefer cloud -> firebase -> local -> placeholder (same strategy as bookmarks2)
 function getFirebaseImageForDestination(firebaseImages, destName) {
   if (!destName) return null;
   const normalized = destName.trim().toLowerCase();
@@ -563,7 +561,6 @@ function formatPeso(v) {
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
 
-  // Fetch trips from Firestore (itinerary/{userId}/items) for the current user, real-time
   const [trips, setTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
   useEffect(() => {

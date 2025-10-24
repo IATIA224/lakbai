@@ -28,6 +28,7 @@ import {
 import { addTripForCurrentUser } from './Itinerary';
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
 import { trackDestinationAdded } from './itinerary_Stats';
+import { breakdown } from './rules';
 
 // ==================== CACHING LAYER ====================
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -133,6 +134,15 @@ async function checkMiniPlannerAchievement(user) {
   }
 }
 
+// Add at the top, after imports (helper for parsing fare ranges)
+function parseFareRange(str) {
+  // Example: "₱2,500 - ₱5,000+ (long routes)"
+  const match = str.match(/₱([\d,]+)\s*-\s*₱([\d,]+)/);
+  if (!match) return 0;
+  // Return the higher value as number
+  return Number(match[2].replace(/,/g, ''));
+}
+
 export default function Bookmarks2() {
   const [destinations, setDestinations] = useState([]);
   const navigate = useNavigate();
@@ -159,6 +169,10 @@ export default function Bookmarks2() {
   const [userRating, setUserRating] = useState(0);
   const [savingRating, setSavingRating] = useState(false);
   const [bookmarking, setBookmarking] = useState(false);
+  const [reviewsByDest, setReviewsByDest] = useState({});
+  const [ratingsCountByDest, setRatingsCountByDest] = useState({});
+  const [selectedFares, setSelectedFares] = useState([]); // For fare checkboxes
+
 
   // ==================== PAGINATION STATE ====================
   const [page, setPage] = useState(1);
@@ -173,7 +187,7 @@ export default function Bookmarks2() {
   // ==================== OPTIMIZED: Load destinations with caching ====================
   useEffect(() => {
     let unsubscribe = null;
-    
+
     const loadDestinations = async () => {
       setIsLoading(true);
       
@@ -225,6 +239,66 @@ export default function Bookmarks2() {
   useEffect(() => {
   loadFiltersData();
 }, []);
+
+  useEffect(() => {
+    if (!modalOpen || !selected) return;
+
+    async function fetchReviewCount() {
+      try {
+        const docRef = doc(db, 'destinations', selected.id,);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const review = snap.data().review;
+          setReviewsByDest(prev => ({
+            ...prev,
+            [selected.id]: typeof review === 'number' ? review : 0
+          }));
+        } else {
+          setReviewsByDest(prev => ({
+            ...prev,
+            [selected.id]: 0
+          }));
+        }
+      } catch (e) {
+        setReviewsByDest(prev => ({
+          ...prev,
+          [selected.id]: 0
+        }));
+      }
+    }
+
+    fetchReviewCount();
+  }, [modalOpen, selected]);
+
+    useEffect(() => {
+    if (!modalOpen || !selected) return;
+
+    async function fetchRatingsCount() {
+      try {
+        const ratingsSnap = await getDocs(collection(db, 'destinations', selected.id, 'ratings'));
+        setRatingsCountByDest(prev => ({
+          ...prev,
+          [selected.id]: ratingsSnap.size || 0
+        }));
+      } catch (e) {
+        setRatingsCountByDest(prev => ({
+          ...prev,
+          [selected.id]: 0
+        }));
+      }
+    }
+
+    fetchRatingsCount();
+  }, [modalOpen, selected]);
+
+  function getBreakdown(price) {
+  if (!price) return [];
+  // Remove non-digits and leading ₱, commas, spaces
+  const digits = String(price).replace(/[^\d]/g, '');
+  if (!digits) return [];
+  const key = `P${digits}`;
+  return breakdown[key] || [];
+}
 
   // Fetch regions and categories from Firestore
   useEffect(() => {
@@ -302,6 +376,38 @@ export default function Bookmarks2() {
     destinations.forEach((d) => (d.categories || []).forEach((c) => s.add(c || '')));
     return [...s].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b)));
   }, [destinations]);
+
+  const fareOptions = [
+  { type: 'sea', label: '₱500 - ₱850+ (Sea Travel: short routes)', value: 'sea-short' },
+  { type: 'sea', label: '₱1,100 - ₱7,100+ (Sea Travel: long routes)', value: 'sea-long' },
+  { type: 'air', label: '₱1,500 - ₱4,000+ (Air Travel: short routes)', value: 'air-short' },
+  { type: 'air', label: '₱2,500 - ₱8,600+ (Air Travel: long routes)', value: 'air-long' },
+];
+
+  const getFareLabel = (val) => fareOptions.find(f => f.value === val)?.label || '';
+
+// Compute the highest fare selected
+const selectedFareAmounts = selectedFares
+  .map(val => {
+    const label = getFareLabel(val);
+    return parseFareRange(label);
+  })
+  .filter(Boolean);
+
+const totalSelectedFare = selectedFareAmounts.length > 0
+  ? selectedFareAmounts.reduce((sum, v) => sum + v, 0)
+  : 0;
+
+// Compute total price (base + max fare)
+const getTotalPrice = (basePrice) => {
+  let base = 0;
+  if (typeof basePrice === 'number') base = basePrice;
+  else if (typeof basePrice === 'string') {
+    const digits = basePrice.replace(/[^\d]/g, '');
+    base = digits ? Number(digits) : 0;
+  }
+  return base + totalSelectedFare;
+};
 
   const allCategories = useMemo(() => {
     const set = new Set();
@@ -578,6 +684,21 @@ export default function Bookmarks2() {
 
     loadViewedDestinations();
   }, [currentUser]);
+
+    const formatPackingSuggestions = (text) => {
+    if (!text) return "No packing suggestions available.";
+    
+    // Split by bullet points (•, -, or *)
+    const lines = text
+      .split(/[•\-*]/)
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    if (lines.length === 0) return "No packing suggestions available.";
+    
+    return lines;
+  };
+
 
   const openDetails = async (d) => {
     setSelected(d);
@@ -969,6 +1090,7 @@ export default function Bookmarks2() {
       setCopyingId(null); // Now this works too!
     }
   }, [navigate]);
+  const DETAILS_HERO_HEIGHT = 240;
 
   return (
     <div className="App">
@@ -1190,7 +1312,7 @@ export default function Bookmarks2() {
                 <div className="card-header">
                   <h2>{d.name}</h2>
                   <div className="mini-rating" title="Average Rating">
-                    <span>⭐</span> {avgText(d.id)}
+                    <span>⭐</span> {Number(d.rating || 0) > 0 ? Number(d.rating).toFixed(1) : '0'}
                     </div>
                 </div>
 
@@ -1237,10 +1359,17 @@ export default function Bookmarks2() {
               ✕
             </button>
 
-            <div className="details-hero">
-                    <div className="details-hero-image">
+            <div className="details-hero1"
+              style={{
+                // make the hero occupy normal flow with a fixed height so the body starts below it
+                minHeight: DETAILS_HERO_HEIGHT,
+                position: 'relative',
+                zIndex: 1,
+              }}>
+                    <div className="details-hero-image"
+                    style={{ height: DETAILS_HERO_HEIGHT }}>
                       {cloudImages.length === 0 ? (
-                        <div style={{ width: "100%", height: 240, background: "#e0e7ef", borderRadius: 16  }} />
+                        <div style={{ width: "100%", height: DETAILS_HERO_HEIGHT, background: "#e0e7ef", borderRadius: 16  }} />
                       ) : (
                         (() => {
                           const cloudUrl = getImageForDestination(cloudImages, selected.name);
@@ -1281,8 +1410,9 @@ export default function Bookmarks2() {
                     </div>
                   </div>
 
-                    <div className="details-body">
-                      <div className="details-head-row">
+                    <div className="details-body1">
+                      <div className="details-head-row"
+                      >
                       <div className="details-title-col">
                         <h2 className="details-title">{selected.name}</h2>
                         <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
@@ -1291,13 +1421,18 @@ export default function Bookmarks2() {
 
                         <div className="details-rating-row">
                         <span className="star">⭐</span>
-                        <span className="avg">
+                        <span className="muted">
                           {(ratingsByDest[selected.id]?.count ?? 0) > 0
                           ? (ratingsByDest[selected.id].avg).toFixed(1)
-                          : '—'}
+                          : '0'}
                         </span>
                         <span className="muted"> (Average Rating)</span>
-                        <span className="muted sep">Your Rating:</span>
+                        <span className="muted">
+                          ({ratingsCountByDest[selected.id] !== undefined
+                            ? ratingsCountByDest[selected.id]
+                            : 0} ratings)
+                        </span>
+                        <span className="muted sep">Rating:</span>
                         <div className="your-stars">
                           {[1, 2, 3, 4, 5].map((n) => (
                           <button
@@ -1312,9 +1447,16 @@ export default function Bookmarks2() {
                           </button>
                           ))}
                         </div>
+                        <span className="muted sep">
+                          Reviews: {
+                            reviewsByDest[selected.id] !== undefined
+                              ? reviewsByDest[selected.id]
+                              : (selected.review ?? 0)
+                          }
+                        </span>
                       </div>
                       </div>
-                      <div className="details-actions">
+                      <div className="details-actions1">
                         <button
                         className={`btn-outline ${bookmarks.has(selected.id) ? 'active' : ''}`}
                         onClick={handleModalBookmarkClick}
@@ -1357,9 +1499,64 @@ export default function Bookmarks2() {
                     ))}
                   </div>
 
+                    <div className="section-title">Price Breakdown:</div>
+                    <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different factors</div>
+                    <div className="breakdown-box">
+                    {(() => {
+                      // Use budget if available, otherwise use price
+                      const budgetOrPrice = selected.budget || selected.price;
+                      if (!budgetOrPrice) return null;
+
+                      const breakdownArr = getBreakdown(budgetOrPrice);
+                      if (!breakdownArr.length) return <span>No breakdown available.</span>;
+                      return (
+                        <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
+                          {breakdownArr.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
+                    </div>
+                    <div className="section-title">Additional Fees:</div>
+                    <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different class</div>
+                    <div className="breakdown-box" style={{textAlign: 'left'}}>
+                      {/* NEW: Fare checkboxes */}
+                      <div style={{ marginBottom: 10 }}>
+                        {fareOptions.map(opt => (
+                          <label key={opt.value} style={{ display: 'block', marginBottom: 2, fontWeight: 'normal', fontSize: 14 }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedFares.includes(opt.value)}
+                              onChange={e => {
+                                setSelectedFares(prev => {
+                                  if (e.target.checked) return [...prev, opt.value];
+                                  return prev.filter(v => v !== opt.value);
+                                });
+                              }}
+                            />
+                            <span style={{ marginLeft: 6 }}>{opt.label}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                    </div>
+
                   <div className="section-title">Packing Suggestions</div>
                   <div className="packing-box">
-                    {selected.packingSuggestions || "No packing suggestions available."}
+                    {(() => {
+                      const suggestions = formatPackingSuggestions(selected.packingSuggestions);
+                      if (typeof suggestions === 'string') {
+                        return suggestions;
+                      }
+                      return (
+                        <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
+                          {suggestions.map((s, i) => (
+                            <li key={i}>{s}</li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -1374,7 +1571,10 @@ export default function Bookmarks2() {
                       }`}
                       title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
                     >
-                      {formatPeso(selected.price)} {/* CHANGED: actual price */}
+                      {/* CHANGED: show total price if fare selected */}
+                      {selectedFares.length > 0
+                        ? `₱${getTotalPrice(selected.price).toLocaleString()}`
+                        : formatPeso(selected.price)}
                     </span>
                   </div>
 
