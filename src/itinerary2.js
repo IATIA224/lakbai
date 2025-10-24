@@ -1128,6 +1128,8 @@ export function useSharedItineraries(user) {
       qy,
       (snap) => {
         const currentIds = new Set(snap.docs.map(d => d.id));
+        
+        // Clean up listeners for deleted shared itineraries
         for (const [id, fn] of itemUnsubs.entries()) {
           if (!currentIds.has(id)) {
             try { fn(); } catch {}
@@ -1155,41 +1157,51 @@ export function useSharedItineraries(user) {
         // Attach/refresh item listeners
         for (const d of snap.docs) {
           if (itemUnsubs.has(d.id)) continue;
+          
           const itemsRef = collection(db, "sharedItineraries", d.id, "items");
-          const itemsUnsub = onSnapshot(itemsRef, (itemsSnap) => {
-            const sortedItems = itemsSnap.docs
-              .map(x => ({ ...x.data(), id: x.id }))
-              .sort((a, b) => (a.arrival || "").localeCompare(b.arrival || ""));
+          const itemsUnsub = onSnapshot(
+            itemsRef,
+            (itemsSnap) => {
+              const sortedItems = itemsSnap.docs
+                .map(x => ({ ...x.data(), id: x.id }))
+                .sort((a, b) => (a.arrival || "").localeCompare(b.arrival || ""));
 
-            // If no items remain, drop the group immediately (no residue)
-            if (sortedItems.length === 0) {
-              setSharedWithMe(prev => prev.filter(s => s.id !== d.id));
-              return;
-            }
-
-            setSharedWithMe(prev => {
-              const arr = prev.slice();
-              const idx = arr.findIndex(s => s.id === d.id);
-              if (idx >= 0) {
-                arr[idx] = { ...arr[idx], items: sortedItems, lastUpdated: new Date() };
-              } else {
-                arr.push({
-                  id: d.id,
-                  sharedBy: { id: "", name: "Traveler", profilePicture: "/user.png" },
-                  sharedAt: new Date(),
-                  lastUpdated: new Date(),
-                  collaborative: true,
-                  sharedWith: [],
-                  items: sortedItems
-                });
+              // If no items remain, remove the shared itinerary from the list
+              if (sortedItems.length === 0) {
+                setSharedWithMe(prev => prev.filter(s => s.id !== d.id));
+                return;
               }
-              return arr;
-            });
-          });
+
+              setSharedWithMe(prev => {
+                const arr = prev.slice();
+                const idx = arr.findIndex(s => s.id === d.id);
+                if (idx >= 0) {
+                  arr[idx] = { ...arr[idx], items: sortedItems, lastUpdated: new Date() };
+                } else {
+                  arr.push({
+                    id: d.id,
+                    sharedBy: { id: "", name: "Traveler", profilePicture: "/user.png" },
+                    sharedAt: new Date(),
+                    lastUpdated: new Date(),
+                    collaborative: true,
+                    sharedWith: [],
+                    items: sortedItems
+                  });
+                }
+                return arr;
+              });
+            },
+            (itemsErr) => {
+              console.error(`Items listener error for shared itinerary ${d.id}:`, itemsErr);
+              // If items collection doesn't exist or we can't access it, remove from list
+              setSharedWithMe(prev => prev.filter(s => s.id !== d.id));
+            }
+          );
+          
           itemUnsubs.set(d.id, itemsUnsub);
         }
 
-        // Merge bases with previous items, but only keep docs in current snapshot
+        // Merge bases with previous items
         setSharedWithMe(prev => {
           const merged = bases.map(b => {
             const existing = prev.find(p => p.id === b.id);
@@ -1306,19 +1318,30 @@ export function useFriendsList(user) {
 export function SharedItinerariesTab({ user }) {
   const [editing, setEditing] = useState(null);
   const [sharedItineraryId, setSharedItineraryId] = useState(null);
-  const [expandedMembers, setExpandedMembers] = useState(new Set()); // ADD THIS
+  const [expandedMembers, setExpandedMembers] = useState(new Set());
   const { sharedWithMe, loading, error } = useSharedItineraries(user);
   const [copyingId, setCopyingId] = useState(null);
   
   const [groupBy, setGroupBy] = useState('none');
   const [filterStatus, setFilterStatus] = useState('all');
 
+  // FIXED: Only count shared itineraries that have items
   const visibleShared = useMemo(
-    () => sharedWithMe.filter(s => Array.isArray(s.items) && s.items.length > 0),
+    () => sharedWithMe.filter(s => 
+      Array.isArray(s.items) && 
+      s.items.length > 0 &&
+      s.sharedBy && // Ensure sharedBy exists
+      s.sharedBy.id // Ensure sharedBy.id exists
+    ),
     [sharedWithMe]
   );
 
-  // ADD THIS HELPER FUNCTION
+  // FIXED: Calculate total items from visible shared itineraries only
+  const totalItems = useMemo(
+    () => visibleShared.reduce((sum, s) => sum + (s.items?.length || 0), 0),
+    [visibleShared]
+  );
+
   const groupedSharedItems = useMemo(() => {
     const allItems = visibleShared.flatMap(shared => 
       shared.items.map(item => ({ ...item, sharedId: shared.id, sharedBy: shared.sharedBy }))
@@ -1596,8 +1619,6 @@ export function SharedItinerariesTab({ user }) {
       </div>
     );
   }
-
-  const totalItems = visibleShared.reduce((sum, s) => sum + (s.items?.length || 0), 0);
 
   return (
     <div className="itn-shared-itineraries-tab">
