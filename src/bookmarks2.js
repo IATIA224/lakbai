@@ -172,6 +172,7 @@ export default function Bookmarks2() {
   const [reviewsByDest, setReviewsByDest] = useState({});
   const [ratingsCountByDest, setRatingsCountByDest] = useState({});
   const [selectedFares, setSelectedFares] = useState([]); // For fare checkboxes
+  const [selectedCard, setSelectedCard] = useState(null);
 
 
   // ==================== PAGINATION STATE ====================
@@ -685,21 +686,6 @@ const getTotalPrice = (basePrice) => {
     loadViewedDestinations();
   }, [currentUser]);
 
-    const formatPackingSuggestions = (text) => {
-    if (!text) return "No packing suggestions available.";
-    
-    // Split by bullet points (•, -, or *)
-    const lines = text
-      .split(/[•\-*]/)
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-    
-    if (lines.length === 0) return "No packing suggestions available.";
-    
-    return lines;
-  };
-
-
   const openDetails = async (d) => {
     setSelected(d);
     setModalOpen(true);
@@ -1096,7 +1082,7 @@ const getTotalPrice = (basePrice) => {
   useEffect(() => {
     const detailsModal = document.querySelector('.details-modal');
     if (detailsModal && modalOpen) {
-      detailsModal.style.zoom = '75%';
+      detailsModal.style.zoom = '100%';
     }
     return () => {
       if (detailsModal) {
@@ -1552,23 +1538,68 @@ const getTotalPrice = (basePrice) => {
                           </label>
                         ))}
                       </div>
-
                     </div>
 
                   <div className="section-title">Packing Suggestions</div>
                   <div className="packing-box">
                     {(() => {
-                      const suggestions = formatPackingSuggestions(selected.packingSuggestions);
-                      if (typeof suggestions === 'string') {
-                        return suggestions;
+                      if (!selected) return <div className="packing-empty">No packing suggestions available.</div>;
+
+                      let raw = selected.packingSuggestions || selected.packing || "";
+                      if (Array.isArray(raw) && raw.length > 0) {
+                        return (
+                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                            {raw.map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        );
                       }
-                      return (
-                        <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
-                          {suggestions.map((s, i) => (
-                            <li key={i}>{s}</li>
-                          ))}
-                        </ul>
-                      );
+                      if (typeof raw === "string" && raw.trim().length > 0) {
+                        // Split by line or bullet for display
+                        const lines = raw.split(/[\n•\-*]/).map(l => l.trim()).filter(Boolean);
+                        if (lines.length > 0) {
+                          return (
+                            <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                              {lines.map((s, i) => <li key={i}>{s}</li>)}
+                            </ul>
+                          );
+                        }
+                      }
+
+                      const { category: packingCategory } = require('./rules');
+                      let cats =
+                        Array.isArray(selected.category)
+                          ? selected.category
+                          : Array.isArray(selected.categories)
+                          ? selected.categories
+                          : typeof selected.category === "string"
+                          ? [selected.category]
+                          : typeof selected.categories === "string"
+                          ? [selected.categories]
+                          : [];
+
+                      let found = [];
+                      for (let c of cats) {
+                        if (!c) continue;
+                        const key = c.trim().toLowerCase();
+                        if (packingCategory[key]) {
+                          found = packingCategory[key];
+                          break;
+                        }
+                        const singular = key.endsWith("s") ? key.slice(0, -1) : key;
+                        if (packingCategory[singular]) {
+                          found = packingCategory[singular];
+                          break;
+                        }
+                      }
+                      if (found.length > 0) {
+                        return (
+                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                            {found.map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        );
+                      }
+
+                      return <div className="packing-empty">No packing suggestions available.</div>;
                     })()}
                   </div>
                 </div>
