@@ -1,3 +1,9 @@
+/* Add this rule at the top of your CSS file */
+.ai-card {
+  zoom: 90%;
+  /* ...existing styles... */
+}
+
 /* Overlay for popup */
 .ai-popup-overlay {
   position: fixed;
