@@ -12,6 +12,7 @@ import { addTripForCurrentUser } from './Itinerary';
 import { trackDestinationAdded } from './itinerary_Stats';
 import destImages from './dest-images.json';
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
+import { breakdown } from './rules';
 
 // Add this helper function after the imports
 async function logActivity(text, icon = "🔵") {
@@ -36,6 +37,8 @@ function Bookmark() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('recent');
+  const [selectedFares, setSelectedFares] = useState([]); // For fare checkboxes
+  const [selectedCard, setSelectedCard] = useState(null);
 
   // Add-to-Trip state
   const [addingTripId, setAddingTripId] = useState(null);
@@ -201,6 +204,65 @@ function Bookmark() {
       }
     };
   }, [currentUser]);
+
+  const fareOptions = [
+  { type: 'sea', label: '₱500 - ₱850+ (Sea Travel: short routes)', value: 'sea-short' },
+  { type: 'sea', label: '₱1,100 - ₱7,100+ (Sea Travel: long routes)', value: 'sea-long' },
+  { type: 'air', label: '₱1,500 - ₱4,000+ (Air Travel: short routes)', value: 'air-short' },
+  { type: 'air', label: '₱2,500 - ₱8,600+ (Air Travel: long routes)', value: 'air-long' },
+  ];
+
+    const getFareLabel = (val) => fareOptions.find(f => f.value === val)?.label || '';
+
+    // Compute the highest fare selected
+  const selectedFareAmounts = selectedFares
+    .map(val => {
+      const label = getFareLabel(val);
+      return parseFareRange(label);
+    })
+    .filter(Boolean);
+
+  const totalSelectedFare = selectedFareAmounts.length > 0
+    ? selectedFareAmounts.reduce((sum, v) => sum + v, 0)
+    : 0;
+
+    function parseFareRange(str) {
+    // Example: "₱2,500 - ₱5,000+ (long routes)"
+    const match = str.match(/₱([\d,]+)\s*-\s*₱([\d,]+)/);
+    if (!match) return 0;
+    // Return the higher value as number
+    return Number(match[2].replace(/,/g, ''));
+  }
+  const getTotalPrice = (basePrice) => {
+    let base = 0;
+    if (typeof basePrice === 'number') base = basePrice;
+    else if (typeof basePrice === 'string') {
+      const digits = basePrice.replace(/[^\d]/g, '');
+      base = digits ? Number(digits) : 0;
+    }
+    return base + totalSelectedFare;
+  };
+
+  const formatPeso = (v) => {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number') return '₱' + v.toLocaleString();
+    if (typeof v === 'string') {
+      if (v.trim().startsWith('₱')) return v;
+      const digits = v.replace(/[^\d]/g, '');
+      return digits ? '₱' + Number(digits).toLocaleString() : v;
+    }
+    return '—';
+  };
+
+  function getBreakdown(price) {
+    if (!price) return [];
+    // Remove non-digits and leading ₱, commas, spaces
+    const digits = String(price).replace(/[^\d]/g, '');
+    if (!digits) return [];
+    const key = `P${digits}`;
+    return breakdown[key] || [];
+  }
+
 
   // Read ONLY current user's bookmarks collection and merge with destination data if needed
   const fetchBookmarkedDestinations = async (uid) => {
@@ -700,7 +762,7 @@ const getImageForDestination = (name) => {
   useEffect(() => {
     const cardsContainer = document.querySelector('.bookmarks-grid');
     if (cardsContainer) {
-      cardsContainer.style.zoom = '75%';
+      cardsContainer.style.zoom = '100%';
     }
     
     return () => {
@@ -1050,22 +1112,110 @@ const getImageForDestination = (name) => {
                     ))}
                   </div>
                 </section>
+                <div className="section-title">Price Breakdown:</div>
+                <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different factors</div>
+                <div className="breakdown-box">
+                {(() => {
+                  // Use budget if available, otherwise use price
+                  const budgetOrPrice = selected.budget || selected.price;
+                  if (!budgetOrPrice) return null;
+
+                  const breakdownArr = getBreakdown(budgetOrPrice);
+                  if (!breakdownArr.length) return <span>No breakdown available.</span>;
+                  return (
+                    <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
+                      {breakdownArr.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+                </div>
+
+                <div className="section-title">Additional Fees:</div>
+                <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different class</div>
+                <div className="breakdown-box" style={{textAlign: 'left'}}>
+                  {/* NEW: Fare checkboxes */}
+                  <div style={{ marginBottom: 10 }}>
+                    {fareOptions.map(opt => (
+                      <label key={opt.value} style={{ display: 'block', marginBottom: 2, fontWeight: 'normal', fontSize: 14 }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedFares.includes(opt.value)}
+                          onChange={e => {
+                            setSelectedFares(prev => {
+                              if (e.target.checked) return [...prev, opt.value];
+                              return prev.filter(v => v !== opt.value);
+                            });
+                          }}
+                        />
+                        <span style={{ marginLeft: 6 }}>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
                 <section>
                   <h3 className="bm-section-title">Packing Suggestions</h3>
                   <div className="packing-box">
                     {(() => {
-                      const suggestions = formatPackingSuggestions(selected.packingSuggestions);
-                      if (typeof suggestions === 'string') {
-                        return suggestions;
+                      if (!selected) return <div className="packing-empty">No packing suggestions available.</div>;
+
+                      let raw = selected.packingSuggestions || selected.packing || "";
+                      if (Array.isArray(raw) && raw.length > 0) {
+                        return (
+                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                            {raw.map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        );
                       }
-                      return (
-                        <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
-                          {suggestions.map((s, i) => (
-                            <li key={i}>{s}</li>
-                          ))}
-                        </ul>
-                      );
+                      if (typeof raw === "string" && raw.trim().length > 0) {
+                        // Split by line or bullet for display
+                        const lines = raw.split(/[\n•\-*]/).map(l => l.trim()).filter(Boolean);
+                        if (lines.length > 0) {
+                          return (
+                            <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                              {lines.map((s, i) => <li key={i}>{s}</li>)}
+                            </ul>
+                          );
+                        }
+                      }
+
+                      const { category: packingCategory } = require('./rules');
+                      let cats =
+                        Array.isArray(selected.category)
+                          ? selected.category
+                          : Array.isArray(selected.categories)
+                          ? selected.categories
+                          : typeof selected.category === "string"
+                          ? [selected.category]
+                          : typeof selected.categories === "string"
+                          ? [selected.categories]
+                          : [];
+
+                      let found = [];
+                      for (let c of cats) {
+                        if (!c) continue;
+                        const key = c.trim().toLowerCase();
+                        if (packingCategory[key]) {
+                          found = packingCategory[key];
+                          break;
+                        }
+                        const singular = key.endsWith("s") ? key.slice(0, -1) : key;
+                        if (packingCategory[singular]) {
+                          found = packingCategory[singular];
+                          break;
+                        }
+                      }
+                      if (found.length > 0) {
+                        return (
+                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                            {found.map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        );
+                      }
+
+                      return <div className="packing-empty">No packing suggestions available.</div>;
                     })()}
                   </div>
                 </section>
@@ -1079,7 +1229,10 @@ const getImageForDestination = (name) => {
                   <div className="bm-info-row">
                     <div className="bm-info-key">Price:</div>
                     <div className="bm-info-val">
-                      <span className="chip-green">{selected.price ?? '—'}</span>
+                      <span className="chip-green">
+                        {selectedFares.length > 0
+                        ? `₱${getTotalPrice(selected.price).toLocaleString()}`
+                        : formatPeso(selected.price)}</span>
                     </div>
                   </div>
 
