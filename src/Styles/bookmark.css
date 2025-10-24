@@ -110,7 +110,7 @@
 .bm-card-title { font-size: 1.22rem; margin: 0; color: #0f172a; }
 .bm-card-rating { color: #0f172a; font-weight: 600; }
 .bm-region-link { display: block; color: #2563eb; margin: 2px 0 8px; font-size: .92rem; text-align: left; }
-.bm-card-desc { margin: 8px 0 12px; color: #334155; }
+.bm-card-desc { margin: 8px 0 12px; color: #334155; text-align: left !important;}
 
 .bm-info-box {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
@@ -670,11 +670,31 @@
   }
 }
 .bm-modal-close {
-  position: absolute; top: 14px; right: 14px;
-  width: 36px; height: 36px; border-radius: 999px; border: none;
-  background: #eef2ff; color: #0f172a; cursor: pointer;
-  box-shadow: 0 6px 16px rgba(2,6,23,.2);
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(255,255,255,0.85);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
 }
+.bm-modal-close:hover {
+  background: #f3f4f6;
+}
+/* Make sure .bm-modal is position:relative */
+.bm-modal {
+  position: relative;
+}
+/* ...existing code... */
 
 /* Hero art identical style */
 .bm-modal-hero { height: 300px; position: relative; overflow: hidden; }
@@ -741,6 +761,8 @@
 .bm-info-key { color:#334155; font-weight:600;}
 .bm-info-val { color:#0f172a;}
 .chip-green { background:#dcfce7; color:#065f46; border-radius:999px; padding:6px 10px; font-weight:600; }
+.badge.blue { background: #e8f0fe; color: #1e40af; width: auto; text-align: center; height: auto; border-radius: 10px;}
+
 
 /* Modal actions */
 .bm-modal-actions { display:flex; gap:12px; margin-top: 14px; }
@@ -806,7 +828,7 @@
 
   .bm-card-title { font-size: 1.1rem; }
   .bm-region-link { font-size: 0.9rem; }
-  .bm-card-desc { margin: 6px 0 10px; }
+  .bm-card-desc { margin: 6px 0 10px; text-align: left !important; }
 
   .bm-info-box {
     grid-template-columns: 1fr;   /* stack info pills */
@@ -987,6 +1009,7 @@
     font-size: 0.9rem;
     line-height: 1.4;
     margin: 6px 0 10px;
+    text-align: left !important;
   }
 
   /* Info box - stack vertically */
@@ -1264,6 +1287,7 @@
 
   .bm-card-desc {
     font-size: 0.85rem;
+    text-align: left !important;
   }
 
   .bm-actions {
