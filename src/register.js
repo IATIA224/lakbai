@@ -12,6 +12,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
+import EditProfile from "./EditProfile-new-acc"; // ADD THIS IMPORT
 
 // ---------------- Helpers ----------------
 // ---------------- Helpers ----------------
@@ -101,6 +102,7 @@ const Register = () => {
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false); // ADD THIS STATE
+  const [showEditProfile, setShowEditProfile] = useState(false); // ADD THIS STATE
 
   const navigate = useNavigate();
   const strength = getPasswordStrength(password);
@@ -248,6 +250,8 @@ const Register = () => {
         email
       });
       await sendEmailVerification(userCredential.user);
+      // Show EditProfile modal after registration, before dashboard
+      setShowEditProfile(true);
       setStep("done");
       setPopup({
         show: true,
@@ -519,6 +523,19 @@ const Register = () => {
       <Header2 />
       {showPrivacy && <PrivacyPolicy onClose={() => setShowPrivacy(false)} />}
       {showTerms && <TermsOfService onClose={() => setShowTerms(false)} />}
+      {showEditProfile && (
+        <EditProfile
+          initialData={{ name: `${firstName} ${lastName}`, email }}
+          onClose={() => {
+            setShowEditProfile(false);
+            navigate("/"); // or navigate to dashboard if needed
+          }}
+          onProfileUpdate={() => {
+            setShowEditProfile(false);
+            navigate("/"); // or navigate to dashboard if needed
+          }}
+        />
+      )}
 
       {/* Add the CSS */}
       <style>{otpAnimationCSS}</style>
