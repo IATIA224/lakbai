@@ -2055,8 +2055,8 @@ const ratePersonalizedSelected = async (value) => {
               color: '#334155'
             }}
           >
-            <option value="description">Highest Rating</option>
-            <option value="description">Lowest Rating</option>
+            <option value="rating-desc" className='description'>Highest Rating</option>
+            <option value="rating-asc" className='description'>Lowest Rating</option>
           </select>
         </div>
       </div>
@@ -2106,7 +2106,7 @@ const ratePersonalizedSelected = async (value) => {
                 <div className="card-header">
                   <h2>{d.name}</h2>
                   <div className="mini-rating" title="Average Rating">
-                    <span>⭐</span> {Number(d.rating || 0) > 0 ? Number(d.rating).toFixed(1) : '—'}
+                    <span>⭐</span> {Number(d.rating || 0) > 0 ? Number(d.rating).toFixed(1) : '0'}
                   </div>
                 </div>
 
