@@ -15,6 +15,10 @@ import { db, auth } from './firebase';
 import './dashboardBanner.css';
 import useUserDashboardStats from './dashboard-stats-row'; // <-- Add this import at the top
 import destImages from './dest-images.json'; // Add this import at the top
+import './Styles/bookmark2.css';
+import { breakdown } from './rules';
+import { unlockAchievement } from './profile';
+
 
 // Helper to get image URL by destination name
 function getImageForDestination(name) {
@@ -558,7 +562,10 @@ function formatPeso(v) {
   return '—';
 }
 
+
 function Dashboard({ setShowAIModal }) {
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
   const navigate = useNavigate();
 
   const [trips, setTrips] = useState([]);
@@ -602,6 +609,7 @@ function Dashboard({ setShowAIModal }) {
 
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarksLoading, setBookmarksLoading] = useState(true);
+  const [personalizedSort, setPersonalizedSort] = useState('rating-desc');
 
   // ref to the container that holds the bookmark items (popup will be positioned relative to this)
   const bookmarksContainerRef = useRef(null);
@@ -623,9 +631,20 @@ function Dashboard({ setShowAIModal }) {
   const [userRating, setUserRating] = useState(0);
   const [savingRating, setSavingRating] = useState(false);
   const [destinations, setDestinations] = useState([]);
+  const [recommendedDestinations, setRecommendedDestinations] = useState([]);
+  const [selectedFares, setSelectedFares] = useState([]); // For fare checkboxes
+  const [ratingsCountByDest, setRatingsCountByDest] = useState({});
+  const [modalOpen, setModalOpen] = useState(false);
+  const [reviewsByDest, setReviewsByDest] = useState({});
+  const [viewedDestinations, setViewedDestinations] = useState(new Set());
+  const [currentUser, setCurrentUser] = useState(null);
+  const [personalizedRatingsByDest, setPersonalizedRatingsByDest] = useState({});
+  const [personalizedUserRating, setPersonalizedUserRating] = useState(0);
+  const [personalizedSavingRating, setPersonalizedSavingRating] = useState(false);
+  const [personalizedRatingsCountByDest, setPersonalizedRatingsCountByDest] = useState({});
+  const [personalizedReviewsByDest, setPersonalizedReviewsByDest] = useState({});
 
-  // ...existing code...
-  
+
   // compute popup position relative to bookmarksContainerRef so it stays inside that parent
   const computeAndSetPos = (anchorEl) => {
     if (!anchorEl || !bookmarksContainerRef.current) return;
@@ -668,7 +687,247 @@ function Dashboard({ setShowAIModal }) {
     setActionsPos({ top, left, anchorRect });
   };
   
+    function getBreakdown(price) {
+    if (!price) return [];
+    // Remove non-digits and leading ₱, commas, spaces
+    const digits = String(price).replace(/[^\d]/g, '');
+    if (!digits) return [];
+    const key = `P${digits}`;
+    return breakdown[key] || [];
+  }
+
+    const fareOptions = [
+  { type: 'sea', label: '₱500 - ₱850+ (Sea Travel: short routes)', value: 'sea-short' },
+  { type: 'sea', label: '₱1,100 - ₱7,100+ (Sea Travel: long routes)', value: 'sea-long' },
+  { type: 'air', label: '₱1,500 - ₱4,000+ (Air Travel: short routes)', value: 'air-short' },
+  { type: 'air', label: '₱2,500 - ₱8,600+ (Air Travel: long routes)', value: 'air-long' },
+];
+
+  const getFareLabel = (val) => fareOptions.find(f => f.value === val)?.label || '';
+
+// Compute the highest fare selected
+const selectedFareAmounts = selectedFares
+  .map(val => {
+    const label = getFareLabel(val);
+    return parseFareRange(label);
+  })
+  .filter(Boolean);
+
+const totalSelectedFare = selectedFareAmounts.length > 0
+  ? selectedFareAmounts.reduce((sum, v) => sum + v, 0)
+  : 0;
+
+// Compute total price (base + max fare)
+const getTotalPrice = (basePrice) => {
+  let base = 0;
+  if (typeof basePrice === 'number') base = basePrice;
+  else if (typeof basePrice === 'string') {
+    const digits = basePrice.replace(/[^\d]/g, '');
+    base = digits ? Number(digits) : 0;
+  }
+  return base + totalSelectedFare;
+};
+
+function parseFareRange(str) {
+  // Example: "₱2,500 - ₱5,000+ (long routes)"
+  const match = str.match(/₱([\d,]+)\s*-\s*₱([\d,]+)/);
+  if (!match) return 0;
+  // Return the higher value as number
+  return Number(match[2].replace(/,/g, ''));
+}
+
+  useEffect(() => {
+    if (!modalOpen || !selected) return;
+
+    async function fetchReviewCount() {
+      try {
+        const docRef = doc(db, 'destinations', selected.id,);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const review = snap.data().review;
+          setReviewsByDest(prev => ({
+            ...prev,
+            [selected.id]: typeof review === 'number' ? review : 0
+          }));
+        } else {
+          setReviewsByDest(prev => ({
+            ...prev,
+            [selected.id]: 0
+          }));
+        }
+      } catch (e) {
+        setReviewsByDest(prev => ({
+          ...prev,
+          [selected.id]: 0
+        }));
+      }
+    }
+
+    fetchReviewCount();
+  }, [modalOpen, selected]);
+
+    useEffect(() => {
+    if (!modalOpen || !selected) return;
+
+    async function fetchRatingsCount() {
+      try {
+        const ratingsSnap = await getDocs(collection(db, 'destinations', selected.id, 'ratings'));
+        setRatingsCountByDest(prev => ({
+          ...prev,
+          [selected.id]: ratingsSnap.size || 0
+        }));
+      } catch (e) {
+        setRatingsCountByDest(prev => ({
+          ...prev,
+          [selected.id]: 0
+        }));
+      }
+    }
+
+    fetchRatingsCount();
+  }, [modalOpen, selected]);
   
+    const closeDetails = () => {
+      setModalOpen(false);
+      setSelected(null);
+      setUserRating(0);
+    };
+
+  async function checkMiniPlannerAchievement(user) {
+  try {
+    if (!user?.uid) return;
+    
+    const sharedQuery = fsQuery(
+      collection(db, 'sharedItineraries'),
+      fsWhere('sharedBy', '==', user.uid)
+    );
+    
+    const snapshot = await getDocs(sharedQuery);
+    
+    if (snapshot.size >= 1) {
+      await unlockAchievement(11, "Mini Planner");
+    }
+  } catch (error) {
+    console.error('Error checking Mini Planner achievement:', error);
+  }
+}
+
+useEffect(() => {
+  if (!detailsModalOpen || !selectedCard) return;
+
+  // Fetch average rating and count
+  (async () => {
+    try {
+      const rsnap = await getDocs(collection(db, 'destinations', selectedCard.id, 'ratings'));
+      let sum = 0, count = 0;
+      rsnap.forEach((r) => {
+        const v = Number(r.data()?.value) || 0;
+        if (v > 0) { sum += v; count += 1; }
+      });
+      const avg = count ? sum / count : 0;
+      setPersonalizedRatingsByDest((m) => ({ ...m, [selectedCard.id]: { avg, count } }));
+      setPersonalizedRatingsCountByDest((m) => ({ ...m, [selectedCard.id]: count }));
+    } catch (e) {
+      setPersonalizedRatingsByDest((m) => ({ ...m, [selectedCard.id]: { avg: 0, count: 0 } }));
+      setPersonalizedRatingsCountByDest((m) => ({ ...m, [selectedCard.id]: 0 }));
+    }
+  })();
+
+  // Fetch review count
+  (async () => {
+    try {
+      const docRef = doc(db, 'destinations', selectedCard.id);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const review = snap.data().review;
+        setPersonalizedReviewsByDest(prev => ({
+          ...prev,
+          [selectedCard.id]: typeof review === 'number' ? review : 0
+        }));
+      } else {
+        setPersonalizedReviewsByDest(prev => ({
+          ...prev,
+          [selectedCard.id]: 0
+        }));
+      }
+    } catch (e) {
+      setPersonalizedReviewsByDest(prev => ({
+        ...prev,
+        [selectedCard.id]: 0
+      }));
+    }
+  })();
+
+  // Fetch user's rating
+  (async () => {
+    try {
+      const u = auth.currentUser;
+      if (!u) { setPersonalizedUserRating(0); return; }
+      const rref = doc(db, 'destinations', selectedCard.id, 'ratings', u.uid);
+      const rsnap = await getDoc(rref);
+      setPersonalizedUserRating(Number(rsnap.data()?.value || 0));
+    } catch {
+      setPersonalizedUserRating(0);
+    }
+  })();
+}, [detailsModalOpen, selectedCard]);
+
+// --- Add this function for rating ---
+const ratePersonalizedSelected = async (value) => {
+  const u = auth.currentUser;
+  if (!u) { alert('Please sign in to rate.'); return; }
+  if (!selectedCard) return;
+  const v = Math.max(1, Math.min(5, Number(value) || 0));
+  setPersonalizedSavingRating(true);
+  try {
+    const ref = doc(db, 'destinations', String(selectedCard.id), 'ratings', u.uid);
+    await setDoc(ref, {
+      value: v,
+      userId: u.uid,
+      updatedAt: serverTimestamp(),
+      name: selectedCard.name || '',
+    }, { merge: true });
+
+    setPersonalizedUserRating(v);
+
+    const userRatingRef = doc(db, 'users', u.uid, 'ratings', String(selectedCard.id));
+    await setDoc(
+      userRatingRef,
+      {
+        destId: String(selectedCard.id),
+        value: v,
+        updatedAt: serverTimestamp(),
+        name: selectedCard.name || '',
+      },
+      { merge: true }
+    );
+
+    const rsnap = await getDocs(collection(db, 'destinations', String(selectedCard.id), 'ratings'));
+    let sum = 0, count = 0;
+    rsnap.forEach((r) => { const val = Number(r.data()?.value) || 0; if (val > 0) { sum += val; count += 1; } });
+    const avg = count ? sum / count : 0;
+
+    setPersonalizedRatingsByDest((m) => ({ ...m, [selectedCard.id]: { avg, count } }));
+  } catch (e) {
+    console.error('Save rating failed:', e);
+    alert('Failed to save rating.');
+  } finally {
+    setPersonalizedSavingRating(false);
+  }
+};
+    const formatPackingSuggestions = (text) => {
+    if (!text) return "No packing suggestions available.";
+    
+    // Split by bullet points (•, -, or *)
+    const lines = text
+      .split(/[•\-*]/)
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+    
+    if (lines.length === 0) return "No packing suggestions available.";
+    
+    return lines;
+  };
 
   // compute popup position relative to tripsContainerRef (right-side popup, vertically centered)
   const computeAndSetTripPos = (anchorEl) => {
@@ -722,6 +981,13 @@ function Dashboard({ setShowAIModal }) {
     computeAndSetTripPos(btn);
     setOpenTripActionsId(id);
   };
+
+  const sortedRecommendedDestinations = [...recommendedDestinations].sort((a, b) => {
+  const ra = Number(a.rating) || 0;
+  const rb = Number(b.rating) || 0;
+  if (personalizedSort === 'rating-asc') return ra - rb;
+  return rb - ra;
+});
   
   // close popup when clicking outside
   useEffect(() => {
@@ -866,10 +1132,6 @@ function Dashboard({ setShowAIModal }) {
     return () => typeof unsub === 'function' && unsub();
   }, []);
 
-  // Modal state for personalized details
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState(null);
-
   // Handler for toggling bookmark for personalized cards
   const handlePersonalizedBookmark = async (id) => {
     const user = auth.currentUser;
@@ -947,7 +1209,49 @@ function Dashboard({ setShowAIModal }) {
     setSelectedCard(null);
   };
 
-    const loadDestinationAvg = async (d) => {
+  const openDetails = async (d) => {
+    setSelected(d);
+    setModalOpen(true);
+
+    const newViewed = new Set(viewedDestinations);
+    const wasNew = !newViewed.has(d.id);
+    newViewed.add(d.id);
+    setViewedDestinations(newViewed);
+
+    if (currentUser && wasNew) {
+      try {
+        const viewedRef = doc(db, 'users', currentUser.uid, 'viewedDestinations', 'data');
+        await setDoc(
+          viewedRef,
+          {
+            destinationIds: Array.from(newViewed),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.warn('Could not save viewed destination:', error);
+      }
+    }
+
+    if (newViewed.size >= 10) {
+      try {
+        await unlockAchievement(7, "Explorer at Heart");
+      } catch (error) {
+        console.error("Error unlocking achievement:", error);
+      }
+    }
+
+    try {
+      const u = auth.currentUser;
+      if (!u) { setUserRating(0); return; }
+      const rref = doc(db, 'destinations', d.id, 'ratings', u.uid);
+      const rsnap = await getDoc(rref);
+      setUserRating(Number(rsnap.data()?.value || 0));
+    } catch {
+      setUserRating(0);
+    }
+
     if (!ratingsByDest[d.id]) {
       try {
         const rsnap = await getDocs(collection(db, 'destinations', d.id, 'ratings'));
@@ -1281,7 +1585,7 @@ function Dashboard({ setShowAIModal }) {
   // Personalized recommendations from profile interests
   const [userInterests, setUserInterests] = useState([]);
   const [recoLoading, setRecoLoading] = useState(false);
-  const [recommendedDestinations, setRecommendedDestinations] = useState([]);
+
 
   // Read current user's interests (normalize to labels)
   useEffect(() => {
@@ -1537,14 +1841,14 @@ function Dashboard({ setShowAIModal }) {
                       )}
                     </div>
                     <div className="dashboard-preview-trip-meta">
-                       <span>
-                         {trip.arrival ? `${trip.arrival}` : ''}
-                         {trip.departure ? ` – ${trip.departure}` : ''}
-                         {trip.activities && Array.isArray(trip.activities)
-                           ? ` • ${trip.activities.length} activit${trip.activities.length === 1 ? 'y' : 'ies'}`
-                           : ''}
-                       </span>
-                     </div>
+                        <span>
+                          {trip.arrival ? `${trip.arrival}` : ''}
+                          {trip.departure ? ` – ${trip.departure}` : ''}
+                          {trip.activities && Array.isArray(trip.activities)
+                            ? ` • ${trip.activities.length} activit${trip.activities.length === 1 ? 'y' : 'ies'}`
+                            : ''}
+                        </span>
+                      </div>
                   </div>
                   {/* three-dot toggle for trips (separate classname to avoid collision) */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1732,21 +2036,43 @@ function Dashboard({ setShowAIModal }) {
         </div>
 
       {/* Personalized Section */}
-      <div className="personalized-section-dashboard">
-        <div className="personalized-title">Personalized for You</div>
+    <div className="personalized-section-dashboard">
+      <div className="personalized-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <span>Personalized for You</span>
+        {/* Filter: Sort by rating */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <label htmlFor="personalized-sort" style={{ fontSize: 15, color: '#64748b' }}>Sort by:</label>
+          <select
+            id="personalized-sort"
+            value={personalizedSort}
+            onChange={e => setPersonalizedSort(e.target.value)}
+            style={{
+              borderRadius: 8,
+              border: '1px solid #e5e7eb',
+              padding: '4px 10px',
+              fontSize: 14,
+              background: '#f8fafc',
+              color: '#334155'
+            }}
+          >
+            <option value="description">Highest Rating</option>
+            <option value="description">Lowest Rating</option>
+          </select>
+        </div>
+      </div>
 
-        {recoLoading && (
-          <div className="dashboard-preview-empty">Finding destinations based on your interests…</div>
-        )}
+      {recoLoading && (
+        <div className="dashboard-preview-empty">Finding destinations based on your interests…</div>
+      )}
 
-        {!recoLoading && recommendedDestinations.length === 0 && (
-          <div className="dashboard-preview-empty">
-            No personalized destinations yet. Add interests on your profile to get recommendations.
-          </div>
-        )}
+      {!recoLoading && sortedRecommendedDestinations.length === 0 && (
+        <div className="dashboard-preview-empty">
+          No personalized destinations yet. Add interests on your profile to get recommendations.
+        </div>
+      )}
 
         <div className="personalized-cards-grid">
-          {recommendedDestinations.map((d) => (
+          {sortedRecommendedDestinations.map((d) => (
             <div className="grid-card-anim" key={d.id}>
               <div className="grid-card">
                 <div className="card-image">
@@ -1821,7 +2147,7 @@ function Dashboard({ setShowAIModal }) {
               ✕
             </button>
 
-            <div className="details-hero">
+            <div className="details-hero1">
               <div className="details-hero-image">
                 {cloudImages.length === 0 ? (
                   <div style={{ width: "100%", height: 240, background: "#e0e7ef", borderRadius: 16 }} />
@@ -1843,41 +2169,52 @@ function Dashboard({ setShowAIModal }) {
               </div>
             </div>
 
-            <div className="details-body">
+            <div className="details-body1">
               <div className="details-head-row">
                 <div className="details-title-col">
                   <h2 className="details-title">{selectedCard.name}</h2>
-                  <a href="#" className="details-region" onClick={(e) => e.preventDefault()}>
+                  <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
                     {selectedCard.region}
                   </a>
-
                   <div className="details-rating-row">
                     <span className="star">⭐</span>
-                    <span className="avg">
-                      {(ratingsByDest[selected.id]?.count ?? 0) > 0
-                      ? (ratingsByDest[selected.id].avg).toFixed(1)
-                      : '—'}                    
+                    <span className="muted">
+                      {(personalizedRatingsByDest[selectedCard.id]?.count ?? 0) > 0
+                        ? (personalizedRatingsByDest[selectedCard.id].avg).toFixed(1)
+                        : '0'}
                     </span>
                     <span className="muted"> (Average Rating)</span>
+                    <span className="muted">
+                      ({personalizedRatingsCountByDest[selectedCard.id] !== undefined
+                        ? personalizedRatingsCountByDest[selectedCard.id]
+                        : 0} ratings)
+                    </span>
                     <span className="muted sep">Your Rating:</span>
                     <div className="your-stars">
                       {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        className={`star-btn ${userRating >= n ? 'filled' : ''}`}
-                        onClick={() => rateSelected(n)}
-                        disabled={savingRating}
-                        aria-label={`${n} star${n > 1 ? 's' : ''}`}
-                        title={`${n} star${n > 1 ? 's' : ''}`}
-                      >
-                        ★
-                      </button>
+                        <button
+                          key={n}
+                          className={`star-btn ${personalizedUserRating >= n ? 'filled' : ''}`}
+                          onClick={() => ratePersonalizedSelected(n)}
+                          disabled={personalizedSavingRating}
+                          aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                          title={`${n} star${n > 1 ? 's' : ''}`}
+                        >
+                          ★
+                        </button>
                       ))}
                     </div>
+                    <span className="muted sep">
+                      Reviews: {
+                        personalizedReviewsByDest[selectedCard.id] !== undefined
+                          ? personalizedReviewsByDest[selectedCard.id]
+                          : (selectedCard.review ?? 0)
+                      }
+                    </span>
                   </div>
                 </div>
 
-                <div className="details-actions">
+                <div className="details-actions1">
                   <button 
                     className={`btn-outline ${personalizedBookmarks[selectedCard.id] ? 'active' : ''}`}
                     onClick={() => handlePersonalizedBookmark(selectedCard.id)}
@@ -1915,32 +2252,138 @@ function Dashboard({ setShowAIModal }) {
                     ))}
                   </div>
 
+                  <div className="section-title">Price Breakdown:</div>
+                    <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different factors</div>
+                    <div className="breakdown-box">
+                    {(() => {
+                      // Use budget if available, otherwise use price
+                      const budgetOrPrice = selected.budget || selected.price;
+                      if (!budgetOrPrice) return null;
+
+                      const breakdownArr = getBreakdown(budgetOrPrice);
+                      if (!breakdownArr.length) return <span>No breakdown available.</span>;
+                      return (
+                        <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
+                          {breakdownArr.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
+                    </div>
+
+                  <div className="section-title">Additional Fees:</div>
+                  <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different class</div>
+                  <div className="breakdown-box" style={{textAlign: 'left'}}>
+                    {/* NEW: Fare checkboxes */}
+                    <div style={{ marginBottom: 10 }}>
+                      {fareOptions.map(opt => (
+                        <label key={opt.value} style={{ display: 'block', marginBottom: 2, fontWeight: 'normal', fontSize: 14 }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedFares.includes(opt.value)}
+                            onChange={e => {
+                              setSelectedFares(prev => {
+                                if (e.target.checked) return [...prev, opt.value];
+                                return prev.filter(v => v !== opt.value);
+                              });
+                            }}
+                          />
+                          <span style={{ marginLeft: 6 }}>{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="section-title">Packing Suggestions</div>
                   <div className="packing-box">
-                    {selectedCard.packingSuggestions || "No packing suggestions available."}
+                    {(() => {
+                      if (!selected) return <div className="packing-empty">No packing suggestions available.</div>;
+
+                      let raw = selected.packingSuggestions || selected.packing || "";
+                      if (Array.isArray(raw) && raw.length > 0) {
+                        return (
+                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                            {raw.map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        );
+                      }
+                      if (typeof raw === "string" && raw.trim().length > 0) {
+                        // Split by line or bullet for display
+                        const lines = raw.split(/[\n•\-*]/).map(l => l.trim()).filter(Boolean);
+                        if (lines.length > 0) {
+                          return (
+                            <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                              {lines.map((s, i) => <li key={i}>{s}</li>)}
+                            </ul>
+                          );
+                        }
+                      }
+
+                      const { category: packingCategory } = require('./rules');
+                      let cats =
+                        Array.isArray(selected.category)
+                          ? selected.category
+                          : Array.isArray(selected.categories)
+                          ? selected.categories
+                          : typeof selected.category === "string"
+                          ? [selected.category]
+                          : typeof selected.categories === "string"
+                          ? [selected.categories]
+                          : [];
+
+                      let found = [];
+                      for (let c of cats) {
+                        if (!c) continue;
+                        const key = c.trim().toLowerCase();
+                        if (packingCategory[key]) {
+                          found = packingCategory[key];
+                          break;
+                        }
+                        const singular = key.endsWith("s") ? key.slice(0, -1) : key;
+                        if (packingCategory[singular]) {
+                          found = packingCategory[singular];
+                          break;
+                        }
+                      }
+                      if (found.length > 0) {
+                        return (
+                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
+                            {found.map((s, i) => <li key={i}>{s}</li>)}
+                          </ul>
+                        );
+                      }
+
+                      return <div className="packing-empty">No packing suggestions available.</div>;
+                    })()}
                   </div>
                 </div>
 
-                <aside className="trip-info-box">
-                  <div className="trip-title">Trip Information</div>
+                <aside className="trip-info-box" style={{ textAlign: 'center',alignItems: 'center', justifyContent: 'center'}}>
+                  <div className="trip-title" style={{ alignItems: 'center', justifyContent: 'center'}}>Trip Information</div>
 
                   <div className="trip-item">
-                    <div className="trip-label">Price</div>
-                    <span
-                      className={`pill small ${selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}
-                      title={selectedCard.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                    <div className="trip-label" style={{ textAlign: 'center',alignItems: 'center', justifyContent: 'center'}}>Price</div>
+                    <span style={{alignItems: 'center', justifyContent: 'center'}}
+                      className={`pill small ${
+                        selected.priceTier === 'less' ? 'pill-green' : 'pill-gray'
+                      }`}
+                      title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
                     >
-                      {formatPeso(selectedCard.price)}
+                      {/* CHANGED: show total price if fare selected */}
+                      {selectedFares.length > 0
+                        ? `₱${getTotalPrice(selected.price).toLocaleString()}`
+                        : formatPeso(selected.price)}
                     </span>
                   </div>
 
                   <div className="trip-item">
-                    <div className="trip-label">Best Time to Visit</div>
-                    <div className="trip-text">{selectedCard.bestTime || '—'}</div>
+                    <div className="trip-label" style={{ textAlign: 'center',alignItems: 'center', justifyContent: 'center'}}>Best Time to Visit</div>
+                    <div className="trip-text" style={{ textAlign: 'center',alignItems: 'center', justifyContent: 'center'}}>{selectedCard.bestTime || '—'}</div>
                   </div>
 
                   <div className="trip-item">
-                    <div className="trip-label">Categories</div>
+                    <div className="trip-label" style={{ textAlign: 'center',alignItems: 'center', justifyContent: 'center'}}>Categories</div>
                     <div className="badge-row">
                       {(
                         Array.isArray(selectedCard.category)
@@ -1960,9 +2403,9 @@ function Dashboard({ setShowAIModal }) {
 
                   {selectedCard.location && (
                     <div className="trip-item">
-                      <div className="trip-label">Location</div>
+                      <div className="trip-label" style={{ textAlign: 'center',alignItems: 'center', justifyContent: 'center'}}>Location</div>
                       <div className="badge-row">
-                        <span className="badge blue">{selectedCard.location}</span>
+                        <span className="badge blue" style={{alignItems: 'center', justifyContent: 'center'}}>{selectedCard.location}</span>
                       </div>
                     </div>
                   )}
@@ -1972,6 +2415,7 @@ function Dashboard({ setShowAIModal }) {
           </div>
         </div>
       )}
+      
 
       {/* Trip Summary Modal (in-place) */}
       {showTripSummaryModal && summaryTrip && (
@@ -1989,5 +2433,6 @@ function Dashboard({ setShowAIModal }) {
     </>
   );
 }
+
 
 export default Dashboard;
