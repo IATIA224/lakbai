@@ -30,13 +30,6 @@
 }
 
 /* Prevent content from being hidden under fixed header */
-body > #root,
-main,
-.app,
-.page,
-.page-content {
-  padding-top: var(--header-height) !important;
-}
 
 /* Remove any accidental top borders that could show as a line */
 .sticky-header, .header2-sticky, .login-bg {
@@ -104,10 +97,10 @@ main,
 }
 .logo-subtitle {
   color: #fff;
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   font-weight: 600;
   opacity: 0.95;
-  margin: 0; /* remove any top offset so it sits aligned */
+  margin: 0 0 0 4px; /* remove any top offset so it sits aligned */
   letter-spacing: 0.2px;
   white-space: nowrap;
 }
