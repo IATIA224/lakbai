@@ -696,6 +696,20 @@ const getImageForDestination = (name) => {
     // eslint-disable-next-line
   }, [items]);
 
+  // Add this useEffect after your other useEffect hooks (around line 180, after the ratings fetch effect)
+  useEffect(() => {
+    const cardsContainer = document.querySelector('.bookmarks-grid');
+    if (cardsContainer) {
+      cardsContainer.style.zoom = '75%';
+    }
+    
+    return () => {
+      if (cardsContainer) {
+        cardsContainer.style.zoom = '100%';
+      }
+    };
+  }, [sorted]); // Re-run when sorted changes
+
   function getFirebaseImageForDestination(firebaseImages, destName) {
     if (!destName) return null;
     const normalized = destName.trim().toLowerCase();

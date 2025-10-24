@@ -14,10 +14,14 @@ const navTabs = [
 	{ label: "Community", path: "/community" },
 ];
 
+const protectedPaths = ["/bookmark", "/community", "/profile", "/itinerary", "/ai"];
+
 const StickyHeader = () => {
 	const [activeTab, setActiveTab] = useState("Dashboard");
 	const [profilePic, setProfilePic] = useState("/user.png");
 	const [showAIPopup, setShowAIPopup] = useState(false);
+	const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+	const [pendingTab, setPendingTab] = useState(null);
 	const navigate = useNavigate();
 	const location = useLocation();
 
@@ -47,6 +51,12 @@ const StickyHeader = () => {
 	}, [location.pathname]);
 
 	const handleTabClick = (tab) => {
+		const token = localStorage.getItem('token');
+		if (protectedPaths.includes(tab.path) && !(typeof token === 'string' && token.trim().length > 0)) {
+			setPendingTab(tab);
+			setShowLoginPrompt(true);
+			return;
+		}
 		if (tab.path) {
 			navigate(tab.path);
 		}
@@ -57,7 +67,10 @@ const StickyHeader = () => {
 			<header className="sticky-header">
 				<div className="header-left">
 					<img src="/coconut-tree.png" alt="LakbAI Logo" className="logo-icon" />
-					<span className="logo-text">LakbAI</span>
+					<div className="logo-brand">
+						<span className="logo-text">LakbAI</span>
+						<div className="logo-subtitle">AI-Driven Itinerary <br/>Travel Itinerary Planner</div>
+					</div>
 				</div>
 				<nav className="header-nav">
 					{navTabs.map((tab) => (
@@ -111,8 +124,56 @@ const StickyHeader = () => {
 					/>
 				</div>
 			)}
+			{/* Login Prompt Modal */}
+			<LoginPromptModal
+				open={showLoginPrompt}
+				onAccept={() => {
+					setShowLoginPrompt(false);
+					navigate("/login");
+				}}
+				onReject={() => {
+					setShowLoginPrompt(false);
+					setPendingTab(null);
+				}}
+			/>
 		</>
 	);
 };
 
 export default StickyHeader;
+
+function LoginPromptModal({ open, onAccept, onReject }) {
+  if (!open) return null;
+  return (
+    <div style={{
+      position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+      background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 8, padding: 32, minWidth: 320, boxShadow: "0 2px 16px rgba(0,0,0,0.15)",
+        display: "flex", flexDirection: "column", alignItems: "center"
+      }}>
+        <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 16 }}>Please login first</div>
+        <div style={{ marginBottom: 24, color: "#555" }}>You need to be logged in to access this page.</div>
+        <div style={{ display: "flex", gap: 16 }}>
+          <button
+            style={{
+              background: "#1976d2", color: "#fff", border: "none", borderRadius: 4, padding: "8px 20px", fontSize: 16, cursor: "pointer"
+            }}
+            onClick={onAccept}
+          >
+            Login
+          </button>
+          <button
+            style={{
+              background: "#eee", color: "#333", border: "none", borderRadius: 4, padding: "8px 20px", fontSize: 16, cursor: "pointer"
+            }}
+            onClick={onReject}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

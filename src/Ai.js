@@ -244,6 +244,20 @@ export default function ChatbaseAI({ onClose }) {
     window.dispatchEvent(new Event('lakbai:open-ai'));
   }, []);
 
+  // Add this useEffect after your other useEffect hooks (around line 75, after the profile fetch)
+  useEffect(() => {
+    const aiCard = document.querySelector('.ai-card');
+    if (aiCard) {
+      aiCard.style.zoom = '90%';
+    }
+    
+    return () => {
+      if (aiCard) {
+        aiCard.style.zoom = '100%';
+      }
+    };
+  }, []); // Run once on mount
+
   return (
     <>
       <div className="ai-popup-overlay" onClick={onClose}>
