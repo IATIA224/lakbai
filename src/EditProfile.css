@@ -169,7 +169,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  max-height: 260px;
+  max-height: 290px;
   overflow-y: auto;
   padding-right: 8px;
   margin-top: 12px; /* extra spacing above interests */
