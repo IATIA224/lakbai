@@ -14,11 +14,13 @@ import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
 import Itinerary from "./Itinerary";
 import Footer from './Footer';
+import PrivacyPolicy from './privacy_policy';
 import LoginCMS from './login-cms';
 import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
 import { ToastContainer } from 'react-toastify';
 import { getAuth, signOut } from "firebase/auth";
+
 
 // Authentication helpers (unchanged)
 function isAuthenticated() {
@@ -103,6 +105,9 @@ function AppInner() {
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Privacy Policy */}
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       </Routes>
 
       {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
