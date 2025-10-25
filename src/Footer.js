@@ -1,5 +1,6 @@
 import React from "react";
 import "./footer.css";
+import { Link } from "react-router-dom";
 
 const Footer = () => (
   <footer className="global-footer">
@@ -22,10 +23,9 @@ const Footer = () => (
       <div className="footer-links">
         <div className="footer-section">
           <div className="footer-heading">Quick Links</div>
-          <a href="#">Create Itinerary</a>
-          <a href="#">Browse Destinations</a>
+          <Link to="/itinerary">Create Itinerary</Link>
+          <Link to="/bookmarks2">Browse Destinations</Link>
           <a href="#">Travel Guides</a>
-          <a href="#">Popular Routes</a>
           <a href="#">Travel Tips</a>
         </div>
         <div className="footer-section">
@@ -51,7 +51,7 @@ const Footer = () => (
     <div className="footer-bottom">
       <span>© 2025 LakbAI. All rights reserved.</span>
       <span>
-        <a href="#">Privacy Policy</a> &nbsp;|&nbsp;
+        <Link to="/privacy-policy">Privacy Policy</Link> &nbsp;|&nbsp;
         <a href="#">Terms of Service</a> &nbsp;|&nbsp;
         <a href="#">Cookie Policy</a> &nbsp;|&nbsp;
         <a href="#">Accessibility</a>

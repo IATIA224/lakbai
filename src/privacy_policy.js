@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./privacy_policy.css";
 
 const PrivacyPolicy = ({ onClose }) => {
@@ -10,6 +11,8 @@ const PrivacyPolicy = ({ onClose }) => {
   });
 
   const [activeSection, setActiveSection] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleChange = (e) => {
     setPreferences({
@@ -29,8 +32,22 @@ const PrivacyPolicy = ({ onClose }) => {
     setActiveSection(activeSection === section ? null : section);
   };
 
+  const handleClose = () => {
+    if (typeof onClose === "function") {
+      onClose();
+      return;
+    }
+    // if opened via route /privacy-policy, go back
+    if (location.pathname === "/privacy-policy") {
+      navigate(-1);
+      return;
+    }
+    // fallback: hide nothing (caller should provide onClose) or just do history.back
+    if (window.history.length > 1) window.history.back();
+  };
+
   const modalContent = (
-    <div className="privacy-modal-overlay" onClick={onClose}>
+    <div className="privacy-modal-overlay" onClick={handleClose}>
       <div className="privacy-modal" onClick={(e) => e.stopPropagation()}>
         <div className="privacy-modal-header">
           <div className="privacy-header-content">
@@ -40,7 +57,7 @@ const PrivacyPolicy = ({ onClose }) => {
               <p className="privacy-subtitle">How we protect and use your data</p>
             </div>
           </div>
-          <button className="privacy-modal-close" onClick={onClose} aria-label="Close">×</button>
+          <button className="privacy-modal-close" onClick={handleClose} aria-label="Close">×</button>
         </div>
 
         <div className="privacy-modal-content">
