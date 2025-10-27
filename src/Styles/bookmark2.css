@@ -918,7 +918,7 @@
 .details-title { 
   font-size: 28px; 
   font-weight: 800; 
-  margin: 0 0 6px; 
+  margin: 0 0 6px !important; 
   color: #1a1a1a; 
   text-align: left !important;
 }
