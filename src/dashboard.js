@@ -18,6 +18,7 @@ import destImages from './dest-images.json'; // Add this import at the top
 import './Styles/bookmark2.css';
 import { breakdown } from './rules';
 import { unlockAchievement } from './profile';
+import { runTransaction } from 'firebase/firestore';
 
 
 // Helper to get image URL by destination name
@@ -644,6 +645,11 @@ function Dashboard({ setShowAIModal }) {
   const [personalizedRatingsCountByDest, setPersonalizedRatingsCountByDest] = useState({});
   const [personalizedReviewsByDest, setPersonalizedReviewsByDest] = useState({});
   const [userReviewsCountByDest, setUserReviewsCountByDest] = useState({});
+  
+  useEffect(() => {
+  const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u));
+  return () => typeof unsub === 'function' && unsub();
+}, []);
 
 
   // compute popup position relative to bookmarksContainerRef so it stays inside that parent
@@ -703,26 +709,6 @@ function Dashboard({ setShowAIModal }) {
   { type: 'air', label: '₱1,500 - ₱4,000+ (Air Travel: short routes)', value: 'air-short' },
   { type: 'air', label: '₱2,500 - ₱8,600+ (Air Travel: long routes)', value: 'air-long' },
 ];
-
-
-  useEffect(() => {
-  if (!modalOpen || !selected) return;
-  async function fetchUserReviewsCount() {
-    try {
-      const reviewsSnap = await getDocs(collection(db, 'destinations', selected.id, 'reviews'));
-      setUserReviewsCountByDest(prev => ({
-        ...prev,
-        [selected.id]: reviewsSnap.size || 0
-      }));
-    } catch (e) {
-      setUserReviewsCountByDest(prev => ({
-        ...prev,
-        [selected.id]: 0
-      }));
-    }
-  }
-  fetchUserReviewsCount();
-}, [modalOpen, selected]);
 
   const getFareLabel = (val) => fareOptions.find(f => f.value === val)?.label || '';
 
@@ -832,6 +818,25 @@ function parseFareRange(str) {
     console.error('Error checking Mini Planner achievement:', error);
   }
 }
+
+useEffect(() => {
+  if (!detailsModalOpen || !selectedCard) return;
+  async function fetchUserReviewsCount() {
+    try {
+      const reviewsSnap = await getDocs(collection(db, 'destinations', selectedCard.id, 'reviews'));
+      setUserReviewsCountByDest(prev => ({
+        ...prev,
+        [selectedCard.id]: reviewsSnap.size || 0
+      }));
+    } catch (e) {
+      setUserReviewsCountByDest(prev => ({
+        ...prev,
+        [selectedCard.id]: 0
+      }));
+    }
+  }
+  fetchUserReviewsCount();
+}, [detailsModalOpen, selectedCard]);
 
 useEffect(() => {
   if (!detailsModalOpen || !selectedCard) return;
@@ -1358,42 +1363,6 @@ const ratePersonalizedSelected = async (value) => {
       setSavingRating(false);
     }
   };
-
-  const personalizedCards = [
-    {
-      id: 'banaue',
-      name: 'Banaue Rice Terraces',
-      region: 'CAR - Cordillera Administrative Region',
-      rating: 5.0,
-      price: '₱1,800',
-      priceTier: 'less',
-      description: 'Ancient rice terraces carved into mountains, often called the "Eighth Wonder of the World."',
-      tags: ['UNESCO', 'Cultural', 'Hiking'],
-      image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 'el-nido',
-      name: 'El Nido',
-      region: 'Region IV-B - MIMAROPA',
-      rating: 4.8,
-      price: '₱3,200',
-      priceTier: 'expensive',
-      description: 'Dramatic limestone cliffs and turquoise lagoons.',
-      tags: ['Islands', 'Snorkeling', 'Boat Tour'],
-      image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 'mayon',
-      name: 'Mayon Volcano',
-      region: 'Region V - Bicol Region',
-      rating: 4.5,
-      price: '₱1,200',
-      priceTier: 'less',
-      description: 'Perfect cone-shaped active volcano, considered the most beautiful volcano in the Philippines.',
-      tags: ['Volcano', 'Hiking', 'Photography'],
-      image: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80'
-    }
-  ];
 
   // --- Bookmark preview action handlers (add inside Dashboard before return) ---
   const openBookmarkDetails = (bm) => {
@@ -2210,7 +2179,7 @@ const ratePersonalizedSelected = async (value) => {
                         ? personalizedRatingsCountByDest[selectedCard.id]
                         : 0} ratings)
                     </span>
-                    <span className="muted sep">Your Rating:</span>
+                    <span className="muted sep">Rating:</span>
                     <div className="your-stars">
                       {[1, 2, 3, 4, 5].map((n) => (
                         <button
@@ -2327,29 +2296,27 @@ const ratePersonalizedSelected = async (value) => {
                   <div
                     className="review-box"
                     style={{
-                      width: '100%',          // fill available width
-                      gridColumn: '1 / -1',   // span all columns of the parent grid
+                      width: '100%',
+                      gridColumn: '1 / -1',
                       marginBottom: 18,
                       zIndex: 1
                     }}
                   >
-                  <WriteReview
-                    destId={selected.id}
-                    user={currentUser}
-                    onReviewSaved={() => {
-                      // Optionally reload reviews or show a message
-                      // Refresh user reviews count after submit
-                      (async () => {
-                        try {
-                          const reviewsSnap = await getDocs(collection(db, 'destinations', selected.id, 'reviews'));
-                          setUserReviewsCountByDest(prev => ({
-                            ...prev,
-                            [selected.id]: reviewsSnap.size || 0
-                          }));
-                        } catch (e) {}
-                      })();
-                    }}
-                  />
+                    <WriteReview
+                      destId={selected.id}
+                      user={auth.currentUser || currentUser}
+                      onReviewSaved={() => {
+                        (async () => {
+                          try {
+                            const reviewsSnap = await getDocs(collection(db, 'destinations', selected.id, 'reviews'));
+                            setUserReviewsCountByDest(prev => ({
+                              ...prev,
+                              [selected.id]: reviewsSnap.size || 0
+                            }));
+                          } catch (e) {}
+                        })();
+                      }}
+                    />
                   </div>
 
                   <div className="section-title">Packing Suggestions</div>
@@ -2496,27 +2463,46 @@ export default Dashboard;
 
 function WriteReview({ destId, user, onReviewSaved }) {
   const [review, setReview] = useState('');
+  const [star, setStar] = useState(0);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [checkingReview, setCheckingReview] = useState(true); // <-- NEW
 
-  // Check if user already submitted a review for this destination
   useEffect(() => {
     let ignore = false;
     async function checkExistingReview() {
       if (!user || !destId) {
-        setAlreadyReviewed(false);
+        if (!ignore) { setAlreadyReviewed(false); setCheckingReview(false); }
         return;
       }
       try {
+        setCheckingReview(true);
         const reviewDoc = await getDoc(doc(db, "destinations", String(destId), "reviews", user.uid));
         if (!ignore) setAlreadyReviewed(reviewDoc.exists());
       } catch {
         if (!ignore) setAlreadyReviewed(false);
+      } finally {
+        if (!ignore) setCheckingReview(false);
       }
     }
     checkExistingReview();
+    return () => { ignore = true; };
+  }, [user, destId, success]);
+
+  useEffect(() => {
+    if (!user || !destId) return;
+    let ignore = false;
+    async function fetchUserRating() {
+      try {
+        const ratingDoc = await getDoc(doc(db, "destinations", String(destId), "ratings", user.uid));
+        if (!ignore) setStar(Number(ratingDoc.data()?.value) || 0);
+      } catch {
+        if (!ignore) setStar(0);
+      }
+    }
+    fetchUserRating();
     return () => { ignore = true; };
   }, [user, destId, success]);
 
@@ -2528,38 +2514,105 @@ function WriteReview({ destId, user, onReviewSaved }) {
     try {
       if (!user) throw new Error("You must be signed in to write a review.");
       if (!review.trim()) throw new Error("Review cannot be empty.");
-      if (alreadyReviewed) throw new Error("You have already submitted a review for this destination.");
-      const reviewData = {
-        userId: user.uid,
-        userName: user.displayName || user.email || "Anonymous",
-        review: review.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      await setDoc(
-        doc(db, "destinations", String(destId), "reviews", user.uid),
-        {
+      if (star < 1 || star > 5) throw new Error("Please select a star rating.");
+
+      // Hard block in a transaction
+      await runTransaction(db, async (tx) => {
+        const reviewRef = doc(db, "destinations", String(destId), "reviews", user.uid);
+        const snap = await tx.get(reviewRef);
+        if (snap.exists()) {
+          throw new Error("You have already submitted a review for this destination.");
+        }
+        const reviewData = {
           userId: user.uid,
           userName: user.displayName || user.email || "Anonymous",
           review: review.trim(),
+          rating: star,
           createdAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+        };
+        tx.set(reviewRef, reviewData); // create only once
+
+        const ratingRef = doc(db, "destinations", String(destId), "ratings", user.uid);
+        tx.set(
+          ratingRef,
+          {
+            value: star,
+            userId: user.uid,
+            updatedAt: serverTimestamp(),
+            name: user.displayName || user.email || "Anonymous",
+          },
+          { merge: true }
+        );
+      });
+
       setSuccess("Review submitted!");
+      setAlreadyReviewed(true); // block immediately in UI
       setReview('');
+      setStar(0);
       if (onReviewSaved) onReviewSaved();
     } catch (err) {
       setError(err.message || "Failed to submit review.");
       console.error("Firestore error:", err);
-      console.log("destId:", destId);
-      console.log("user:", user);
     } finally {
       setSaving(false);
     }
   };
+  
+  if (checkingReview) {
+    return <div style={{ color: "#64748b", marginBottom: 8 }}>Checking existing review…</div>;
+  }
+  if (alreadyReviewed && !success) {
+    return (
+      <div
+        role="status"
+        style={{
+          width: '100%',
+          textAlign: 'center',
+          color: '#0862ea',     // blue
+          fontWeight: 600,
+          fontSize: 14,
+          lineHeight: 1.35,
+          padding: '8px 0',
+          margin: '2px 0 10px 0'
+        }}
+      >
+        You have already submitted a review for this destination.
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {alreadyReviewed && !success && (
+        <div style={{ color: "#0862eaff", fontWeight: 500, marginBottom: 8 }}>
+          You have already submitted a review for this destination.
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <span style={{ fontWeight: 500, fontSize: 13 }}>Your Rating:</span>
+        {[1, 2, 3, 4, 5].map(n => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setStar(n)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: alreadyReviewed || saving ? 'not-allowed' : 'pointer',
+              fontSize: 18,
+              color: n <= star ? '#ffb300' : '#d1d5db',
+              padding: 0,
+              marginRight: 2,
+              transition: 'color 0.15s',
+              outline: 'none'
+            }}
+            disabled={alreadyReviewed || saving}
+            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
       <div style={{ position: 'relative' }}>
         <textarea
           value={review}
@@ -2575,12 +2628,12 @@ function WriteReview({ destId, user, onReviewSaved }) {
             fontSize: 15,
             resize: 'vertical'
           }}
-          disabled={saving || alreadyReviewed}
+          disabled={checkingReview || saving || alreadyReviewed}
         />
         <button
           type="submit"
           aria-label="Submit review"
-          disabled={saving || !review.trim() || alreadyReviewed}
+          disabled={checkingReview || saving || !review.trim() || alreadyReviewed || star < 1}
           style={{
             position: 'absolute',
             right: 8,
@@ -2593,24 +2646,21 @@ function WriteReview({ destId, user, onReviewSaved }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: saving || !review.trim() || alreadyReviewed ? 'not-allowed' : 'pointer',
-            opacity: saving || !review.trim() || alreadyReviewed ? 0.6 : 1
+            cursor: saving || !review.trim() || alreadyReviewed || star < 1 ? 'not-allowed' : 'pointer',
+            opacity: saving || !review.trim() || alreadyReviewed || star < 1 ? 0.6 : 1
           }}
         >
           <img src="send.png" alt="Send" style={{ width: 18, height: 18 }} />
         </button>
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {alreadyReviewed && !success && (
-          <span style={{ color: "#0862eaff" }}>You have already submitted a review for this destination.</span>
-        )}
         {success && <span style={{ color: "#22c55e" }}>{success}</span>}
         {error && <span style={{ color: "#e74c3c" }}>{error}</span>}
       </div>
     </form>
   );
 }
-
+// ...existing code...
 function ReviewsList({ destId, currentUser }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2624,17 +2674,37 @@ function ReviewsList({ destId, currentUser }) {
         const snap = await getDocs(collection(db, "destinations", String(destId), "reviews"));
         let arr = [];
         snap.forEach(docSnap => {
-          const data = docSnap.data();
+          const data = docSnap.data() || {};
+          // parse rating even if it is a string; allow legacy fields
+          const parsedRating = Number(
+            data.rating ?? data.value ?? data.stars ?? data.rate ?? 0
+          ) || 0;
+
           arr.push({
-            id: docSnap.id,
+            id: docSnap.id,                  // uid of reviewer
             userName: data.userName || "Anonymous",
             review: data.review || "",
             createdAt: data.createdAt,
             userId: data.userId,
-            rating: typeof data.rating === "number" ? data.rating : undefined,
+            rating: parsedRating,            // may still be 0 if legacy review
           });
         });
-        // Sort by newest first
+
+        // backfill rating from /ratings subcollection for legacy reviews
+        arr = await Promise.all(
+          arr.map(async (r) => {
+            if (r.rating > 0) return r;
+            try {
+              const rSnap = await getDoc(doc(db, "destinations", String(destId), "ratings", r.id));
+              const v = Number(rSnap.data()?.value) || 0;
+              return { ...r, rating: v };
+            } catch {
+              return r;
+            }
+          })
+        );
+
+        // newest first
         arr.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
         if (!ignore) setReviews(arr);
       } catch {
@@ -2646,7 +2716,7 @@ function ReviewsList({ destId, currentUser }) {
     return () => { ignore = true; };
   }, [destId]);
 
-  // Fetch current user's star rating for this destination
+
   useEffect(() => {
     if (!currentUser || !destId) { setUserRating(null); return; }
     let ignore = false;
@@ -2665,23 +2735,23 @@ function ReviewsList({ destId, currentUser }) {
   if (loading) return <div style={{ color: "#888", fontSize: 14 }}>Loading reviews…</div>;
   if (!reviews.length) return <div style={{ color: "#888", fontSize: 14 }}>No user reviews yet.</div>;
 
-  // Fix: Use doc id as userId for review check (Firestore doc id = user.uid)
+  // Separate current user's review if available
   let userReview = null;
   let otherReviews = reviews;
   if (currentUser) {
-    userReview = reviews.find(r => r.id === currentUser.uid);
+    userReview = reviews.find(r => r.id === currentUser.uid); // Use doc ID for review
     otherReviews = reviews.filter(r => r.id !== currentUser.uid);
   }
 
   // Star rendering helper
-  const renderStars = (rating, size = 18) => (
+  const renderStars = (rating) => (
     <span style={{ marginLeft: 8, marginRight: 8 }}>
       {Array.from({ length: 5 }).map((_, idx) => (
         <span
           key={idx}
           style={{
             color: idx < rating ? "#ffb300" : "#d1d5db",
-            fontSize: size,
+            fontSize: 18,
             marginRight: 2,
             verticalAlign: "middle",
             fontFamily: "Arial, sans-serif",
@@ -2692,6 +2762,10 @@ function ReviewsList({ destId, currentUser }) {
       ))}
     </span>
   );
+
+  const userStars = (userReview && Number(userReview.rating) > 0)
+  ? Number(userReview.rating)
+  : Number(userRating || 0);
 
   // Card style for all reviews
   const cardStyle = {
@@ -2742,14 +2816,13 @@ function ReviewsList({ destId, currentUser }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* Show current user's review first if available */}
       {userReview && (
-        <div key={userReview.id}>
+        <div key={userReview.id} style={cardStyle}>
           <div style={{ display: "flex", alignItems: "center", marginBottom: 0, flexWrap: "wrap" }}>
             <span style={nameStyle}>
               {userReview.userName} (You)
             </span>
-            {renderStars(userRating ?? userReview.rating ?? 0, 18)}
+            {renderStars(userStars, 24)}
           </div>
           <span style={dateStyle}>
             {userReview.createdAt ? new Date(userReview.createdAt).toLocaleString() : ""}
@@ -2757,21 +2830,13 @@ function ReviewsList({ destId, currentUser }) {
           <div style={reviewTextStyle}>{userReview.review}</div>
         </div>
       )}
-      {/* Show other users' reviews */}
       {otherReviews.map((r) => (
-        <div key={r.id} style={{
-          ...cardStyle,
-          background: "#f8fafc",
-          border: "1.5px solid #b6c7d6",
-          color: "#222"
-        }}>
+        <div key={r.id} style={{ ...cardStyle, background: "#f8fafc", border: "1.5px solid #b6c7d6", color: "#222" }}>
           <div style={{ display: "flex", alignItems: "center", marginBottom: 0, flexWrap: "wrap" }}>
-            <span style={{ ...nameStyle, color: "#0d47a1", fontSize: 16 }}>{r.userName}</span>
-            {renderStars(r.rating ?? 0, 16)}
+            <span style={{ ...nameStyle, color: "#0d47a1" }}>{r.userName}</span>
+            {renderStars(Number(r.rating) || 0, 22)}
           </div>
-          <span style={dateStyle}>
-            {r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}
-          </span>
+          <span style={dateStyle}>{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</span>
           <div style={reviewTextStyle}>{r.review}</div>
         </div>
       ))}
