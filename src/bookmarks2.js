@@ -1436,13 +1436,47 @@ const getTotalPrice = (basePrice) => {
                   </div>
 
                     <div className="details-body1">
-                      <div className="details-head-row"
-                      >
+                      <div className="details-head-row">
                       <div className="details-title-col">
-                        <h2 className="details-title">{selected.name}</h2>
-                        <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
-                        {selected.region}
-                        </a>
+                        <div className="details-grid">
+                          <h2 className="details-title">{selected.name}</h2>
+                            <div className="trip-item">
+                              <span
+                                className={`pill small ${
+                                  selected.priceTier === 'less' ? 'pill-green' : 'pill-gray'
+                                }`}
+                                title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                              >
+                                {/* CHANGED: show total price if fare selected */}
+                                {selectedFares.length > 0
+                                  ? `₱${getTotalPrice(selected.price).toLocaleString()}`
+                                  : formatPeso(selected.price)}
+                              </span>
+                              {selected.category ? (
+                                <span className="badge purple">{selected.category}</span>
+                              ) : (
+                                <span className="badge purple">No category</span>
+                              )}
+
+                          </div>
+                        </div>
+
+                        <div className='details-grid'>
+                          <div className="section-title1">
+                            {selected.location ? (
+                              <span className="badge blue">{selected.location}</span>
+                            ) : (
+                              <span className="badge blue">No location  </span>
+                            )}
+                            <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
+                              {selected.region}
+                            </a>
+                          </div>
+                          <div className="section-title1">
+                            <div className="trip-label">Best Time to Visit</div>
+                            <div className="trip-text">{selected.bestTime}</div>
+                          </div>  
+                        </div>
 
                         <div className="details-rating-row">
                         <span className="star">⭐</span>
@@ -1479,7 +1513,7 @@ const getTotalPrice = (basePrice) => {
                               : 0
                           }
                         </span>
-                      </div>
+                        </div>
                       </div>
                       <div className="details-actions1">
                         <button
@@ -1510,7 +1544,7 @@ const getTotalPrice = (basePrice) => {
                 </div>
               </div>
 
-              <div className="details-grid">
+
                 <div className="details-left">
                   <div className="section-title">Description</div>
                   <p className="details-paragraph">{selected.description}</p>
@@ -1565,7 +1599,7 @@ const getTotalPrice = (basePrice) => {
                         ))}
                       </div>
                     </div>
-                    
+
                   {selected && (
                     <div style={{ marginBottom: 24 }}>
                       <div className="section-title" style={{ marginBottom: 8 }}>User Reviews</div>
@@ -1666,52 +1700,6 @@ const getTotalPrice = (basePrice) => {
                   </div>
                 </div>
 
-                <aside className="trip-info-box">
-                  <div className="trip-title">Trip Information</div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Price</div>
-                    <span
-                      className={`pill small ${
-                        selected.priceTier === 'less' ? 'pill-green' : 'pill-gray'
-                      }`}
-                      title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
-                    >
-                      {/* CHANGED: show total price if fare selected */}
-                      {selectedFares.length > 0
-                        ? `₱${getTotalPrice(selected.price).toLocaleString()}`
-                        : formatPeso(selected.price)}
-                    </span>
-                  </div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Best Time to Visit</div>
-                    <div className="trip-text">{selected.bestTime}</div>
-                  </div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Category</div>
-                    <div className="badge-row">
-                      {selected.category ? (
-                        <span className="badge purple">{selected.category}</span>
-                      ) : (
-                        <span className="badge purple">No category</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="trip-item">
-                    <div className="trip-label">Location</div>
-                    <div className="badge-row">
-                      {selected.location ? (
-                        <span className="badge blue">{selected.location}</span>
-                      ) : (
-                        <span className="badge blue">No location  </span>
-                      )}
-                    </div>
-                  </div>
-                </aside>
-              </div>
             </div>
           </div>
         </div>
