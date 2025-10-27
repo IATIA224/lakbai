@@ -974,7 +974,9 @@
   background: #eef2f7; color: #475569; border-radius: 999px; padding: 6px 10px; font-weight: 600; font-size: 13px;
 }
 .badge.purple { background: #f0eaff; color: #6b21a8; align-items: center; justify-content: center; font-size: 16px; border-radius: 8px; margin: 0 0 0 0 !important;}
+.badge.purple1 { background: #f0eaff; color: #6b21a8; align-items: center; justify-content: center;}
 .badge.blue { background: white !important; color: #2563eb !important; width: 300px !important; text-align: left !important; height: auto; border-radius: 8px !important; margin: 0 0 0 0 !important; padding: 0 0 0 0 !important;}
+.badge.blue1 { background: #e8f0fe; color: #1e40af; width: auto; text-align: center; height: auto; border-radius: 10px;}
 
 
 

@@ -1304,7 +1304,7 @@ const getImageForDestination = (name) => {
                     <div className="bm-info-row">
                       <div className="bm-info-key">Location:</div>
                       <div className="bm-info-val">
-                        <span className="badge blue">{selected.location}</span>
+                        <span className="badge blue1">{selected.location}</span>
                       </div>
                     </div>
                   )}
@@ -1313,7 +1313,7 @@ const getImageForDestination = (name) => {
                     <div className="bm-info-key">Categories:</div>
                     <div className="bm-info-val">
                       {selected.category ? (
-                        <span className="badge purple">{selected.category}</span>
+                        <span className="badge purple1">{selected.category}</span>
                       ) : (
                         <span className="badge purple">No category</span>
                       )}
