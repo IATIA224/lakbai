@@ -97,6 +97,7 @@
   text-decoration: underline;
   margin-bottom: 8px;
   display: inline-block;
+  text-align: left !important;
 }
 .details-rating-row {
   display: flex;

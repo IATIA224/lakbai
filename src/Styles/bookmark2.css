@@ -902,7 +902,7 @@
 .details-grid {
   margin-top: 0; /* Remove or set to a small value */
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1.5fr 1fr;
   gap: 20px;
   height: auto;
 }
@@ -918,9 +918,9 @@
 .details-title { 
   font-size: 28px; 
   font-weight: 800; 
-  margin: 0 0 6px; 
+  margin: 0 0 6px !important; 
   color: #1a1a1a; 
-  text-align: left;
+  text-align: left !important;
 }
 
 .details-region {
@@ -967,13 +967,16 @@
 
 
 .section-title { font-weight: 800; margin: 16px 0 8px; color: #1a1a1a; text-align: left;}
+.section-title1 { font-weight: 800; color: #1a1a1a; text-align: left;}
 .details-paragraph { color: #4b5563; line-height: 1.6; justify-content: left; text-align: left;}
 .badge-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;}
 .badge {
   background: #eef2f7; color: #475569; border-radius: 999px; padding: 6px 10px; font-weight: 600; font-size: 13px;
 }
-.badge.purple { background: #f0eaff; color: #6b21a8; align-items: center; justify-content: center;}
-.badge.blue { background: #e8f0fe; color: #1e40af; width: auto; text-align: center; height: auto; border-radius: 10px;}
+.badge.purple { background: #f0eaff; color: #6b21a8; align-items: center; justify-content: center; font-size: 16px; border-radius: 8px; margin: 0 0 0 0 !important;}
+.badge.purple1 { background: #f0eaff; color: #6b21a8; align-items: center; justify-content: center;}
+.badge.blue { background: white !important; color: #2563eb !important; width: 300px !important; text-align: left !important; height: auto; border-radius: 8px !important; margin: 0 0 0 0 !important; padding: 0 0 0 0 !important;}
+.badge.blue1 { background: #e8f0fe; color: #1e40af; width: auto; text-align: center; height: auto; border-radius: 10px;}
 
 
 
@@ -982,10 +985,10 @@
   background: #f8fafc; border: 1px solid #eef2f7; border-radius: 12px; padding: 16px;
 }
 .trip-title { font-weight: 800; margin-bottom: 12px; color: #1a1a1a; }
-.trip-item { margin-bottom: 14px; align-items: center; justify-content: center;}
-.trip-label { font-weight: 700; color: #374151; margin-bottom: 6px; }
-.trip-text { color: #475569; }
-.pill.small { padding: 4px 8px; font-size: 12px; }
+.trip-item { margin-bottom: 10px !important; align-items: left; justify-content: left; text-align: left; font-size: 14px; }
+.trip-label { font-weight: 700; color: #374151; margin-bottom: 0; text-align: left !important;}
+.trip-text { color: #475569; text-align: left; font-weight: normal;}
+.pill.small { padding: 4px 8px; font-size: 16px; border: 0 !important; margin-right: 5px;}
 
 /* Modal overlay already exists; keep it for blur/dim */
 .modal-overlay { backdrop-filter: blur(2px); }
