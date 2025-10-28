@@ -1436,13 +1436,47 @@ const getTotalPrice = (basePrice) => {
                   </div>
 
                     <div className="details-body1">
-                      <div className="details-head-row"
-                      >
+                      <div className="details-head-row">
                       <div className="details-title-col">
-                        <h2 className="details-title">{selected.name}</h2>
-                        <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
-                        {selected.region}
-                        </a>
+                        <div className="details-grid">
+                          <h2 className="details-title">{selected.name}</h2>
+                            <div className="trip-item">
+                              <span
+                                className={`pill small ${
+                                  selected.priceTier === 'less' ? 'pill-green' : 'pill-gray'
+                                }`}
+                                title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                              >
+                                {/* CHANGED: show total price if fare selected */}
+                                {selectedFares.length > 0
+                                  ? `₱${getTotalPrice(selected.price).toLocaleString()}`
+                                  : formatPeso(selected.price)}
+                              </span>
+                              {selected.category ? (
+                                <span className="badge purple">{selected.category}</span>
+                              ) : (
+                                <span className="badge purple">No category</span>
+                              )}
+
+                          </div>
+                        </div>
+
+                        <div className='details-grid'>
+                          <div className="section-title1">
+                            {selected.location ? (
+                              <span className="badge blue">{selected.location}</span>
+                            ) : (
+                              <span className="badge blue">No location  </span>
+                            )}
+                            <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
+                              {selected.region}
+                            </a>
+                          </div>
+                          <div className="section-title1">
+                            <div className="trip-label">Best Time to Visit</div>
+                            <div className="trip-text">{selected.bestTime}</div>
+                          </div>  
+                        </div>
 
                         <div className="details-rating-row">
                         <span className="star">⭐</span>
@@ -1479,7 +1513,7 @@ const getTotalPrice = (basePrice) => {
                               : 0
                           }
                         </span>
-                      </div>
+                        </div>
                       </div>
                       <div className="details-actions1">
                         <button
@@ -1510,7 +1544,7 @@ const getTotalPrice = (basePrice) => {
                 </div>
               </div>
 
-              <div className="details-grid">
+
                 <div className="details-left">
                   <div className="section-title">Description</div>
                   <p className="details-paragraph">{selected.description}</p>
@@ -1565,6 +1599,7 @@ const getTotalPrice = (basePrice) => {
                         ))}
                       </div>
                     </div>
+
                   {selected && (
                     <div style={{ marginBottom: 24 }}>
                       <div className="section-title" style={{ marginBottom: 8 }}>User Reviews</div>
@@ -1665,52 +1700,6 @@ const getTotalPrice = (basePrice) => {
                   </div>
                 </div>
 
-                <aside className="trip-info-box">
-                  <div className="trip-title">Trip Information</div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Price</div>
-                    <span
-                      className={`pill small ${
-                        selected.priceTier === 'less' ? 'pill-green' : 'pill-gray'
-                      }`}
-                      title={selected.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
-                    >
-                      {/* CHANGED: show total price if fare selected */}
-                      {selectedFares.length > 0
-                        ? `₱${getTotalPrice(selected.price).toLocaleString()}`
-                        : formatPeso(selected.price)}
-                    </span>
-                  </div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Best Time to Visit</div>
-                    <div className="trip-text">{selected.bestTime}</div>
-                  </div>
-
-                  <div className="trip-item">
-                    <div className="trip-label">Category</div>
-                    <div className="badge-row">
-                      {selected.category ? (
-                        <span className="badge purple">{selected.category}</span>
-                      ) : (
-                        <span className="badge purple">No category</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="trip-item">
-                    <div className="trip-label">Location</div>
-                    <div className="badge-row">
-                      {selected.location ? (
-                        <span className="badge blue">{selected.location}</span>
-                      ) : (
-                        <span className="badge blue">No location  </span>
-                      )}
-                    </div>
-                  </div>
-                </aside>
-              </div>
             </div>
           </div>
         </div>
@@ -1927,12 +1916,12 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
 
 function WriteReview({ destId, user, onReviewSaved }) {
   const [review, setReview] = useState('');
+  const [star, setStar] = useState(0); // NEW: star rating state
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
-  // Check if user already submitted a review for this destination
   useEffect(() => {
     let ignore = false;
     async function checkExistingReview() {
@@ -1951,46 +1940,89 @@ function WriteReview({ destId, user, onReviewSaved }) {
     return () => { ignore = true; };
   }, [user, destId, success]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
-    setSuccess('');
-    try {
-      if (!user) throw new Error("You must be signed in to write a review.");
-      if (!review.trim()) throw new Error("Review cannot be empty.");
-      if (alreadyReviewed) throw new Error("You have already submitted a review for this destination.");
-      const reviewData = {
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setSaving(true);
+  setError('');
+  setSuccess('');
+  try {
+    if (!user) throw new Error("You must be signed in to write a review.");
+    if (!review.trim()) throw new Error("Review cannot be empty.");
+    if (star < 1 || star > 5) throw new Error("Please select a star rating.");
+    if (alreadyReviewed) throw new Error("You have already submitted a review for this destination.");
+    const reviewData = {
+      userId: user.uid,
+      userName: user.displayName || user.email || "Anonymous",
+      review: review.trim(),
+      rating: star, // NEW: save star rating
+      createdAt: new Date().toISOString(),
+    };
+    // Save review
+    await setDoc(
+      doc(db, "destinations", String(destId), "reviews", user.uid),
+      reviewData,
+      { merge: true }
+    );
+    // Save rating in ratings subcollection (for aggregation)
+    await setDoc(
+      doc(db, "destinations", String(destId), "ratings", user.uid),
+      {
+        value: star,
         userId: user.uid,
-        userName: user.displayName || user.email || "Anonymous",
-        review: review.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      await setDoc(
-        doc(db, "destinations", String(destId), "reviews", user.uid),
-        {
-          userId: user.uid,
-          userName: user.displayName || user.email || "Anonymous",
-          review: review.trim(),
-          createdAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-      setSuccess("Review submitted!");
-      setReview('');
-      if (onReviewSaved) onReviewSaved();
-    } catch (err) {
-      setError(err.message || "Failed to submit review.");
-      console.error("Firestore error:", err);
-      console.log("destId:", destId);
-      console.log("user:", user);
-    } finally {
-      setSaving(false);
-    }
-  };
+        updatedAt: serverTimestamp(),
+        name: user.displayName || user.email || "Anonymous",
+      },
+      { merge: true }
+    );
+    setSuccess("Review submitted!");
+    setReview('');
+    setStar(0);
+    if (onReviewSaved) onReviewSaved();
+  } catch (err) {
+    setError(err.message || "Failed to submit review.");
+    console.error("Firestore error:", err);
+    console.log("destId:", destId);
+    console.log("user:", user);
+  } finally {
+    setSaving(false);
+  }
+};
+
+  if (alreadyReviewed && !success) {
+    return (
+      <div style={{ color: "#0862eaff", fontWeight: 500, marginBottom: 8 }}>
+        You have already submitted a review for this destination.
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <span style={{ fontWeight: 500, fontSize: 13 }}>Your Rating:</span>
+        {[1, 2, 3, 4, 5].map(n => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setStar(n)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: alreadyReviewed || saving ? 'not-allowed' : 'pointer',
+              fontSize: 18,
+              color: n <= star ? '#ffb300' : '#d1d5db',
+              padding: 0,
+              marginRight: 2,
+              transition: 'color 0.15s',
+              outline: 'none'
+            }}
+            disabled={alreadyReviewed || saving}
+            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
       <div style={{ position: 'relative' }}>
         <textarea
           value={review}
@@ -2011,7 +2043,7 @@ function WriteReview({ destId, user, onReviewSaved }) {
         <button
           type="submit"
           aria-label="Submit review"
-          disabled={saving || !review.trim() || alreadyReviewed}
+          disabled={saving || !review.trim() || alreadyReviewed || star < 1}
           style={{
             position: 'absolute',
             right: 8,
@@ -2024,8 +2056,8 @@ function WriteReview({ destId, user, onReviewSaved }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: saving || !review.trim() || alreadyReviewed ? 'not-allowed' : 'pointer',
-            opacity: saving || !review.trim() || alreadyReviewed ? 0.6 : 1
+            cursor: saving || !review.trim() || alreadyReviewed || star < 1 ? 'not-allowed' : 'pointer',
+            opacity: saving || !review.trim() || alreadyReviewed || star < 1 ? 0.6 : 1
           }}
         >
           <img src="send.png" alt="Send" style={{ width: 18, height: 18 }} />

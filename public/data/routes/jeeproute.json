@@ -1,0 +1,145 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 1,
+        "name": "Bagumbayan (Taguig) - Pasig (TP)",
+        "description": "Runs between Manuel L. Quezon, Muntinlupa City and Caruncho Ave. / Market Ave. Intersection, Pasig City",
+        "color": "#e53935",
+        "encodedPolyline": "mljwAup{aVAAaBg@SGaCo@yB_@SE??k@KqAM_AIu@CWAmAEEA??y@C]C_BEOA{@E{@A_@C??gBEcCPA??@k@DuFnAk@Fe@?w@AM?iGMC???i@CcCG{CG[AAAYAIAmAOuAQWC??qAQeBi@i@Ue@UYK[Gc@Ee@C}ECuAA??MAi@?a@EiFaAQAA?y@GeBO[C]Eo@GgE_Ac@K??]Gw@Q{@M_B[aAUIC??u@U_EaAmAYcFkA??GCg@KwBm@{Bg@qAYsA[k@M[GOE??k@Mw@OqBe@cASy@SMCiAYCA??gBe@gASeAIuBAMAQGIECAA?GEMGWSgAkAiAqA}@oA}@kAe@q@IG??CCYW_@[w@k@QOiDmB{@c@uBoAYO??y@e@eAg@aAi@oAy@gBeAmAu@??MIoEgCkEiCkC}@A?SIQGmBg@i@Im@IEA??gBYsAKkBEY?aDBA@O?yCFQ?uCJk@F[HWHaAd@q@Z[BA@i@@y@FkCJFn@m@Fg@JGBYLSFUPUVMPKRGPGRUjA?@A@CHCDEBGBiBLaAFe@@s@BuAvAWXY\\?@c@d@e@n@GF]^cAn@aAb@UHSHOBG@QBY@G?EAY?{AA??[??g@Cy@KgA_@}AG[a@eBWJ^dBj@tBJp@FjA?b@YAY@]@s@Lk@Ne@Nc@Li@XUPUZOT[p@Sf@]fAIV?FA?CHCBCBA?M?yA?}C@oB@?@a@?kCFwAFA?iAFQ@m@BC?c@BE?{ADA?A?wABgBBC?A?sCF[Fu@P?@YH}@Nk@Js@JMB?@Q@SDKA_@?s@QcA[AAMC_DwAcCaAAAUIq@c@{@c@oA}@GEa@a@{@o@s@o@aAeAaAsAi@}@AAOWS_@e@}@mAoC_@aAMOAAEGMQKI[OYE]Au@AU@SASG_Ag@a@WSQSO???AQMIIcA{@e@]SQQMsAoAIEAAg@a@e@_@SMAAGEEEsB}ACCIIgCiBe@WwDkAYA[@iBTO@sB\\A?o@HG@}ARiA@I?[AK?GAWCOCaBWQC{Dk@uFw@AAMCOCmAOSCK?D[@E?AP_B@G?IEQM[EMJ]?AV}@zAsF?AzAsFx@T`ADV_ABI@Cf@cB`@}A"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 2,
+        "name": "Fort Bonifacio Gate 3 - Guadalupe / Market Market",
+        "description": "Runs between Fort Bonifacio Gate 3 Plaza Terminal, Lawton Ave., Taguig and Manggahan / Ramon Magsaysay Ave. Intersection, Makati City",
+        "color": "#8e24aa",
+        "encodedPolyline": "cj{wAepxaV]QLMR]JMvAi@?{AXG@?B?@Ep@E@?nCMtKT@E@?P{@HWPOa@g@GIgAyA_BmB??GIeBwBe@i@IKsAaB??CCIKCCSWOWUc@IUIOKY]y@s@gB{@CMc@IWOq@?ACMEg@BeALgATaBPgAJ@JINQTIp@AR?R@RBL@@Tt@Pb@JzA\\h@Lv@PdATJBJBlCj@|Cr@PBPFTDfBb@pAZbAVNBPDAVvA\\NDFVx@Pl@LfBb@HF@D@HALETCRCZATAh@?h@@d@@\\BRFn@i@bCQt@CPNFNFfEbAbB^TFNDd@JNDr@P@?XFVFZFlAZh@JRFNDvA\\p@NVFx@R~Ab@HBNDHBpCr@lCp@TDHBTFjCj@nBd@VDNDB@F?VBd@B\\?L?V@LAJ?VAp@Er@OxFuAd@MXMd@WFG@?BCNKNMXUTQRKJGPGf@MTGLBVBB@??r@DjA@|BCJRHPN@FRFRXrAn@AB?HAdGCb@@\\BE^?n@@l@FlBB^@XBZH~@NjARvAXrAFXj@fCJb@XKn@Y^U^Y@a@\\g@FIJSBGRk@Pm@D[Hs@Cm@Eq@K{@Mc@f@Bp@DpBF?H?BGnBMhFKrDTTIdC?HAZAF?NA\\DIHGDCHCB?HGl@?xACtEOdCG|FS|AM?N?@?L?_@n@MZIhA[bCu@r@WD?lBo@bGiBHCNGDAFEz@a@FCx@c@Ai@|@g@NITQBA"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 3,
+        "name": "Guadalupe - FTI",
+        "description": "Runs between EDSA Guadalupe, Makati City and FTI Transport Terminal (Arca South)",
+        "color": "#3949ab",
+        "encodedPolyline": "sa|wAoxxaV@E?K?IAQGQAEEIIIMMKGKEQCQAK?K?G?G?YIYM?S?S?A?K?GAU?AGaA?EGkAACSqDCa@?OACCo@EeA?g@B]F]DSBKVi@f@y@FMJM?A^q@\\m@\\y@Pq@Ne@?AHQVg@f@q@pB{Bd@c@XU@?vAiAj@_@RQFGRUPBJBF?H@rBR`BLvE^N@CLK^ADEZMn@BDD@D?D?Lq@Hc@L_@DOBK@GFSJQ?APa@LYn@qA`@y@s@@pAoA`@kAf@eAjA}Bp@_BxAuBp@}AbAoC~AuBZeBtBkErAqBrCcD|CiBxB\\rDrCvDfCvEpC~FhDdDzCbBfCjCrDdCfB|C`@rDLxBlBt@fCpAnBzBxBtCfBlCbA|D[~Ai@lDcD|BuChDgFxHoD|IYxGOfFM|EChFUtGdA~DhAdFrAdG`B`EvAzEpAvC~@??`DbAlD~@hD~AhCfAhD`CrEzEnDxExFxLx@lGd@tFBfHNbFAtHDlGFlGR`I~AtEhEnG|CjDzCnBtC`BdA`@|As@dBkAjD_BrEuAlCcAfFoA`AKzBi@dAo@"
+      } 
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 4,
+        "name": "Sucat Highway - Bagumbayan",
+        "description": "Dr A. Santos Ave., Parañaque City and Manuel L. Quezon, Taguig City (via Brgy. Sucat, Muntinlupa)",
+        "color": "#039be5",
+        "encodedPolyline": "ybfwAkfxaVDUJs@Lk@h@iCJm@He@Nw@ZcBJk@He@`@sCf@sCDs@Lk@Pw@Jg@DOJSZg@Tk@@OFsADsAFyBBIFIJEJ?L@f@Bz@D`DRxBLN?HGBEFSPeAJi@La@UC??{AQkCc@uFw@WE??kLiBc@GA???qDo@yDq@gAQoB_@OE??oIeBGAECA?A?iK_CgH}A??sAYYIgCk@yFsAKA??AAaE}@QEcA[e@MSIe@UkDgAgBe@??"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 5,
+        "name": "Guadalupe - Taguig (via Tipas)",
+        "description": "Runs between M. Almeda, Taguig City and EDSA Guadalupe, Makati City",
+        "color": "#00897b",
+        "encodedPolyline": "}utwAyr}aVc@d@e@n@GF]^cAn@aAb@UHSHOBG@QBY@G?EAY?{AA??[??g@Cy@KgA_@}AG[a@eBWJ^dBj@tBJp@FjA?b@YAY@]@s@Lk@Ne@Nc@Li@XUPUZOT[p@Sf@]fAIV?FA?CHCBCBA?M?yA?}C@oB@?@a@?kCFwAFA?iAFQ@m@BC?c@BE?{ADA?A?wABgBBC?A?sCF[Fu@P?@YH}@Nk@Js@JMB?@Q@SDKA_@?s@QcA[AAMC_DwAcCaAAAUIq@c@{@c@oA}@GEa@a@{@o@s@o@aAeAaAsAi@}@AAOWS_@e@}@mAoC_@aAOQ??EGMQKI[OYE]Au@AU@SASG_Ag@a@WSQSO???AQMIIcA{@e@]SQQMsAoAIEAAg@a@e@_@SMAAGEEEsB}ACCIIgCiBe@WwDkAYA[@iBTO@sB\\A?o@HG@}ARiA@I?[AK?GAWCOCaBWQC{Dk@uFw@AAMCOCmAOSCK?D[@E?AP_B@G?IEQM[EMJ]?AV}@zAsF?AzAsFx@T`ADV_ABI@Cf@cB`@}A"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 6,
+        "name": "Pasig - Taguig (via Maestrang Pinang, Tipas)",
+        "description": "Runs between F. Manalo / Gen. A Luna St Intersection, Taguig City and Pasig City Mega Market, Market Ave., Pasig City",
+        "color": "#7cb342",
+        "encodedPolyline": "yxzwAgi_bVoBlH?@Y`AXFFBBBBD@D@D?HAF?@EVM`A?@?@E`@P@J?`AL??^DSnAA?If@~@p@l@pANr@TdAVxD@@@\\|Az@FDlCwCvAqAJKr@gANm@DQ?Ab@cCj@Dd@@l@???ZAdBUhAQ@?xAULCjBSZAX@xDhAf@VbCdBJHDDhB|A@@HFb@Rb@\\zAnA@@l@d@LNRP^\\b@\\??b@\\HHNJ@@@@PLPLd@Z|@h@RDPBT@t@@\\@XDZNJHLPFF??LP^`AlAnCd@|@R^JR@@l@`A`ArA`AdAr@n@z@n@h@f@nA|@z@b@TN@@XPzClA~CvATF??|@Xr@P^?J@REJAREr@Kj@K|@ONC?AHEt@QZGfCGPAdB?hAI@?RCxAID?`@CB?l@DP?fAI?AvAKjCGd@???pB@tCI~AFN?HEFO@C?ADQ^kANg@`@s@`@m@TSh@YZMvA]v@QXAX?ZBFtBFvBCR@^B^Jh@H`@N\\NXRMQ]K[K_@Ku@Ea@?YGsBAOCgBV?@@|A?X?D@F?XAPCFANCRITI`Ac@bAo@_\\@FGd@o@b@e@@"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 7,
+        "name": "Pateros - Market Market",
+        "description": "Runs between M. Almeda, Pateros and Market! Market! C-5 Driveway, BGC, Taguig",
+        "color": "#fbc02d",
+        "encodedPolyline": "}_xwAgz|aVOd@WhAnDlAKT[d@i@|@k@`AS\\CFCB?@[ZYPs@V}ATaFf@yAP_Et@uER}Cl@}CDsDw@aDwAoDaBoAf@????uC|EZzAtAhAdCzAfDpBpCdBzA`AvCnBrAfAxBnA~@~Al@fAv@dC`BxAlAt@??"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 8,
+        "name": "AFP/PNP Housing - Guadalupe (via Bayani Rd)",
+        "description": "Runs between AFP/PNP - Guadalupe Jeepney Terminal and Bayani Road, Taguig City",
+        "color": "#fb8c00",
+        "encodedPolyline": "slrwAaoyaVEIm@wAQ_@s@uAe@u@GKe@q@{@iAeBoB][OOGIi@e@i@a@u@g@s@e@{Ay@uAq@aBy@oAc@oC{@MEGC[KGA_D_AqU{GGCSGwAa@ICBYYIsBm@kA]MCa@KuDw@@YBWDo@Dm@?o@@aA@cA?m@@I@K@GBKFOFMSIIPENCJCHAHAJ?TAXAx@?dAAd@Ax@Gh@E\\ETIAuB]{@OiBYOCe@CiA?Q?gADU@o@Fi@Fy@Ho@JWFI?QDQDk@@oAFu@@]B[?k@@W?}@BY@eA@uDNcCP}@LgAXaAd@eAr@sAtAGH_@j@_@v@c@|@GNa@~@ADSZINMT_@l@s@bAiA`AgAh@i@PYFqANiADSAc@EGAw@I_A[u@[c@U[Ua@e@i@m@[k@_@q@a@{@Wo@Ym@Qa@Yw@OWECWWCAUS]SICk@Qk@CgASkAIkAIm@Ie@G[K_@Q]SUQY[S[c@aASs@]w@Yg@W]kQsLw@y@gA_A]a@qD_CkAs@a@SA?MIi@[_BkAw@[}E_DKCI?IHEJ@LDHvDbCLHZ`@PRBJAFAHEJABMHEBMJABYTg@b@g@h@i@l@SVSXKPQR[f@m@dAm@lA}@jBMRITMVwAfDs@bBc@bA[p@k@lA[n@Yf@IPa@v@Yj@ILu@tAGLi@bAWd@aAjBMTA@ABSb@KTKTYHGBmEY}AKwBOUCKAOCONGFSPWPSLq@h@i@\\QLm@f@aAfAq@t@c@t@?BS\\CFCDEHOf@Qp@]|@]l@?@]j@MREFi@~@Wh@CJERG\\C\\?f@DdADbAB`@RpD@BFjA?DDt@@B"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 9,
+        "name": "EDSA/Shaw Central - Tipas (Taguig)",
+        "description": "Runs between M. Almeda, Pateros and EDSA Central Jeepney Terminal, Mandaluyong City",
+        "color": "#6d4c41",
+        "encodedPolyline": "it~wA{ozaVhAwADGFG`BqB\\m@R]rAeBh@o@@CJMLODGt@{@fAqALQxAgBTWX]z@eANSLODC?AJOLOLOvDuE?CJOJMFGBCNSDENOLOV[NQNQZ]FIFGJMDG\\a@jB_Cp@{@NQFIr@{@BELO~@oA`AgAJMJMDGp@}@TYZc@V[HM~@qAJKNQ@CNQZ_@Za@BCDCBADADABAD?D?FAD?F@L@^CB?H@\\DtCXvCXH@RBj@FNBF?H@f@DNBn@Fj@FXBzAN^DXD@?F@L@~@HXHn@H~@Hh@FjBPRB@?F@PBP@R?VAJCJGNMHSJYBSH_@Hc@Hc@F_@Fc@B[@Y@[@Y?[?Y?[AYCYAQAI?CCSCMIg@Mg@ISCGs@oAk@]}@i@}@a@MGEEEAsB{@QEg@QqA[]Ga@IKACKGOAGQe@GWAEEUAEAIAGAQByC^uMFsB?SBmABa@HaBb@HpBErB\\zE?vE]nEiArEE|CXpEj@??pGpApJiAvEQ|GdDfFvCxAqCh@kD^eD?aC?mEzA_@|B?zBKbHfBjBDfD`@bEPnAR`BwBtCoBhCgBrFqD"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 10,
+        "name": "Pasig Market - Taguig (via Bagong Calzada)",
+        "description": "Runs between Balderama / Caruncho Ave., Pasig City and Manuel L. Quezon, Muntinlupa City",
+        "color": "#d81b60",
+        "encodedPolyline": "qtzwAwd`bVMf@K`@_AlDa@|A?@M^iA`ErA\\l@Pd@JyAvFA?mBnHA?Oh@IXXFJLDDBF?H?FEVCLGj@?JA?ADC^LAJ?RBlANG`@ADIDG\\@@BDAFER|@x@l@pALj@@F@BR`AVxD@@@\\p@\\l@\\JHfC{CvAqAJK\\_\\@Vg@Jg@@E@CBK?A@K@C@EX{ABS^DJ?Z@H?j@?@?ZA|ASFAhAO?AzAUNAhBUZAX@vDjAd@VfChBHHBBlBxA??DBDD\\Td@^r@h@h@d@??h@h@PLRPd@\\bAz@HHLJ@?@BRNRPd@V~@f@RFR@TAt@@\\ADZNJHLPFF??LP^`AlAnCd@|@R^HP@@n@bA`ArA`AdAr@n@z@n@`@`@FDnA|@z@b@RN@?ZRzClA~CvARF@?|@Xr@P^?J@REF?BAREr@Kj@K|@OLC@AHEt@QZGdCEBAP?fBCfAA@AP?zAED?b@CB?l@CPAbAEBA|AGjCGZ?@ArBA|CAxA?L?@?BCBCDQ@A?CFQ\\gARg@Zq@NUT[TQh@Yb@Md@Oj@Or@M\\AXAp@eA`D{@fFAfHU~FG`EkGpFw@dJ_ArEwEfDyBbJgFtIuAtDqBrIq@xHJ??pGJdGhB~EvBrGpD~BjB~IjEdG`EdEpCtBzB`EpFfE|A`H~@nFxAnOzC~JbDnSlEbTnCbTtAjOtDhLC~SoBrOtAjKNzVvG|KhDjIvBvJxC|KxErNnBdJpCnPtDfR`DfQjC`NvBvRfB"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 11,
+        "name": "Bicutan (Taguig) - Pasig (TP)",
+        "description": "Runs between Balderama / Caruncho Ave., Pasig City and Adia Bagumbayan Manuel L. Quezon, Taguig City",
+        "color": "#1e88e5",
+        "encodedPolyline": "mxzwA_z_bVM^iA`ErA\\l@Pd@JyAvFA?mBnHA?Oh@IXXFJLDDBF?H?FEVCLGj@?JA?ADC^LAJ?RBlANG`@ADIDG\\@@BDAFER|@x@l@pALj@@F@BR`AVxD@@@\\p@\\l@\\JHfC{CvAqAJK\\_\\@Vg@Jg@@E@CBK?A@K@C@EX{ABS^DJ?Z@H?j@?@?ZA|ASFAhAO?AzAUNAhBUZAX@vDjAd@VfChBHHBBlBxA??DBDD\\Td@^r@h@h@d@??h@h@PLRPd@\\bAz@HHLJ@?@BRNRPd@V~@f@RFR@TAt@@\\ADZNJHLPFF??LP^`AlAnCd@|@R^HP@@n@bA`ArA`AdAr@n@z@n@`@`@FDnA|@z@b@RN@?ZRzClA~CvARF@?|@Xr@P^?J@REF?BAREr@Kj@K|@OLC@AHEt@QZGdCEBAP?fBCfAA@AP?zAED?b@CB?l@CPAbAEBA|AGjCGZ?@ArBA|CAxA?L?@?BCBCDQ@A?CFQ\\gARg@Zq@NUT[TQh@Yb@Md@Oj@Or@M\\AXAp@eA`D{@fFAfHU~FG`EkGpFw@dJ_ArEwEfDyBbJgFtIuAtDqBrIq@xHJ??pGJdGhB~EvBrGpD~BjB~IjEdG`EdEpCtBzB`EpFfE|A`H~@nFxAnOzC~JbDnSlEbTnCbTtAjOtDhLC~SoBrOtAjKNzVvG|KhDjIvBvJxC|KxErNnBdJpCnPtDfR`DfQjC`NvBvRfB"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 12,
+        "name": "Napindan - Pasig (TP)",
+        "description": "Runs between Napindan Terminal, M Concepcion Ave., Pasig City and Napindan, Labao, Pasig City",
+        "color": "#f4511e",
+        "encodedPolyline": "caywAym~aVDUVeARw@HWLe@BKBGF]@CBY?o@?Q?q@?A@kB?A?e@?yB?O?O?cA^?@?dFCl@?~A@t@HLBjAZpB`@zAZTDPBd@DF?@?ZBlBBVAj@@lAF@?@@^HFElAeAb@W`@YjAm@?AlEsCPMLIjAy@NMZS@APKj@Yr@WLKRKd@[X]g@OSOOQy@mAcDoF|@y@TS\\YXe@J_@B_@@gA@W@e@D]?A@GBQvAeHTuARuA?Ax@mF~@sGFc@"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 13,
+        "name": "Bicutan - Pasay",
+        "description": "Runs between Bicutan and Pasay City",
+        "color": "#1976d2",
+        "encodedPolyline": "mwlwA{}xaVuAW]GWAGBMFOLIJEHGlAUvDOtBEJEFCDGD{CpAyCpAuAn@eCfAk@Ts@ZcBvAgAx@yEfAoKzFkNdGkJxD_MxEgMvG{QlGgKrEyKvEmWlMaMpEgQpIaQbIiTnMuNdF??{JpF}]zQi\\{F"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "routeId": 14,
+        "name": "Sucat - Market Market (Fort Bonifacio, Taguig)",
+        "description": "Runs between Meralco Road/Sucat Interchange and Market! Market! South Terminal, BGC, Taguig",
+        "color": "#5e35b1",
+        "encodedPolyline": "e}ewAi}xaVm@~CEb@c@FWDWFc@Ja@HG@MBgAPoANuB?oG?eRHyN@kX@wK@cG?sK@eEA_OBeI?_D@kC?cH@uG@mL@qB?g@?sINoCVsDh@}AVaDx@aCz@oAf@aHxC}GxC_Q~HwCpAg@RwDdBqNjGgF@qElFeItE{K`FqM`A}QdIcPkLaDsLsBaRq@e[oCaUiGkOuJsKiRcI{V}EaS_IuRg@k_@|@qYvUcPyFySkLsImIgB|D"
+      }
+    }
+  ]
+}
