@@ -20,6 +20,8 @@ import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
 import { ToastContainer } from 'react-toastify';
 import { getAuth, signOut } from "firebase/auth";
+import JeepneyRouteMap from "./itineraryjeeproute"; // Import at the top
+import ItineraryCostEstimationModal from "./itineraryCostEstimation";
 
 
 // Authentication helpers (unchanged)
@@ -101,6 +103,7 @@ function AppInner() {
             path="/ai"
             element={isAuthenticated() ? <ChatbaseAI /> : <Navigate to="/login" replace />}
           />
+          <Route path="/jeepney-routes" element={<JeepneyRouteMapWrapper />} />
         </Route>
 
         {/* Fallback */}
@@ -126,6 +129,18 @@ export default function App() {
     <BrowserRouter>
       <AppInner />
     </BrowserRouter>
+  );
+}
+
+function JeepneyRouteMapWrapper() {
+  const [showModal, setShowModal] = useState(false);
+  return (
+    <>
+      <JeepneyRouteMap onEstimateClick={() => setShowModal(true)} />
+      {showModal && (
+        <ItineraryCostEstimationModal onClose={() => setShowModal(false)} />
+      )}
+    </>
   );
 }
 

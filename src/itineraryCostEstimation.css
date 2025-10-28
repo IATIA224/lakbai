@@ -294,6 +294,144 @@
   border-radius: 8px !important;
 }
 
+/* Fare Popup Overlay (keep above main modal) */
+.fare-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 20, 0.6);
+  z-index: 10000010; /* above main modal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.18s ease-out;
+  backdrop-filter: blur(4px);
+}
+
+/* Fare Popup Modal - centered, compact */
+.fare-popup {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(15, 20, 50, 0.45);
+  padding: 18px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  max-height: 78vh;
+  overflow: hidden;            /* keep outer box fixed */
+  border: 1px solid rgba(160, 130, 238, 0.22);
+  display: flex;
+  flex-direction: column;      /* allow children to layout vertically */
+  gap: 12px;
+  position: relative;
+}
+
+/* Title centered */
+.fare-popup-title {
+  font-weight: 800;
+  font-size: 1.08rem;
+  color: #5b21b6;
+  text-align: center;
+  margin: 6px 0 2px;
+}
+
+/* Scroll area for the list of cards */
+.fare-popup-list {
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;              /* allow the list to grow and take remaining height */
+  min-height: 40px;
+  max-height: calc(78vh - 140px); /* safe fallback to prevent overflow past viewport */
+}
+
+/* Individual card */
+.fare-popup-card {
+  background: linear-gradient(135deg, #f6f3ff 0%, #efe9ff 100%);
+  border: 1px solid rgba(196, 181, 253, 0.8);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(92, 33, 150, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Card text */
+.fare-popup-card-title {
+  font-weight: 700;
+  color: #4c1d95;
+  font-size: 0.98rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.fare-popup-card-sub {
+  font-size: 0.88rem;
+  color: #6b21a8;
+}
+
+.fare-popup-card-fare {
+  font-size: 0.96rem;
+  color: #2b1a6b;
+}
+
+.fare-popup-card-discount {
+  font-size: 0.87rem;
+  color: #7c3aed;
+}
+
+/* Sub-description line */
+.fare-popup-card-desc {
+  font-size: 0.82rem;
+  color: #6b5aa3;
+}
+
+/* Close button top-right */
+.fare-popup-close-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  font-size: 1.05rem;
+  color: #7c3aed;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.fare-popup-close-x:hover {
+  background: rgba(124,58,237,0.08);
+  transform: scale(1.03);
+}
+
+/* Primary Close button */
+.fare-popup-close {
+  align-self: center;
+  margin-top: 6px;
+  background: linear-gradient(90deg,#6c63ff,#a084ee);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.98rem;
+}
+.fare-popup-close:hover { transform: translateY(-1px); }
+
+/* Make internal scrollbar thin and subtle */
+.fare-popup-list::-webkit-scrollbar { width: 8px; }
+.fare-popup-list::-webkit-scrollbar-thumb {
+  background: rgba(108,99,255,0.22);
+  border-radius: 8px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .cost-modal {
