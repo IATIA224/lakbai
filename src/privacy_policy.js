@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./privacy_policy.css";
@@ -13,6 +13,15 @@ const PrivacyPolicy = ({ onClose }) => {
   const [activeSection, setActiveSection] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // lock body scroll while modal is open and restore on unmount
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow || '';
+    };
+  }, []);
 
   const handleChange = (e) => {
     setPreferences({
