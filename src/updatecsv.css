@@ -1,0 +1,110 @@
+/* Styles for Update CSV popup */
+.updatecsv-root {
+  padding: 18px;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 320px;
+}
+
+.updatecsv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #eef2ff;
+  padding-bottom: 8px;
+}
+
+.updatecsv-title {
+  font-weight: 800;
+  color: #374151;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.updatecsv-desc {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+/* File input row */
+.updatecsv-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.updatecsv-file {
+  flex: 1 1 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed #e6edf3;
+  background: linear-gradient(180deg,#ffffff,#fbfdff);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.updatecsv-file input[type="file"] {
+  display: inline-block;
+}
+
+/* Buttons */
+.updatecsv-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.updatecsv-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 160ms cubic-bezier(.2,.9,.3,1), box-shadow 160ms;
+}
+
+.updatecsv-btn.primary {
+  background: linear-gradient(90deg,#6c63ff,#8b78ff);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(108,99,255,0.12);
+}
+.updatecsv-btn.primary:hover { transform: translateY(-3px); }
+
+.updatecsv-btn.ghost {
+  background: #f8fafc;
+  border: 1px solid #eef2ff;
+  color: #111827;
+}
+
+/* Preview / log area */
+.updatecsv-preview {
+  margin-top: 8px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #eef2ff;
+  padding: 12px;
+  min-height: 120px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+  font-size: 12px;
+  color: #0f172a;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .updatecsv-input-row { flex-direction: column; align-items: stretch; }
+  .updatecsv-actions { justify-content: stretch; }
+}

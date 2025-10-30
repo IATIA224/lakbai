@@ -32,7 +32,7 @@ import { breakdown } from './rules';
 
 // ==================== CACHING LAYER ====================
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const destinationCache = {
+export const destinationCache = {
   data: null,
   timestamp: null,
   totalCount: null, // NEW: Cache for total count
