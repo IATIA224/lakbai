@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { collectionGroup, getDocs, query, where, orderBy, limit, getDoc, doc, collection } from 'firebase/firestore';
 import { db } from './firebase';
 import { CloudinaryContext, Image } from './cloudinary';
-import { useUserDashboardStats } from './dashboard-stats-row';
+import { useUserDashboardStats } from './hooks/useDashboardStats';
 import { getUserStats, listenUserStats } from './user-stats-cms';
 
 // Cloudinary (same defaults as elsewhere)
@@ -50,7 +50,7 @@ export default function ViewProfileCMS({
   const [tab, setTab] = useState('overview');
   const uid = user?.id || user?.uid || user?.userId || null;
 
-  const { stats: dashboardStats } = useUserDashboardStats(uid);
+  const { stats: dashboardStats, loading: dashboardStatsLoading } = useUserDashboardStats(uid);
 
   // Local state for Activity + Photos
   const [loadingActivity, setLoadingActivity] = useState(false);
@@ -419,29 +419,33 @@ export default function ViewProfileCMS({
               {/* Travel Stats card (from Firestore) */}
               <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18 }}>
                 <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Travel Stats</div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4,1fr)',
-                  gap: 12,
-                  alignItems: 'center'
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#2563eb' }}>{userStats.placesOnTrips}</div>
-                    <div className="muted small" style={{ marginTop: 4 }}>Places on Trips</div>
+                {dashboardStatsLoading ? (
+                  <div className="centered" style={{ padding: 40 }}><div className="loading-spinner" /></div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4,1fr)',
+                    gap: 12,
+                    alignItems: 'center'
+                  }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#2563eb' }}>{userStats.placesOnTrips}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Places on Trips</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>{userStats.photosShared}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Photos Shared</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed' }}>{userStats.ratedDestinations}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Rated Destinations</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#f97316' }}>{userStats.friends}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Friends</div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>{userStats.photosShared}</div>
-                    <div className="muted small" style={{ marginTop: 4 }}>Photos Shared</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed' }}>{userStats.ratedDestinations}</div>
-                    <div className="muted small" style={{ marginTop: 4 }}>Rated Destinations</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#f97316' }}>{userStats.friends}</div>
-                    <div className="muted small" style={{ marginTop: 4 }}>Friends</div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
