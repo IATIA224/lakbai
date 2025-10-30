@@ -25,7 +25,6 @@ import { v4 as uuidv4 } from "uuid"; // Install with: npm install uuid
 import { useUser } from "./UserContext";
 import { emitAchievement } from "./achievementsBus";
 import { onAuthStateChanged } from "firebase/auth";
-import { getUserDashboardStats } from "./dashboard-stats-row"; // <-- Add this import
 import { getUserCompletionStats } from './itinerary_Stats';
 
 export const CLOUDINARY_CONFIG = {
@@ -236,12 +235,38 @@ const Profile = () => {
     return () => unsubscribe();
   }, [userId]);
 
-  // authoritative friends count from the friends subcollection
+  // authoritative friends count from the friends subcollection, with cleanup
   useEffect(() => {
     if (!userId) return;
     const friendsCol = collection(db, "users", userId, "friends");
-    const unsubscribe = onSnapshot(friendsCol, (snap) => {
-      setStats((prev) => ({ ...prev, friends: snap.size }));
+    const unsubscribe = onSnapshot(friendsCol, async (snap) => {
+      const friends = snap.docs;
+      const friendIds = friends.map(doc => doc.id);
+      
+      // Verify each friend still exists
+      const userDocsPromises = friendIds.map(id => getDoc(doc(db, "users", id)));
+      const userDocsSnaps = await Promise.all(userDocsPromises);
+      
+      const staleFriendIds = [];
+      let validFriendsCount = 0;
+
+      userDocsSnaps.forEach((userSnap, index) => {
+        if (userSnap.exists()) {
+          validFriendsCount++;
+        } else {
+          staleFriendIds.push(friendIds[index]);
+        }
+      });
+
+      // Update the UI immediately with the valid count
+      setStats((prev) => ({ ...prev, friends: validFriendsCount }));
+
+      // Clean up stale friend references in the background
+      if (staleFriendIds.length > 0) {
+        const deletePromises = staleFriendIds.map(id => deleteDoc(doc(db, "users", userId, "friends", id)));
+        await Promise.all(deletePromises);
+        console.log(`Cleaned up ${staleFriendIds.length} stale friend(s).`);
+      }
     });
     return () => unsubscribe();
   }, [userId]);
@@ -706,21 +731,6 @@ const Profile = () => {
     };
 
     fetchCompletedDestinations();
-  }, [userId]);
-
-  // Add this function:
-  async function getUserFriendsCount(uid) {
-    const snap = await getDocs(collection(db, "users", uid, "friends"));
-    return snap.size;
-  }
-
-  // In Profile, fetch and display the count:
-  useEffect(() => {
-    if (userId) {
-      getUserFriendsCount(userId).then(count =>
-        setStats(prev => ({ ...prev, friends: count }))
-      );
-    }
   }, [userId]);
 
   return (
@@ -1664,9 +1674,8 @@ const Profile = () => {
       )}
     </>
   );
-}; // Profile component ends here
+};
 
-// Add this export function AFTER the Profile component
 export async function unlockAchievement(achievementId, achievementName) {
   const user = auth.currentUser;
   if (!user) return;
@@ -1686,7 +1695,6 @@ export async function unlockAchievement(achievementId, achievementName) {
   }
 }
 
-// ADD THIS EXPORT - find the logActivity function and add export keyword
 export async function logActivity(text, icon = "🔵") {
   try {
     const user = auth.currentUser;

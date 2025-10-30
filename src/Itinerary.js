@@ -42,6 +42,9 @@ import {
 } from "./itinerary_Stats";
 import { logActivity } from "./profile"; // ADD THIS IMPORT
 
+// NEW: import UpdateCSV component
+import UpdateCSV from "./updatecsv";
+
 // ==================== ADD TO TRIP HELPER (moved to top) ====================
 export async function addTripForCurrentUser(dest) {
   const u = auth.currentUser;
@@ -484,7 +487,19 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
   const [showCostEstimation, setShowCostEstimation] = useState(false);
   const [showAgency, setShowAgency] = useState(false); // ADD THIS
   const [showToolsMenu, setShowToolsMenu] = useState(false); // ADD THIS
+
+  // NEW: Update CSV modal state
+  const [showUpdateCsv, setShowUpdateCsv] = useState(false);
   
+  // ADD THIS - Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setShowToolsMenu(false);
+    if (showToolsMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showToolsMenu]);
+
   const days =
     item.arrival && item.departure
       ? Math.max(
@@ -498,15 +513,6 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
 
   const activities = item.activities || [];
   const showToggle = activities.length > 3;
-
-  // ADD THIS - Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setShowToolsMenu(false);
-    if (showToolsMenu) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [showToolsMenu]);
 
   return (
     <>
@@ -705,6 +711,18 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
                 <span style={{ fontSize: "18px" }}>✈️</span>
                 <span>Travel Agencies</span>
               </button>
+
+              {/* NEW: Update CSV menu item */}
+              <button
+                onClick={() => {
+                  setShowUpdateCsv(true);
+                  setShowToolsMenu(false);
+                }}
+                className="itn-tools-menu-item"
+              >
+                <span style={{ fontSize: "18px" }}>🗄️</span>
+                <span>Update CSV</span>
+              </button>
             </div>
           )}
         </div>
@@ -740,19 +758,85 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
         />
       )}
 
-      {/* ADD THIS - Travel Agency Modal */}
+      {/* ADD THIS - Travel Agency Modal (guarded) */}
       {showAgency && (
-        <ItineraryAgencyModal
-          open={showAgency}
-          onClose={() => setShowAgency(false)}
-          onSelect={(agency) => {
-            setShowAgency(false);
-            setEditing({
-              ...item,
-              transportNotes: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
-            });
-          }}
-        />
+        typeof ItineraryAgencyModal === "function" ? (
+          <ItineraryAgencyModal
+            open={showAgency}
+            onClose={() => setShowAgency(false)}
+            onSelect={(agency) => {
+              setShowAgency(false);
+              setEditing({
+                ...item,
+                transportNotes: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
+              });
+            }}
+          />
+        ) : (
+          ReactDOM.createPortal(
+            <div className="itn-modal-backdrop" onClick={() => setShowAgency(false)}>
+              <div className="itn-modal itn-modal-md" onClick={(e) => e.stopPropagation()}>
+                <div className="itn-modal-header">
+                  <div className="itn-modal-title">Travel Agencies</div>
+                  <button className="itn-close" onClick={() => setShowAgency(false)}>×</button>
+                </div>
+                <div className="itn-modal-body">
+                  <div style={{ padding: 12, color: "#374151" }}>
+                    Travel agency UI is currently unavailable (component not found).
+                  </div>
+                </div>
+                <div className="itn-modal-footer">
+                  <button className="itn-btn ghost" onClick={() => setShowAgency(false)}>Close</button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        )
+      )}
+
+      {/* NEW: Update CSV modal - mounts UpdateCSV component inside existing modal UI (guarded) */}
+      {showUpdateCsv && (
+        typeof UpdateCSV === "function" ? (
+          ReactDOM.createPortal(
+            <div className="itn-modal-backdrop" onClick={() => setShowUpdateCsv(false)}>
+              <div className="itn-modal itn-modal-md" onClick={(e) => e.stopPropagation()}>
+                <div className="itn-modal-header">
+                  <div className="itn-modal-title">Update CSV</div>
+                  <button className="itn-close" onClick={() => setShowUpdateCsv(false)}>×</button>
+                </div>
+                <div className="itn-modal-body" style={{ maxHeight: '60vh', overflow: 'auto' }}>
+                  <UpdateCSV />
+                </div>
+                <div className="itn-modal-footer">
+                  <button className="itn-btn ghost" onClick={() => setShowUpdateCsv(false)}>Close</button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        ) : (
+          ReactDOM.createPortal(
+            <div className="itn-modal-backdrop" onClick={() => setShowUpdateCsv(false)}>
+              <div className="itn-modal itn-modal-md" onClick={(e) => e.stopPropagation()}>
+                <div className="itn-modal-header">
+                  <div className="itn-modal-title">Update CSV</div>
+                  <button className="itn-close" onClick={() => setShowUpdateCsv(false)}>×</button>
+                </div>
+                <div className="itn-modal-body">
+                  <div style={{ padding: 12, color: "#374151" }}>
+                    Update CSV UI is not available — the UpdateCSV component could not be imported.
+                    Check ./updatecsv.js exports (should be "export default UpdateCSV").
+                  </div>
+                </div>
+                <div className="itn-modal-footer">
+                  <button className="itn-btn ghost" onClick={() => setShowUpdateCsv(false)}>Close</button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        )
       )}
     </>
   );
