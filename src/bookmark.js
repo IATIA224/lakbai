@@ -13,23 +13,7 @@ import { trackDestinationAdded } from './itinerary_Stats';
 import destImages from './dest-images.json';
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
 import { breakdown } from './rules';
-
-// Add this helper function after the imports
-async function logActivity(text, icon = "🔵") {
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    await addDoc(collection(db, "activities"), {
-      userId: user.uid,
-      text,
-      icon,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error logging activity:", error);
-  }
-}
+import { logActivity } from './utils/activityLogger';
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -976,7 +960,7 @@ const getImageForDestination = (name) => {
                 <div className="bm-card-head">
                   <h3 className="bm-card-title">{d.name}</h3>
                   <div className="bm-card-rating" title="Average Rating">
-                    <span>⭐</span> {Number(d.rating || 0) > 0 ? Number(d.rating).toFixed(1) : '0'}
+                    <span>⭐</span> {Number(d.avgRating || d.rating || 0) > 0 ? Number(d.avgRating || d.rating).toFixed(1) : '0'}
                   </div>
                 </div>
 

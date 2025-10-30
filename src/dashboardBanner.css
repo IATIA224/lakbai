@@ -672,6 +672,238 @@
   font-size: 0.95rem;
 }
 
+/* Top Rated Hero Carousel UI */
+.top-rated-hero-carousel-ui {
+  width: 100%;
+  max-width: 1100px;
+  margin: 36px auto 0 auto;
+  background: #fff;
+  border-radius: 32px;
+  box-shadow: 0 8px 32px rgba(60,60,120,0.13);
+  padding: 0 0 32px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-height: 550px;
+  transition: box-shadow 0.2s;
+}
+
+.top-rated-hero-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 32px 0 0 0;
+  color: #2563eb;
+  letter-spacing: -1px;
+  text-align: center;
+}
+
+.top-rated-hero-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 18px;
+  position: relative;
+}
+
+.top-rated-hero-content {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  background: #f8fafc;
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgba(60,60,120,0.10);
+  padding: 32px 40px;
+  min-width: 0;
+  max-width: 900px;
+  width: 80%;
+}
+
+.top-rated-hero-img {
+  width: 400px;
+  height: 280px;
+  object-fit: cover;
+  border-radius: 18px;
+  box-shadow: 0 2px 12px rgba(60,60,120,0.10);
+  background: #e0e7ef;
+  margin-right: 24px;
+  animation: fade-in 0.8s ease-in-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.top-rated-hero-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  flex: 1;
+  height: 280px;
+}
+
+.top-rated-hero-name {
+  font-weight: 700;
+  font-size: 2.5rem;
+  margin-bottom: 6px;
+  color: #222;
+  letter-spacing: -1px;
+}
+
+.top-rated-hero-region {
+  color: #2563eb;
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.top-rated-hero-desc {
+  margin: 8px 0;
+  font-size: 1.2rem;
+  color: #334155;
+  max-width: 400px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-rated-hero-rating {
+  font-weight: 600;
+  color: #f59e42;
+  font-size: 1.5rem;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-rated-hero-rating .star {
+  font-size: 1.8rem;
+  margin-right: 4px;
+}
+
+.top-rated-hero-rating .count {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 1.2rem;
+  margin-left: 8px;
+}
+
+.top-rated-hero-details-btn {
+  margin-top: 15px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s ease-in-out;
+}
+
+.top-rated-hero-details-btn:hover {
+  background: #1d4ed8;
+}
+
+.top-rated-hero-arrow {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  font-size: 2.5rem;
+  color: #2563eb;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(60,60,120,0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  transition: background 0.2s, color 0.2s;
+}
+
+.top-rated-hero-arrow.left { left: -28px; }
+.top-rated-hero-arrow.right { right: -28px; }
+
+.top-rated-hero-arrow:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.top-rated-hero-dots {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.top-rated-hero-dots .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e0e7ef;
+  display: inline-block;
+  transition: background 0.2s;
+  cursor: pointer;
+  border: 2px solid #2563eb00;
+}
+
+.top-rated-hero-dots .dot.active {
+  background: #2563eb;
+  border: 2px solid #2563eb;
+}
+
+/* Responsive for mobile */
+@media (max-width: 900px) {
+  .top-rated-hero-content {
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 8px;
+    gap: 18px;
+  }
+  .top-rated-hero-img {
+    width: 90vw;
+    max-width: 340px;
+    height: 180px;
+    margin-right: 0;
+    margin-bottom: 12px;
+  }
+  .top-rated-hero-info {
+    align-items: center;
+    text-align: center;
+  }
+  .top-rated-hero-name {
+    font-size: 1.3rem;
+  }
+  .top-rated-hero-region {
+    font-size: 1rem;
+  }
+  .top-rated-hero-desc {
+    font-size: 1rem;
+    max-width: 90vw;
+  }
+  .top-rated-hero-rating {
+    font-size: 1.1rem;
+  }
+  .top-rated-hero-arrow.left { left: 2px; }
+  .top-rated-hero-arrow.right { right: 2px; }
+}
+
 /* Mobile responsive styles for dashboard */
 @media (max-width: 768px) {
   /* Dashboard banner adjustments */

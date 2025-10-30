@@ -4,6 +4,7 @@ import './Styles/bookmark2.css';
 import { db, auth } from './firebase';
 import { useNavigate } from 'react-router-dom';
 import { unlockAchievement } from './profile';
+import { logActivity } from './utils/activityLogger';
 import {
   collection,
   serverTimestamp,
@@ -81,23 +82,6 @@ export const destinationCache = {
     } catch (e) {}
   }
 };
-
-// ADD logActivity function HERE at the top
-async function logActivity(text, icon = "🔵") {
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    await addDoc(collection(db, "activities"), {
-      userId: user.uid,
-      text,
-      icon,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error logging activity:", error);
-  }
-}
 
 // Fix 1: Import 'query' from firebase/firestore (it's already imported as fsQuery)
 async function ensureCollectionExists(path) {
@@ -592,6 +576,8 @@ const getTotalPrice = (basePrice) => {
               region: dest.region || '',
               location: dest.location || '',
               rating: dest.rating ?? null,
+              avgRating: dest.avgRating ?? null,
+              ratingCount: dest.ratingCount ?? null,
               price: dest.price || '',
               priceTier: dest.priceTier || null,
               tags: dest.tags || [],
@@ -1337,7 +1323,7 @@ const getTotalPrice = (basePrice) => {
                 <div className="card-header">
                   <h2>{d.name}</h2>
                   <div className="mini-rating" title="Average Rating">
-                    <span>⭐</span> {Number(d.rating || 0) > 0 ? Number(d.rating).toFixed(1) : '0'}
+                    <span>⭐</span> {Number(d.avgRating || d.rating || 0) > 0 ? Number(d.avgRating || d.rating).toFixed(1) : '0'}
                     </div>
                 </div>
 

@@ -1,19 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   collection, getDocs, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc, serverTimestamp,
-  where as fsWhere, setDoc, arrayUnion, arrayRemove, runTransaction
+  where as fsWhere, setDoc, arrayUnion, arrayRemove, runTransaction, orderBy
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import './dashboardBanner.css';
 import { fetchCloudinaryImages, getImageForDestination as getCloudImageForDestination } from "./image-router";
 import destImages from './dest-images.json';
+import { unlockAchievement } from './profile';
+import { logActivity } from './utils/activityLogger';
+import { addTripForCurrentUser } from './Itinerary';
+import { trackDestinationAdded } from './itinerary_Stats';
 
 import DashboardBanner from './components/DashboardBanner';
 import DashboardStats from './components/DashboardStats';
 import TripsPreview from './components/TripsPreview';
 import BookmarksPreview from './components/BookmarksPreview';
 import { breakdown } from './rules';
+import Carousel from 'react-multi-carousel';
+import 'react-multi-carousel/lib/styles.css';
 
 
 // Helper to get image URL by destination name
@@ -81,6 +87,7 @@ function DestinationCard({
           <span className={`pill ${priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
             {formatPeso(price)}
           </span>
+
           <button className="details-btn" onClick={onDetails}>
             View Details
           </button>
@@ -126,6 +133,221 @@ function getFirebaseImageForDestination(firebaseImages, destName) {
   return found && found.url ? found.url : null;
 }
 
+function useTopRatedDestinations(limitCount = 10) {
+  const [topRated, setTopRated] = useState([]);
+  useEffect(() => {
+    const q = fsQuery(
+      collection(db, 'topRatedDestinations'),
+      orderBy('avgRating', 'desc'),
+      orderBy('ratingCount', 'desc'),
+      limit(limitCount)
+    );
+    const unsub = onSnapshot(q,
+      (snap) => {
+        const destinations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setTopRated(destinations);
+      },
+      (error) => {
+        console.error("Error fetching top rated destinations:", error);
+        setTopRated([]);
+      }
+    );
+    return () => unsub();
+  }, [limitCount]);
+  return topRated;
+}
+
+// Carousel component
+function TopRatedCarousel({ destinations, cloudImages, firebaseImages }) {
+  // Helper to pick the best image
+  const pickImage = (d) =>
+    getCloudImageForDestination(cloudImages, d.name) ||
+    getFirebaseImageForDestination(firebaseImages, d.name) ||
+    getImageForDestination(d.name) ||
+    "/placeholder.png";
+
+  // Only show top 10
+  const top10 = destinations.slice(0, 10);
+
+  if (!top10.length) return null;
+
+  return (
+    <div className="top-rated-carousel" style={{ margin: "32px 0" }}>
+      <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>
+        Top Rated Destinations
+      </h2>
+      <Carousel
+        arrows
+        autoPlaySpeed={4000}
+        infinite
+        responsive={{
+          desktop: { breakpoint: { max: 3000, min: 1024 }, items: 3 },
+          tablet: { breakpoint: { max: 1024, min: 464 }, items: 2 },
+          mobile: { breakpoint: { max: 464, min: 0 }, items: 1 },
+        }}
+        itemClass="carousel-item-padding-40-px"
+        showDots={false}
+        swipeable
+      >
+        {top10.map((d) => (
+          <div
+            key={d.id}
+            className="carousel-card"
+            style={{
+              background: "#fff",
+              borderRadius: 18,
+              boxShadow: "0 4px 16px rgba(60,60,120,0.10)",
+              padding: 20,
+              margin: 12,
+              minWidth: 260,
+              maxWidth: 340,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}
+          >
+            <img
+              src={pickImage(d)}
+              alt={d.name}
+              style={{
+                width: "100%",
+                height: 160,
+                objectFit: "cover",
+                borderRadius: 14,
+                marginBottom: 14,
+                background: "#e0e7ef",
+              }}
+              onError={(e) => (e.target.src = "/placeholder.png")}
+            />
+            <div style={{ fontWeight: 700, fontSize: 19, marginBottom: 2 }}>
+              {d.name}
+            </div>
+            <div
+              style={{
+                color: "#2563eb",
+                fontSize: 14,
+                fontWeight: 500,
+                marginBottom: 6,
+              }}
+            >
+              {d.region}
+            </div>
+            <div style={{ margin: "6px 0", fontSize: 15, color: "#334155" }}>
+              {d.description?.slice(0, 80) || "No description."}
+            </div>
+            <div
+              style={{
+                fontWeight: 600,
+                color: "#f59e42",
+                fontSize: 16,
+                marginTop: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: 18 }}>⭐</span>
+              {d.avgRating.toFixed(1)}
+              <span style={{ color: "#64748b", fontWeight: 400, fontSize: 14 }}>
+                ({d.ratingCount} {d.ratingCount === 1 ? "rating" : "ratings"})
+              </span>
+            </div>
+          </div>
+        ))}
+      </Carousel>
+    </div>
+  );
+}
+
+// New TopRatedHeroCarousel component
+function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onViewDetails }) {
+  const [current, setCurrent] = useState(0);
+  const intervalRef = useRef();
+
+  const pickImage = (d) =>
+    getCloudImageForDestination(cloudImages, d.name) ||
+    getFirebaseImageForDestination(firebaseImages, d.name) ||
+    getImageForDestination(d.name) ||
+    "/placeholder.png";
+
+  const top10 = destinations.slice(0, 10);
+
+  useEffect(() => {
+    if (top10.length === 0) {
+      return;
+    }
+    intervalRef.current = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % top10.length);
+    }, 3000);
+    return () => clearInterval(intervalRef.current);
+  }, [top10.length]);
+
+  if (!top10.length) return null;
+  const d = top10[current];
+
+  if (!d) {
+    return null;
+  }
+
+  return (
+    <div className="top-rated-hero-carousel-ui">
+      <h2 className="top-rated-hero-title">Top Rated Destinations</h2>
+      <div className="top-rated-hero-card">
+        <button
+          className="top-rated-hero-arrow left"
+          onClick={() => setCurrent((prev) => (prev - 1 + top10.length) % top10.length)}
+          aria-label="Previous"
+        >
+          <span>&#8249;</span>
+        </button>
+        <div className="top-rated-hero-content">
+          <img
+            key={d.id}
+            src={pickImage(d)}
+            alt={d.name}
+            className="top-rated-hero-img fade-in-image"
+            onError={(e) => (e.target.src = "/placeholder.png")}
+          />
+          <div className="top-rated-hero-info">
+            <div className="top-rated-hero-name">{d.name}</div>
+            <div className="top-rated-hero-region">{d.region}</div>
+            <div className="top-rated-hero-desc">{d.description?.slice(0, 120) || "No description."}</div>
+            <div className="top-rated-hero-rating">
+              <span className="star">⭐</span>
+              {d.avgRating.toFixed(1)}
+              <span className="count">
+                ({d.ratingCount} {d.ratingCount === 1 ? "rating" : "ratings"})
+              </span>
+            </div>
+            <button
+              className="top-rated-hero-details-btn"
+              onClick={() => onViewDetails(d)}
+            >
+              View Details
+            </button>
+          </div>
+        </div>
+        <button
+          className="top-rated-hero-arrow right"
+          onClick={() => setCurrent((prev) => (prev + 1) % top10.length)}
+          aria-label="Next"
+        >
+          <span>&#8250;</span>
+        </button>
+      </div>
+      <div className="top-rated-hero-dots">
+        {top10.map((_, idx) => (
+          <span
+            key={idx}
+            className={`dot${idx === current ? " active" : ""}`}
+            onClick={() => setCurrent(idx)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ setShowAIModal }) {
   const navigate = useNavigate();
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
@@ -148,6 +370,7 @@ function Dashboard({ setShowAIModal }) {
   const [personalizedSavingRating, setPersonalizedSavingRating] = useState(false);
   const [addingTripId, setAddingTripId] = useState(null);
   const [addedTripId, setAddedTripId] = useState(null);
+  const topRatedDestinations = useTopRatedDestinations(10);
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u));
@@ -171,6 +394,27 @@ function Dashboard({ setShowAIModal }) {
     }
     fetchFirebaseImages();
   }, []);
+
+  useEffect(() => {
+    if (!detailsModalOpen || !selectedCard) return;
+
+    async function fetchUserReviewsCount() {
+      try {
+        const reviewsSnap = await getDocs(collection(db, 'destinations', selectedCard.id, 'reviews'));
+        setUserReviewsCountByDest(prev => ({
+          ...prev,
+          [selectedCard.id]: reviewsSnap.size || 0
+        }));
+      } catch (e) {
+        console.error("Error fetching user reviews count:", e);
+        setUserReviewsCountByDest(prev => ({
+          ...prev,
+          [selectedCard.id]: 0
+        }));
+      }
+    }
+    fetchUserReviewsCount();
+  }, [detailsModalOpen, selectedCard]);
 
   const pickCardImage = (name) =>
     getCloudImageForDestination(cloudImages, name) ||
@@ -275,10 +519,12 @@ function Dashboard({ setShowAIModal }) {
             region: d.region || d.locationRegion || '',
             description: d.description || d.desc || '',
             rating: d.rating || 0,
+            avgRating: d.avgRating || 0,
+            ratingCount: d.ratingCount || 0,
             price: d.price || '',
             priceTier: d.priceTier || null,
             tags: Array.isArray(d.tags) ? d.tags : [],
-            category: Array.isArray(d.category) ? d.category : [],
+            categories: Array.isArray(d.categories) ? d.categories : [], // Changed from category to categories
             location: d.location || '',
             image: d.image || d.imageUrl || '',
             bestTime: d.bestTime || '',
@@ -325,32 +571,61 @@ function Dashboard({ setShowAIModal }) {
     const next = !personalizedBookmarks[id];
     setPersonalizedBookmarks(prev => ({ ...prev, [id]: next }));
 
+    const listRef = doc(db, 'userBookmarks', user.uid);
+    const userDocRef = doc(db, 'users', user.uid);
+    const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', String(id));
+
     try {
       const d = recommendedDestinations.find(x => String(x.id) === String(id)) || {};
-      const ref = doc(db, 'users', user.uid, 'bookmarks', String(id));
-      const listRef = doc(db, 'userBookmarks', user.uid);
+
+      await setDoc(
+        listRef,
+        {
+          userId: user.uid,
+          updatedAt: serverTimestamp(),
+          bookmarks: next ? arrayUnion(String(id)) : arrayRemove(String(id)),
+        },
+        { merge: true }
+      );
+
+      try {
+        await setDoc(userDocRef, { updatedAt: serverTimestamp() }, { merge: true });
+      } catch (e) {
+        console.warn('users/{uid} timestamp write skipped:', e.code || e.message);
+      }
 
       if (next) {
         const payload = {
-          id: d.id || String(id),
+          destId: String(id),
           name: d.name || '',
           description: d.description || '',
           region: d.region || '',
-          rating: d.rating || 0,
+          location: d.location || '',
+          rating: d.rating ?? null,
+          avgRating: d.avgRating ?? null,
+          ratingCount: d.ratingCount ?? null,
           price: d.price || '',
           priceTier: d.priceTier || null,
           tags: Array.isArray(d.tags) ? d.tags : [],
-          category: Array.isArray(d.category) ? d.category : [],
-          location: d.location || '',
-          image: d.image || pickCardImage(d.name) || '',
+          categories: Array.isArray(d.categories) ? d.categories : [],
+          category: Array.isArray(d.categories) && d.categories.length > 0 ? d.categories[0] : '',
           bestTime: d.bestTime || '',
-          createdAt: serverTimestamp()
+          packingSuggestions: d.packingSuggestions || d.packing || '',
+          image: d.image || pickCardImage(d.name) || '',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         };
-        await setDoc(ref, payload, { merge: true });
-        await setDoc(listRef, { userId: user.uid, updatedAt: serverTimestamp(), bookmarks: arrayUnion(String(id)) }, { merge: true });
+        await setDoc(bookmarkDocRef, payload, { merge: true });
+        await logActivity(`Bookmarked "${d.name}"`, "⭐");
+
+        const userBookmarksSnap = await getDoc(listRef);
+        const bookmarksList = userBookmarksSnap.data()?.bookmarks || [];
+        if (bookmarksList.length === 1) {
+          await unlockAchievement(2, "First Bookmark");
+        }
       } else {
-        await deleteDoc(ref);
-        await setDoc(listRef, { userId: user.uid, updatedAt: serverTimestamp(), bookmarks: arrayRemove(String(id)) }, { merge: true });
+        await deleteDoc(bookmarkDocRef);
+        await logActivity(`Removed "${d.name}" from bookmarks`, "💔");
       }
     } catch (e) {
       console.error('bookmark toggle failed', e);
@@ -432,22 +707,77 @@ function Dashboard({ setShowAIModal }) {
             region: dest.region || dest.locationRegion || '',
             location: dest.location || '',
             description: dest.description || '',
+            lat: dest.lat || dest.latitude,
+            lon: dest.lon || dest.longitude,
+            place_id: dest.place_id || dest.id,
             rating: dest.rating || 0,
             price: dest.price || '',
             priceTier: dest.priceTier || null,
             tags: Array.isArray(dest.tags) ? dest.tags : [],
-            category: Array.isArray(dest.category) ? dest.category : [],
+            categories: Array.isArray(dest.category) ? dest.category : [],
             bestTime: dest.bestTime || dest.best_time || '',
             image: dest.image || dest.imageUrl || getImageForDestination(dest.name) || '',
         };
 
-        navigate('/itinerary', { state: { prefill: destinationData } });
+        await addTripForCurrentUser(destinationData);
+
+        await trackDestinationAdded(u.uid, {
+          id: dest.id,
+          name: dest.name,
+          region: dest.region,
+          location: dest.location,
+        });
+
+        const parseEstimatedFromPrice = (p) => {
+          if (p == null) return 0;
+          if (typeof p === "number") return p;
+          const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
+          const nums = s.match(/\d+/g);
+          if (!nums || nums.length === 0) return 0;
+          const numbers = nums.map(Number).filter(Number.isFinite);
+          const sum = numbers.reduce((a, b) => a + b, 0);
+          return Math.round(sum / numbers.length);
+        };
+        const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.estimatedExpenditure ?? dest?.budget);
+
+        try {
+          await setDoc(
+            doc(db, 'users', u.uid, 'trips', String(dest.id)),
+            {
+              destId: String(dest.id),
+              name: dest.name || '',
+              region: dest.region || '',
+              location: dest.location || '',
+              rating: dest.rating ?? null,
+              price: dest.price || '',
+              priceTier: dest.priceTier || null,
+              estimatedExpenditure: estimated,
+              tags: Array.isArray(dest.tags) ? dest.tags : [],
+              categories: Array.isArray(dest.category) ? dest.category : [],
+              bestTime: dest.bestTime || '',
+              image: dest.image || '',
+              addedBy: u.uid,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.warn('users/{uid}/trips write skipped:', e.code || e.message);
+        }
 
         setAddedTripId(dest.id);
-        setTimeout(() => setAddedTripId(null), 1200);
+        setTimeout(() => {
+          setAddedTripId(null);
+          navigate('/itinerary');
+        }, 600);
         } catch (e) {
-        console.error('Failed to add to My Trips:', e);
-        alert('Failed to add to My Trips.');
+          if (e?.message === 'AUTH_REQUIRED') {
+            alert('Please sign in to add to My Trips.');
+          } else {
+            console.error('Add to My Trips failed:', e);
+            alert('Failed to add to trip. Please try again.');
+          }
         } finally {
         setAddingTripId(null);
         }
@@ -489,7 +819,7 @@ function Dashboard({ setShowAIModal }) {
 
         setPersonalizedRatingsByDest((m) => ({ ...m, [selectedCard.id]: { avg, count } }));
     } catch (e) {
-        console.error('Save rating failed:', e);
+        console.error('Save rating failed', e);
         alert('Failed to save rating.');
     } finally {
         setPersonalizedSavingRating(false);
@@ -500,6 +830,14 @@ function Dashboard({ setShowAIModal }) {
     <>
       <DashboardBanner setShowAIModal={setShowAIModal} />
       <DashboardStats />
+
+      {/* Replace old carousel with hero carousel */}
+      <TopRatedHeroCarousel
+        destinations={topRatedDestinations}
+        cloudImages={cloudImages}
+        firebaseImages={firebaseImages}
+        onViewDetails={handlePersonalizedDetails}
+      />
 
       <div className="dashboard-preview-row">
         <TripsPreview setShowAIModal={setShowAIModal} />
