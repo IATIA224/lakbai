@@ -44,6 +44,7 @@ import { logActivity } from "./profile"; // ADD THIS IMPORT
 
 // NEW: import UpdateCSV component
 import UpdateCSV from "./updatecsv";
+import { SuggestionView } from "./ItinerarySuggestion";
 
 // ==================== ADD TO TRIP HELPER (moved to top) ====================
 export async function addTripForCurrentUser(dest) {
@@ -193,6 +194,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     transport: initial?.transport || "",
     transportNotes: initial?.transportNotes || "",
     notes: initial?.notes || "",
+    agency: initial?.agency || "",
   }));
 
   const [notif, setNotif] = useState("");
@@ -446,6 +448,16 @@ function EditDestinationModal({ initial, onSave, onClose }) {
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />
               </div>
+
+              <div className="itn-field">
+                <span className="itn-label">Travel Agency</span>
+                <input
+                  className="itn-input"
+                  placeholder="Agency name or details"
+                  value={form.agency}
+                  onChange={(e) => setForm({ ...form, agency: e.target.value })}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -499,6 +511,15 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [showToolsMenu]);
+
+  // NEW: Add/remove a class to body when summary is open to prevent background scroll
+  useEffect(() => {
+    if (showSummary) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+  }, [showSummary]);
 
   const days =
     item.arrival && item.departure
@@ -572,6 +593,13 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
             <div className="itn-stat-body">
               <div>{item.accomType || "Not planned"}</div>
               <div className="itn-muted">{item.accomName || "No details"}</div>
+            </div>
+          </div>
+
+          <div className="itn-stat purple">
+            <div className="itn-stat-title">Agency</div>
+            <div className="itn-stat-body">
+              <div>{item.agency || "Not planned"}</div>
             </div>
           </div>
 
@@ -730,10 +758,28 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
 
       {/* Render modals OUTSIDE the card */}
       {showSummary && (
-        <ItinerarySummaryModal
-          item={item}
+        <SuggestionView 
+          item={item} 
           onClose={() => setShowSummary(false)}
-        />
+          onSelectHotel={(hotel) => {
+              setEditing({
+                ...item,
+                accomType: hotel.type,
+                accomName: hotel.name,
+                accomNotes: hotel.address,
+              });
+              setShowSummary(false);
+          }}
+          onSelectAgency={(agency) => {
+              setEditing({
+                ...item,
+                agency: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
+              });
+              setShowSummary(false);
+          }}
+        >
+          <ItinerarySummaryModal item={item} onClose={() => setShowSummary(false)} />
+        </SuggestionView>
       )}
 
       {showCostEstimation && (
@@ -759,8 +805,8 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
       )}
 
       {/* ADD THIS - Travel Agency Modal (guarded) */}
-      {showAgency && (
-        typeof ItineraryAgencyModal === "function" ? (
+      {showAgency &&
+        (typeof ItineraryAgencyModal === "function" ? (
           <ItineraryAgencyModal
             open={showAgency}
             onClose={() => setShowAgency(false)}
@@ -768,7 +814,9 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
               setShowAgency(false);
               setEditing({
                 ...item,
-                transportNotes: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
+                transportNotes: `${agency.name} - ${agency.phone || ""} ${
+                  agency.website || ""
+                }`.trim(),
               });
             }}
           />
@@ -854,15 +902,14 @@ function ItinerarySummaryModal({ item, onClose }) {
         )
       : 0;
 
-  const modalContent = (
-    <div className="itn-modal-backdrop itn-summary-backdrop" onClick={onClose}>
-      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
+  return (
+    <>
         <div className="itn-modal-header">
           <div className="itn-modal-title">📋 Trip Summary</div>
           <button className="itn-close" onClick={onClose}>×</button>
         </div>
 
-        <div className="itn-modal-body">
+        <div className="itn-modal-body" style={{ flex: 1, overflowY: 'auto' }}>
           <div className="itn-summary-content">
             <div className="itn-summary-section">
               <h3 className="itn-summary-heading">📍 Destination</h3>
@@ -952,6 +999,15 @@ function ItinerarySummaryModal({ item, onClose }) {
               </div>
             )}
 
+            {item.agency && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">✈️ Agency</h3>
+                <div className="itn-summary-item">
+                  <p className="itn-summary-notes">{item.agency}</p>
+                </div>
+              </div>
+            )}
+
             {item.notes && (
               <div className="itn-summary-section">
                 <h3 className="itn-summary-heading">📝 Notes</h3>
@@ -975,12 +1031,8 @@ function ItinerarySummaryModal({ item, onClose }) {
         <div className="itn-modal-footer">
           <button className="itn-btn primary" onClick={onClose}>Close</button>
         </div>
-      </div>
-    </div>
+    </>
   );
-
-  // Render to body using Portal
-  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose }) {
@@ -1923,7 +1975,7 @@ export default function Itinerary() {
                         setEditing={setEditing}
                       />
                     ))
-                )}
+                ) }
               </>
             ) : (
               <SharedItinerariesTab user={user} />

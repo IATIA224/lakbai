@@ -153,7 +153,7 @@ function normalizeProvince(province) {
 // UPDATED: Helper function to detect if string is an email
 function isEmail(str) {
   if (!str) return false;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[^'s@]+@[^'s@]+\.[^'s@]+$/;
   return emailRegex.test(str.trim());
 }
 
