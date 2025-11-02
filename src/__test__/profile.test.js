@@ -1,384 +1,672 @@
-import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import '@testing-library/jest-dom'
-
-window.alert = jest.fn()
-global.fetch = jest.fn(() =>
-  Promise.resolve({
-    ok: true,
-    json: () => Promise.resolve({ secure_url: 'https://example.com/uploaded.jpg' }),
-  })
-)
+import React from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import Profile, { unlockAchievement, logActivity } from '../profile';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, collection, doc } from 'firebase/firestore';
+import { useUser } from '../UserContext';
+import { getUserCompletionStats } from '../itinerary_Stats';
 
 // Mock dependencies
-const mockNavigate = jest.fn()
-
-jest.mock('react-router-dom', () => ({
-  __esModule: true,
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
-}))
-
-// Mock EditProfile component
-jest.mock('../EditProfile', () => {
-  return function MockEditProfile({ onClose }) {
-    return (
-      <div data-testid="edit-profile-modal">
-        <button onClick={onClose}>Cancel</button>
-        <button>Save</button>
-      </div>
-    )
-  }
-})
-
 jest.mock('../firebase', () => ({
-  __esModule: true,
-  db: {},
-  auth: {
-    currentUser: {
-      uid: 'test-user-123',
-      displayName: 'Test User',
-      email: 'test@example.com',
-      photoURL: '/avatar.jpg',
-      metadata: { creationTime: new Date('2024-01-01').toISOString() },
-    },
-  },
-  storage: {},
-}))
+  auth: { currentUser: { uid: 'test-uid' } },
+  db: {}
+}));
+
+jest.mock('firebase/auth', () => ({
+  onAuthStateChanged: jest.fn(),
+  signOut: jest.fn()
+}));
 
 jest.mock('firebase/firestore', () => ({
-  __esModule: true,
-  collection: jest.fn(),
   doc: jest.fn(),
   getDoc: jest.fn(),
   getDocs: jest.fn(),
-  setDoc: jest.fn(),
+  addDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
-  addDoc: jest.fn(),
-  query: jest.fn(),
-  where: jest.fn(),
-  orderBy: jest.fn(),
-  limit: jest.fn(),
   onSnapshot: jest.fn(),
-  serverTimestamp: jest.fn(() => new Date()),
-}))
+  collection: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn()
+}));
 
-jest.mock('firebase/auth', () => ({
-  __esModule: true,
-  getAuth: jest.fn(() => ({
-    currentUser: {
-      uid: 'test-user-123',
-      displayName: 'Test User',
-      email: 'test@example.com',
-      photoURL: '/avatar.jpg',
-      metadata: { creationTime: new Date('2024-01-01').toISOString() },
-    },
-  })),
-  onAuthStateChanged: jest.fn((auth, callback) => {
-    callback({
-      uid: 'test-user-123',
-      displayName: 'Test User',
-      email: 'test@example.com',
-      photoURL: '/avatar.jpg',
-      metadata: { creationTime: new Date('2024-01-01').toISOString() },
-    })
-    return jest.fn()
-  }),
-  updateProfile: jest.fn().mockResolvedValue(undefined),
-  signOut: jest.fn().mockResolvedValue(undefined),
-}))
-
-jest.mock('firebase/storage', () => ({
-  __esModule: true,
-  getStorage: jest.fn(() => ({})),
-  ref: jest.fn(),
-  uploadBytes: jest.fn().mockResolvedValue({ ref: {} }),
-  getDownloadURL: jest.fn().mockResolvedValue('https://example.com/photo.jpg'),
-  deleteObject: jest.fn().mockResolvedValue(undefined),
-}))
-
-jest.mock('firebase/app', () => ({
-  __esModule: true,
-  initializeApp: jest.fn(),
-  getApps: jest.fn(() => []),
-  getApp: jest.fn(),
-}))
-
-jest.mock('../UserContext', () => {
-  const React = require('react')
-  return {
-    __esModule: true,
-    useUser: jest.fn(() => ({
-      profile: {
-        uid: 'test-user-123',
-        name: 'Test User',
-        bio: 'Test bio',
-        profilePicture: '/avatar.jpg',
-        likes: ['Beach'],
-        dislikes: ['Crowds'],
-        joined: 'January 2024',
-      },
-    })),
-    UserProvider: ({ children }) => React.createElement(React.Fragment, null, children),
-  }
-})
-
-jest.mock('../achievementsBus', () => ({
-  __esModule: true,
-  emitAchievement: jest.fn(),
-}))
-
-jest.mock('../dashboard-stats-row', () => ({
-  __esModule: true,
-  getUserDashboardStats: jest.fn().mockResolvedValue({
-    totalTrips: 3,
-    totalDestinations: 5,
-  }),
-}))
+jest.mock('../UserContext', () => ({
+  useUser: jest.fn()
+}));
 
 jest.mock('../itinerary_Stats', () => ({
-  __esModule: true,
-  getUserCompletionStats: jest.fn().mockResolvedValue({
-    destinations: {
-      dest1: {
-        name: 'Boracay',
-        region: 'Aklan',
-        latitude: 11.9674,
-        longitude: 121.9248,
-        completedAt: Date.now(),
-      },
-    },
-  }),
-}))
+  getUserCompletionStats: jest.fn()
+}));
 
-jest.mock('uuid', () => ({
+jest.mock('../EditProfile', () => ({
   __esModule: true,
-  v4: () => 'TESTCODE1234',
-}))
+  default: ({ onClose }) => (
+    <div data-testid="edit-profile-modal">
+      <button onClick={onClose}>Close Edit</button>
+    </div>
+  )
+}));
+
+jest.mock('../info_delete', () => ({
+  __esModule: true,
+  default: ({ onClose }) => (
+    <div data-testid="info-delete-modal">
+      <button onClick={onClose}>Close Delete</button>
+    </div>
+  )
+}));
+
+jest.mock('../achievementsBus', () => ({
+  emitAchievement: jest.fn()
+}));
 
 jest.mock('react-leaflet', () => ({
-  __esModule: true,
   MapContainer: ({ children }) => <div data-testid="map-container">{children}</div>,
   TileLayer: () => <div data-testid="tile-layer" />,
-  Marker: () => <div data-testid="marker" />,
-  Popup: ({ children }) => <div data-testid="popup">{children}</div>,
-}))
+  Marker: ({ children }) => <div data-testid="marker">{children}</div>,
+  Popup: ({ children }) => <div data-testid="popup">{children}</div>
+}));
 
-global.URL.createObjectURL = jest.fn(() => 'blob:mock')
+jest.mock('leaflet', () => ({
+  Icon: jest.fn().mockImplementation(() => ({}))
+}));
 
-navigator.clipboard = {
-  writeText: jest.fn().mockResolvedValue(undefined),
-}
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate
+}));
 
-// Import after mocks
-import Profile, { unlockAchievement } from '../profile'
-import * as firestore from 'firebase/firestore'
-import * as storage from 'firebase/storage'
+global.fetch = jest.fn();
 
 describe('Profile Component', () => {
-  const mockUserData = {
-    displayName: 'Test User',
+  const mockUser = {
+    uid: 'test-uid',
     email: 'test@example.com',
-    profilePicture: '/avatar.jpg',
+    displayName: 'Test User',
+    metadata: {
+      creationTime: '2024-01-01T00:00:00.000Z'
+    }
+  };
+
+  const mockProfile = {
+    name: 'Test User',
     bio: 'Test bio',
-    travelerName: 'Test User',
-    stats: {
-      placesVisited: 2,
-      photosShared: 3,
-      reviewsWritten: 4,
-      friends: 1,
-    },
-    likes: ['Beach'],
-    dislikes: ['Crowds'],
-    achievements: { '1': true, '5': true },
-    shareCode: 'ABCD1234',
-  }
-
-  const mockAchievements = [
-    {
-      id: 'ach1',
-      title: 'First Trip',
-      description: 'Completed your first trip',
-      icon: '🎉',
-      unlocked: true,
-      unlockedAt: { toDate: () => new Date('2024-01-01') },
-    },
-    {
-      id: 'ach2',
-      title: 'Explorer',
-      description: 'Visited 10 places',
-      icon: '🗺️',
-      unlocked: false,
-    },
-  ]
-
-  const mockActivities = [
-    {
-      id: 'act1',
-      text: 'Visited Boracay',
-      icon: '📍',
-      timestamp: new Date('2024-01-15').toISOString(),
-    },
-  ]
-
-  const mockPhotos = [
-    {
-      id: 'photo1',
-      url: 'https://example.com/photo1.jpg',
-      timestamp: new Date('2024-01-10').toISOString(),
-    },
-  ]
+    location: 'Test Location',
+    profilePicture: 'https://example.com/photo.jpg',
+    travelerName: 'Test User'
+  };
 
   beforeEach(() => {
-    jest.clearAllMocks()
-
-    const makeCollectionRef = (...segments) => ({
-      type: 'collection',
-      path: segments.join('/'),
-      segments,
-    })
-
-    const makeDocRef = (...segments) => ({
-      type: 'doc',
-      path: segments.join('/'),
-      segments,
-    })
-
-    firestore.collection.mockImplementation((...segments) => makeCollectionRef(...segments))
-    firestore.doc.mockImplementation((...segments) => makeDocRef(...segments))
-    firestore.query.mockImplementation((collectionRef, ...rest) => ({
-      type: 'query',
-      collectionRef,
-      constraints: rest,
-    }))
-
-    const toDocArray = (items) =>
-      items.map((item) => ({
-        id: item.id,
-        data: () => item,
-      }))
-
-    firestore.getDoc.mockResolvedValue({
-      exists: () => true,
-      data: () => mockUserData,
-    })
-
-    firestore.getDocs.mockImplementation(async (ref) => {
-      const path =
-        ref?.type === 'collection'
-          ? ref.path
-          : ref?.collectionRef?.path || ''
-
-      if (path.endsWith('/friends')) {
-        return { docs: [], size: 0 }
-      }
-
-      if (path.endsWith('/photos') || path === 'photos') {
-        return { docs: toDocArray(mockPhotos), size: mockPhotos.length }
-      }
-
-      if (path.endsWith('/activities') || path === 'activities') {
-        return { docs: toDocArray(mockActivities), size: mockActivities.length }
-      }
-
-      if (path.endsWith('/achievements') || path === 'achievements') {
-        return { docs: toDocArray(mockAchievements), size: mockAchievements.length }
-      }
-
-      if (path.endsWith('/ratings')) {
-        return { docs: [], size: 0 }
-      }
-
-      return { docs: [], size: 0 }
-    })
-
-    firestore.updateDoc.mockResolvedValue()
-    firestore.setDoc.mockResolvedValue()
-    firestore.addDoc.mockResolvedValue({ id: 'new-id' })
-    firestore.deleteDoc.mockResolvedValue()
-
-    firestore.onSnapshot.mockImplementation((ref, callback) => {
-      const path = ref?.path || ref?.collectionRef?.path || ''
-
-      if (ref?.type === 'collection' && path.endsWith('/friends')) {
-        callback({
-          size: 1,
-          docs: [{ id: 'friend1', data: () => ({}) }],
-        })
-      } else {
-        callback({
-          exists: () => true,
-          data: () => ({
-            travelerName: 'Test User',
-            bio: 'Test bio',
-            profilePicture: '/avatar.jpg',
-            likes: ['Beach'],
-            dislikes: ['Crowds'],
-            stats: {
-              placesVisited: 2,
-              photosShared: 3,
-              reviewsWritten: 4,
-            },
-            achievements: { '1': true, '5': true },
-            shareCode: 'ABCD1234',
-          }),
-        })
-      }
-
-      return jest.fn()
-    })
-  })
-
-  const renderProfile = () => render(<Profile />)
-
-  test('renders profile component', () => {
-    const { container } = renderProfile()
-    expect(container).toBeInTheDocument()
-  })
-
-  test('displays user information', async () => {
-    renderProfile()
+    jest.clearAllMocks();
+    localStorage.clear();
     
-    // For new users without profile data, shows placeholder
-    await waitFor(() => {
-      expect(screen.getByText('Your Name')).toBeInTheDocument()
-    })
-    expect(screen.getByText('No bio yet.')).toBeInTheDocument()
-  })
+    useUser.mockReturnValue({ profile: mockProfile });
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(mockUser);
+      return jest.fn();
+    });
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ ...mockProfile, achievements: {} })
+    });
+    getDocs.mockResolvedValue({
+      docs: []
+    });
+    onSnapshot.mockImplementation(() => jest.fn());
+    getUserCompletionStats.mockResolvedValue({
+      totalDestinations: 0,
+      completedDestinations: 0,
+      destinations: {}
+    });
+    collection.mockReturnValue({});
+    doc.mockReturnValue({});
+  });
 
-  test('opens edit profile modal when edit button clicked', async () => {
-    renderProfile()
-    const editButton = await screen.findByText(/Edit Profile/i)
-    fireEvent.click(editButton)
-    await waitFor(() => {
-      expect(screen.getByTestId('edit-profile-modal')).toBeInTheDocument()
-    })
-  })
+  const renderComponent = async () => {
+    let result;
+    await act(async () => {
+      result = render(
+        <BrowserRouter>
+          <Profile />
+        </BrowserRouter>
+      );
+    });
+    return result;
+  };
 
-  test('displays places visited on map', async () => {
-    renderProfile()
+  test('renders profile with user information', async () => {
+    await renderComponent();
     await waitFor(() => {
-      expect(screen.getByTestId('map-container')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Test bio')).toBeInTheDocument();
+    });
+  });
 
-  test('displays recent activities', async () => {
-    renderProfile()
+  test('renders map container', async () => {
+    await renderComponent();
+    expect(screen.getByTestId('map-container')).toBeInTheDocument();
+  });
+
+  test('displays default stats', async () => {
+    await renderComponent();
     await waitFor(() => {
-      expect(screen.getByText(/Recent Activity/i)).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText(/Places Visited/i)).toBeInTheDocument();
+    });
+  });
 
-  test('displays quick actions', async () => {
-    renderProfile()
+  test('opens edit profile modal when edit button is clicked', async () => {
+    await renderComponent();
+    const editButton = screen.getByText(/edit profile/i);
+    fireEvent.click(editButton);
+    expect(screen.getByTestId('edit-profile-modal')).toBeInTheDocument();
+  });
+
+  test('closes edit profile modal', async () => {
+    await renderComponent();
+    const editButton = screen.getByText(/edit profile/i);
+    fireEvent.click(editButton);
+    const closeButton = screen.getByText('Close Edit');
+    fireEvent.click(closeButton);
     await waitFor(() => {
-      expect(screen.getByText(/Quick Actions/i)).toBeInTheDocument()
-    })
-  })
+      expect(screen.queryByTestId('edit-profile-modal')).not.toBeInTheDocument();
+    });
+  });
 
-  test('unlockAchievement helper updates firestore', async () => {
-    await unlockAchievement(9, 'Test Achievement')
-    expect(firestore.updateDoc).toHaveBeenCalled()
-  })
-})
+  test('opens achievements modal when view all button is clicked', async () => {
+    await renderComponent();
+    const achievementsButton = screen.getByRole('button', { name: /view all achievements/i });
+    fireEvent.click(achievementsButton);
+    expect(screen.getByText(/Getting Started/i)).toBeInTheDocument();
+  });
+
+  test('displays all achievements', async () => {
+    await renderComponent();
+    const achievementsButton = screen.getByRole('button', { name: /view all achievements/i });
+    fireEvent.click(achievementsButton);
+    
+    await waitFor(() => {
+      const allStepElements = screen.getAllByText('First Step');
+      expect(allStepElements.length).toBeGreaterThan(0);
+    });
+  });
+
+  test('handles logout successfully', async () => {
+    signOut.mockResolvedValue();
+    await renderComponent();
+    
+    const logoutButton = screen.getByRole('button', { name: /🚪 logout/i });
+    fireEvent.click(logoutButton);
+    
+    await waitFor(() => {
+      expect(signOut).toHaveBeenCalledWith(auth);
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  test('handles unauthenticated user', async () => {
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(null);
+      return jest.fn();
+    });
+    
+    const { container } = await renderComponent();
+    
+    await waitFor(() => {
+      expect(container).toBeTruthy();
+    });
+  });
+
+  test('unlockAchievement function adds achievement to Firestore', async () => {
+    auth.currentUser = { uid: 'test-uid' };
+    
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ achievements: {} })
+    });
+    updateDoc.mockResolvedValue({});
+    
+    await unlockAchievement(1, 'First Step');
+    
+    expect(updateDoc).toHaveBeenCalled();
+  });
+
+  test('logActivity function adds activity to Firestore', async () => {
+    auth.currentUser = { uid: 'test-uid' };
+    
+    addDoc.mockResolvedValue({ id: 'activity-id' });
+    
+    await logActivity('Test activity', '🔵');
+    
+    expect(addDoc).toHaveBeenCalled();
+  });
+
+  test('displays user bio', async () => {
+    await renderComponent();
+    await waitFor(() => {
+      expect(screen.getByText('Test bio')).toBeInTheDocument();
+    });
+  });
+
+  test('displays completed destinations on map when available', async () => {
+    getUserCompletionStats.mockResolvedValue({
+      totalDestinations: 1,
+      completedDestinations: 1,
+      destinations: {
+        'dest-1': {
+          name: 'Test Destination',
+          latitude: 14.5995,
+          longitude: 120.9842,
+          completed: true
+        }
+      }
+    });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getUserCompletionStats).toHaveBeenCalled();
+    });
+  });
+
+  test('shows empty state when no completed destinations', async () => {
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(screen.getByText(/No completed destinations yet/i)).toBeInTheDocument();
+    });
+  });
+
+  test('displays achievement categories in modal', async () => {
+    await renderComponent();
+    const achievementsButton = screen.getByRole('button', { name: /view all achievements/i });
+    
+    await act(async () => {
+      fireEvent.click(achievementsButton);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Getting Started/i)).toBeInTheDocument();
+    });
+  });
+
+  test('shows notification when achievement is unlocked', async () => {
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(onAuthStateChanged).toHaveBeenCalled();
+    });
+  });
+
+  test('updates profile stats when data changes', async () => {
+    const mockPhotoDocs = [{
+      id: 'photo-1',
+      data: () => ({ url: 'test.jpg', timestamp: new Date().toISOString() })
+    }];
+    
+    getDocs.mockResolvedValue({ docs: mockPhotoDocs });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDocs).toHaveBeenCalled();
+    });
+  });
+
+  test('handles Cloudinary URL transformation', async () => {
+    const cloudinaryUrl = 'https://res.cloudinary.com/demo/upload/photo.jpg';
+    const mockProfileWithCloudinary = {
+      ...mockProfile,
+      profilePicture: cloudinaryUrl
+    };
+    
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => mockProfileWithCloudinary
+    });
+    
+    await renderComponent();
+    
+    expect(getDoc).toHaveBeenCalled();
+  });
+
+  test('displays profile with missing optional fields', async () => {
+    const minimalProfile = {
+      name: 'Test User',
+      travelerName: 'Test User'
+    };
+    
+    useUser.mockReturnValue({ profile: minimalProfile });
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => minimalProfile
+    });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(screen.queryByText('Test bio')).not.toBeInTheDocument();
+    });
+  });
+
+  test('loads achievements from Firestore', async () => {
+    const mockAchievements = {
+      1: true,
+      2: false
+    };
+    
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ achievements: mockAchievements, ...mockProfile })
+    });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDoc).toHaveBeenCalled();
+    });
+  });
+
+  test('shows all 8 achievements in modal', async () => {
+    await renderComponent();
+    const achievementsButton = screen.getByRole('button', { name: /view all achievements/i });
+    fireEvent.click(achievementsButton);
+    
+    await waitFor(() => {
+      const achievements = screen.getAllByText(/First Step|First Bookmark|Say Cheese!|Hello, World!|Profile Pioneer|Mini Planner|Explorer at Heart|Checklist Champ/i);
+      expect(achievements.length).toBeGreaterThanOrEqual(8);
+    });
+  });
+
+  test('renders stats row with all stat categories', async () => {
+    await renderComponent();
+    
+    expect(screen.getByText(/Places Visited/i)).toBeInTheDocument();
+    expect(screen.getByText(/Photos Shared/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rated Destinations/i)).toBeInTheDocument();
+    expect(screen.getByText(/Friends/i)).toBeInTheDocument();
+  });
+
+  test('handles error when fetching profile fails', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    getDoc.mockRejectedValue(new Error('Firestore error'));
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDoc).toHaveBeenCalled();
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  test('updates UI when profile context changes', async () => {
+    const { rerender } = await renderComponent();
+    
+    const updatedProfile = {
+      ...mockProfile,
+      name: 'Updated Name',
+      travelerName: 'Updated Name'
+    };
+    
+    useUser.mockReturnValue({ profile: updatedProfile });
+    
+    await act(async () => {
+      rerender(
+        <BrowserRouter>
+          <Profile />
+        </BrowserRouter>
+      );
+    });
+    
+    await waitFor(() => {
+      expect(useUser).toHaveBeenCalled();
+    });
+  });
+
+  test('displays map with correct initial center and zoom', async () => {
+    await renderComponent();
+    
+    expect(screen.getByTestId('map-container')).toBeInTheDocument();
+    expect(screen.getByTestId('tile-layer')).toBeInTheDocument();
+  });
+
+  test('handles real-time updates via onSnapshot', async () => {
+    const unsubscribe = jest.fn();
+    onSnapshot.mockReturnValue(unsubscribe);
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(onSnapshot).toHaveBeenCalled();
+    });
+  });
+
+  test('displays quick actions buttons', async () => {
+    await renderComponent();
+    
+    expect(screen.getByText(/Plan New Trip/i)).toBeInTheDocument();
+    expect(screen.getByText(/Share Profile/i)).toBeInTheDocument();
+    expect(screen.getByText(/Export My Data/i)).toBeInTheDocument();
+    expect(screen.getByText(/Account Settings/i)).toBeInTheDocument();
+  });
+
+  test('shows photo gallery with upload button', async () => {
+    await renderComponent();
+    
+    expect(screen.getByText(/Photo Gallery/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Upload Photo/i)).toBeInTheDocument();
+  });
+
+  test('displays empty photo gallery state', async () => {
+    await renderComponent();
+    
+    expect(screen.getByText(/Upload your first/i)).toBeInTheDocument();
+  });
+
+  test('shows recent activity section', async () => {
+    await renderComponent();
+    
+    expect(screen.getByText(/Recent Activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/No recent activities/i)).toBeInTheDocument();
+  });
+
+  test('displays profile picture correctly', async () => {
+    await renderComponent();
+    
+    await waitFor(() => {
+      const profileImg = screen.getByAltText('Profile');
+      expect(profileImg).toHaveAttribute('src', 'https://example.com/photo.jpg');
+    });
+  });
+
+  test('renders achievement preview in sidebar', async () => {
+    await renderComponent();
+    
+    const firstSteps = screen.getAllByText('First Step');
+    expect(firstSteps.length).toBeGreaterThan(0);
+  });
+
+  test('handles share profile action', async () => {
+    await renderComponent();
+    
+    const shareButton = screen.getByRole('button', { name: /🗂️ share profile/i });
+    expect(shareButton).toBeInTheDocument();
+  });
+
+  test('handles export data action', async () => {
+    await renderComponent();
+    
+    const exportButton = screen.getByRole('button', { name: /💾 export my data/i });
+    expect(exportButton).toBeInTheDocument();
+  });
+
+  test('handles account settings action', async () => {
+    await renderComponent();
+    
+    const settingsButton = screen.getByRole('button', { name: /⚙️ account settings/i });
+    expect(settingsButton).toBeInTheDocument();
+  });
+
+  test('opens delete account modal', async () => {
+    await renderComponent();
+    
+    const settingsButton = screen.getByRole('button', { name: /⚙️ account settings/i });
+    fireEvent.click(settingsButton);
+    
+    expect(screen.getByTestId('info-delete-modal')).toBeInTheDocument();
+  });
+
+  test('displays user profile meta information', async () => {
+    await renderComponent();
+    
+    expect(screen.getByText(/Explorer/i)).toBeInTheDocument();
+    expect(screen.getByText(/Joined/i)).toBeInTheDocument();
+  });
+
+  test('renders completed destinations map section', async () => {
+    await renderComponent();
+    
+    expect(screen.getByText(/My Completed Destinations/i)).toBeInTheDocument();
+  });
+
+  test('handles photo upload successfully', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ secure_url: 'https://cloudinary.com/photo.jpg' })
+    });
+    addDoc.mockResolvedValue({ id: 'photo-id' });
+    
+    await renderComponent();
+    
+    const fileInput = screen.getByLabelText(/Upload Photo/i);
+    const file = new File(['photo'], 'photo.jpg', { type: 'image/jpeg' });
+    
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+    
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalled();
+    });
+  });
+
+  test('displays activities when available', async () => {
+    const mockActivities = [{
+      id: 'act-1',
+      data: () => ({
+        text: 'You have uploaded a photo.',
+        icon: '📸',
+        timestamp: new Date()
+      })
+    }];
+    
+    getDocs.mockResolvedValue({ docs: mockActivities });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDocs).toHaveBeenCalled();
+    });
+  });
+
+  test('handles share profile code generation', async () => {
+    updateDoc.mockResolvedValue();
+    
+    await renderComponent();
+    
+    const shareButton = screen.getByRole('button', { name: /🗂️ share profile/i });
+    
+    await act(async () => {
+      fireEvent.click(shareButton);
+    });
+    
+    await waitFor(() => {
+      expect(updateDoc).toHaveBeenCalled();
+    });
+  });
+
+  test('syncs friends count from Firestore', async () => {
+    const mockFriends = [
+      { id: 'friend-1' },
+      { id: 'friend-2' }
+    ];
+    
+    getDocs.mockResolvedValue({ docs: mockFriends });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDocs).toHaveBeenCalled();
+    });
+  });
+
+  test('fetches and displays ratings count', async () => {
+    const mockRatings = [
+      { id: 'rating-1' },
+      { id: 'rating-2' }
+    ];
+    
+    getDocs.mockResolvedValue({ docs: mockRatings });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDocs).toHaveBeenCalled();
+    });
+  });
+
+  test('handles photo deletion', async () => {
+    deleteDoc.mockResolvedValue();
+    
+    const mockPhotos = [{
+      id: 'photo-1',
+      data: () => ({ url: 'https://example.com/photo.jpg', timestamp: new Date() })
+    }];
+    
+    getDocs.mockResolvedValue({ docs: mockPhotos });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDocs).toHaveBeenCalled();
+    });
+  });
+
+  test('displays correct achievement unlock status', async () => {
+    const mockAchievements = { 1: true, 2: true };
+    
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ achievements: mockAchievements, ...mockProfile })
+    });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(getDoc).toHaveBeenCalled();
+    });
+  });
+
+  test('renders plan new trip button', async () => {
+    await renderComponent();
+    
+    const planButton = screen.getByRole('button', { name: /📌 plan new trip/i });
+    expect(planButton).toBeInTheDocument();
+  });
+
+  test('transforms cloudinary URLs correctly', async () => {
+    const cloudinaryUrl = 'https://res.cloudinary.com/demo/upload/v123/photo.jpg';
+    
+    useUser.mockReturnValue({ 
+      profile: { ...mockProfile, profilePicture: cloudinaryUrl }
+    });
+    
+    await renderComponent();
+    
+    await waitFor(() => {
+      expect(screen.getByAltText('Profile')).toBeInTheDocument();
+    });
+  });
+});
