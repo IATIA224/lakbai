@@ -275,7 +275,6 @@ export default function ItineraryCostEstimationModal({ onClose }) {
   const [distance, setDistance] = useState("");
   const [minutes, setMinutes] = useState(20);
 
-
   const [fromQuery, setFromQuery] = useState("");
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [fromPlace, setFromPlace] = useState(null);
@@ -286,17 +285,13 @@ export default function ItineraryCostEstimationModal({ onClose }) {
   const [toPlace, setToPlace] = useState(null);
   const toActiveIndex = useRef(-1);
 
-
   const [jeepneyRoutes, setJeepneyRoutes] = useState(null);
-
-  // Debug: Show/hide jeepney routes
   const [showJeepneyRoutes, setShowJeepneyRoutes] = useState(false);
-
-
-
-  // Commute route and fare (for possible transfers)
   const [commuteRoute, setCommuteRoute] = useState([]);
   const [commuteFare, setCommuteFare] = useState([]);
+  
+  const [showRoutePopup, setShowRoutePopup] = useState(false);
+  const [totalDistance, setTotalDistance] = useState(0);
 
   useEffect(() => {
     Papa.parse(CSV_PATH, {
@@ -359,6 +354,10 @@ export default function ItineraryCostEstimationModal({ onClose }) {
       }
       setCommuteRoute(processedPath);
 
+      // Calculate total distance
+      const totalDist = processedPath.reduce((sum, seg) => sum + seg.distance, 0);
+      setTotalDistance(totalDist);
+
       const fareDetails = processedPath
         .filter(seg => seg.mode === 'jeep')
         .reduce((acc, seg) => {
@@ -375,8 +374,69 @@ export default function ItineraryCostEstimationModal({ onClose }) {
         price: calculateJeepneyFare(detail.distance),
       }));
       setCommuteFare(fares);
+      
+      // Show popup when route is calculated
+      if (processedPath.length > 0) {
+        setShowRoutePopup(true);
+      }
     }
   }, [fromPlace, toPlace, jeepneyRoutes]);
+
+  // Calculate all vehicle fares based on total distance (exclude PUB and PUJ)
+  const calculateAllVehicleFares = () => {
+    if (!totalDistance || !fares.length) return [];
+    
+    const vehicleFares = [];
+    
+    // Filter and group fares by vehicle type (exclude PUB and PUJ)
+    const faresByType = {};
+    fares.forEach(fare => {
+      const vehicleType = fare["Vehicle Type"];
+      
+      // Skip PUB and PUJ
+      if (vehicleType === "PUB City" || vehicleType === "PUB Provincial" || vehicleType === "PUJ") {
+        return;
+      }
+      
+      if (!faresByType[vehicleType]) {
+        faresByType[vehicleType] = [];
+      }
+      faresByType[vehicleType].push(fare);
+    });
+
+    // Calculate for each vehicle type
+    Object.entries(faresByType).forEach(([type, typeFares]) => {
+      typeFares.forEach(fare => {
+        const subType = fare["Sub-Type"] || "";
+        const price = calculateFare(fare, totalDistance, minutes);
+        
+        vehicleFares.push({
+          type,
+          subType,
+          price: price.toFixed(2),
+          icon: getVehicleIcon(type),
+          description: getVehicleDescription(type, subType)
+        });
+      });
+    });
+
+    // Sort by price
+    return vehicleFares.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+  };
+
+  const getVehicleIcon = (type) => {
+    const icons = {
+      "Taxi": "🚕",
+      "TNVS": "🚗",
+      "UVE": "🚙"
+    };
+    return icons[type] || "🚗";
+  };
+
+  const getVehicleDescription = (type, subType) => {
+    if (subType) return subType;
+    return type;
+  };
 
   useEffect(() => {
     if (routeLineRef.current) {
@@ -649,24 +709,6 @@ export default function ItineraryCostEstimationModal({ onClose }) {
           <button className="cost-close" onClick={onClose}>×</button>
         </div>
 
-        {/* Debug Button */}
-        <div style={{marginBottom: 12, textAlign: "right"}}>
-          <button
-            style={{
-              background: showJeepneyRoutes ? "#e6194b" : "#6366f1",
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 16px",
-              fontWeight: 600,
-              cursor: "pointer"
-            }}
-            onClick={() => setShowJeepneyRoutes(v => !v)}
-          >
-            {showJeepneyRoutes ? "Hide Jeepney Routes" : "Show Jeepney Routes"}
-          </button>
-        </div>
-
         <div className="cost-controls">
           <div className="cost-location-group">
             <div className="cost-location-box">
@@ -731,73 +773,167 @@ export default function ItineraryCostEstimationModal({ onClose }) {
                 value={minutes}
                 onChange={(e) => setMinutes(Number(e.target.value))}
                 min="1"
+                placeholder="20"
               />
             </label>
 
-            {distance && (
+            {totalDistance > 0 && (
               <label className="cost-label">
-                Distance (km)
+                Total Distance
                 <input
-                  type="number"
+                  type="text"
                   className="cost-input"
-                  value={distance}
-                  onChange={(e) => setDistance(e.target.value)}
-                  min="0"
-                  step="0.01"
+                  value={`${totalDistance.toFixed(2)} km`}
+                  readOnly
+                  style={{ background: '#f8fafc', cursor: 'not-allowed' }}
                 />
               </label>
             )}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+              <button
+                style={{
+                  background: showJeepneyRoutes ? "#e6194b" : "#6366f1",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 18px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                  transition: "all 0.2s"
+                }}
+                onClick={() => setShowJeepneyRoutes(v => !v)}
+                onMouseOver={(e) => e.target.style.transform = "scale(1.02)"}
+                onMouseOut={(e) => e.target.style.transform = "scale(1)"}
+              >
+                {showJeepneyRoutes ? "Hide Routes" : "Show Routes"}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div
-          ref={mapRef}
-          style={{
-            width: "100%",
-            height: "525px",
-            borderRadius: "0px",
-            marginBottom: "0px",
-          }}
-        />
+        {/* Map and Fare Side by Side - Sidebar on LEFT */}
+        <div className="map-fare-container">
+          {/* Fare Section - LEFT SIDE */}
+          <div className="fare-section-left">
+            {showRoutePopup && commuteRoute.length > 0 ? (
+              <>
+                <div className="fare-section-header">
+                  <h4>🗺️ Route & Fares</h4>
+                </div>
 
-        {commuteRoute.length > 0 && (
-          <div style={{margin: "16px 0"}}>
-            <h4>Commute Route</h4>
-            <ol>
-              {commuteRoute.map((seg, i) => (
-                <li key={i}>
-                  {seg.mode === 'walk' ? (
-                    <span>
-                      🚶 Walk ({seg.distance.toFixed(2)} km)
-                    </span>
-                  ) : (
-                    <span>
-                      🚌 Ride <b>{seg.route.properties.name}</b> ({seg.distance.toFixed(2)} km)
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ol>
-            <div>
-              <b>Total Fare:</b> ₱{commuteFare.reduce((sum, seg) => sum + seg.price, 0).toFixed(2)}
-            </div>
+                <div className="fare-section-body">
+                  {/* Your Route */}
+                  <div className="fare-route-box">
+                    <h5 className="fare-box-title">📍 Your Route</h5>
+                    <div className="fare-route-steps">
+                      {commuteRoute.map((seg, i) => (
+                        <div key={i} className="fare-route-step">
+                          {seg.mode === 'walk' ? (
+                            <>
+                              <span className="fare-step-icon">🚶</span>
+                              <div className="fare-step-info">
+                                <span className="fare-step-label">Walk</span>
+                                <span className="fare-step-distance">{seg.distance.toFixed(2)} km</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span className="fare-step-icon">🚌</span>
+                              <div className="fare-step-info">
+                                <span className="fare-step-label">
+                                  <strong>{seg.route.properties.name}</strong>
+                                </span>
+                                <span className="fare-step-distance">{seg.distance.toFixed(2)} km</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Summary */}
+                    <div className="fare-summary-grid">
+                      <div className="fare-summary-item">
+                        <span className="fare-summary-label">📏 Distance</span>
+                        <span className="fare-summary-value">{totalDistance.toFixed(2)} km</span>
+                      </div>
+                      <div className="fare-summary-item">
+                        <span className="fare-summary-label">⏱️ Time</span>
+                        <span className="fare-summary-value">{minutes} min</span>
+                      </div>
+                    </div>
+
+                    {/* Jeepney Total */}
+                    <div className="fare-jeepney-total">
+                      <span>🚌 Jeepney Fare</span>
+                      <strong>₱{commuteFare.reduce((sum, seg) => sum + seg.price, 0).toFixed(2)}</strong>
+                    </div>
+                  </div>
+
+                  {/* Other Vehicle Options */}
+                  <div className="fare-route-box">
+                    <h5 className="fare-box-title">💰 Other Options</h5>
+                    <div className="fare-vehicle-list">
+                      {calculateAllVehicleFares().map((vehicle, i) => (
+                        <div key={i} className="fare-vehicle-item">
+                          <span className="fare-vehicle-icon">{vehicle.icon}</span>
+                          <div className="fare-vehicle-info">
+                            <div className="fare-vehicle-name">{vehicle.type}</div>
+                            <div className="fare-vehicle-desc">{vehicle.description}</div>
+                          </div>
+                          <div className="fare-vehicle-price">₱{vehicle.price}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="fare-placeholder">
+                <div className="fare-placeholder-content">
+                  <div className="fare-placeholder-icon">🗺️</div>
+                  <h4 className="fare-placeholder-title">Route Details</h4>
+                  <p className="fare-placeholder-text">
+                    Enter your starting point and destination to see route options and fare estimates.
+                  </p>
+                  <div className="fare-placeholder-features">
+                    <div className="fare-placeholder-feature">
+                      <span className="feature-icon">📍</span>
+                      <span className="feature-text">Select locations</span>
+                    </div>
+                    <div className="fare-placeholder-feature">
+                      <span className="feature-icon">🚌</span>
+                      <span className="feature-text">View routes</span>
+                    </div>
+                    <div className="fare-placeholder-feature">
+                      <span className="feature-icon">💰</span>
+                      <span className="feature-text">Compare fares</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Map Section - RIGHT SIDE */}
+          <div className="map-section-right">
+            <div
+              ref={mapRef}
+              style={{
+                width: "100%",
+                height: "100%",
+                borderRadius: "0px",
+              }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 
-  return ReactDOM.createPortal(
-    <>
-      <div className="cost-backdrop" onClick={onClose}>
-        <div className="cost-modal" onClick={e => e.stopPropagation()}>
-          {modalContent}
-        </div>
-      </div>
-
-    </>,
-    document.body
-  );
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 const NEAR_THRESHOLD_METERS = 50;

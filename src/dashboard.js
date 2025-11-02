@@ -73,7 +73,7 @@ function DestinationCard({
         <div className="card-header">
           <h2>{name}</h2>
           <div className="mini-rating">
-            ⭐ {rating}
+            ⭐ {Number(rating || 0).toFixed(1)}
           </div>
         </div>
         <div className="bp2-region-line">{region}</div>
@@ -263,6 +263,7 @@ function TopRatedCarousel({ destinations, cloudImages, firebaseImages }) {
 function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onViewDetails }) {
   const [current, setCurrent] = useState(0);
   const intervalRef = useRef();
+  const [carouselRatings, setCarouselRatings] = useState({});
 
   const pickImage = (d) =>
     getCloudImageForDestination(cloudImages, d.name) ||
@@ -272,22 +273,74 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
 
   const top10 = destinations.slice(0, 10);
 
+  // Fetch ratings for carousel items
   useEffect(() => {
-    if (top10.length === 0) {
-      return;
-    }
+    if (top10.length === 0) return;
+    
+    const fetchCarouselRatings = async () => {
+      const ratingsMap = {};
+      
+      await Promise.all(
+        top10.map(async (dest) => {
+          try {
+            const ratingsSnap = await getDocs(collection(db, 'destinations', String(dest.id), 'ratings'));
+            let sum = 0;
+            let count = 0;
+            ratingsSnap.forEach((doc) => {
+              const val = Number(doc.data()?.value) || 0;
+              if (val > 0) {
+                sum += val;
+                count += 1;
+              }
+            });
+            const avg = count > 0 ? sum / count : (dest.avgRating || dest.rating || 0);
+            ratingsMap[dest.id] = { avg, count };
+          } catch (e) {
+            console.error(`Error fetching carousel ratings for ${dest.id}:`, e);
+            ratingsMap[dest.id] = { avg: dest.avgRating || dest.rating || 0, count: dest.ratingCount || 0 };
+          }
+        })
+      );
+      
+      setCarouselRatings(ratingsMap);
+    };
+    
+    fetchCarouselRatings();
+  }, [top10.length]);
+
+  useEffect(() => {
+    if (top10.length === 0) return;
+    
     intervalRef.current = setInterval(() => {
       setCurrent((prev) => (prev + 1) % top10.length);
     }, 3000);
-    return () => clearInterval(intervalRef.current);
+    
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [top10.length]);
 
-  if (!top10.length) return null;
-  const d = top10[current];
+  // Function to handle view details with enriched rating data
+  const handleViewDetails = async (dest) => {
+    const ratingData = carouselRatings[dest.id] || { avg: dest.avgRating || dest.rating || 0, count: dest.ratingCount || 0 };
+    
+    // Enrich destination with actual ratings
+    const enrichedDest = {
+      ...dest,
+      avgRating: ratingData.avg,
+      ratingCount: ratingData.count,
+      rating: ratingData.avg
+    };
+    
+    onViewDetails(enrichedDest);
+  };
 
-  if (!d) {
-    return null;
-  }
+  if (!top10.length) return null;
+  
+  const d = top10[current];
+  if (!d) return null;
+
+  const ratingData = carouselRatings[d.id] || { avg: d.avgRating || d.rating || 0, count: d.ratingCount || 0 };
 
   return (
     <div className="top-rated-hero-carousel-ui">
@@ -314,14 +367,14 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
             <div className="top-rated-hero-desc">{d.description?.slice(0, 120) || "No description."}</div>
             <div className="top-rated-hero-rating">
               <span className="star">⭐</span>
-              {d.avgRating.toFixed(1)}
+              {ratingData.avg.toFixed(1)}
               <span className="count">
-                ({d.ratingCount} {d.ratingCount === 1 ? "rating" : "ratings"})
+                ({ratingData.count} {ratingData.count === 1 ? "rating" : "ratings"})
               </span>
             </div>
             <button
               className="top-rated-hero-details-btn"
-              onClick={() => onViewDetails(d)}
+              onClick={() => handleViewDetails(d)}
             >
               View Details
             </button>
@@ -517,52 +570,101 @@ function Dashboard({ setShowAIModal }) {
             id: d.id,
             name: d.name || d.title || '',
             region: d.region || d.locationRegion || '',
+            location: d.location || '',
             description: d.description || d.desc || '',
             rating: d.rating || 0,
             avgRating: d.avgRating || 0,
             ratingCount: d.ratingCount || 0,
             price: d.price || '',
             priceTier: d.priceTier || null,
+            budget: d.budget || d.price || '',
             tags: Array.isArray(d.tags) ? d.tags : [],
-            categories: Array.isArray(d.categories) ? d.categories : [], // Changed from category to categories
-            location: d.location || '',
+            categories: Array.isArray(d.categories) ? d.categories 
+                      : Array.isArray(d.Category) ? d.Category
+                      : Array.isArray(d.category) ? d.category
+                      : (typeof d.category === 'string' ? [d.category] : []),
+            category: Array.isArray(d.categories) ? (d.categories[0] || '')
+                    : Array.isArray(d.Category) ? (d.Category[0] || '')
+                    : Array.isArray(d.category) ? (d.category[0] || '')
+                    : (d.category || ''),
             image: d.image || d.imageUrl || '',
-            bestTime: d.bestTime || '',
+            bestTime: d.bestTime || d.best_time || '',
+            packingSuggestions: d.packingSuggestions || d.packing || '',
+            lat: d.lat || d.latitude,
+            lon: d.lon || d.longitude,
+            place_id: d.place_id || d.id,
           }));
 
-        setRecommendedDestinations(results);
-      } catch (e) {
-        console.error('recommendation fetch failed', e);
-        setRecommendedDestinations([]);
-      } finally {
-        setRecoLoading(false);
-      }
-    };
+      setRecommendedDestinations(results);
+    } catch (e) {
+      console.error('recommendation fetch failed', e);
+      setRecommendedDestinations([]);
+    } finally {
+      setRecoLoading(false);
+    }
+  };
 
-    run();
-  }, [userInterests]);
+  run();
+}, [userInterests]);
 
-  useEffect(() => {
-    const unsub = auth.onAuthStateChanged(async (u) => {
-      if (!u) { setPersonalizedBookmarks({}); return; }
-      try {
-        const [subsSnap, listSnap] = await Promise.all([
-          getDocs(collection(db, 'users', u.uid, 'bookmarks')),
-          getDoc(doc(db, 'userBookmarks', u.uid)).catch(() => null)
-        ]);
-        const map = {};
-        subsSnap.forEach(d => { map[d.id] = true; });
-        if (listSnap && listSnap.exists()) {
-          const arr = Array.isArray(listSnap.data()?.bookmarks) ? listSnap.data().bookmarks : [];
-          arr.forEach(id => { map[String(id)] = true; });
+// Update the useEffect that fetches ratings for personalized destinations
+useEffect(() => {
+  if (recommendedDestinations.length === 0) return;
+  
+  const fetchRatings = async () => {
+    const ratingsMap = {};
+    const countsMap = {};
+    
+    await Promise.all(
+      recommendedDestinations.map(async (dest) => {
+        try {
+          const ratingsSnap = await getDocs(collection(db, 'destinations', String(dest.id), 'ratings'));
+          let sum = 0;
+          let count = 0;
+          ratingsSnap.forEach((doc) => {
+            const val = Number(doc.data()?.value) || 0;
+            if (val > 0) {
+              sum += val;
+              count += 1;
+            }
+          });
+          const avg = count > 0 ? sum / count : 0;
+          ratingsMap[dest.id] = { avg, count };
+          countsMap[dest.id] = count;
+        } catch (e) {
+          console.error(`Error fetching ratings for ${dest.id}:`, e);
+          ratingsMap[dest.id] = { avg: 0, count: 0 };
+          countsMap[dest.id] = 0;
         }
-        setPersonalizedBookmarks(map);
-      } catch {
-        setPersonalizedBookmarks({});
-      }
-    });
-    return () => unsub();
-  }, []);
+      })
+    );
+    
+    setPersonalizedRatingsByDest(ratingsMap);
+    setPersonalizedRatingsCountByDest(countsMap);
+  };
+  
+  fetchRatings();
+}, [recommendedDestinations]);
+
+// Add useEffect to fetch user's rating when modal opens
+useEffect(() => {
+  if (!detailsModalOpen || !selectedCard || !currentUser) {
+    setPersonalizedUserRating(0);
+    return;
+  }
+  
+  const fetchUserRating = async () => {
+    try {
+      const ratingDoc = await getDoc(doc(db, 'destinations', String(selectedCard.id), 'ratings', currentUser.uid));
+      setPersonalizedUserRating(Number(ratingDoc.data()?.value) || 0);
+    } catch (e) {
+      console.error('Error fetching user rating:', e);
+      setPersonalizedUserRating(0);
+    }
+  };
+  
+  fetchUserRating();
+}, [detailsModalOpen, selectedCard, currentUser]);
 
   const handlePersonalizedBookmark = async (id) => {
     const user = auth.currentUser;
@@ -576,7 +678,23 @@ function Dashboard({ setShowAIModal }) {
     const bookmarkDocRef = doc(db, 'users', user.uid, 'bookmarks', String(id));
 
     try {
-      const d = recommendedDestinations.find(x => String(x.id) === String(id)) || {};
+      // Find the destination in recommended or top-rated lists
+      let d = recommendedDestinations.find(x => String(x.id) === String(id));
+      
+      // If not found in recommended, check top-rated destinations
+      if (!d) {
+        d = topRatedDestinations.find(x => String(x.id) === String(id));
+      }
+      
+      // If still not found, fetch from Firestore
+      if (!d) {
+        const destDoc = await getDoc(doc(db, 'destinations', String(id)));
+        if (destDoc.exists()) {
+          d = { id: destDoc.id, ...destDoc.data() };
+        } else {
+          throw new Error('Destination not found');
+        }
+      }
 
       await setDoc(
         listRef,
@@ -595,26 +713,51 @@ function Dashboard({ setShowAIModal }) {
       }
 
       if (next) {
+        // Helper function to remove undefined values
+        const cleanValue = (value) => {
+          if (value === undefined || value === null) return null;
+          if (Array.isArray(value)) return value.filter(v => v !== undefined && v !== null);
+          return value;
+        };
+
+        // Save complete destination data to bookmark - filter out undefined values
         const payload = {
           destId: String(id),
-          name: d.name || '',
-          description: d.description || '',
-          region: d.region || '',
-          location: d.location || '',
-          rating: d.rating ?? null,
-          avgRating: d.avgRating ?? null,
-          ratingCount: d.ratingCount ?? null,
-          price: d.price || '',
-          priceTier: d.priceTier || null,
-          tags: Array.isArray(d.tags) ? d.tags : [],
-          categories: Array.isArray(d.categories) ? d.categories : [],
-          category: Array.isArray(d.categories) && d.categories.length > 0 ? d.categories[0] : '',
-          bestTime: d.bestTime || '',
-          packingSuggestions: d.packingSuggestions || d.packing || '',
-          image: d.image || pickCardImage(d.name) || '',
+          name: cleanValue(d.name) || '',
+          description: cleanValue(d.description) || '',
+          region: cleanValue(d.region) || '',
+          location: cleanValue(d.location) || '',
+          price: cleanValue(d.price) || '',
+          priceTier: cleanValue(d.priceTier),
+          budget: cleanValue(d.budget || d.price) || '',
+          tags: cleanValue(Array.isArray(d.tags) ? d.tags : []),
+          categories: cleanValue(
+            Array.isArray(d.categories) ? d.categories 
+            : Array.isArray(d.Category) ? d.Category
+            : (typeof d.category === 'string' ? [d.category] : [])
+          ),
+          category: cleanValue(
+            Array.isArray(d.categories) ? (d.categories[0] || '')
+            : Array.isArray(d.Category) ? (d.Category[0] || '')
+            : (d.category || '')
+          ),
+          bestTime: cleanValue(d.bestTime) || '',
+          packingSuggestions: cleanValue(d.packingSuggestions || d.packing) || '',
+          image: cleanValue(d.image || pickCardImage(d.name)) || '',
+          place_id: cleanValue(d.place_id || id),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
+
+        // Only add rating fields if they have valid values
+        if (typeof d.rating === 'number') payload.rating = d.rating;
+        if (typeof d.avgRating === 'number') payload.avgRating = d.avgRating;
+        if (typeof d.ratingCount === 'number') payload.ratingCount = d.ratingCount;
+
+        // Only add coordinates if they exist and are valid numbers
+        if (typeof d.lat === 'number' && !isNaN(d.lat)) payload.lat = d.lat;
+        if (typeof d.lon === 'number' && !isNaN(d.lon)) payload.lon = d.lon;
+        
         await setDoc(bookmarkDocRef, payload, { merge: true });
         await logActivity(`Bookmarked "${d.name}"`, "⭐");
 
@@ -630,12 +773,70 @@ function Dashboard({ setShowAIModal }) {
     } catch (e) {
       console.error('bookmark toggle failed', e);
       setPersonalizedBookmarks(prev => ({ ...prev, [id]: !next }));
-      alert('Failed to update bookmark. Please try again.');
+      alert(`Failed to update bookmark: ${e.message || 'Please try again.'}`);
     }
   };
 
-  const handlePersonalizedDetails = (card) => {
-    setSelectedCard(card);
+  const handlePersonalizedDetails = async (card) => {
+    // Enrich the card with complete data from destinations collection
+    try {
+      const destDoc = await getDoc(doc(db, 'destinations', String(card.id)));
+      if (destDoc.exists()) {
+        const fullData = destDoc.data();
+        
+        // Fetch actual ratings
+        const ratingsSnap = await getDocs(collection(db, 'destinations', String(card.id), 'ratings'));
+        let sum = 0;
+        let count = 0;
+        ratingsSnap.forEach((doc) => {
+          const val = Number(doc.data()?.value) || 0;
+          if (val > 0) {
+            sum += val;
+            count += 1;
+          }
+        });
+        const avg = count > 0 ? sum / count : (card.avgRating || card.rating || fullData.avgRating || fullData.rating || 0);
+        
+        // Update the ratings state for this destination
+        setPersonalizedRatingsByDest(prev => ({
+          ...prev,
+          [card.id]: { avg, count }
+        }));
+        setPersonalizedRatingsCountByDest(prev => ({
+          ...prev,
+          [card.id]: count
+        }));
+        
+        const enrichedCard = {
+          id: card.id,
+          name: card.name || fullData.name || '',
+          region: card.region || fullData.region || '',
+          location: card.location || fullData.location || '',
+          description: card.description || fullData.description || '',
+          rating: avg,
+          avgRating: avg,
+          ratingCount: count,
+          price: card.price || fullData.price || '',
+          priceTier: card.priceTier || fullData.priceTier || null,
+          budget: card.budget || fullData.budget || '',
+          tags: card.tags || fullData.tags || [],
+          categories: card.categories || fullData.categories || [],
+          category: card.category || fullData.category || '',
+          image: card.image || fullData.image || '',
+          bestTime: card.bestTime || fullData.bestTime || '',
+          packingSuggestions: card.packingSuggestions || fullData.packingSuggestions || '',
+          lat: card.lat || fullData.lat,
+          lon: card.lon || fullData.lon,
+          place_id: card.place_id || fullData.place_id || card.id,
+        };
+        setSelectedCard(enrichedCard);
+      } else {
+        setSelectedCard(card);
+      }
+    } catch (error) {
+      console.error('Error enriching card data:', error);
+      setSelectedCard(card);
+    }
     setDetailsModalOpen(true);
   };
 
@@ -872,23 +1073,28 @@ function Dashboard({ setShowAIModal }) {
         )}
 
         <div className="personalized-cards-grid">
-          {sortedRecommendedDestinations.map((d) => (
-            <DestinationCard
-              key={d.id}
-              id={d.id}
-              name={d.name}
-              region={d.region}
-              rating={Number(d.rating || 0).toFixed(1)}
-              price={d.price}
-              priceTier={d.priceTier}
-              description={d.description}
-              tags={(d.tags || d.categories || []).slice(0, 8)}
-              image={pickCardImage(d.name)}
-              isBookmarked={!!personalizedBookmarks[d.id]}
-              onBookmarkClick={() => handlePersonalizedBookmark(d.id)}
-              onDetails={() => handlePersonalizedDetails(d)}
-            />
-          ))}
+          {sortedRecommendedDestinations.map((d) => {
+            const ratingData = personalizedRatingsByDest[d.id] || { avg: 0, count: 0 };
+            const displayRating = ratingData.count > 0 ? ratingData.avg : (d.avgRating || d.rating || 0);
+            
+            return (
+              <DestinationCard
+                key={d.id}
+                id={d.id}
+                name={d.name}
+                region={d.region}
+                rating={displayRating}
+                price={d.price}
+                priceTier={d.priceTier}
+                description={d.description}
+                tags={(d.tags || d.categories || []).slice(0, 8)}
+                image={pickCardImage(d.name)}
+                isBookmarked={!!personalizedBookmarks[d.id]}
+                onBookmarkClick={() => handlePersonalizedBookmark(d.id)}
+                onDetails={() => handlePersonalizedDetails(d)}
+              />
+            );
+          })}
         </div>
       </div>
 

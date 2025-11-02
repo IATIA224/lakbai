@@ -1,3 +1,12 @@
+/* UPDATE THESE COLOR VARIABLES at the top */
+:root {
+  --brand-primary: #6c63ff;
+  --brand-secondary: #a084ee;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+}
+
 /* Modal backdrop and base - UPDATED */
 .itn-modal-backdrop {
   position: fixed;
@@ -87,13 +96,18 @@
   border-radius: 8px;
   font-size: 20px;
   background: rgba(255, 255, 255, 0.2);
-  color: white;
   border: none;
+  color: #fff;
   cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .itn-close:hover {
   background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg) scale(1.1);
 }
 
 /* Share modal body */
@@ -373,7 +387,8 @@
 }
 
 .itn-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.15);
+  border-color: #a084ee;
   transform: translateY(-2px);
   z-index: 1; /* ADD THIS - Keep hover card above others */
 }
@@ -394,7 +409,7 @@
 .itn-step {
   width: 28px;
   height: 28px;
-  background: #6c63ff;
+  background: linear-gradient(135deg, #6c63ff 0%, #544bff 100%);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -402,6 +417,7 @@
   justify-content: center;
   font-weight: bold;
   font-size: 14px;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
 }
 
 .itn-name {
@@ -430,23 +446,27 @@
 }
 
 .itn-badge.upcoming {
-  background: #eef2ff;
-  color: #3b82f6;
+  background: linear-gradient(135deg, #e6e0ff, #d4c5ff);
+  color: #6c63ff;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.2);
 }
 
 .itn-badge.ongoing {
-  background: #fef3c7;
-  color: #d97706;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
 }
 
 .itn-badge.completed {
-  background: #ecfdf5;
-  color: #10b981;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  color: #065f46;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .itn-badge.cancelled {
-  background: #fef2f2;
-  color: #ef4444;
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  color: #991b1b;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
 }
 
 .itn-stats {
@@ -459,23 +479,44 @@
 .itn-stat {
   padding: 16px;
   background: white;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .itn-stat-title {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-weight: 600;
-  margin-bottom: 6px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: inherit;
 }
 
-.itn-stat.blue .itn-stat-title { color: #3b82f6; }
-.itn-stat.green .itn-stat-title { color: #10b981; }
-.itn-stat.purple .itn-stat-title { color: #8b5cf6; }
-.itn-stat.orange .itn-stat-title { color: #f59e0b; }
+.itn-stat.blue {
+  background: linear-gradient(135deg, #eff0ff, #dfe1ff);
+  color: var(--brand-primary);
+  border-left: 4px solid var(--brand-primary);
+}
+
+/* Make sure DATES stat takes first position and is blue */
+.itn-stats .itn-stat:nth-child(1) {
+  background: linear-gradient(135deg, #eff0ff, #dfe1ff);
+  color: #6c63ff;
+  border-left: 4px solid #6c63ff;
+}
+
+/* AGENCY and STAY should be same purple color */
+.itn-stats .itn-stat:nth-child(3),
+.itn-stats .itn-stat:nth-child(4) {
+  background: linear-gradient(135deg, #f3ecff, #e9d5ff);
+  color: #a084ee;
+  border-left: 4px solid #a084ee;
+}
 
 .itn-stat-body {
   font-size: 14px;
+  line-height: 1.5;
 }
 
 .itn-muted {
@@ -557,8 +598,8 @@
 .itn-input:focus,
 .itn-form-input:focus {
   border-color: #6c63ff;
-  outline: none;
   box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+  outline: none;
 }
 
 select.itn-input,
@@ -1051,51 +1092,56 @@ textarea.itn-form-input {
 }
 
 .itn-summary-section {
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 16px;
-}
-
-.itn-summary-section:last-child {
-  border-bottom: none;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border-radius: 12px;
+  border-left: 4px solid #6c63ff;
 }
 
 .itn-summary-heading {
   font-size: 16px;
   font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 12px;
+  color: #1e293b;
+  margin: 0 0 12px 0;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .itn-summary-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: #334155;
-}
-
-.itn-summary-region {
-  color: #64748b;
   font-size: 14px;
-}
-
-.itn-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  color: #475569;
+  line-height: 1.6;
 }
 
 .itn-summary-label {
   font-weight: 600;
-  color: #475569;
-  margin-right: 8px;
+  color: #64748b;
+  display: inline-block;
+  min-width: 80px;
+}
+
+.itn-summary-region {
+  display: inline-block;
+  background: linear-gradient(135deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+  margin-top: 8px;
+}
+
+.itn-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
 }
 
 .itn-summary-amount {
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;
   color: #6c63ff;
 }
 
@@ -1106,48 +1152,51 @@ textarea.itn-form-input {
 }
 
 .itn-summary-tag {
-  background: linear-gradient(90deg, #a084ee 60%, #6c63ff 100%);
+  display: inline-block;
+  background: linear-gradient(135deg, #a084ee 60%, #6c63ff 100%);
   color: #fff;
-  padding: 6px 12px;
-  border-radius: 16px;
+  padding: 6px 14px;
+  border-radius: 20px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .itn-summary-badge {
-  background: #e0e7ff;
-  color: #4338ca;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
   display: inline-block;
-  margin-bottom: 4px;
+  background: #e5e7eb;
+  color: #374151;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+  margin-bottom: 8px;
 }
 
 .itn-summary-notes {
+  margin: 0;
+  padding: 0;
   color: #475569;
   font-size: 14px;
-  margin: 4px 0 0;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .itn-summary-status {
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
   display: inline-block;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .itn-summary-status.upcoming {
-  background: #dbeafe;
-  color: #1e40af;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .itn-summary-status.ongoing {
-  background: #fef3c7;
-  color: #92400e;
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .itn-summary-status.completed {
@@ -1160,100 +1209,531 @@ textarea.itn-form-input {
   color: #991b1b;
 }
 
-/* Ensure cards don't clip the dropdown */
-.itn-card {
-  overflow: visible !important;
-}
-
-/* ADD THESE STYLES FOR THE TOOLS MENU */
+/* Tools menu styling */
 .itn-tools-menu-item {
-  width: 100%;
-  padding: 14px 18px;
-  border: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: #fff;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  color: #1e293b;
+  color: #374151;
   transition: all 0.2s;
+  text-align: left;
+}
+
+.itn-tools-menu-item:last-child {
+  border-bottom: none;
 }
 
 .itn-tools-menu-item:hover {
-  background: #f0f0ff;
-  padding-left: 22px;
-  color: #6366f1;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  color: #6c63ff;
+  padding-left: 20px;
 }
 
-/* UPDATE: Fix shared card hover shadow overlap */
-.itn-card {
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #eaeaea;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  margin-bottom: 12px;
-  overflow: hidden;
-  margin-right: 12px;
-  margin-left: 12px;
-  position: relative;
-  transition: all 0.3s;
-  isolation: isolate; /* ADD THIS - Creates new stacking context */
+/* Agency edit modal styles */
+.itn-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
 }
 
-.itn-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  transform: translateY(-2px);
-  z-index: 1; /* ADD THIS - Keep hover card above others */
+@media (max-width: 768px) {
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* UPDATE: Shared itineraries tab stacking */
-.itn-shared-itineraries-tab {
-  position: relative;
-  z-index: 1; /* Base stacking for shared items */
+.itn-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-/* UPDATE: Tools menu should be above everything in card */
-.itn-tools-menu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: 0;
+.itn-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.itn-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.itn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itn-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.itn-input {
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
   background: #fff;
-  border: 2px solid #6366f1;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(99, 102, 241, 0.25);
-  z-index: 9999; /* Very high to be above all cards */
-  min-width: 240;
-  overflow: hidden;
-  animation: slideUp 0.2s ease-out;
 }
 
-/* UPDATE: Ensure modals are highest */
-.itn-modal-backdrop {
+.itn-input:focus {
+  outline: none;
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+}
+
+.itn-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Allow long agency text (name + phone + email) to wrap nicely */
+.itn-text-wrap {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  color: #111827;
+}
+
+/* UPDATED: Suggestion View Layout */
+.suggestion-view-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(40, 48, 80, 0.55);
-  z-index: 100000; /* Very high for modals */
+  background: rgba(2, 6, 23, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5vh 2vw;
+  padding: 20px;
+  overflow-y: auto;
 }
 
-.itn-modal {
-  z-index: 100001; /* Modal above backdrop */
-  max-width: 900px;
-  width: 95vw;
-  max-height: 90vh;
-  border-radius: 16px;
+.suggestion-view-container {
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  gap: 20px;
+  max-width: 1600px;
+  width: 100%;
+  height: 90vh;
+  max-height: 900px;
+  position: relative;
+}
+
+.suggestion-view-left,
+.suggestion-view-right {
   background: #fff;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  border-radius: 16px;
+  padding: 20px;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.suggestion-view-center {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+}
+
+/* UPDATED: Modal inside suggestion view */
+.suggestion-view-center .itn-modal {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  box-shadow: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestion-view-center .itn-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* UPDATED: Form grid to be more responsive */
+.itn-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 100%;
+}
+
+.itn-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0; /* Prevent overflow */
+}
+
+.itn-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.itn-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.itn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.itn-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.itn-input {
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
+  background: #fff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.itn-input:focus {
+  outline: none;
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+}
+
+textarea.itn-input {
+  min-height: 80px;
+  max-height: 200px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* UPDATED: Activities section */
+.itn-activities-wrapper {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border-radius: 12px;
+  padding: 16px;
+  border: 2px solid #e5e7eb;
+}
+
+.itn-activity-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(90deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.2);
+  transition: all 0.2s;
+}
+
+.itn-activity-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
+}
+
+.itn-activity-remove-btn {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.itn-activity-remove-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+/* UPDATED: Modal footer */
+.itn-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 2px solid #f3f4f6;
+  background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
+  flex-shrink: 0;
+}
+
+/* Mobile responsive for suggestion view */
+@media (max-width: 1200px) {
+  .suggestion-view-container {
+    grid-template-columns: 250px 1fr 250px;
+    gap: 16px;
+  }
+
+  .suggestion-view-left,
+  .suggestion-view-right {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 968px) {
+  .suggestion-view-backdrop {
+    padding: 10px;
+  }
+
+  .suggestion-view-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: auto;
+    max-height: 95vh;
+    gap: 12px;
+  }
+
+  .suggestion-view-left,
+  .suggestion-view-right {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .suggestion-view-center {
+    min-height: 400px;
+    max-height: none;
+  }
+
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .suggestion-view-backdrop {
+    padding: 8px;
+    align-items: flex-start;
+  }
+
+  .suggestion-view-container {
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  .itn-modal-body {
+    padding: 16px;
+  }
+
+  .itn-form-col {
+    gap: 16px;
+  }
+
+  .itn-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .itn-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  .suggestion-view-left,
+  .suggestion-view-right {
+    display: none; /* Hide suggestions on mobile for better UX */
+  }
+
+  .suggestion-view-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Scrollbar styling for suggestion panels */
+.suggestion-view-left::-webkit-scrollbar,
+.suggestion-view-right::-webkit-scrollbar,
+.itn-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.suggestion-view-left::-webkit-scrollbar-track,
+.suggestion-view-right::-webkit-scrollbar-track,
+.itn-modal-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.suggestion-view-left::-webkit-scrollbar-thumb,
+.suggestion-view-right::-webkit-scrollbar-thumb,
+.itn-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.suggestion-view-left::-webkit-scrollbar-thumb:hover,
+.suggestion-view-right::-webkit-scrollbar-thumb:hover,
+.itn-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Empty state for suggestions */
+.suggestion-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+}
+
+.suggestion-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.suggestion-empty-text {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Loading state */
+.suggestion-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #6c63ff;
+}
+
+.suggestion-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #6c63ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+/* Suggestion items */
+.suggestion-item {
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-item:hover {
+  border-color: #6c63ff;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.suggestion-item-header {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.suggestion-item-detail {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggestion-item-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+/* Notification toast */
+.itn-notification {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+  z-index: 100000;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Better spacing for form sections */
+.itn-form-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.itn-form-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

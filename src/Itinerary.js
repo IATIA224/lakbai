@@ -182,6 +182,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
       initial?.display_name?.split(",").slice(1).join(",").trim() ||
       initial?.region ||
       "",
+    location: initial?.location || "",
     arrival: initial?.arrival || "",
     departure: initial?.departure || "",
     status: initial?.status || "Upcoming",
@@ -226,7 +227,22 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     }
   };
 
-  // Allow Enter to add activity and Esc to close
+  const handleSelectHotel = (hotel) => {
+    setForm(prev => ({
+      ...prev,
+      accomType: hotel.type,
+      accomName: hotel.name,
+      accomNotes: hotel.address,
+    }));
+  };
+
+  const handleSelectAgency = (agency) => {
+    setForm(prev => ({
+      ...prev,
+      agency: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
+    }));
+  };
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose();
@@ -239,8 +255,14 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [addActivity, onClose]);
 
+  // CHANGED: Render SuggestionView directly to body with proper structure
   const modalContent = (
-    <div className="itn-modal-backdrop" onClick={onClose}>
+    <SuggestionView 
+      item={initial} 
+      onClose={onClose}
+      onSelectHotel={handleSelectHotel}
+      onSelectAgency={handleSelectAgency}
+    >
       <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
         <div className="itn-modal-header">
           <div className="itn-modal-title">Edit Destination Details</div>
@@ -485,7 +507,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </SuggestionView>
   );
 
   // Render to body using Portal
@@ -758,28 +780,7 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
 
       {/* Render modals OUTSIDE the card */}
       {showSummary && (
-        <SuggestionView 
-          item={item} 
-          onClose={() => setShowSummary(false)}
-          onSelectHotel={(hotel) => {
-              setEditing({
-                ...item,
-                accomType: hotel.type,
-                accomName: hotel.name,
-                accomNotes: hotel.address,
-              });
-              setShowSummary(false);
-          }}
-          onSelectAgency={(agency) => {
-              setEditing({
-                ...item,
-                agency: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
-              });
-              setShowSummary(false);
-          }}
-        >
-          <ItinerarySummaryModal item={item} onClose={() => setShowSummary(false)} />
-        </SuggestionView>
+        <ItinerarySummaryModal item={item} onClose={() => setShowSummary(false)} />
       )}
 
       {showCostEstimation && (
@@ -902,8 +903,9 @@ function ItinerarySummaryModal({ item, onClose }) {
         )
       : 0;
 
-  return (
-    <>
+  const modalContent = (
+    <div className="itn-modal-backdrop" onClick={onClose}>
+      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
         <div className="itn-modal-header">
           <div className="itn-modal-title">📋 Trip Summary</div>
           <button className="itn-close" onClick={onClose}>×</button>
@@ -917,7 +919,6 @@ function ItinerarySummaryModal({ item, onClose }) {
                 <strong>{item.name}</strong>
                 {item.region && <span className="itn-summary-region">{item.region}</span>}
               </div>
-              {/* ADD THIS NEW SECTION FOR LOCATION */}
               {item.location && (
                 <div className="itn-summary-item" style={{ marginTop: '12px' }}>
                   <span className="itn-summary-label" style={{ color: '#64748b', fontSize: '0.9rem' }}>
@@ -1031,8 +1032,11 @@ function ItinerarySummaryModal({ item, onClose }) {
         <div className="itn-modal-footer">
           <button className="itn-btn primary" onClick={onClose}>Close</button>
         </div>
-    </>
+      </div>
+    </div>
   );
+
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose }) {
@@ -2023,6 +2027,7 @@ export default function Itinerary() {
 
 // Add these named exports near the bottom (outside components) so "My Trips" UI can call them.
 export async function removeTripForAllUsers(itemId) {
+ 
   const u = auth.currentUser;
   if (!u) throw new Error("AUTH_REQUIRED");
   // Deletes users/*/trips/<itemId> for every user. Does not touch itinerary/sharedItineraries.
