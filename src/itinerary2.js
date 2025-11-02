@@ -29,6 +29,7 @@ import {
   trackDestinationUncompleted,
   trackDestinationRemoved,
 } from "./itinerary_Stats";
+import { SuggestionView } from "./ItinerarySuggestion"; // ADD THIS IMPORT
 
 // Helper function to ensure collections exist
 async function ensureCollectionExists(path) {
@@ -281,8 +282,8 @@ export function SharedDestinationCard({
   const [showSummary, setShowSummary] = useState(false);
   const [showHotels, setShowHotels] = useState(false);
   const [showCostEstimation, setShowCostEstimation] = useState(false);
-  const [showAgency, setShowAgency] = useState(false); // ADD THIS
-  const [showToolsMenu, setShowToolsMenu] = useState(false); // ADD THIS
+  const [showAgency, setShowAgency] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
 
   const days =
     item.arrival && item.departure
@@ -298,7 +299,6 @@ export function SharedDestinationCard({
   const activities = item.activities || [];
   const showToggle = activities.length > 3;
 
-  // ADD THIS - Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = () => setShowToolsMenu(false);
     if (showToolsMenu) {
@@ -348,61 +348,68 @@ export function SharedDestinationCard({
         </div>
 
         <div className="itn-stats">
-          <div className="itn-stat blue">
-            <div className="itn-stat-title">Dates</div>
+          {/* DATES */}
+          <div className="itn-stat">
+            <div className="itn-stat-title">DATES</div>
             <div className="itn-stat-body">
-              {item.arrival || item.departure ? (
-                <>
-                  <div>{item.arrival || "—"}</div>
-                  <div>{item.departure || "—"}</div>
-                  <div className="itn-muted">{days} {days === 1 ? "day" : "days"} total</div>
-                </>
-              ) : (
-                <div className="itn-muted">Not set</div>
-              )}
+              <div>{formatDate(item.arrival)}</div>
+              <div>{formatDate(item.departure)}</div>
+              <div className="itn-muted">{getTotalDays(item)} days total</div>
             </div>
           </div>
 
+          {/* ESTIMATED EXPENDITURE */}
           <div className="itn-stat green">
-            <div className="itn-stat-title">Estimated expenditure</div>
+            <div className="itn-stat-title">ESTIMATED EXPENDITURE</div>
             <div className="itn-stat-body">
-              <div>₱{Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+              <div>₱{Number(item.estimatedExpenditure || 0).toLocaleString()}</div>
               <div className="itn-muted">Estimated total cost for this trip</div>
             </div>
           </div>
 
+          {/* STAY */}
           <div className="itn-stat purple">
-            <div className="itn-stat-title">Stay</div>
+            <div className="itn-stat-title">STAY</div>
             <div className="itn-stat-body">
-              <div>{item.accomType || "Not planned"}</div>
-              <div className="itn-muted">{item.accomName || "No details"}</div>
+              {item.accomName ? (
+                <>
+                  <div className="itn-muted">{item.accomType || "Hotel"}</div>
+                  <div className="itn-text-wrap">{item.accomName}</div>
+                  {item.accomNotes && <div className="itn-muted itn-text-wrap">{item.accomNotes}</div>}
+                </>
+              ) : (
+                <>
+                  <div className="itn-muted">Not planned</div>
+                  <div className="itn-muted">No details</div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="itn-stat orange">
-            <div className="itn-stat-title">Activities</div>
+          {/* AGENCY — NEW */}
+          <div className="itn-stat purple">
+            <div className="itn-stat-title">AGENCY</div>
             <div className="itn-stat-body">
-              <div>{activities.length} planned</div>
-              {activities.length ? (
-                <>
-                  <div className="itn-muted" style={{ wordBreak: "break-word" }}>
-                    {showAllActivities
-                      ? activities.join(", ")
-                      : activities.slice(0, 3).join(", ")}
-                    {showToggle && !showAllActivities && "…"}
-                  </div>
-                  {showToggle && (
-                    <button
-                      className="itn-btn ghost"
-                      style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
-                      onClick={() => setShowAllActivities((v) => !v)}
-                    >
-                      {showAllActivities ? "Show Less" : "Show All"}
-                    </button>
-                  )}
-                </>
+              {item.agency ? (
+                <div className="itn-text-wrap">{item.agency}</div>
               ) : (
-                <div className="itn-muted">—</div>
+                <>
+                  <div className="itn-muted">Not planned</div>
+                  <div className="itn-muted">—</div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ACTIVITIES */}
+          <div className="itn-stat orange">
+            <div className="itn-stat-title">ACTIVITIES</div>
+            <div className="itn-stat-body">
+              <div>{(item.activities?.length || 0)} planned</div>
+              {item.activities?.length > 0 && (
+                <div className="itn-muted">
+                  {item.activities.slice(0, 3).join(", ")}{item.activities.length > 3 ? "..." : ""}
+                </div>
               )}
             </div>
           </div>
@@ -520,11 +527,11 @@ export function SharedDestinationCard({
         </div>
       </div>
 
-      {/* Render modals using Portal */}
+      {/* UPDATED: Render summary modal without SuggestionView wrapper */}
       {showSummary && (
-        <ItinerarySummaryModal
-          item={item}
-          onClose={() => setShowSummary(false)}
+        <ItinerarySummaryModal 
+          item={item} 
+          onClose={() => setShowSummary(false)} 
         />
       )}
 
@@ -553,7 +560,6 @@ export function SharedDestinationCard({
         />
       )}
 
-      {/* ADD THIS - Travel Agency Modal */}
       {showAgency && (
         <ItineraryAgencyModal
           open={showAgency}
@@ -580,6 +586,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
   const [form, setForm] = useState({
     name: initial?.name || "",
     region: initial?.region || "",
+    location: initial?.location || "",
     status: initial?.status || "Upcoming",
     arrival: initial?.arrival || "",
     departure: initial?.departure || "",
@@ -592,6 +599,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     activityDraft: "",
     transportNotes: initial?.transportNotes || "",
     notes: initial?.notes || "",
+    agency: initial?.agency || "",
   });
 
   const addActivity = React.useCallback(() => {
@@ -627,6 +635,22 @@ export function SharedEditModal({ initial, onSave, onClose }) {
     }
   };
 
+  const handleSelectHotel = (hotel) => {
+    setForm(prev => ({
+      ...prev,
+      accomType: hotel.type,
+      accomName: hotel.name,
+      accomNotes: hotel.address,
+    }));
+  };
+
+  const handleSelectAgency = (agency) => {
+    setForm(prev => ({
+      ...prev,
+      agency: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
+    }));
+  };
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose();
@@ -640,7 +664,12 @@ export function SharedEditModal({ initial, onSave, onClose }) {
   }, [addActivity, onClose]);
 
   const modalContent = (
-    <div className="itn-modal-backdrop" onClick={onClose}>
+    <SuggestionView 
+      item={initial} 
+      onClose={onClose}
+      onSelectHotel={handleSelectHotel}
+      onSelectAgency={handleSelectAgency}
+    >
       <form className="itn-modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="itn-modal-header">
           <div className="itn-modal-title">Edit Shared Destination</div>
@@ -658,7 +687,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    placeholder="City or place name"
+                    placeholder="City or place name (required)"
                   />
                 </label>
                 <label className="itn-field">
@@ -668,7 +697,17 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                     name="region"
                     value={form.region}
                     onChange={handleChange}
-                    placeholder="Region"
+                    placeholder="Region (e.g., Metro Manila)"
+                  />
+                </label>
+                <label className="itn-field">
+                  <span className="itn-label">Location</span>
+                  <input
+                    className="itn-input"
+                    name="location"
+                    value={form.location}
+                    onChange={handleChange}
+                    placeholder="Full address or location"
                   />
                 </label>
               </div>
@@ -739,40 +778,21 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                   </button>
                 </div>
                 {form.activities.length > 0 && (
-                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {form.activities.map((act, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
-                          color: "#fff",
-                          borderRadius: 16,
-                          padding: "4px 12px",
-                          fontSize: 13,
-                          fontWeight: 500,
-                        }}
-                      >
-                        <span>{act}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeActivity(i)}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#fff",
-                            cursor: "pointer",
-                            fontSize: 16,
-                            lineHeight: 1,
-                            padding: 0,
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                  <div className="itn-activities-wrapper" style={{ marginTop: 8 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {form.activities.map((act, i) => (
+                        <div key={i} className="itn-activity-tag">
+                          <span>{act}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeActivity(i)}
+                            className="itn-activity-remove-btn"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -807,7 +827,7 @@ export function SharedEditModal({ initial, onSave, onClose }) {
                   rows={2}
                   className="itn-input"
                   name="accomNotes"
-                  placeholder="Address, booking details..."
+                  placeholder="Address, booking details, special notes..."
                   value={form.accomNotes}
                   onChange={handleChange}
                 />
@@ -841,6 +861,17 @@ export function SharedEditModal({ initial, onSave, onClose }) {
               </div>
 
               <div className="itn-field">
+                <span className="itn-label">Travel Agency</span>
+                <input
+                  className="itn-input"
+                  placeholder="Agency name or details"
+                  name="agency"
+                  value={form.agency}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="itn-field">
                 <span className="itn-label">Additional Notes</span>
                 <textarea
                   rows={3}
@@ -859,16 +890,16 @@ export function SharedEditModal({ initial, onSave, onClose }) {
           <button type="button" className="itn-btn ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="itn-btn primary">Save Details</button>
         </div>
+        
         {notif && (
-          <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", background: "#6c63ff", color: "#fff", padding: "8px 16px", borderRadius: 8, zIndex: 10001 }}>
+          <div className="itn-notification">
             {notif}
           </div>
         )}
       </form>
-    </div>
+    </SuggestionView>
   );
 
-  // Render to body using Portal
   return ReactDOM.createPortal(modalContent, document.body);
 }
 
@@ -895,7 +926,6 @@ export function ItinerarySummaryModal({ item, onClose }) {
               <div className="itn-summary-item">
                 <strong>{item.name}</strong>
                 {item.region && <span className="itn-summary-region">{item.region}</span>}
-                {/* ADD THIS - Display location */}
                 {item.location && (
                   <div style={{ marginTop: 8, fontSize: '0.95rem', color: '#64748b' }}>
                     <span className="itn-summary-label">📌 Location: </span>
@@ -974,6 +1004,15 @@ export function ItinerarySummaryModal({ item, onClose }) {
               </div>
             )}
 
+            {item.agency && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading">✈️ Agency</h3>
+                <div className="itn-summary-item">
+                  <p className="itn-summary-notes">{item.agency}</p>
+                </div>
+              </div>
+            )}
+
             {item.notes && (
               <div className="itn-summary-section">
                 <h3 className="itn-summary-heading">📝 Notes</h3>
@@ -1001,7 +1040,6 @@ export function ItinerarySummaryModal({ item, onClose }) {
     </div>
   );
 
-  // Render to body using Portal
   return ReactDOM.createPortal(modalContent, document.body);
 }
 
@@ -1938,6 +1976,32 @@ export function SharedItinerariesTab({ user }) {
   );
 }
 
+// ADD THESE HELPER FUNCTIONS at the very top, after imports
+function formatDate(dateString) {
+  if (!dateString) return "—";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { 
+      month: "short", 
+      day: "numeric", 
+      year: "numeric" 
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function getTotalDays(item) {
+  if (!item.arrival || !item.departure) return 0;
+  try {
+    const arrival = new Date(item.arrival).getTime();
+    const departure = new Date(item.departure).getTime();
+    return Math.max(1, Math.ceil((departure - arrival) / (1000 * 60 * 60 * 24)));
+  } catch {
+    return 0;
+  }
+}
+
 // Add these helper functions after the checkMiniPlannerAchievement function
 
 async function checkMiniPlannerAchievement(user) {
@@ -2050,5 +2114,5 @@ async function logActivity(text, icon = "🔵") {
     });
   } catch (error) {
     console.error("Error logging activity:", error);
-  }
+ }
 }
