@@ -22,6 +22,7 @@ import Carousel from 'react-multi-carousel';
 import 'react-multi-carousel/lib/styles.css';
 
 
+
 // Helper to get image URL by destination name
 function getImageForDestination(name) {
   if (!name) return undefined;
