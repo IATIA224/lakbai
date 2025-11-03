@@ -22,7 +22,6 @@ import Carousel from 'react-multi-carousel';
 import 'react-multi-carousel/lib/styles.css';
 
 
-
 // Helper to get image URL by destination name
 function getImageForDestination(name) {
   if (!name) return undefined;
@@ -395,6 +394,13 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
             key={idx}
             className={`dot${idx === current ? " active" : ""}`}
             onClick={() => setCurrent(idx)}
+            style={{
+              width: 8,          // smaller dot
+              height: 8,
+              margin: '0 4px',
+              display: 'inline-block',
+              transform: idx === current ? 'scale(1.05)' : 'none' // optional
+            }}
           />
         ))}
       </div>
