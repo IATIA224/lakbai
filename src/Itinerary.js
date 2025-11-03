@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom"; // ADD THIS IMPORT
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -1033,8 +1033,7 @@ function ItinerarySummaryModal({ item, onClose }) {
           <button className="itn-btn primary" onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
-  );
+    </div>);
 
   return ReactDOM.createPortal(modalContent, document.body);
 }
@@ -1111,10 +1110,6 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
 }
 
 export default function Itinerary() {
-  const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const [map, setMap] = useState(null);
-
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState([]);
@@ -1134,7 +1129,7 @@ export default function Itinerary() {
 
   const [user, setUser] = useState(null);
 
-  const [filterStatus, setFilterStatus] = useState('all'); // KEEP ONLY filterStatus
+  const [filterStatus, setFilterStatus] = useState('all');
 
   const friends = useFriendsList(user);
   const { sharedWithMe } = useSharedItineraries(user);
@@ -1153,14 +1148,12 @@ export default function Itinerary() {
       return;
     }
 
-    // Check cache first
     const cached = itineraryCache.get(user.uid);
     if (cached) {
       console.log('✅ Using cached itinerary items');
       setItems(cached);
     }
 
-    // Then set up listener for real-time updates
     const colRef = collection(db, "itinerary", user.uid, "items");
     const q = fsQuery(colRef, orderBy("createdAt", "asc"));
     
@@ -1169,14 +1162,11 @@ export default function Itinerary() {
       (snap) => {
         const list = [];
         snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-        
-        // Update cache
         itineraryCache.set(list, user.uid);
         setItems(list);
       },
       (error) => {
         console.error('Itinerary listener error:', error);
-        // On error, try to use cached data
         const cachedData = itineraryCache.get(user.uid);
         if (cachedData) {
           setItems(cachedData);
@@ -1186,64 +1176,6 @@ export default function Itinerary() {
     
     return () => unsub();
   }, [user]);
-
-  useEffect(() => {
-    if (map || !mapRef.current) return; // Add check for mapRef.current
-    
-    // Clear any existing map instance
-    if (mapRef.current._leaflet_id) {
-      return; // Map already initialized
-    }
-    
-    try {
-      const m = L.map(mapRef.current, { 
-        zoomControl: false, 
-        attributionControl: false 
-      }).setView([14.5995, 120.9842], 11);
-      
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "",
-      }).addTo(m);
-      
-      setMap(m);
-    } catch (error) {
-      console.error("Map initialization error:", error);
-      // If map exists but errored, clean it up
-      if (mapRef.current._leaflet_id) {
-        mapRef.current._leaflet_id = undefined;
-      }
-    }
-    
-    // Cleanup function
-    return () => {
-      if (map) {
-        map.remove();
-        setMap(null);
-      }
-    };
-  }, []); // Empty dependency array - only run once
-
-  useEffect(() => {
-    if (!map || !selected) return;
-    const lat = Number(selected.lat);
-    const lon = Number(selected.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-    const pinIcon = L.icon({
-      iconUrl: `${process.env.PUBLIC_URL || ""}/placeholder.png`,
-      iconSize: [40, 40],
-      iconAnchor: [20, 38],
-      popupAnchor: [0, -38],
-    });
-
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lon]);
-      markerRef.current.setIcon(pinIcon);
-    } else {
-      markerRef.current = L.marker([lat, lon], { icon: pinIcon }).addTo(map);
-    }
-    map.setView([lat, lon], 13);
-  }, [map, selected]);
 
   const onSearch = async () => {
     setSearching(true);
@@ -1741,8 +1673,8 @@ export default function Itinerary() {
   return (
     <div className="itn-page">
       <div className="itn-hero">
-        <div className="itn-hero-title">LakbAI: Your AI Travel Assistant</div>
-        <div className="itn-hero-sub">Plan every aspect of your perfect journey</div>
+        <div className="itn-hero-title">🗺️ My Travel Itineraries</div>
+        <div className="itn-hero-sub">Plan, organize, and share your perfect journey</div>
         <div className="itn-hero-actions">
           <button 
             className="itn-btn ghost"
@@ -1750,7 +1682,7 @@ export default function Itinerary() {
             disabled={!items.length}
             title={!items.length ? "No itineraries to share" : "Share with friends"}
           >
-            Share Itinerary
+            🔗 Share Itinerary
           </button>
           <button 
             className="itn-btn ghost"
@@ -1758,33 +1690,38 @@ export default function Itinerary() {
             disabled={!items.length}
             title={!items.length ? "No items to export" : "Export to PDF"}
           >
-            Export PDF
+            📄 Export PDF
           </button>
           <button 
             className="itn-btn ghost"
             onClick={markAllComplete}
             disabled={!items.length}
           >
-            Mark All Complete
+            ✅ Mark All Complete
           </button>
           <button 
             className="itn-btn ghost"
             onClick={clearAll}
             disabled={!items.length}
           >
-            Clear All
+            🗑️ Clear All
           </button>
         </div>
       </div>
 
-      <div className="itn-grid-main">
-        <section className="itn-left">
+      {/* UPDATED: Removed left panel with map, single column layout */}
+      <div className="itn-container-full">
+        {/* Quick Search Section */}
+        <section className="itn-search-section">
           <div className="itn-panel">
-            <div className="itn-panel-title">Find Destination</div>
-            <div className="itn-row" style={{ display: "flex", gap: 10 }}>
+            <div className="itn-panel-title">
+              <span>🔍</span>
+              Quick Add Destination
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
               <input
                 className="itn-input"
-                placeholder="Search destinations..."
+                placeholder="Search for destinations (e.g., Boracay, Palawan, Cebu)..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && onSearch()}
@@ -1794,192 +1731,170 @@ export default function Itinerary() {
                 className="itn-btn primary"
                 onClick={onSearch}
                 disabled={searching}
-                style={{ marginLeft: "auto" }}
               >
-                {searching ? "Searching..." : "Search"}
+                {searching ? "🔄 Searching..." : "🔍 Search"}
               </button>
             </div>
 
-            <div className="itn-map-wrap">
-              <div className="itn-map" ref={mapRef} />
-            </div>
-
-            {selected ? (
-              <div style={{
-                background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
-                border: "2px solid #6c63ff",
-                borderRadius: 12,
-                padding: "16px",
-                marginTop: 16,
-                boxShadow: "0 4px 16px rgba(108, 99, 255, 0.15)"
-              }}>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  gap: 12
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: 16,
-                      fontWeight: 700,
-                      color: "#1e293b",
-                      marginBottom: 8,
-                      lineHeight: 1.3
-                    }}>
-                      {selected.display_name?.split(",")[0] || selected.name || "Destination"}
-                    </div>
-                    <div style={{
-                      fontSize: 14,
-                      color: "#64748b",
-                      marginBottom: 6
-                    }}>
-                      {selected.display_name?.split(",").slice(1).join(",").trim() || ""}
-                    </div>
-                    {selected.lat && selected.lon && (
-                      <div style={{
-                        fontSize: 13,
-                        color: "#94a3b8",
-                        display: "flex",
-                        gap: 12,
-                        marginTop: 8
-                      }}>
-                        <span>📍 {Number(selected.lat).toFixed(4)}, {Number(selected.lon).toFixed(4)}</span>
+            {/* Search Results Grid */}
+            {results.length > 0 && (
+              <div className="itn-search-results">
+                <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#64748b' }}>
+                  Found {results.length} result{results.length !== 1 ? 's' : ''}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+                  {results.map((result, idx) => (
+                    <div
+                      key={idx}
+                      className={`itn-search-result-card ${selected?.place_id === result.place_id ? 'selected' : ''}`}
+                      onClick={() => setSelected(result)}
+                      style={{
+                        padding: 14,
+                        border: selected?.place_id === result.place_id ? '2px solid #6c63ff' : '2px solid #e5e7eb',
+                        borderRadius: 12,
+                        cursor: 'pointer',
+                        background: selected?.place_id === result.place_id ? '#f0f0ff' : '#fff',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div style={{ fontSize: 18, marginBottom: 8 }}>📍</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: '#1e293b', marginBottom: 4 }}>
+                        {result.display_name?.split(",")[0] || result.name}
                       </div>
-                    )}
-                  </div>
-                  <button 
-                    className="itn-btn success" 
-                    onClick={openAddModal}
-                    style={{
-                      background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                      color: "#fff",
-                      border: "none",
-                      padding: "10px 20px",
-                      borderRadius: 10,
-                      fontWeight: 600,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
-                      transition: "all 0.2s",
-                      whiteSpace: "nowrap"
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                      e.currentTarget.style.boxShadow = "0 6px 18px rgba(16, 185, 129, 0.4)";
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.3)";
-                    }}
-                  >
-                    ➕ Add to Itinerary
-                  </button>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>
+                        {result.display_name?.split(",").slice(1, 2).join(",").trim()}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <div className="itn-muted" style={{ 
-                textAlign: "center", 
-                padding: "20px",
-                color: "#94a3b8",
-                fontSize: 14
+            )}
+
+            {/* Selected Place Card */}
+            {selected && results.length === 0 && (
+              <div style={{
+                background: "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
+                border: "2px solid #6c63ff",
+                borderRadius: 14,
+                padding: "18px",
+                marginTop: 12,
+                boxShadow: "0 4px 16px rgba(108, 99, 255, 0.15)",
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 16
               }}>
-                Search for places on the map to start planning.
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 6 }}>
+                    {selected.display_name?.split(",")[0] || selected.name}
+                  </div>
+                  <div style={{ fontSize: 14, color: "#64748b" }}>
+                    {selected.display_name?.split(",").slice(1).join(",").trim()}
+                  </div>
+                </div>
+                <button 
+                  className="itn-btn success" 
+                  onClick={openAddModal}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  ➕ Add to Itinerary
+                </button>
               </div>
             )}
-            
-            {/* REMOVE the extra results list - we only show the selected one now */}
           </div>
         </section>
 
-        <section className="itn-right">
+        {/* Itinerary Section - Full Width */}
+        <section className="itn-itinerary-full">
           <div className="itn-tabs">
             <div 
               className={`itn-tab ${activeTab === 'personal' ? 'active' : ''}`} 
               onClick={() => setActiveTab('personal')}
             >
-              My Itineraries
+              📋 My Itineraries
+              {items.length > 0 && <span style={{ marginLeft: 8, fontWeight: 800 }}>({items.length})</span>}
             </div>
             <div 
               className={`itn-tab ${activeTab === 'shared' ? 'active' : ''}`}
               onClick={() => setActiveTab('shared')}
             >
-              Shared With Me {sharedWithMe.length > 0 && `(${sharedWithMe.length})`}
+              👥 Shared With Me
+              {sharedWithMe.length > 0 && <span style={{ marginLeft: 8, fontWeight: 800 }}>({sharedWithMe.length})</span>}
             </div>
           </div>
           
-          <div className="itn-panel">
-            <div className="itn-panel-title">
-              {activeTab === 'personal' ? 'Your Detailed Itinerary' : 'Itineraries Shared With You'}
-            </div>
+          <div className="itn-panel itn-panel-full-width">
             {activeTab === 'personal' ? (
               <>
-                {/* Filter Status ONLY */}
+                {/* Filter Status */}
                 {items.length > 0 && (
                   <div style={{
                     display: 'flex',
                     gap: 12,
-                    marginBottom: 16,
-                    flexWrap: 'wrap',
-                    padding: '12px 16px',
+                    marginBottom: 20,
+                    padding: '16px 20px',
                     background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
-                    borderRadius: 12,
-                    border: '1px solid #e5e7eb'
+                    borderRadius: 14,
+                    border: '2px solid #e5e7eb',
+                    alignItems: 'center'
                   }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <label style={{
-                        display: 'block',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: '#64748b',
-                        marginBottom: 6
-                      }}>
-                        Filter Status
-                      </label>
-                      <select
-                        className="itn-input"
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        style={{
-                          fontSize: 14,
-                          padding: '8px 12px',
-                          background: '#fff'
-                        }}
-                      >
-                        <option value="all">All ({items.length})</option>
-                        <option value="upcoming">Upcoming ({items.filter(i => (i.status || 'upcoming').toLowerCase() === 'upcoming').length})</option>
-                        <option value="ongoing">Ongoing ({items.filter(i => i.status?.toLowerCase() === 'ongoing').length})</option>
-                        <option value="completed">Completed ({items.filter(i => i.status?.toLowerCase() === 'completed').length})</option>
-                        <option value="cancelled">Cancelled ({items.filter(i => i.status?.toLowerCase() === 'cancelled').length})</option>
-                      </select>
-                    </div>
+                    <label style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap' }}>
+                      🔽 Filter by Status:
+                    </label>
+                    <select
+                      className="itn-input"
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      style={{
+                        fontSize: 14,
+                        padding: '10px 14px',
+                        background: '#fff',
+                        flex: 1,
+                        maxWidth: 300
+                      }}
+                    >
+                      <option value="all">All ({items.length})</option>
+                      <option value="upcoming">🔜 Upcoming ({items.filter(i => (i.status || 'upcoming').toLowerCase() === 'upcoming').length})</option>
+                      <option value="ongoing">⏳ Ongoing ({items.filter(i => i.status?.toLowerCase() === 'ongoing').length})</option>
+                      <option value="completed">✅ Completed ({items.filter(i => i.status?.toLowerCase() === 'completed').length})</option>
+                      <option value="cancelled">❌ Cancelled ({items.filter(i => i.status?.toLowerCase() === 'cancelled').length})</option>
+                    </select>
                   </div>
                 )}
 
-                {/* Flat list rendering, filtered by status */}
-                {!items.length ? (
-                  <div className="itn-empty">
-                    <div className="itn-empty-icon">🧳</div>
-                    <div className="itn-empty-title">No destinations planned yet</div>
-                    <div className="itn-muted">
-                      Search for places on the map to start building your itinerary!
+                {/* Itinerary Cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {!items.length ? (
+                    <div className="itn-empty">
+                      <div className="itn-empty-icon">🧳</div>
+                      <div className="itn-empty-title">No destinations planned yet</div>
+                      <div className="itn-muted">
+                        Search for places above to start building your dream itinerary!
+                      </div>
+                      <button 
+                        className="itn-btn primary"
+                        onClick={() => document.querySelector('.itn-input')?.focus()}
+                        style={{ marginTop: 16 }}
+                      >
+                        🔍 Start Searching
+                      </button>
                     </div>
-                  </div>
-                ) : (
-                  items
-                    .filter(item => filterStatus === 'all' || (item.status || 'upcoming').toLowerCase() === filterStatus.toLowerCase())
-                    .map((item, index) => (
-                      <DestinationCard
-                        key={item.id}
-                        item={item}
-                        index={index}
-                        onEdit={(it) => setEditing(it)}
-                        onRemove={removeItem}
-                        onToggleStatus={toggleStatus}
-                        setEditing={setEditing}
-                      />
-                    ))
-                ) }
+                  ) : (
+                    items
+                      .filter(item => filterStatus === 'all' || (item.status || 'upcoming').toLowerCase() === filterStatus.toLowerCase())
+                      .map((item, index) => (
+                        <DestinationCard
+                          key={item.id}
+                          item={item}
+                          index={index}
+                          onEdit={(it) => setEditing(it)}
+                          onRemove={removeItem}
+                          onToggleStatus={toggleStatus}
+                          setEditing={setEditing}
+                        />
+                      ))
+                  )}
+                </div>
               </>
             ) : (
               <SharedItinerariesTab user={user} />
@@ -1988,6 +1903,7 @@ export default function Itinerary() {
         </section>
       </div>
 
+      {/* Modals remain the same */}
       {editing && (
         <EditDestinationModal
           initial={editing}
@@ -2023,7 +1939,6 @@ export default function Itinerary() {
     </div>
   );
 }
-
 
 // Add these named exports near the bottom (outside components) so "My Trips" UI can call them.
 export async function removeTripForAllUsers(itemId) {

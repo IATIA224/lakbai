@@ -675,7 +675,8 @@
 /* Top Rated Hero Carousel UI */
 .top-rated-hero-carousel-ui {
   width: 100%;
-  max-width: 1100px;
+  height: 100%;
+  max-width: 1000px;
   margin: 36px auto 0 auto;
   background: #fff;
   border-radius: 32px;
@@ -685,12 +686,12 @@
   flex-direction: column;
   align-items: center;
   position: relative;
-  min-height: 550px;
+  min-height: 500px;
   transition: box-shadow 0.2s;
 }
 
 .top-rated-hero-title {
-  font-size: 2.5rem;
+  font-size: 24px;
   font-weight: 800;
   margin: 32px 0 0 0;
   color: #2563eb;
@@ -748,7 +749,7 @@
 
 .top-rated-hero-name {
   font-weight: 700;
-  font-size: 2.5rem;
+  font-size: 24px;
   margin-bottom: 6px;
   color: #222;
   letter-spacing: -1px;
@@ -756,14 +757,14 @@
 
 .top-rated-hero-region {
   color: #2563eb;
-  font-size: 1.2rem;
+  font-size: 14px;
   font-weight: 500;
   margin-bottom: 10px;
 }
 
 .top-rated-hero-desc {
   margin: 8px 0;
-  font-size: 1.2rem;
+  font-size: 14px;
   color: #334155;
   max-width: 400px;
   line-height: 1.5;
@@ -778,22 +779,23 @@
 .top-rated-hero-rating {
   font-weight: 600;
   color: #f59e42;
-  font-size: 1.5rem;
+  font-size: 14px;
   margin-top: 12px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
 .top-rated-hero-rating .star {
-  font-size: 1.8rem;
+  font-size: 14px;
   margin-right: 4px;
 }
 
 .top-rated-hero-rating .count {
   color: #64748b;
   font-weight: 400;
-  font-size: 1.2rem;
+  font-size: 14px;
   margin-left: 8px;
 }
 
@@ -843,6 +845,7 @@
 }
 
 .top-rated-hero-dots {
+  font-size: 10px !important;
   position: absolute;
   bottom: 18px;
   left: 50%;
@@ -853,6 +856,7 @@
 }
 
 .top-rated-hero-dots .dot {
+  font-size: 10px !important;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -866,6 +870,7 @@
 .top-rated-hero-dots .dot.active {
   background: #2563eb;
   border: 2px solid #2563eb;
+  font-size: 10px !important;
 }
 
 /* Responsive for mobile */
@@ -888,13 +893,13 @@
     text-align: center;
   }
   .top-rated-hero-name {
-    font-size: 1.3rem;
+    font-size: 24px;
   }
   .top-rated-hero-region {
-    font-size: 1rem;
+    font-size: 16px;
   }
   .top-rated-hero-desc {
-    font-size: 1rem;
+    font-size: 14px;
     max-width: 90vw;
   }
   .top-rated-hero-rating {
