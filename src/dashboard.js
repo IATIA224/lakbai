@@ -374,7 +374,7 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
               </span>
             </div>
             <button
-              className="top-rated-hero-details-btn"
+              className="details-btn"
               onClick={() => handleViewDetails(d)}
             >
               View Details
