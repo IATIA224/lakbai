@@ -1,5 +1,5 @@
 /* ============================================
-   ANIMATIONS & KEYFRAMES
+  ANIMATIONS & KEYFRAMES
 ============================================ */
 @keyframes fadeInUp {
   from {
@@ -110,8 +110,7 @@
 ============================================ */
 .itn-page { 
   padding-bottom: 48px; 
-  padding-top: 90px;
-  background: linear-gradient(135deg, #eef2ff 0%, #f3ecff 100%);
+  padding-top: 20px;
   min-height: 100vh;
 }
 
@@ -552,7 +551,7 @@
 .itn-tabs {
   display: flex;
   gap: 4px;
-  margin: 0 16px 16px;
+  margin: 0 16px 0;
   position: relative;
   animation: fadeIn 0.6s ease-out 0.1s both;
 }
@@ -712,14 +711,19 @@
    MOBILE RESPONSIVE
 ============================================ */
 @media (max-width: 768px) {
-  .itn-page { padding: 0 8px 24px 8px; }
-  .itn-hero { margin: 8px 0; padding: 20px 16px; border-radius: 16px; }
+  .itn-page { padding: 12px 8px 24px 8px; }
+  .itn-hero { margin: 24px 0 0 0; padding: 20px 16px; border-radius: 16px; }
   .itn-hero-title { font-size: 28px; }
   .itn-grid-main { grid-template-columns: 1fr; gap: 16px; }
   .itn-stats { grid-template-columns: 1fr 1fr; gap: 12px; }
   .itn-card { padding: 16px; }
   .itn-step { width: 32px; height: 32px; }
   .itn-fab { width: 56px; height: 56px; bottom: 24px; right: 24px; }
+}
+@media (min-width: 600px) and (max-width: 1164px) {
+  .itn-hero {
+    margin-top: 45px;
+  };
 }
 
 /* Very small screens (phones in portrait) */
