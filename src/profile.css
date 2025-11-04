@@ -4,6 +4,12 @@ html, body, #root {
   padding: 0;
 }
 
+/* Page background with more visible purple */
+html, body, #root {
+  background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 25%, #c4b5fd 50%, #d8b4fe 75%, #e9d5ff 100%) !important;
+  background-attachment: fixed;
+}
+
 #root {
   display: flex;
   flex-direction: column;
@@ -14,6 +20,8 @@ html, body, #root {
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 25%, #c4b5fd 50%, #d8b4fe 75%, #e9d5ff 100%);
+  background-attachment: fixed;
 }
 
 /* Footer stays at bottom */
@@ -188,17 +196,19 @@ html, body, #root {
   margin: 0 auto;
   margin-top: 48px;
   padding: 24px;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(147, 51, 234, 0.05) 50%, rgba(126, 34, 206, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(147, 51, 234, 0.15) 50%, rgba(126, 34, 206, 0.15) 100%);
   border-radius: 16px;
   animation: bgPulse 8s ease-in-out infinite;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(168, 85, 247, 0.2);
 }
 
 @keyframes bgPulse {
   0%, 100% {
-    background: linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(147, 51, 234, 0.05) 50%, rgba(126, 34, 206, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(147, 51, 234, 0.15) 50%, rgba(126, 34, 206, 0.15) 100%);
   }
   50% {
-    background: linear-gradient(135deg, rgba(147, 51, 234, 0.08) 0%, rgba(126, 34, 206, 0.08) 50%, rgba(168, 85, 247, 0.08) 100%);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(147, 51, 234, 0.2) 50%, rgba(126, 34, 206, 0.2) 100%);
   }
 }
 
@@ -464,22 +474,80 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Only show scrollbar when there are many items */
+.profile-activity-list {
+  scrollbar-width: thin;
+  scrollbar-color: #a855f7 rgba(168, 85, 247, 0.1);
+}
+
+/* Scrollbar styling for Chrome/Edge */
+.profile-activity-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.profile-activity-list::-webkit-scrollbar-track {
+  background: rgba(168, 85, 247, 0.05);
+  border-radius: 10px;
+  margin: 8px 0;
+}
+
+.profile-activity-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #a855f7 0%, #7c3aed 100%);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.2);
+  border: 2px solid rgba(168, 85, 247, 0.05);
+}
+
+.profile-activity-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #9333ea 0%, #6d28d9 100%);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
 
 .profile-activity-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%);
-  border: 1px solid rgba(168, 85, 247, 0.1);
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
+  flex-shrink: 0;
+  font-weight: 500;
 }
 
 .profile-activity-item:hover {
-  transform: translateX(4px);
-  border-color: #a855f7;
+  transform: translateX(6px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.profile-activity-item-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.profile-activity-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-activity-item-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: white;
+}
+
+.profile-activity-item-time {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* Gallery */
@@ -490,13 +558,13 @@ html, body, #root {
   margin-bottom: 16px;
   overflow: visible !important;
   padding: 0 !important;
+  max-height: none !important;
 }
 
 .profile-gallery-photo {
   position: relative;
-  width: 140px;
-  height: 140px;
-  flex-shrink: 0;
+  width: 100%;
+  aspect-ratio: 1;
   cursor: pointer;
   border-radius: 16px;
   overflow: hidden;
@@ -741,7 +809,7 @@ html, body, #root {
 /* Responsive */
 @media (max-width: 1200px) {
   .profile-gallery-scroll {
-    grid-template-columns: repeat(6, 1fr) !important;
+    grid-template-columns: repeat(7, 1fr) !important;
   }
 }
 

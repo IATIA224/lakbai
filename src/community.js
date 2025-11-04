@@ -1292,7 +1292,7 @@ function CommunitySidebar(props) {
   );
 }
 
-const Community = () => {
+export default function Community() {
   const [posts, setPosts] = useState([]);
   const [allPosts, setAllPosts] = useState([]); // <-- Add this to store all posts
   const [showShareModal, setShowShareModal] = useState(false);
@@ -1621,7 +1621,20 @@ const Community = () => {
   }
 
   return (
-    <div className="community-bg">
+    <div className="com-page">
+      {/* Animated background layers */}
+      <div className="com-bg-dots" />
+      <div className="com-bg-wave" />
+      <div className="com-bg-circle c1" />
+      <div className="com-bg-circle c2" />
+      <div className="com-bg-circle c3" />
+      <div className="com-bg-circle c4" />
+      <div className="com-bg-shapes">
+        <div className="com-bg-shape s1" />
+        <div className="com-bg-shape s2" />
+        <div className="com-bg-shape s3" />
+      </div>
+
       <div className="community-grid-main">
         <CommunitySidebar 
           activeView={activeView}
@@ -1820,8 +1833,6 @@ const Community = () => {
     </div>
   );
 };
-
-export default Community;
 
 // Achievement and activity functions
 async function unlockHelloWorldAchievement() {

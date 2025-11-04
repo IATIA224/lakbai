@@ -12,6 +12,72 @@
   --text-500: #6b7280;
 }
 
+/* Community page animated purple background */
+.com-page {
+  min-height: 100vh;
+  position: relative;
+  background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 25%, #c4b5fd 50%, #d8b4fe 75%, #e9d5ff 100%);
+  background-attachment: fixed;
+  isolation: isolate;
+}
+
+/* If your page wraps content in .App/.app, keep it transparent */
+.com-page .App,
+.com-page .app {
+  background: transparent !important;
+}
+
+/* Floating circles */
+.com-bg-circle {
+  position: fixed;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+  animation: com-float 20s ease-in-out infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+.com-bg-circle.c1 { width: 400px; height: 400px; top: -100px; right: -100px; animation-delay: 0s; background: linear-gradient(135deg, rgba(168,85,247,.2), rgba(139,92,246,.2)); }
+.com-bg-circle.c2 { width: 300px; height: 300px; bottom: -50px; left: -50px; animation-delay: 5s; background: linear-gradient(135deg, rgba(147,51,234,.2), rgba(108,99,255,.2)); }
+.com-bg-circle.c3 { width: 250px; height: 250px; top: 50%; right: 10%; animation-delay: 10s; background: linear-gradient(135deg, rgba(126,34,206,.2), rgba(168,85,247,.2)); }
+.com-bg-circle.c4 { width: 200px; height: 200px; bottom: 20%; right: 30%; animation-delay: 15s; background: linear-gradient(135deg, rgba(139,92,246,.2), rgba(108,99,255,.2)); }
+
+/* Dots + wave */
+.com-bg-dots {
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, rgba(168, 85, 247, 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+  z-index: 0; pointer-events: none;
+  animation: com-dotPulse 8s ease-in-out infinite;
+}
+.com-bg-wave {
+  position: fixed; bottom: 0; left: 0; width: 100%; height: 200px;
+  background: linear-gradient(180deg, transparent 0%, rgba(168, 85, 247, 0.08) 100%);
+  z-index: 0; pointer-events: none;
+  animation: com-waveFlow 15s ease-in-out infinite;
+}
+
+/* Organic shapes */
+.com-bg-shapes { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+.com-bg-shape { position: absolute; opacity: 0.05; animation: com-rotate 30s linear infinite; }
+.com-bg-shape.s1 { width: 100px; height: 100px; top: 20%; left: 10%; background: linear-gradient(45deg, #a855f7, #8b5cf6); border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+.com-bg-shape.s2 { width: 150px; height: 150px; top: 60%; right: 15%; background: linear-gradient(45deg, #9333ea, #7c3aed); border-radius: 70% 30% 30% 70% / 70% 70% 30% 30%; animation-delay: 10s; }
+.com-bg-shape.s3 { width: 120px; height: 120px; bottom: 10%; left: 50%; background: linear-gradient(45deg, #a855f7, #d946ef); border-radius: 50% 50% 30% 70% / 50% 30% 70% 50%; animation-delay: 20s; }
+
+/* Keep content above bg; keep overlays highest */
+.com-page > *:not(.com-bg-dots):not(.com-bg-wave):not(.com-bg-circle):not(.com-bg-shapes):not(.modal-overlay):not(.com-modal-backdrop):not(.toast) {
+  position: relative;
+  z-index: 1;
+}
+.modal-overlay,
+.com-modal-backdrop,
+.toast { z-index: 1000; }
+
+/* Animations */
+@keyframes com-float { 0%,100%{transform:translate(0,0) scale(1)} 25%{transform:translate(20px,-20px) scale(1.1)} 50%{transform:translate(-15px,15px) scale(0.9)} 75%{transform:translate(15px,10px) scale(1.05)} }
+@keyframes com-rotate { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+@keyframes com-dotPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+@keyframes com-waveFlow { 0%,100%{transform:translateY(0);opacity:.08} 50%{transform:translateY(-20px);opacity:.15} }
+
 /* Main background */
 .community-bg {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

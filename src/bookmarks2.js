@@ -1113,327 +1113,342 @@ const getTotalPrice = (basePrice) => {
   }, [modalOpen]);
 
   return (
-    <div className="App">
-      {isLoading && (
-        <div className="bm2-loading-backdrop" role="status" aria-live="polite">
-          <div className="lb-card">
-            <div className="lb-scene">
-              <svg className="lb-globe" viewBox="0 0 200 200" aria-hidden="true">
-                <defs>
-                  <radialGradient id="lbOcean" cx="50%" cy="45%">
-                    <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="100%" stopColor="#e8f1ff" />
-                  </radialGradient>
-                  <linearGradient id="lbIsland" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" />
-                    <stop offset="100%" stopColor="#16a34a" />
-                  </linearGradient>
-                  <filter id="lbShadow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(2,6,23,.25)" />
-                  </filter>
-                </defs>
+    <div className="bp2-page">
+      {/* Animated background layers */}
+      <div className="bp2-bg-dots" />
+      <div className="bp2-bg-wave" />
+      <div className="bp2-bg-circle c1" />
+      <div className="bp2-bg-circle c2" />
+      <div className="bp2-bg-circle c3" />
+      <div className="bp2-bg-circle c4" />
+      <div className="bp2-bg-shapes">
+        <div className="bp2-bg-shape s1" />
+        <div className="bp2-bg-shape s2" />
+        <div className="bp2-bg-shape s3" />
+      </div>
 
-                <circle cx="100" cy="100" r="92" fill="url(#lbOcean)" />
-                <circle cx="100" cy="100" r="92" fill="none" stroke="#fff" strokeWidth="8" />
-                <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(2,6,23,.06)" strokeWidth="1" />
+      <div className="App">
+        {isLoading && (
+          <div className="bm2-loading-backdrop" role="status" aria-live="polite">
+            <div className="lb-card">
+              <div className="lb-scene">
+                <svg className="lb-globe" viewBox="0 0 200 200" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="lbOcean" cx="50%" cy="45%">
+                      <stop offset="0%" stopColor="#ffffff" />
+                      <stop offset="100%" stopColor="#e8f1ff" />
+                    </radialGradient>
+                    <linearGradient id="lbIsland" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#22c55e" />
+                      <stop offset="100%" stopColor="#16a34a" />
+                    </linearGradient>
+                    <filter id="lbShadow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="rgba(2,6,23,.25)" />
+                    </filter>
+                  </defs>
 
-                {/* Stylized PH islands (vector, no image) */}
-                <g filter="url(#lbShadow)" fill="url(#lbIsland)">
-                  <path d="M70 40 l18 -10 18 8 -6 22 -14 10 -16 -8 z" />
-                  <path d="M92 63 l6 -6 8 2 5 6 -6 6 -9 -2 z" />
-                  <path d="M102 82 l8 -6 10 2 6 10 -8 8 -12 -3 z" />
-                  <circle cx="96" cy="96" r="3.2" />
-                  <circle cx="108" cy="96" r="3.2" />
-                  <circle cx="100" cy="108" r="3" />
-                  <path d="M120 120 l20 -10 22 12 2 14 -10 12 -22 4 -12 -10 z" />
-                </g>
+                  <circle cx="100" cy="100" r="92" fill="url(#lbOcean)" />
+                  <circle cx="100" cy="100" r="92" fill="none" stroke="#fff" strokeWidth="8" />
+                  <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(2,6,23,.06)" strokeWidth="1" />
 
-                <g className="lb-sheen">
-                  <path d="M12,128 C60,152 140,152 188,128" stroke="rgba(37,99,235,.18)" strokeWidth="12" fill="none" strokeLinecap="round" />
-                </g>
-              </svg>
+                  {/* Stylized PH islands (vector, no image) */}
+                  <g filter="url(#lbShadow)" fill="url(#lbIsland)">
+                    <path d="M70 40 l18 -10 18 8 -6 22 -14 10 -16 -8 z" />
+                    <path d="M92 63 l6 -6 8 2 5 6 -6 6 -9 -2 z" />
+                    <path d="M102 82 l8 -6 10 2 6 10 -8 8 -12 -3 z" />
+                    <circle cx="96" cy="96" r="3.2" />
+                    <circle cx="108" cy="96" r="3.2" />
+                    <circle cx="100" cy="108" r="3" />
+                    <path d="M120 120 l20 -10 22 12 2 14 -10 12 -22 4 -12 -10 z" />
+                  </g>
 
-              <div className="lb-orbit" />
-              <div className="lb-plane" />
+                  <g className="lb-sheen">
+                    <path d="M12,128 C60,152 140,152 188,128" stroke="rgba(37,99,235,.18)" strokeWidth="12" fill="none" strokeLinecap="round" />
+                  </g>
+                </svg>
+
+                <div className="lb-orbit" />
+                <div className="lb-plane" />
+              </div>
+
+              <h2 className="lb-title">Discover Philippines</h2>
+              <p className="lb-sub">Loading destinations…</p>
+              <div className="lb-progress"><span /></div>
             </div>
-
-            <h2 className="lb-title">Discover Philippines</h2>
-            <p className="lb-sub">Loading destinations…</p>
-            <div className="lb-progress"><span /></div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="bp2-page-layout">
-        {/* Filters */}
-        <aside className={`bp2-filters ${filtersOpen ? '' : 'collapsed'}`}>
-          <div
-            className="bp2-filters-header"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-          >
-            <span>Filters</span>
-            <button
-              className="bp2-collapse-btn"
-              onClick={() => setFiltersOpen(o => !o)}
-              aria-expanded={filtersOpen}
-              aria-controls="bp2-filters-content"
-              title={filtersOpen ? 'Collapse filters' : 'Expand filters'}
-              style={{
-                border: '1px solid #e5e7eb',
-                background: '#f8fafc',
-                borderRadius: 8,
-                padding: '2px 8px',
-                cursor: 'pointer',
-              }}
+        <div className="bp2-page-layout">
+          {/* Filters */}
+          <aside className={`bp2-filters ${filtersOpen ? '' : 'collapsed'}`}>
+            <div
+              className="bp2-filters-header"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
             >
-              {filtersOpen ? '▾' : '▸'}
-            </button>
-          </div>
-
-          <div id="bp2-filters-content" style={{ display: filtersOpen ? 'block' : 'none' }}>
-            <div className="bp2-filter-group">
+              <span>Filters</span>
               <button
-                type="button"
-                className="bp2-accordion"
-                onClick={() => toggleGroup('search')}
-                aria-expanded={openGroups.search}
-                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
+                className="bp2-collapse-btn"
+                onClick={() => setFiltersOpen(o => !o)}
+                aria-expanded={filtersOpen}
+                aria-controls="bp2-filters-content"
+                title={filtersOpen ? 'Collapse filters' : 'Expand filters'}
+                style={{
+                  border: '1px solid #e5e7eb',
+                  background: '#f8fafc',
+                  borderRadius: 8,
+                  padding: '2px 8px',
+                  cursor: 'pointer',
+                }}
               >
-                Search Destinations {openGroups.search ? '▾' : '▸'}
+                {filtersOpen ? '▾' : '▸'}
               </button>
-              {openGroups.search && (
-                <label className="bp2-label" style={{ display: 'block' }}>
-                  <span style={{ display: 'block', marginBottom: 6 }}>Search Destinations</span>
-                  <input
-                    type="text"
-                    className="bp2-input"
-                    placeholder="Search by name..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </label>
-              )}
             </div>
 
-            <div className="bp2-filter-group">
-              <button
-                type="button"
-                className="bp2-accordion"
-                onClick={() => toggleGroup('region')}
-                aria-expanded={openGroups.region}
-                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
-              >
-                Region {openGroups.region ? '▾' : '▸'}
-              </button>
-              {openGroups.region && (
-                <div className="bp2-checklist">
-                  {regions.map((r) => (
-                    <label key={r} className="bp2-check">
-                      <input
-                        type="checkbox"
-                        checked={selectedRegions.has(r)}
-                        onChange={() => toggleSet(setSelectedRegions, r)}
-                      />
-                      <span>{r}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bp2-filter-group">
-              <button
-                type="button"
-                className="bp2-accordion"
-                onClick={() => toggleGroup('price')}
-                aria-expanded={openGroups.price}
-                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
-              >
-                Price Range {openGroups.price ? '▾' : '▸'}
-              </button>
-              {openGroups.price && (
-                <>
-                  <label className="bp2-radio">
+            <div id="bp2-filters-content" style={{ display: filtersOpen ? 'block' : 'none' }}>
+              <div className="bp2-filter-group">
+                <button
+                  type="button"
+                  className="bp2-accordion"
+                  onClick={() => toggleGroup('search')}
+                  aria-expanded={openGroups.search}
+                  style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
+                >
+                  Search Destinations {openGroups.search ? '▾' : '▸'}
+                </button>
+                {openGroups.search && (
+                  <label className="bp2-label" style={{ display: 'block' }}>
+                    <span style={{ display: 'block', marginBottom: 6 }}>Search Destinations</span>
                     <input
-                      type="radio"
-                      name="priceTier"
-                      checked={selectedPrice === 'less'}
-                      onChange={() => setSelectedPrice(selectedPrice === 'less' ? null : 'less')}
+                      type="text"
+                      className="bp2-input"
+                      placeholder="Search by name..."
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
                     />
-                    <span>Less Expensive (₱500–2,000)</span>
                   </label>
-                  <label className="bp2-radio">
-                    <input
-                      type="radio"
-                      name="priceTier"
-                      checked={selectedPrice === 'expensive'}
-                      onChange={() =>
-                        setSelectedPrice(selectedPrice === 'expensive' ? null : 'expensive')
-                      }
-                    />
-                    <span>Expensive (₱2,000+)</span>
-                  </label>
-                </>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="bp2-filter-group">
-              <button
-                type="button"
-                className="bp2-accordion"
-                onClick={() => toggleGroup('category')}
-                aria-expanded={openGroups.category}
-                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
-              >
-                Category {openGroups.category ? '▾' : '▸'}
-              </button>
-              {openGroups.category && (
-                <div className="bp2-checklist">
-                  {allCategories.map((c) => (
-                    <label key={c} className="bp2-check">
-                      <input
-                        type="checkbox"
-                        checked={selectedCats.has(c)}
-                        onChange={() => toggleSet(setSelectedCats, c)}
-                      />
-                      <span>{c}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              className="bp2-clear-btn"
-              onClick={() => {
-                setQuery('');
-                setSelectedRegions(new Set());
-                setSelectedPrice(null);
-                setSelectedCats(new Set());
-                setSortBy('name');
-              }}
-            >
-              Clear All Filters
-            </button>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="bp2-content">
-          <div className="bp2-header-row">
-            
-            <div className="bp2-sort">
-              <label htmlFor="bp2-sort-select">Sort by</label>
-              <select
-                id="bp2-sort-select"
-                className="bp2-sort-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="name">Name</option>
-                <option value="rating">Rating</option>
-                <option value="price-asc">Price (Lowest to Highest)</option>
-                <option value="price-desc">Price (Highest to Lowest)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* NEW: top pager */}
-          <Pager />
-
-          <div className="grid-container">
-            {pageItems.map((d) => (
-              <div className="grid-card-anim">
-              <div className="grid-card" key={d.id}>
-                <div className="card-image">
-                  {cloudImages.length === 0 ? (
-                    <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
-                  ) : (
-                    (() => {
-                      const cloudUrl = getImageForDestination(cloudImages, d.name);
-                      const firebaseUrl = getFirebaseImageForDestination(firebaseImages, d.name);
-                      const imgUrl = cloudUrl || firebaseUrl;
-                      return imgUrl ? (
-                        <img
-                          src={imgUrl}
-                          alt={d.name}
-                          className="destination-img"
-                          style={{
-                            width: "100%",
-                            height: 200,
-                            objectFit: "cover",
-                            borderRadius: "12px 12px 0 0",
-                            marginBottom: 6,
-                            background: "#e0e7ef"
-                          }}
+              <div className="bp2-filter-group">
+                <button
+                  type="button"
+                  className="bp2-accordion"
+                  onClick={() => toggleGroup('region')}
+                  aria-expanded={openGroups.region}
+                  style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
+                >
+                  Region {openGroups.region ? '▾' : '▸'}
+                </button>
+                {openGroups.region && (
+                  <div className="bp2-checklist">
+                    {regions.map((r) => (
+                      <label key={r} className="bp2-check">
+                        <input
+                          type="checkbox"
+                          checked={selectedRegions.has(r)}
+                          onChange={() => toggleSet(setSelectedRegions, r)}
                         />
-                      ) : (
-                        <div
-                          style={{
-                            width: "100%",
-                            height: 180,
-                            borderRadius: "12px 12px 0 0",
-                            background: "#e0e7ef",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#94a3b8",
-                            fontSize: 32,
-                            marginBottom: 6
-                          }}
-                        >
-                          🏝️
-                        </div>
-                      );
-                    })()
-                  )}
-                  <button
-                    className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
-                    onClick={() => toggleBookmark(d)}
-                    aria-label="Toggle bookmark"
-                    title="Bookmark"
-                  >
-                    {bookmarks.has(d.id) ? '❤️' : '🤍'}
-                  </button>
-                </div>
-
-                <div className="card-header">
-                  <h2>{d.name}</h2>
-                  <div className="mini-rating" title="Average Rating">
-                    <span>⭐</span> {Number(d.avgRating || d.rating || 0) > 0 ? Number(d.avgRating || d.rating).toFixed(1) : '0'}
-                    </div>
-                </div>
-
-                <div className="bp2-region-line">{d.region}</div>
-                <p className="description">{d.description}</p>
-
-                <div className="tag-container">
-                  {(d.tags || []).map((t, i) => (
-                    <span key={i} className="tag">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="card-footer">
-                  <div
-                    className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}
-                    title={d.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
-                  >
-                    {formatPeso(d.price)} {/* CHANGED: show actual price */}
+                        <span>{r}</span>
+                      </label>
+                    ))}
                   </div>
-                  <button className="details-btn" onClick={() => openDetails(d)}>
-                    View Details
-                  </button>
-                </div>
+                )}
               </div>
-              </div>
-            ))}
-          </div>
 
-          {/* NEW: bottom pager */}
-          <Pager />
-        </main>
+              <div className="bp2-filter-group">
+                <button
+                  type="button"
+                  className="bp2-accordion"
+                  onClick={() => toggleGroup('price')}
+                  aria-expanded={openGroups.price}
+                  style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
+                >
+                  Price Range {openGroups.price ? '▾' : '▸'}
+                </button>
+                {openGroups.price && (
+                  <>
+                    <label className="bp2-radio">
+                      <input
+                        type="radio"
+                        name="priceTier"
+                        checked={selectedPrice === 'less'}
+                        onChange={() => setSelectedPrice(selectedPrice === 'less' ? null : 'less')}
+                      />
+                      <span>Less Expensive (₱500–2,000)</span>
+                    </label>
+                    <label className="bp2-radio">
+                      <input
+                        type="radio"
+                        name="priceTier"
+                        checked={selectedPrice === 'expensive'}
+                        onChange={() =>
+                          setSelectedPrice(selectedPrice === 'expensive' ? null : 'expensive')
+                        }
+                      />
+                      <span>Expensive (₱2,000+)</span>
+                    </label>
+                  </>
+                )}
+              </div>
+
+              <div className="bp2-filter-group">
+                <button
+                  type="button"
+                  className="bp2-accordion"
+                  onClick={() => toggleGroup('category')}
+                  aria-expanded={openGroups.category}
+                  style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, fontWeight: 600, marginBottom: 8, cursor: 'pointer' }}
+                >
+                  Category {openGroups.category ? '▾' : '▸'}
+                </button>
+                {openGroups.category && (
+                  <div className="bp2-checklist">
+                    {allCategories.map((c) => (
+                      <label key={c} className="bp2-check">
+                        <input
+                          type="checkbox"
+                          checked={selectedCats.has(c)}
+                          onChange={() => toggleSet(setSelectedCats, c)}
+                        />
+                        <span>{c}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="bp2-clear-btn"
+                onClick={() => {
+                  setQuery('');
+                  setSelectedRegions(new Set());
+                  setSelectedPrice(null);
+                  setSelectedCats(new Set());
+                  setSortBy('name');
+                }}
+              >
+                Clear All Filters
+              </button>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="bp2-content">
+            <div className="bp2-header-row">
+            
+              <div className="bp2-sort">
+                <label htmlFor="bp2-sort-select">Sort by</label>
+                <select
+                  id="bp2-sort-select"
+                  className="bp2-sort-select"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="name">Name</option>
+                  <option value="rating">Rating</option>
+                  <option value="price-asc">Price (Lowest to Highest)</option>
+                  <option value="price-desc">Price (Highest to Lowest)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* NEW: top pager */}
+            <Pager />
+
+            <div className="grid-container">
+              {pageItems.map((d) => (
+                <div className="grid-card-anim">
+                <div className="grid-card" key={d.id}>
+                  <div className="card-image">
+                    {cloudImages.length === 0 ? (
+                      <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
+                    ) : (
+                      (() => {
+                        const cloudUrl = getImageForDestination(cloudImages, d.name);
+                        const firebaseUrl = getFirebaseImageForDestination(firebaseImages, d.name);
+                        const imgUrl = cloudUrl || firebaseUrl;
+                        return imgUrl ? (
+                          <img
+                            src={imgUrl}
+                            alt={d.name}
+                            className="destination-img"
+                            style={{
+                              width: "100%",
+                              height: 200,
+                              objectFit: "cover",
+                              borderRadius: "12px 12px 0 0",
+                              marginBottom: 6,
+                              background: "#e0e7ef"
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: "100%",
+                              height: 180,
+                              borderRadius: "12px 12px 0 0",
+                              background: "#e0e7ef",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#94a3b8",
+                              fontSize: 32,
+                              marginBottom: 6
+                            }}
+                          >
+                            🏝️
+                          </div>
+                        );
+                      })()
+                    )}
+                    <button
+                      className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
+                      onClick={() => toggleBookmark(d)}
+                      aria-label="Toggle bookmark"
+                      title="Bookmark"
+                    >
+                      {bookmarks.has(d.id) ? '❤️' : '🤍'}
+                    </button>
+                  </div>
+
+                  <div className="card-header">
+                    <h2>{d.name}</h2>
+                    <div className="mini-rating" title="Average Rating">
+                      <span>⭐</span> {Number(d.avgRating || d.rating || 0) > 0 ? Number(d.avgRating || d.rating).toFixed(1) : '0'}
+                      </div>
+                  </div>
+
+                  <div className="bp2-region-line">{d.region}</div>
+                  <p className="description">{d.description}</p>
+
+                  <div className="tag-container">
+                    {(d.tags || []).map((t, i) => (
+                      <span key={i} className="tag">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="card-footer">
+                    <div
+                      className={`price-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}
+                      title={d.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                    >
+                      {formatPeso(d.price)} {/* CHANGED: show actual price */}
+                    </div>
+                    <button className="details-btn" onClick={() => openDetails(d)}>
+                      View Details
+                    </button>
+                  </div>
+                </div>
+                </div>
+              ))}
+            </div>
+
+            {/* NEW: bottom pager */}
+            <Pager />
+          </main>
+        </div>
       </div>
 
       {/* Details Modal */}

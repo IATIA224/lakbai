@@ -14,6 +14,8 @@ import destImages from './dest-images.json';
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
 import { breakdown } from './rules';
 import { logActivity } from './utils/activityLogger';
+// Add this extra import to load the new background styles just for Bookmarks
+import './bookmark.css';
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -790,6 +792,19 @@ const getImageForDestination = (name) => {
 
   return (
     <div className="App bm-page" aria-busy={loading}>
+      {/* Animated background layers */}
+      <div className="bm-bg-dots" />
+      <div className="bm-bg-wave" />
+      <div className="bm-bg-circle c1" />
+      <div className="bm-bg-circle c2" />
+      <div className="bm-bg-circle c3" />
+      <div className="bm-bg-circle c4" />
+      <div className="bm-bg-shapes">
+        <div className="bm-bg-shape s1" />
+        <div className="bm-bg-shape s2" />
+        <div className="bm-bg-shape s3" />
+      </div>
+
       {loading && (
         <div className="bm-loading-backdrop">
           <div className="bm-loading-container">
@@ -1805,4 +1820,5 @@ function ReviewsList({ destId, currentUser }) {
       ))}
     </div>
   );
+  
 }

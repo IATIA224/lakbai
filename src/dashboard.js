@@ -353,7 +353,7 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
 
   // Function to handle view details with enriched rating data
   const handleViewDetails = async (dest) => {
-    const ratingData = carouselRatings[dest.id] || { avg: dest.avgRating || dest.rating || 0, count: dest.ratingCount || 0 };
+    const ratingData = carouselRatings[dest.id] || { avg: dest.avgRating || dest.rating || 0 };
     
     // Enrich destination with actual ratings
     const enrichedDest = {
@@ -1066,7 +1066,20 @@ useEffect(() => {
     };
 
   return (
-    <>
+    <div className="dash-page">
+      {/* Animated background layers */}
+      <div className="dash-bg-dots" />
+      <div className="dash-bg-wave" />
+      <div className="dash-bg-circle c1" />
+      <div className="dash-bg-circle c2" />
+      <div className="dash-bg-circle c3" />
+      <div className="dash-bg-circle c4" />
+      <div className="dash-bg-shapes">
+        <div className="dash-bg-shape s1" />
+        <div className="dash-bg-shape s2" />
+        <div className="dash-bg-shape s3" />
+      </div>
+
       <DashboardBanner setShowAIModal={setShowAIModal} />
       <DashboardStats />
 
@@ -1427,7 +1440,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

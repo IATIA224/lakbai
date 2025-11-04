@@ -1683,6 +1683,19 @@ export default function Itinerary() {
 
   return (
     <div className="itn-page">
+      {/* Animated background layers */}
+      <div className="itn-bg-dots" />
+      <div className="itn-bg-wave" />
+      <div className="itn-bg-circle c1" />
+      <div className="itn-bg-circle c2" />
+      <div className="itn-bg-circle c3" />
+      <div className="itn-bg-circle c4" />
+      <div className="itn-bg-shapes">
+        <div className="itn-bg-shape s1" />
+        <div className="itn-bg-shape s2" />
+        <div className="itn-bg-shape s3" />
+      </div>
+
       <div className="itn-hero">
         <div className="itn-hero-title">🗺️ My Travel Itineraries</div>
         <div className="itn-hero-sub">Plan, organize, and share your perfect journey</div>
