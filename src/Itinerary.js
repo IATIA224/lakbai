@@ -557,9 +557,19 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
   const activities = item.activities || [];
   const showToggle = activities.length > 3;
 
+  // Pick a color class based on index (cycle through 5 colors)
+  const colorClass = `color-${index % 5}`;
+  const statColors = [
+    "stat-color-0",
+    "stat-color-1",
+    "stat-color-2",
+    "stat-color-3",
+    "stat-color-4"
+  ];
+
   return (
     <>
-      <div className="itn-card" style={{ overflow: 'visible' }}>
+      <div className={`itn-card ${colorClass}`} style={{ overflow: 'visible' }}>
         <div className="itn-card-head">
           <div className="itn-card-title">
             <span className="itn-step">{index + 1}</span>
@@ -618,6 +628,7 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
             </div>
           </div>
 
+          {/* Agency is TEAL (distinct color from Stay) */}
           <div className="itn-stat purple">
             <div className="itn-stat-title">Agency</div>
             <div className="itn-stat-body">
@@ -1898,10 +1909,12 @@ export default function Itinerary() {
               </>
             ) : (
               <SharedItinerariesTab user={user} />
-            )}
+            )
+          }
           </div>
         </section>
       </div>
+      
 
       {/* Modals remain the same */}
       {editing && (

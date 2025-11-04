@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 // fix: use react-leaflet, not "react-g"
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -47,6 +47,34 @@ const LABELS = {
   ALL_PHOTOS: "All Photos",
 };
 
+// Simple stats cache (5 minutes)
+const PROFILE_STATS_CACHE_KEY = "lakbai_profile_stats";
+const PROFILE_STATS_CACHE_MS = 5 * 60 * 1000;
+
+function getCachedStats(userId) {
+  try {
+    const raw = localStorage.getItem(`${PROFILE_STATS_CACHE_KEY}_${userId}`);
+    if (!raw) return null;
+    const { ts, stats } = JSON.parse(raw);
+    if (!ts || Date.now() - ts > PROFILE_STATS_CACHE_MS) {
+      localStorage.removeItem(`${PROFILE_STATS_CACHE_KEY}_${userId}`);
+      return null;
+    }
+    return stats;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedStats(userId, stats) {
+  try {
+    localStorage.setItem(
+      `${PROFILE_STATS_CACHE_KEY}_${userId}`,
+      JSON.stringify({ ts: Date.now(), stats })
+    );
+  } catch {}
+}
+
 const Profile = () => {
   // Replace this:
   // const { profile } = useUser();
@@ -87,6 +115,7 @@ const Profile = () => {
   });
   const [shareCode, setShareCode] = useState("");
   const [completedDestinations, setCompletedDestinations] = useState([]);
+  const [friends, setFriends] = useState([]);
 
   // Map state - simplified (no search)
   const [mapCenter, setMapCenter] = useState([12.8797, 121.774]);
@@ -279,73 +308,16 @@ const Profile = () => {
   const navigate = useNavigate();
 
   // Achievements data
-  const achievementsData = [
-    {
-      id: 1,
-      category: "Getting Started",
-      title: "First Step",
-      description: "Create your very first itinerary.",
-      icon: "🎯",
-      unlocked: unlockedAchievements.has(1),
-    },
-    {
-      id: 2,
-      category: "Getting Started",
-      title: "First Bookmark",
-      description: "Save your first place to your favorites.",
-      icon: "⭐",
-      unlocked: unlockedAchievements.has(2),
-    },
-    {
-      id: 3,
-      category: "Getting Started",
-      title: "Say Cheese!",
-      description: "Upload your first travel photo.",
-      icon: "📸",
-      unlocked: unlockedAchievements.has(3),
-    },
-    {
-      id: 4,
-      category: "Getting Started",
-      title: "Hello, World!",
-      description:
-        "Post your first comment on any itinerary or location.",
-      icon: "💬",
-      unlocked: unlockedAchievements.has(4),
-    },
-    {
-      id: 5,
-      category: "Getting Started",
-      title: "Profile Pioneer",
-      description: "Complete your profile with a photo and bio.",
-      icon: "👤",
-      unlocked: unlockedAchievements.has(5),
-    },
-    {
-      id: 6,
-      category: "Exploration & Planning",
-      title: "Mini Planner",
-      description: "Add at least 3 places to a single itinerary.",
-      icon: "🗺️",
-      unlocked: unlockedAchievements.has(6),
-    },
-    {
-      id: 7,
-      category: "Exploration & Planning",
-      title: "Explorer at Heart",
-      description: "View 10 different destinations in the app.",
-      icon: "✈️",
-      unlocked: unlockedAchievements.has(7),
-    },
-    {
-      id: 8,
-      category: "Exploration & Planning",
-      title: "Checklist Champ",
-      description: 'Mark your first place as "visited".',
-      icon: "✅",
-      unlocked: unlockedAchievements.has(8),
-    },
-  ];
+  const ACHIEVEMENTS_DATA = {
+    1: { title: "First Step", description: "Create your very first itinerary.", icon: "🎯", category: "Getting Started" },
+    2: { title: "First Bookmark", description: "Save your first place to your favorites.", icon: "⭐", category: "Getting Started" },
+    3: { title: "Say Cheese!", description: "Upload your first travel photo.", icon: "📸", category: "Getting Started" },
+    4: { title: "Hello, World!", description: "Post your first comment on any itinerary or location.", icon: "💬", category: "Getting Started" },
+    5: { title: "Profile Pioneer", description: "Complete your profile with a photo and bio.", icon: "👤", category: "Getting Started" },
+    6: { title: "Mini Planner", description: "Add at least 3 places to a single itinerary.", icon: "🗺️", category: "Exploration & Planning" },
+    7: { title: "Explorer at Heart", description: "View 10 different destinations in the app.", icon: "✈️", category: "Exploration & Planning" },
+    8: { title: "Checklist Champ", description: 'Mark your first place as "visited".', icon: "✅", category: "Exploration & Planning" },
+  };
 
   // Notification helper
   const showAchievementNotification = (message) => {
@@ -547,9 +519,10 @@ const Profile = () => {
 
   const handleLogout = async () => {
     try {
-      localStorage.removeItem('token'); // <-- Clear token from localStorage
+      if (userId) localStorage.removeItem(`${PROFILE_STATS_CACHE_KEY}_${userId}`);
+      localStorage.removeItem('token');
       await signOut(auth);
-      navigate("/dashboard"); // Redirect to dashboard after logout
+      navigate("/dashboard");
     } catch (err) {
       console.error("Logout failed:", err);
     }
@@ -613,8 +586,9 @@ const Profile = () => {
       if (seen.has(key)) continue;
       seen.add(key);
 
+      // FIX: Change achievementsData to ACHIEVEMENTS_DATA
       const meta =
-        achievementsData.find(
+        Object.values(ACHIEVEMENTS_DATA).find(
           (x) => x.title.toLowerCase() === key
         ) || undefined;
 
@@ -635,7 +609,7 @@ const Profile = () => {
       if (cards.length === 2) break;
     }
     return cards;
-  }, [recentCompletedAchievements, achievementsData]);
+  }, [recentCompletedAchievements]); // Also removed achievementsData from dependency array
 
   // Sync unlocked achievements from Firestore
   useEffect(() => {
@@ -680,10 +654,9 @@ const Profile = () => {
       }
 
       try {
-        const stats = await getUserCompletionStats(userId);
-        if (stats && stats.destinations) {
-          // Convert destinations object to array with location data
-          const destinationsArray = Object.entries(stats.destinations).map(([id, data]) => ({
+        const statsData = await getUserCompletionStats(userId);
+        if (statsData && statsData.destinations) {
+          const destinationsArray = Object.entries(statsData.destinations).map(([id, data]) => ({
             id,
             name: data.name || 'Unknown',
             region: data.region || '',
@@ -692,45 +665,103 @@ const Profile = () => {
             longitude: data.longitude,
           }));
 
-          // Filter out destinations without coordinates
           const withCoordinates = destinationsArray.filter(
             dest => dest.latitude && dest.longitude
           );
 
           setCompletedDestinations(withCoordinates);
 
-          // Update the Places Visited stat with total completed count
-          setStats((prev) => ({
-            ...prev,
-            placesVisited: destinationsArray.length, // Total completed destinations (with or without coordinates)
-          }));
+          // Sync count to Firestore; UI will update via onSnapshot (like other stats)
+          const count = destinationsArray.length;
+          try {
+            await updateDoc(doc(db, "users", userId), { "stats.placesVisited": count });
+          } catch (e) {
+            console.warn("Failed to sync placesVisited to Firestore:", e);
+          }
 
-          // Auto-center map if there are completed destinations
+          // Auto-center map
           if (withCoordinates.length > 0) {
-            // Calculate average position
             const avgLat = withCoordinates.reduce((sum, d) => sum + d.latitude, 0) / withCoordinates.length;
             const avgLng = withCoordinates.reduce((sum, d) => sum + d.longitude, 0) / withCoordinates.length;
             setMapCenter([avgLat, avgLng]);
-            setMapZoom(7); // Zoom in a bit to show the cluster
+            setMapZoom(7);
           }
         } else {
-          // No completed destinations
-          setStats((prev) => ({
-            ...prev,
-            placesVisited: 0,
-          }));
+          // Keep previous stats value; don't force 0 here
+          setCompletedDestinations([]);
         }
       } catch (error) {
         console.error('Error fetching completed destinations:', error);
         setCompletedDestinations([]);
-        setStats((prev) => ({
-          ...prev,
-          placesVisited: 0,
-        }));
+        // Keep previous stats value on error
       }
     };
 
     fetchCompletedDestinations();
+  }, [userId, showEditProfile]); // <-- add showEditProfile here
+
+  // Cache stats to localStorage on userId and stats changes
+  useEffect(() => {
+    if (userId) setCachedStats(userId, stats);
+  }, [userId, stats]);
+
+  const [activeTab, setActiveTab] = useState("statistics");
+
+  // Add this helper function near the top (after imports)
+  const fetchProfiles = async (ids) => {
+    if (!ids || ids.length === 0) return [];
+    const profiles = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const snap = await getDoc(doc(db, "users", id));
+          if (snap.exists()) {
+            const d = snap.data();
+            return {
+              id,
+              name: d.travelerName || d.displayName || d.name || "Traveler",
+              profilePicture: d.profilePicture || d.photoURL || "/user.png",
+              interests: Array.isArray(d.interests) ? d.interests : (Array.isArray(d.likes) ? d.likes : [])
+            };
+          }
+        } catch (e) {
+          console.warn("Failed to fetch profile:", id, e);
+        }
+        return null;
+      })
+    );
+    return profiles.filter(Boolean);
+  };
+
+  // Then update the friends useEffect (replace the existing one):
+  useEffect(() => {
+    if (!userId) {
+      setFriends([]);
+      return;
+    }
+
+    const friendsRef = collection(db, "users", userId, "friends");
+    const unsubscribe = onSnapshot(friendsRef, async (snap) => {
+      if (!snap || snap.empty) {
+        setFriends([]);
+        return;
+      }
+
+      const friendIds = snap.docs.map((doc) => doc.id);
+      
+      // Verify each friend still exists and fetch their profiles
+      const friendProfiles = await fetchProfiles(friendIds);
+      
+      // Update friends state with profiles
+      setFriends(friendProfiles);
+
+      // Update friends count in stats
+      setStats((prev) => ({
+        ...prev,
+        friends: friendProfiles.length,
+      }));
+    });
+
+    return () => unsubscribe();
   }, [userId]);
 
   return (
@@ -820,270 +851,873 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="profile-stats-row">
-          <div className="profile-stat">
-            <span>{stats.placesVisited}</span>
-            <div>Places Visited</div>
-          </div>
-          <div className="profile-stat">
-            <span>{stats.photosShared}</span>
-            <div>Photos Shared</div>
-          </div>
-          <div className="profile-stat">
-            <span>{stats.reviewsWritten}</span>
-            <div>Rated Destinations</div>
-          </div>
+        {/* Navigation Bar */}
+        <div className="profile-nav">
+          <button
+            className={`profile-nav-btn${activeTab === "statistics" ? " active" : ""}`}
+            onClick={() => setActiveTab("statistics")}
+          >
+            📊 Statistics
+          </button>
+          <button
+            className={`profile-nav-btn${activeTab === "activity" ? " active" : ""}`}
+            onClick={() => setActiveTab("activity")}
+          >
+            🔥 Activity
+          </button>
+          <button
+            className={`profile-nav-btn${activeTab === "photos" ? " active" : ""}`}
+            onClick={() => setActiveTab("photos")}
+          >
+            🖼️ Photos
+          </button>
+          <button
+            className={`profile-nav-btn${activeTab === "achievements" ? " active" : ""}`}
+            onClick={() => setActiveTab("achievements")}
+          >
+            🏆 Achievements
+          </button>
+          <button
+            className={`profile-nav-btn${activeTab === "friends" ? " active" : ""}`}
+            onClick={() => setActiveTab("friends")}
+          >
+            👥 Friends
+          </button>
+        </div>
 
-          {/* show Friends only after the friends listener has provided a value */}
-          {stats.friends !== null && (
+        {/* Tab Content */}
+        {/* Statistics Tab */}
+        <div className={`profile-content-section${activeTab === "statistics" ? " active" : ""}`}>
+          <div className="profile-stats-row">
+            <div className="profile-stat">
+              <span>{stats.placesVisited}</span>
+              <div>Places Visited</div>
+            </div>
+            <div className="profile-stat">
+              <span>{stats.photosShared}</span>
+              <div>Photos Shared</div>
+            </div>
+            <div className="profile-stat">
+              <span>{stats.reviewsWritten}</span>
+              <div>Reviews Written</div>
+            </div>
             <div className="profile-stat">
               <span>{stats.friends}</span>
               <div>Friends</div>
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="profile-content-row">
-          {/* Left column */}
-          <div className="profile-content-main">
-            {/* Travel Map - UPDATED: No search bar, only completed destinations */}
-            <div className="profile-card">
-              <div className="profile-card-title">🗺️ My Completed Destinations</div>
-              <div style={{ height: "300px", position: "relative" }}>
+          {/* Map Section Under Stats */}
+          <div className="profile-card">
+            <div className="profile-card-title">🗺️ My Completed Destinations</div>
+            <div style={{ height: 2, background: "#e2e8f0", marginBottom: 20, borderRadius: 2 }} />
+            
+            {completedDestinations.length > 0 ? (
+              <div style={{ position: "relative", width: "100%", height: "500px", borderRadius: "16px", overflow: "hidden", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.15)" }}>
                 <MapContainer
                   center={mapCenter}
                   zoom={mapZoom}
-                  style={{
-                    height: "100%",
-                    width: "100%",
-                    borderRadius: "12px",
-                    zIndex: 1,
-                  }}
-                  key={`${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
-                  attributionControl={false}
+                  style={{ width: "100%", height: "100%" }}
+                  key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
                 >
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   />
-                  
-                  {/* Only show completed destinations */}
-                  {completedDestinations.length > 0 ? (
-                    completedDestinations.map((dest) => (
-                      <Marker
-                        key={`completed-${dest.id}`}
-                        position={[dest.latitude, dest.longitude]}
-                        icon={customIcon}
-                      >
-                        <Popup>
-                          <div>
-                            <h3>✅ {dest.name}</h3>
-                            <p>{dest.region}</p>
-                            {dest.completedAt && (
-                              <p style={{ fontSize: '12px', color: '#666' }}>
-                                Completed: {new Date(
-                                  dest.completedAt.toMillis ? dest.completedAt.toMillis() : dest.completedAt
-                                ).toLocaleDateString()}
-                              </p>
-                            )}
+                  {completedDestinations.map((dest) => (
+                    <Marker
+                      key={dest.id}
+                      position={[dest.latitude, dest.longitude]}
+                      icon={customIcon}
+                    >
+                      <Popup>
+                        <div style={{ fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>
+                          {dest.name}
+                        </div>
+                        {dest.region && (
+                          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+                            {dest.region}
                           </div>
-                        </Popup>
-                      </Marker>
-                    ))
-                  ) : (
-                    // Show message when no completed destinations
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      background: 'white',
-                      padding: '20px',
-                      borderRadius: '12px',
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
-                      textAlign: 'center',
-                      zIndex: 1000,
-                      pointerEvents: 'none'
-                    }}>
-                      <div style={{ fontSize: '48px', marginBottom: '12px' }}>🗺️</div>
-                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>No completed destinations yet</div>
-                      <div style={{ fontSize: '14px', color: '#666' }}>
-                        Mark destinations as completed in your itinerary to see them here!
-                      </div>
-                    </div>
-                  )}
+                        )}
+                      </Popup>
+                    </Marker>
+                  ))}
                 </MapContainer>
               </div>
-              {completedDestinations.length > 0 && (
-                <div style={{ 
-                  marginTop: '12px', 
-                  fontSize: '14px', 
-                  color: '#666',
-                  textAlign: 'center'
-                }}>
-                  📍 {completedDestinations.length} destination{completedDestinations.length !== 1 ? 's' : ''} completed
+            ) : (
+              <div style={{
+                textAlign: "center",
+                color: "#999",
+                padding: "60px 40px",
+                borderRadius: "16px",
+                background: "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)",
+                border: "2px dashed rgba(102, 126, 234, 0.2)",
+              }}>
+                <div style={{ fontSize: "64px", marginBottom: "16px" }}>🗺️</div>
+                <div style={{ fontWeight: "700", fontSize: "18px", marginBottom: "8px", color: "#475569" }}>
+                  No completed destinations yet
+                </div>
+                <div style={{ fontSize: "14px", color: "#999" }}>
+                  Mark destinations as completed in your itinerary to see them here
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Activity Tab */}
+        <div className={`profile-content-section${activeTab === "activity" ? " active" : ""}`}>
+          <div className="profile-card">
+            <div className="profile-card-title">📝 Recent Activity</div>
+            <div style={{ height: 2, background: "#e2e8f0", marginBottom: 16, borderRadius: 2 }} />
+            <div className="profile-activity-list" style={{ gap: 16 }}>
+              {activities.length > 0 ? (
+                activities.slice(0, 5).map((a, i) => (
+                  <div
+                    className="profile-activity-item"
+                    key={a.id || i}
+                    style={{
+                      background: `linear-gradient(135deg, ${[
+                        "#667eea",
+                        "#764ba2",
+                        "#f093fb",
+                        "#f5576c",
+                        "#4facfe",
+                      ][i % 5]} 0%, ${[
+                        "#764ba2",
+                        "#667eea",
+                        "#f5576c",
+                        "#f093fb",
+                        "#00f2fe",
+                      ][i % 5]} 100%)`,
+                      color: "white",
+                      padding: "16px 20px",
+                      borderRadius: "14px",
+                      margin: 0,
+                      backdropFilter: "blur(10px)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "16px",
+                      transition: "all 0.3s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateX(8px)";
+                      e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.15)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateX(0)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  >
+                    <span style={{ fontSize: "24px", flexShrink: 0 }}>
+                      {a.icon}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span
+                        style={{
+                          fontWeight: "500",
+                          display: "block",
+                          marginBottom: "4px",
+                          fontSize: "15px",
+                        }}
+                      >
+                        {a.text}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "13px",
+                          opacity: 0.7,
+                          display: "block",
+                        }}
+                      >
+                        {new Date(a.timestamp).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    color: "#999",
+                    padding: "40px 20px",
+                    borderRadius: "14px",
+                    background: "linear-gradient(135deg, rgba(108, 99, 255, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)",
+                    border: "2px dashed rgba(108, 99, 255, 0.2)",
+                  }}
+                >
+                  <div style={{ fontSize: "48px", marginBottom: "12px" }}>📭</div>
+                  <div style={{ fontWeight: "600", marginBottom: "8px" }}>No activities yet</div>
+                  <div style={{ fontSize: "14px", color: "#999" }}>
+                    Your activities will appear here when you explore
+                  </div>
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Recent Activity */}
-            <div className="profile-card">
-              <div className="profile-card-title">📝 Recent Activity</div>
-              <div
-                className="profile-activity-list"
-                style={{ maxHeight: "240px", overflowY: "auto" }}
+        {/* Photos Tab */}
+        <div className={`profile-content-section${activeTab === "photos" ? " active" : ""}`}>
+          <div className="profile-card">
+            <div className="profile-card-title">📷 Photo Gallery</div>
+            <div className="profile-gallery-actions">
+              <label
+                htmlFor="photo-upload"
+                className="btn btn-primary"
+                style={{ cursor: "pointer" }}
               >
-                {activities.length > 0 ? (
-                  activities
-                    .slice(0, 10)
-                    .map((a, i) =>
+                + Upload Photo
+              </label>
+              <input
+                id="photo-upload"
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handlePhotoUpload}
+              />
+              {photos.length > 0 && (
+                <button
+                  className="btn btn-primary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowAllPhotos(true);
+                  }}
+                >
+                  View All ({photos.length})
+                </button>
+              )}
+            </div>
+            <div style={{ height: 2, background: "#e2e8f0", marginBottom: 20, borderRadius: 2 }} />
+            <div className="profile-gallery-scroll">
+              {previewPhotos.length > 0 ? (
+                previewPhotos.map((photo) => (
+                  <div
+                    className="profile-gallery-photo"
+                    key={photo.id || photo.url}
+                    onClick={() => handlePhotoClick(photo)}
+                  >
+                    <img
+                      src={transformCloudinary(photo.url, { w: 140, h: 140 })}
+                      alt="Gallery"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        imageOrientation: "from-image",
+                        background: "#f3f4f6",
+                      }}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePhoto(photo.id);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        background: "rgba(255,255,255,0.95)",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: 32,
+                        height: 32,
+                        cursor: "pointer",
+                        fontSize: 18,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 0.2s ease",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                        fontWeight: "bold",
+                        color: "#333",
+                      }}
+                      aria-label="Delete photo"
+                      title="Delete"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(239,68,68,0.95)";
+                        e.currentTarget.style.color = "white";
+                        e.currentTarget.style.transform = "scale(1.1)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "rgba(255,255,255,0.95)";
+                        e.currentTarget.style.color = "#333";
+                        e.currentTarget.style.transform = "scale(1)";
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 140,
+                    height: 140,
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    borderRadius: 16,
+                    color: "white",
+                    textAlign: "center",
+                    padding: 12,
+                    boxSizing: "border-box",
+                    border: "2px dashed rgba(255,255,255,0.3)",
+                    boxShadow: "0 4px 12px rgba(108, 99, 255, 0.15)",
+                  }}
+                >
+                  <div style={{ fontSize: 40, marginBottom: 8 }}>📸</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>
+                    Upload Photo
+                  </div>
+                </div>
+              )}
+            </div>
+            {photos.length > 0 && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  fontSize: "13px",
+                  color: "#999",
+                  textAlign: "center",
+                }}
+              >
+                ✨ {photos.length} photo{photos.length !== 1 ? "s" : ""} total
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Achievements Tab */}
+        <div className={`profile-content-section${activeTab === "achievements" ? " active" : ""}`}>
+          <div className="profile-card">
+            <div className="profile-card-title">🏆 Achievements</div>
+            <div style={{ height: 2, background: "#e2e8f0", marginBottom: 20, borderRadius: 2 }} />
+            
+            {unlockedAchievements.size > 0 ? (
+              <div style={{ marginBottom: 32 }}>
+                <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#6c63ff", marginBottom: "16px" }}>
+                  Unlocked Achievements
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                  {Array.from(unlockedAchievements).map((achvId) => {
+                    const achv = ACHIEVEMENTS_DATA[achvId];
+                    if (!achv) return null;
+                    return (
                       <div
-                        className="profile-activity-item"
-                        key={a.id || i}
+                        key={achvId}
                         style={{
-                          background: `linear-gradient(135deg, ${[
-                            "#667eea",
-                            "#764ba2",
-                            "#f093fb",
-                            "#f5576c",
-                            "#4facfe",
-                            "#00f2fe",
-                          ][i % 6]} 0%, ${[
-                            "#764ba2",
-                            "#667eea",
-                            "#f5576c",
-                            "#f093fb",
-                            "#00f2fe",
-                            "#4facfe",
-                          ][i % 6]} 100%)`,
-                          color: "white",
-                          padding: "12px 16px",
-                          borderRadius: "12px",
-                          margin: "8px 0",
-                          backdropFilter: "blur(10px)",
-                          border: "1px solid rgba(255, 255, 255, 0.2)",
+                          padding: "20px",
+                          borderRadius: "16px",
+                          background: "linear-gradient(135deg, rgba(108, 99, 255, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)",
+                          border: "2px solid rgba(108, 99, 255, 0.3)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                          transition: "all 0.3s ease",
+                          cursor: "pointer",
+                          position: "relative",
+                          overflow: "hidden",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-8px)";
+                          e.currentTarget.style.boxShadow = "0 12px 24px rgba(108, 99, 255, 0.2)";
+                          e.currentTarget.style.borderColor = "#6c63ff";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "none";
+                          e.currentTarget.style.borderColor = "rgba(108, 99, 255, 0.3)";
                         }}
                       >
-                        <span
-                          className="profile-activity-icon"
+                        {/* Animated background glow */}
+                        <div
                           style={{
-                            marginRight: "12px",
-                            fontSize: "18px",
+                            position: "absolute",
+                            top: 0,
+                            right: 0,
+                            width: "150px",
+                            height: "150px",
+                            background: "radial-gradient(circle, rgba(108, 99, 255, 0.2) 0%, transparent 70%)",
+                            borderRadius: "50%",
+                            transform: "translate(50%, -50%)",
+                            pointerEvents: "none",
+                          }}
+                        />
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", position: "relative", zIndex: 1 }}>
+                          <div style={{ fontSize: "32px" }}>{achv.icon}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: "700", fontSize: "15px", color: "#1e293b", marginBottom: "2px" }}>
+                              {achv.title}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#64748b" }}>
+                              {achv.category}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              background: "linear-gradient(135deg, #6c63ff 0%, #764ba2 100%)",
+                              color: "white",
+                              padding: "4px 12px",
+                              borderRadius: "16px",
+                              fontSize: "11px",
+                              fontWeight: "700",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Unlocked ✓
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: "13px", color: "#64748b", lineHeight: "1.4", position: "relative", zIndex: 1 }}>
+                          {achv.description}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Locked Achievements */}
+            <div>
+              <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#6c63ff", marginBottom: "16px" }}>
+                Available Achievements
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                {Object.entries(ACHIEVEMENTS_DATA)
+                  .filter(([id]) => !unlockedAchievements.has(Number(id)))
+                  .map(([id, achv]) => (
+                    <div
+                      key={id}
+                      style={{
+                        padding: "20px",
+                        borderRadius: "16px",
+                        background: "linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%)",
+                        border: "2px solid rgba(108, 99, 255, 0.1)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                        opacity: 0.7,
+                        transition: "all 0.3s ease",
+                        position: "relative",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                        e.currentTarget.style.transform = "translateY(-4px)";
+                        e.currentTarget.style.borderColor = "rgba(108, 99, 255, 0.2)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = "0.7";
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.borderColor = "rgba(108, 99, 255, 0.1)";
+                      }}
+                    >
+                      {/* Locked overlay */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          right: 0,
+                          width: "100%",
+                          height: "100%",
+                          background: "radial-gradient(circle at right, rgba(0, 0, 0, 0.05) 0%, transparent 70%)",
+                          borderRadius: "16px",
+                          pointerEvents: "none",
+                        }}
+                      />
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", position: "relative", zIndex: 1 }}>
+                        <div style={{ fontSize: "32px", opacity: 0.5, filter: "grayscale(100%)" }}>
+                          {achv.icon}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: "700", fontSize: "15px", color: "#1e293b", marginBottom: "2px" }}>
+                            {achv.title}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#64748b" }}>
+                            {achv.category}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            background: "#e2e8f0",
+                            color: "#64748b",
+                            padding: "4px 12px",
+                            borderRadius: "16px",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {a.icon}
-                        </span>
-                        <span
-                          className="profile-activity-text"
-                          style={{ flex: 1, fontWeight: "500" }}
-                        >
-                          {a.text}
-                        </span>
-                        <span
-                          className="profile-activity-time"
-                          style={{ fontSize: "12px", opacity: 0.6 }}
-                        >
-                          {new Date(a.timestamp).toLocaleDateString()}
-                        </span>
+                          🔒 Locked
+                        </div>
                       </div>
-                    )
-                ) : (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      color: "#666",
-                      padding: "20px",
-                    }}
-                  >
-                    No recent activities
-                  </div>
-                )}
+
+                      <div style={{ fontSize: "13px", color: "#64748b", lineHeight: "1.4", position: "relative", zIndex: 1 }}>
+                        {achv.description}
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Photo Gallery */}
-            <div className="profile-card">
+        {/* Friends Tab */}
+        <div className={`profile-content-section${activeTab === "friends" ? " active" : ""}`}>
+          <div className="profile-card">
+            <div className="profile-card-title">👥 Friends</div>
+            <div style={{ height: 2, background: "#e2e8f0", marginBottom: 20, borderRadius: 2 }} />
+            
+            {friends.length > 0 ? (
+              <div>
+                <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#6c63ff", marginBottom: "16px" }}>
+                  Your Friends ({friends.length})
+                </h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                    gap: "16px",
+                  }}
+                >
+                  {friends.map((friend, i) => (
+                    <div
+                      key={friend.id}
+                      style={{
+                        padding: "20px",
+                        borderRadius: "16px",
+                        background: `linear-gradient(135deg, ${[
+                          "#667eea",
+                          "#764ba2",
+                          "#f093fb",
+                          "#f5576c",
+                          "#4facfe",
+                        ][i % 5]} 0%, ${[
+                          "#764ba2",
+                          "#667eea",
+                          "#f5576c",
+                          "#f093fb",
+                          "#00f2fe",
+                        ][i % 5]} 100%)`,
+                        color: "white",
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                        boxShadow: "0 4px 12px rgba(108, 99, 255, 0.15)",
+                        border: "1px solid rgba(255, 255, 255, 0.2)",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-8px)";
+                        e.currentTarget.style.boxShadow = "0 12px 24px rgba(108, 99, 255, 0.25)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(108, 99, 255, 0.15)";
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          right: 0,
+                          width: "200px",
+                          height: "200px",
+                          background: "radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%)",
+                          borderRadius: "50%",
+                          transform: "translate(50%, -50%)",
+                          pointerEvents: "none",
+                        }}
+                      />
+
+                      <img
+                        src={friend.profilePicture}
+                        alt={friend.name}
+                        style={{
+                          width: "72px",
+                          height: "72px",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          border: "3px solid rgba(255, 255, 255, 0.4)",
+                          position: "relative",
+                          zIndex: 1,
+                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+                        }}
+                      />
+
+                      <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+                        <div style={{ fontWeight: "700", fontSize: "16px", marginBottom: "4px" }}>
+                          {friend.name}
+                        </div>
+                        <div style={{ fontSize: "12px", opacity: 0.9 }}>
+                          Traveler
+                        </div>
+                      </div>
+
+                      {friend.interests && friend.interests.length > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "6px",
+                            justifyContent: "center",
+                            width: "100%",
+                            marginTop: "8px",
+                            position: "relative",
+                            zIndex: 1,
+                          }}
+                        >
+                          {friend.interests.slice(0, 2).map((interest) => (
+                            <span
+                              key={interest}
+                              style={{
+                                fontSize: "11px",
+                                background: "rgba(255, 255, 255, 0.25)",
+                                padding: "4px 10px",
+                                borderRadius: "12px",
+                                whiteSpace: "nowrap",
+                                zIndex: 9999,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {interest}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
               <div
-                className="profile-card-title"
+                style={{
+                  textAlign: "center",
+                  color: "#999",
+                  padding: "60px 40px",
+                  borderRadius: "16px",
+                  background: "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)",
+                  border: "2px dashed rgba(102, 126, 234, 0.2)",
+                }}
+              >
+                <div style={{ fontSize: "64px", marginBottom: "16px" }}>👥</div>
+                <div style={{ fontWeight: "700", fontSize: "18px", marginBottom: "8px", color: "#475569" }}>
+                  No friends yet
+                </div>
+                <div style={{ fontSize: "14px", color: "#999" }}>
+                  Connect with other travelers to see them here
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Edit Profile Modal */}
+        {showEditProfile && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(0, 0, 0, 0.9)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10000,
+            }}
+            onClick={() => setShowEditProfile(false)}
+          >
+            <div
+              style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <EditProfile
+                onClose={() => setShowEditProfile(false)}
+                onProfileUpdate={() => unlockAchievement(5, "Profile Pioneer")}
+                initialData={{
+                  name: profile?.name || "",
+                  bio: profile?.bio || "",
+                  profilePicture: profile?.profilePicture || "/user.png",
+                  likes: profile?.likes || [],
+                  dislikes: profile?.dislikes || []
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Info / Delete Modal */}
+        {showInfoDelete && <InfoDelete onClose={() => setShowInfoDelete(false)} />}
+
+        {/* Selected Photo Viewer */}
+        {selectedPhoto && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(0, 0, 0, 0.9)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10000,
+            }}
+            onClick={closePhotoView}
+          >
+            <div
+              style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={transformCloudinary(selectedPhoto.url, { w: 1600, h: 1600 })}
+                alt="Expanded"
+                style={{
+                  maxWidth: "90vw",
+                  maxHeight: "90vh",
+                  objectFit: "contain",
+                  imageOrientation: "from-image",
+                }}
+              />
+              <button
+                onClick={closePhotoView}
+                style={{
+                  position: "absolute",
+                  top: "10px",
+                  right: "10px",
+                  background: "rgba(255, 255, 255, 0.8)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "32px",
+                  height: "32px",
+                  cursor: "pointer",
+                  fontSize: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* All Photos Modal */}
+        {showAllPhotos && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(0, 0, 0, 0.9)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10001,
+            }}
+            onClick={() => setShowAllPhotos(false)}
+          >
+            <div
+              style={{
+                position: "relative",
+                width: "90%",
+                height: "90%",
+                background: "white",
+                borderRadius: "16px",
+                padding: "24px",
+                overflowY: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  marginBottom: "24px",
                 }}
               >
-                <span>📷 Photo Gallery</span>
-                <div
-                  className="profile-gallery-actions"
-                  style={{ display: "flex", gap: 12 }}
+                <h2 style={{ margin: 0 }}>{LABELS.ALL_PHOTOS}</h2>
+                <button
+                  onClick={() => setShowAllPhotos(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: "24px",
+                    cursor: "pointer",
+                    padding: 0,
+                    width: "32px",
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <label
-                    htmlFor="photo-upload"
-                    className="btn btn-primary"
-                    style={{ cursor: "pointer" }}
-                  >
-                    Upload Photo
-                  </label>
-                  <input
-                    id="photo-upload"
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={handlePhotoUpload}
-                  />
-                  {photos.length > 0 && (
-                    <button
-                      className="btn btn-primary"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowAllPhotos(true);
-                      }}
-                    >
-                      View All ({photos.length})
-                    </button>
-                  )}
-                </div>
+                  ×
+                </button>
               </div>
 
-              {/* Single-row, horizontally scrollable preview — ONLY 7 recent */}
               <div
-                className="profile-gallery-scroll"
                 style={{
-                  display: "flex",
-                  gap: 12,
-                  overflowX: "auto",
-                  overflowY: "hidden",
-                  padding: "6px 2px 10px",
-                  scrollSnapType: "x proximity",
-                  flexWrap: "nowrap", // keep a single row
-                  maxHeight: 132, // 120 tile + paddings = one line only
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                  gap: "16px",
                 }}
               >
-                {previewPhotos.length > 0 ? (
-                  previewPhotos.map((photo) => (
+                {photos
+                  .slice()
+                  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                  .map((photo) => (
                     <div
-                      className="profile-gallery-photo"
-                      key={photo.id || photo.url}
+                      key={photo.id}
                       style={{
                         position: "relative",
-                        width: 120,
-                        height: 120,
-                        flex: "0 0 auto",
+                        width: "100%",
+                        paddingTop: "100%",
+                        borderRadius: "14px",
+                        overflow: "hidden",
                         cursor: "pointer",
-                        scrollSnapAlign: "start",
                       }}
-                      onClick={() => handlePhotoClick(photo)}
+                      onClick={() => {
+                        setSelectedPhoto(photo);
+                        setShowAllPhotos(false);
+                      }}
                     >
                       <img
-                        src={transformCloudinary(photo.url, { w: 120, h: 120 })}
+                        src={transformCloudinary(photo.url, { w: 600, h: 600 })}
                         alt="Gallery"
                         style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
                           width: "100%",
                           height: "100%",
                           objectFit: "cover",
-                          borderRadius: 14,
                           imageOrientation: "from-image",
-                          background: "#f3f4f6",
                         }}
                       />
                       <button
@@ -1093,9 +1727,9 @@ const Profile = () => {
                         }}
                         style={{
                           position: "absolute",
-                          top: 4,
-                          right: 4,
-                          background: "rgba(255,255,255,0.85)",
+                          top: "4px",
+                          right: "4px",
+                          background: "rgba(255, 255, 255, 0.8)",
                           border: "none",
                           borderRadius: "50%",
                           width: 24,
@@ -1106,572 +1740,60 @@ const Profile = () => {
                           alignItems: "center",
                           justifyContent: "center",
                         }}
-                        aria-label="Delete photo"
-                        title="Delete"
                       >
                         ×
                       </button>
                     </div>
-                  ))
-                ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 120,
-                      height: 120,
-                      flex: "0 0 auto",
-                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                      borderRadius: 14,
-                      color: "white",
-                      textAlign: "center",
-                      padding: 12,
-                      boxSizing: "border-box",
-                      border: "2px dashed rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📸</div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 500,
-                        lineHeight: 1.2,
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
-                        width: "100%",
-                        maxWidth: "96px",
-                      }}
-                    >
-                      Upload your first<br />photo!
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right column */}
-          <div className="profile-content-side">
-            {/* Achievements */}
-            <div className="profile-card profile-achievements">
-              <div className="profile-card-title">🏆 Achievements</div>
-              <div className="profile-achievements-list">
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setShowAchievements(true)}
-                  style={{ width: "100%", marginBottom: 16 }}
-                >
-                  View All Achievements
-                </button>
-
-                {/* If we have completed achievements, show the 2 most recent.
-                    Otherwise show your default preview tiles. */}
-                {recentAchievementCards.length > 0 ? (
-                  <div className="achievements-preview">
-                    {recentAchievementCards.map((a, i) => (
-                      <div
-                        key={`${a.title}-${i}`}
-                        className="achievement-item achievement-unlocked"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          padding: "12px",
-                          margin: "6px 0",
-                          borderRadius: "12px",
-                          background: "#fff",
-                          border: "1px solid #6c63ff",
-                          minHeight: "50px",
-                        }}
-                      >
-                        <div
-                          className="achievement-icon"
-                          style={{
-                            fontSize: "20px",
-                            marginRight: "10px",
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            background:
-                              "linear-gradient(135deg, #a084ee 60%, #6c63ff 100%)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#fff",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {a.icon || "🏆"}
-                        </div>
-                        <div className="achievement-details" style={{ flex: 1 }}>
-                          <h4
-                            className="achievement-title"
-                            style={{
-                              margin: "0 0 2px 0",
-                              fontSize: "14px",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {a.title}
-                          </h4>
-                          <p
-                            className="achievement-description"
-                            style={{
-                              margin: 0,
-                              fontSize: "12px",
-                              color: "#666",
-                              lineHeight: 1.3,
-                            }}
-                          >
-                            {a.description}
-                          </p>
-                        </div>
-                        <div
-                          className="achievement-when"
-                          style={{ fontSize: 12, color: "#64748b" }}
-                        >
-                          {new Date(a.when).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="achievements-preview">
-                    {/* Default tiles (unchanged) */}
-                    <div
-                      className={`achievement-item ${
-                        unlockedAchievements.has(1)
-                          ? "achievement-unlocked"
-                          : "achievement-locked"
-                      }`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "8px 12px",
-                        margin: "6px 0",
-                        borderRadius: "8px",
-                        background: unlockedAchievements.has(1)
-                          ? "#f0f9ff"
-                          : "#f9fafb",
-                        border: `1px solid ${
-                          unlockedAchievements.has(1) ? "#0ea5e9" : "#e5e7eb"
-                        }`,
-                        minHeight: "50px",
-                      }}
-                    >
-                      <div
-                        className="achievement-icon"
-                        style={{ fontSize: "20px", marginRight: "10px" }}
-                      >
-                        🎯
-                      </div>
-                      <div className="achievement-details" style={{ flex: 1 }}>
-                        <h4
-                          className="achievement-title"
-                          style={{
-                            margin: "0 0 2px 0",
-                            fontSize: "14px",
-                            fontWeight: 600,
-                          }}
-                        >
-                          First Step
-                        </h4>
-                        <p
-                          className="achievement-description"
-                          style={{
-                            margin: 0,
-                            fontSize: "12px",
-                            color: "#666",
-                            lineHeight: "1.3",
-                          }}
-                        >
-                          Create your very first itinerary
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`achievement-item ${
-                        unlockedAchievements.has(5)
-                          ? "achievement-unlocked"
-                          : "achievement-locked"
-                      }`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "8px 12px",
-                        margin: "6px 0",
-                        borderRadius: "8px",
-                        background: unlockedAchievements.has(5)
-                          ? "#f0f9ff"
-                          : "#f9fafb",
-                        border: `1px solid ${
-                          unlockedAchievements.has(5) ? "#0ea5e9" : "#e5e7eb"
-                        }`,
-                        minHeight: "50px",
-                      }}
-                    >
-                      <div
-                        className="achievement-icon"
-                        style={{ fontSize: "20px", marginRight: "10px" }}
-                      >
-                        👤
-                      </div>
-                      <div className="achievement-details" style={{ flex: 1 }}>
-                        <h4
-                          className="achievement-title"
-                          style={{
-                            margin: "0 0 2px 0",
-                            fontSize: "14px",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Profile Pioneer
-                        </h4>
-                        <p
-                          className="achievement-description"
-                          style={{
-                            margin: 0,
-                            fontSize: "12px",
-                            color: "#666",
-                            lineHeight: "1.3",
-                          }}
-                        >
-                          Complete your profile with photo and bio
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="profile-card profile-actions">
-              <div className="profile-card-title">⚡ Quick Actions</div>
-              <button className="profile-action-btn plan">📌 Plan New Trip</button>
-              <button
-                className="profile-action-btn share"
-                onClick={handleShareProfile}
-              >
-                🗂️ Share Profile
-              </button>
-              <button className="profile-action-btn export">💾 Export My Data</button>
-              <button
-                className="profile-action-btn settings"
-                onClick={() => setShowInfoDelete(true)}
-              >
-                ⚙️ Account Settings
-              </button>
-              <button
-                className="profile-action-btn logout"
-                style={{ background: "#3b5fff", marginTop: "8px" }}
-                onClick={handleLogout}
-              >
-                🚪 Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Edit Profile Modal */}
-      {showEditProfile && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(44, 44, 84, 0.25)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <EditProfile
-            onClose={() => setShowEditProfile(false)}
-            onProfileUpdate={() => unlockAchievement(5, "Profile Pioneer")}
-            initialData={{
-              name: profile?.name || "",
-              bio: profile?.bio || "",
-              profilePicture: profile?.profilePicture || "/user.png",
-              likes: profile?.likes || [],
-              dislikes: profile?.dislikes || []
-            }}
-          />
-        </div>
-      )}
-
-      {/* Achievements Modal */}
-      {showAchievements && (
-        <div className="achv-backdrop" onClick={() => setShowAchievements(false)}>
-          <div className="achv-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="achv-header">
-              <div className="achv-title">
-                <span className="achv-title-icon">🏆</span>
-                Achievements
-              </div>
-              <button className="achv-close" onClick={() => setShowAchievements(false)} aria-label="Close">×</button>
-            </div>
-
-            <div className="achv-body">
-              <div className="achv-section">
-                <div className="achv-section-title">Getting Started</div>
-                <div className="achv-divider" />
-                <div className="achv-grid">
-                  {achievementsData.map((a) => (
-                    <div
-                      key={a.id}
-                      className={`achv-item ${a.unlocked ? "is-unlocked" : "is-locked"}`}
-                    >
-                      <div className="achv-item-icon">{a.icon || "🏆"}</div>
-                      <div>
-                        <div className="achv-item-title">{a.title}</div>
-                        <div className="achv-item-desc">{a.description}</div>
-                      </div>
-                      <div className={`achv-badge ${a.unlocked ? "ok" : ""}`}>
-                        {a.unlocked ? "Unlocked" : "Locked"}
-                      </div>
-                    </div>
                   ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share Code Popup */}
+        {showShareCode && (
+          <div
+            className="sharecode-backdrop"
+            onClick={() => setShowShareCode(false)}
+          >
+            <div
+              className="sharecode-card"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sharecode-header">
+                <div className="sharecode-title">Share Profile Code</div>
+                <button
+                  className="sharecode-close"
+                  onClick={() => setShowShareCode(false)}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="sharecode-body">
+                <div className="sharecode-box">{shareCode || "--------"}</div>
+                <div className="sharecode-actions">
+                  <button
+                    className="sharecode-btn primary"
+                    onClick={copyShareCode}
+                  >
+                    Copy Code
+                  </button>
+                  <button
+                    className="sharecode-btn ghost"
+                    onClick={handleShareProfile}
+                  >
+                    Regenerate
+                  </button>
+                </div>
+                <div className="sharecode-hint">
+                  Friends can add you by entering this code in Community → Friends.
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Info / Delete Modal */}
-      {showInfoDelete && <InfoDelete onClose={() => setShowInfoDelete(false)} />}
-
-      {/* Selected Photo Viewer */}
-      {selectedPhoto && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0, 0, 0, 0.9)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 10000,
-          }}
-          onClick={closePhotoView}
-        >
-          <div
-            style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={transformCloudinary(selectedPhoto.url, { w: 1600, h: 1600 })}
-              alt="Expanded"
-              style={{
-                maxWidth: "90vw",
-                maxHeight: "90vh",
-                objectFit: "contain",
-                imageOrientation: "from-image",
-              }}
-            />
-            <button
-              onClick={closePhotoView}
-              style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                background: "rgba(255, 255, 255, 0.8)",
-                border: "none",
-                borderRadius: "50%",
-                width: "32px",
-                height: "32px",
-                cursor: "pointer",
-                fontSize: "20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* All Photos Modal */}
-      {showAllPhotos && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0, 0, 0, 0.9)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 10001,
-          }}
-          onClick={() => setShowAllPhotos(false)}
-        >
-          <div
-            style={{
-              position: "relative",
-              width: "90%",
-              height: "90%",
-              background: "white",
-              borderRadius: "16px",
-              padding: "24px",
-              overflowY: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "24px",
-              }}
-            >
-              <h2 style={{ margin: 0 }}>{LABELS.ALL_PHOTOS}</h2>
-              <button
-                onClick={() => setShowAllPhotos(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "24px",
-                  cursor: "pointer",
-                  padding: 0,
-                  width: "32px",
-                  height: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                gap: "16px",
-              }}
-            >
-              {photos
-                .slice()
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                .map((photo) => (
-                  <div
-                    key={photo.id}
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      paddingTop: "100%",
-                      borderRadius: "14px",
-                      overflow: "hidden",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      setSelectedPhoto(photo);
-                      setShowAllPhotos(false);
-                    }}
-                  >
-                    <img
-                      src={transformCloudinary(photo.url, { w: 600, h: 600 })}
-                      alt="Gallery"
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        imageOrientation: "from-image",
-                      }}
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePhoto(photo.id);
-                      }}
-                      style={{
-                        position: "absolute",
-                        top: "4px",
-                        right: "4px",
-                        background: "rgba(255, 255, 255, 0.8)",
-                        border: "none",
-                        borderRadius: "50%",
-                        width: 24,
-                        height: 24,
-                        cursor: "pointer",
-                        fontSize: 14,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Share Code Popup */}
-      {showShareCode && (
-        <div
-          className="sharecode-backdrop"
-          onClick={() => setShowShareCode(false)}
-        >
-          <div
-            className="sharecode-card"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sharecode-header">
-              <div className="sharecode-title">Share Profile Code</div>
-              <button
-                className="sharecode-close"
-                onClick={() => setShowShareCode(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="sharecode-body">
-              <div className="sharecode-box">{shareCode || "--------"}</div>
-              <div className="sharecode-actions">
-                <button
-                  className="sharecode-btn primary"
-                  onClick={copyShareCode}
-                >
-                  Copy Code
-                </button>
-                <button
-                  className="sharecode-btn ghost"
-                  onClick={handleShareProfile}
-                >
-                  Regenerate
-                </button>
-              </div>
-              <div className="sharecode-hint">
-                Friends can add you by entering this code in Community → Friends.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 };
