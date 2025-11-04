@@ -1,0 +1,166 @@
+/* Purplish animated background only for the Bookmarks page */
+.bm-page {
+  min-height: 100vh;
+  position: relative;
+  background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 25%, #c4b5fd 50%, #d8b4fe 75%, #e9d5ff 100%);
+  background-attachment: fixed;
+  /* Add this to create a new stacking context, like profile */
+  isolation: isolate;
+}
+
+/* Base for floating circles */
+.bm-bg-circle {
+  position: fixed;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+  animation: bm-float 20s ease-in-out infinite;
+  /* Change from -1 to 0 so they sit above the page background */
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Variants to match the profile look */
+.bm-bg-circle.c1 {
+  width: 400px;
+  height: 400px;
+  top: -100px;
+  right: -100px;
+  animation-delay: 0s;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+}
+
+.bm-bg-circle.c2 {
+  width: 300px;
+  height: 300px;
+  bottom: -50px;
+  left: -50px;
+  animation-delay: 5s;
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.2) 0%, rgba(108, 99, 255, 0.2) 100%);
+}
+
+.bm-bg-circle.c3 {
+  width: 250px;
+  height: 250px;
+  top: 50%;
+  right: 10%;
+  animation-delay: 10s;
+  background: linear-gradient(135deg, rgba(126, 34, 206, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+}
+
+.bm-bg-circle.c4 {
+  width: 200px;
+  height: 200px;
+  bottom: 20%;
+  right: 30%;
+  animation-delay: 15s;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(108, 99, 255, 0.2) 100%);
+}
+
+/* Subtle dots layer */
+.bm-bg-dots {
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(168, 85, 247, 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+  /* Change from -1 to 0 */
+  z-index: 0;
+  pointer-events: none;
+  animation: bm-dotPulse 8s ease-in-out infinite;
+}
+
+/* Soft wave at the bottom */
+.bm-bg-wave {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(180deg, transparent 0%, rgba(168, 85, 247, 0.08) 100%);
+  /* Change from -1 to 0 */
+  z-index: 0;
+  pointer-events: none;
+  animation: bm-waveFlow 15s ease-in-out infinite;
+}
+
+/* Organic rotating shapes */
+.bm-bg-shapes {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* Change from -1 to 0 */
+  z-index: 0;
+  pointer-events: none;
+}
+
+.bm-bg-shape {
+  position: absolute;
+  opacity: 0.05;
+  animation: bm-rotate 30s linear infinite;
+}
+
+.bm-bg-shape.s1 {
+  width: 100px;
+  height: 100px;
+  top: 20%;
+  left: 10%;
+  background: linear-gradient(45deg, #a855f7, #8b5cf6);
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  animation-delay: 0s;
+}
+
+.bm-bg-shape.s2 {
+  width: 150px;
+  height: 150px;
+  top: 60%;
+  right: 15%;
+  background: linear-gradient(45deg, #9333ea, #7c3aed);
+  border-radius: 70% 30% 30% 70% / 70% 70% 30% 30%;
+  animation-delay: 10s;
+}
+
+.bm-bg-shape.s3 {
+  width: 120px;
+  height: 120px;
+  bottom: 10%;
+  left: 50%;
+  background: linear-gradient(45deg, #a855f7, #d946ef);
+  border-radius: 50% 50% 30% 70% / 50% 30% 70% 50%;
+  animation-delay: 20s;
+}
+
+/* Animations mirrored from profile */
+@keyframes bm-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(20px, -20px) scale(1.1); }
+  50% { transform: translate(-15px, 15px) scale(0.9); }
+  75% { transform: translate(15px, 10px) scale(1.05); }
+}
+
+@keyframes bm-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes bm-dotPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes bm-waveFlow {
+  0%, 100% { transform: translateY(0px); opacity: 0.08; }
+  50% { transform: translateY(-20px); opacity: 0.15; }
+}
+
+/* Ensure content sits above the background */
+.bm-page > *:not(.bm-bg-dots):not(.bm-bg-wave):not(.bm-bg-circle):not(.bm-bg-shapes):not(.bm-modal-backdrop):not(.bm-loading-backdrop):not(.bm-toast) {
+  position: relative;
+  /* Raise content above bg layers */
+  z-index: 1;
+}
+
+/* Make sure overlays stay above everything */
+.bm-modal-backdrop,
+.bm-loading-backdrop,
+.bm-toast {
+  z-index: 1000;
+}

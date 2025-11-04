@@ -547,7 +547,7 @@ const Profile = () => {
     return [...(photos || [])].sort((a, b) => ts(b) - ts(a));
   }, [photos]);
 
-  const previewPhotos = useMemo(() => sortedPhotos.slice(0, 6), [sortedPhotos]);
+  const previewPhotos = useMemo(() => sortedPhotos.slice(0, 14), [sortedPhotos]);
 
   // Pick the 2 most recent completed achievements from activities
   const recentCompletedAchievements = useMemo(() => {
