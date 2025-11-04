@@ -57,10 +57,41 @@ function DestinationCard({
 }) {
   return (
     <div className="grid-card">
-      <div className="card-image" style={{ backgroundImage: `url(${image})` }}>
-        <div className="sun-decoration"></div>
-        <div className="wave-decoration"></div>
-        <button 
+      <div className="card-image">
+        {image ? (
+          <img
+            src={image}
+            alt={name}
+            className="destination-img"
+            style={{
+              width: "100%",
+              height: 200,
+              objectFit: "cover",
+              borderRadius: "12px 12px 0 0",
+              marginBottom: 6,
+              background: "#e0e7ef"
+            }}
+            onError={(e) => { e.currentTarget.src = "/placeholder.png"; }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: 180,
+              borderRadius: "12px 12px 0 0",
+              background: "#e0e7ef",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#94a3b8",
+              fontSize: 32,
+              marginBottom: 6
+            }}
+          >
+            🏝️
+          </div>
+        )}
+        <button
           className={`bookmark-bubble ${isBookmarked ? 'active' : ''}`}
           onClick={onBookmarkClick}
           aria-label="Toggle bookmark"
@@ -1185,25 +1216,27 @@ useEffect(() => {
                         ? (personalizedRatingsByDest[selectedCard.id].avg).toFixed(1)
                         : '0'}
                     </span>
-                    <span className="muted"> (Average Rating)</span>
+                    {/* <span className="muted"> (Average Rating)</span> */}
                     <span className="muted">
                       ({personalizedRatingsCountByDest[selectedCard.id] !== undefined
                         ? personalizedRatingsCountByDest[selectedCard.id]
                         : 0} ratings)
                     </span>
                     <span className="muted sep">Rating:</span>
-                    <div className="your-stars">
+                    <div
+                      className="your-stars"
+                      role="img"
+                      aria-label={`Your rating: ${Math.round(personalizedUserRating)} out of 5`}
+                    >
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <button
+                        <span
                           key={n}
                           className={`star-btn ${personalizedUserRating >= n ? 'filled' : ''}`}
-                          onClick={() => ratePersonalizedSelected(n)}
-                          disabled={personalizedSavingRating}
-                          aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                          aria-hidden="true"
                           title={`${n} star${n > 1 ? 's' : ''}`}
                         >
                           ★
-                        </button>
+                        </span>
                       ))}
                     </div>
                     <span className="muted sep">

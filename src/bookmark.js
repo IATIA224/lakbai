@@ -1104,6 +1104,66 @@ const getImageForDestination = (name) => {
                     </div>
                   </div>
                 </div>
+                {/* Mobile: inline Trip Information right after ratings */}
+                <div className="bm-info-panel-inline">
+                  <h3 className="bm-info-title">Trip Information</h3>
+
+                  <div className="bm-info-row">
+                    <div className="bm-info-key">Price:</div>
+                    <div className="bm-info-val">
+                      <span className="chip-green">
+                        {selectedFares.length > 0
+                          ? `₱${getTotalPrice(selected.price).toLocaleString()}`
+                          : formatPeso(selected.price)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bm-info-row">
+                    <div className="bm-info-key">Best Time to Visit:</div>
+                    <div className="bm-info-val">{selected.bestTime || selected.best_time || '—'}</div>
+                  </div>
+
+                  {selected.location && (
+                    <div className="bm-info-row">
+                      <div className="bm-info-key">Location:</div>
+                      <div className="bm-info-val">
+                        <span className="badge blue1">{selected.location}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bm-info-row">
+                    <div className="bm-info-key">Categories:</div>
+                    <div className="bm-info-val">
+                      {selected.category ? (
+                        <span className="badge purple1">{selected.category}</span>
+                      ) : (
+                        <span className="badge purple">No category</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bm-modal-actions">
+                  <button
+                    className={`bm-bookmarked ${confirmingUnbookmark ? 'confirm' : ''}`}
+                    onClick={handleBookmarkedClick}
+                    aria-pressed="true"
+                    title={confirmingUnbookmark ? 'Click again to remove' : 'Bookmarked'}
+                  >
+                    <span className="bm-heart">💗</span>
+                    {confirmingUnbookmark ? 'Click again to remove' : 'Bookmarked'}
+                  </button>
+                  <button
+                    className={`itn-btn success ${addedTripId === selected.id ? 'btn-success' : ''}`}
+                    onClick={() => onAddToTrip(selected)}
+                    disabled={addingTripId === selected.id}
+                    aria-busy={addingTripId === selected.id}
+                  >
+                    <span>{addedTripId === selected.id ? '✔' : '+'}</span>
+                    {addingTripId === selected.id ? ' Adding…' : addedTripId === selected.id ? ' Added!' : ' Add to Trip'}
+                  </button>
+                </div>
+                </div>
 
                 <section>
                   <h3 className="bm-section-title">Description</h3>
