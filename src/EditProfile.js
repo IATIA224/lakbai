@@ -119,17 +119,15 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       const likes = interests.filter(i => i.status === "like").map(i => i.label);
       const dislikes = interests.filter(i => i.status === "dislike").map(i => i.label);
 
-      // FINAL interests to store:
-      // - keep what is already active in Firestore (activeInterests)
-      // - plus any newly liked items from the UI
+      // FINAL interests to store
       const finalInterests = Array.from(new Set([
-        ...Array.from(activeInterests),  // already in users/{uid}.interests (after any removals)
-        ...likes                         // new additions from this edit
+        ...Array.from(activeInterests),
+        ...likes
       ]));
 
       const updateData = {};
 
-      // travelerName and bio (unchanged)
+      // Only add fields that have actual values and have changed
       if (name && name.trim() !== (initialData.name || "")) {
         updateData.travelerName = name.trim();
       }
@@ -137,22 +135,28 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
         updateData.bio = bio;
       }
 
-      // profile picture (unchanged)
+      // profile picture
       if (photoFile) {
         updateData.profilePicture = await uploadToCloudinary(photoFile);
       }
 
-      // WRITE TO 'interests' (not 'likes')
-      // Only update if changed
+      // interests
       const initialInterests = Array.isArray(initialData.interests) ? initialData.interests : [];
-      if (JSON.stringify(finalInterests) !== JSON.stringify(initialInterests)) {
+      if (JSON.stringify(finalInterests.sort()) !== JSON.stringify(initialInterests.sort())) {
         updateData.interests = finalInterests;
       }
 
-      // Keep storing dislikes if you already use it elsewhere (non-breaking)
-      if (JSON.stringify(dislikes) !== JSON.stringify(initialData.dislikes || [])) {
+      // dislikes
+      if (JSON.stringify(dislikes.sort()) !== JSON.stringify((initialData.dislikes || []).sort())) {
         updateData.dislikes = dislikes;
       }
+
+      // Filter out any undefined values (safety check)
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
 
       if (Object.keys(updateData).length === 0) {
         if (onClose) onClose();
@@ -160,11 +164,13 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
         return;
       }
 
+      // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
     } catch (err) {
+      console.error("Save profile error:", err);
       alert("Failed to save profile: " + err.message);
     }
     setSaving(false);
