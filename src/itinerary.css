@@ -426,18 +426,46 @@
    STATS WITH GRADIENT BACKGROUNDS
 ============================================ */
 .itn-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important; /* 5 equal columns */
+  grid-auto-flow: column;
+  gap: 12px;
   margin-top: 16px;
-}
-
-@media (max-width: 980px) { 
-  .itn-stats { grid-template-columns: 1fr 1fr; } 
+  overflow-x: auto;                 /* allow scroll on narrow screens */
+  -webkit-overflow-scrolling: touch;
 }
 
 .itn-stat {
-  border: 2px solid transparent;
+  min-width: 0;                    /* prevent overflow inside grid cell */
+}
+
+/* On small screens keep 1 row via scroll (wider min for readability) */
+@media (max-width: 768px) {
+  .itn-stats {
+    grid-template-columns: repeat(5, minmax(240px, 1fr)) !important;
+  }
+  .itn-stat { min-width: 240px; }
+}
+
+@media (max-width: 1400px) {
+  .itn-stats {
+    grid-template-columns: repeat(3, 1fr); /* 3 columns on medium screens */
+  }
+}
+
+@media (max-width: 980px) { 
+  .itn-stats { 
+    grid-template-columns: repeat(2, 1fr); /* 2 columns on tablets */
+  } 
+}
+
+@media (max-width: 600px) {
+  .itn-stats {
+    grid-template-columns: 1fr; /* Stack on mobile */
+  }
+}
+
+.itn-stat {
   border-radius: 16px;
   padding: 16px;
   box-shadow: var(--shadow-md);
@@ -445,6 +473,7 @@
   position: relative;
   overflow: hidden;
   animation: scaleIn 0.4s ease-out both;
+  /* Remove border-left here, let the color classes handle it */
 }
 
 .itn-stat::before {
@@ -466,32 +495,44 @@
 .itn-stat:hover {
   transform: translateY(-4px) scale(1.03);
   box-shadow: var(--shadow-lg);
-  border-color: currentColor;
 }
 
 .itn-stat:nth-child(1) { animation-delay: 0.1s; }
 .itn-stat:nth-child(2) { animation-delay: 0.15s; }
 .itn-stat:nth-child(3) { animation-delay: 0.2s; }
 .itn-stat:nth-child(4) { animation-delay: 0.25s; }
+.itn-stat:nth-child(5) { animation-delay: 0.3s; }
 
+/* DATES - Blue gradient with left border */
 .itn-stat.blue { 
   background: linear-gradient(135deg, #eff0ff, #dfe1ff);
   color: var(--brand-primary);
+  border-left: 6px solid #6c63ff;
+  border-radius: 16px;
 }
 
+/* ESTIMATED EXPENDITURE - Green gradient with left border */
 .itn-stat.green { 
   background: linear-gradient(135deg, #ecfdf5, #d1fae5);
   color: var(--success);
+  border-left: 6px solid #10b981;
+  border-radius: 16px;
 }
 
+/* STAY & AGENCY - Purple gradient with left border */
 .itn-stat.purple { 
   background: linear-gradient(135deg, #f3ecff, #e9d5ff);
   color: var(--brand-secondary);
+  border-left: 6px solid #a084ee;
+  border-radius: 16px;
 }
 
+/* ACTIVITIES - Orange gradient with left border */
 .itn-stat.orange { 
   background: linear-gradient(135deg, #fff7ed, #ffedd5);
   color: var(--warning);
+  border-left: 6px solid #f59e0b;
+  border-radius: 16px;
 }
 
 .itn-stat-title { 
@@ -1093,3 +1134,28 @@
   padding-left: 22px;
   color: #6366f1;
 }
+
+/* Remove left border from stat boxes */
+/* .itn-stat { border-left: none !important; } */
+
+/* Stay - purple gradient */
+.itn-stat.stat-bg-3 {
+  background: linear-gradient(135deg, #ede9fe 0%, #d1d5fa 100%) !important;
+  color: #7c3aed !important;
+  border-left: 6px solid #7c3aed !important;
+  border-radius: 16px !important;
+}
+
+/* Agency - teal gradient */
+.itn-stat.stat-bg-4 {
+  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%) !important;
+  color: #0d9488 !important;
+  border-left: 6px solid #0d9488 !important;
+  border-radius: 16px !important;
+}
+
+/* Container background (optional for more contrast) */
+.itn-panel-full-width {
+  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+}
+
