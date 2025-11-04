@@ -808,6 +808,7 @@
   font-weight: 600;
   border: 1px solid transparent;
   position: fixed, right;
+  margin-top: 0 !important;
 }
 .pill-green {
   background: #e7f7eb;
@@ -1151,7 +1152,7 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 @media (max-width: 768px) {
   .App {
     padding: 12px 6px; /* Reduced padding */
-    background-color: #f7f8fa;
+
   }
 
   /* Page layout - proper order: title, filters, content */
@@ -1222,8 +1223,8 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
     max-width: 100%;
     width: 100%;
     margin: 0 auto;
-    height: 540px;
-    min-height: 540px; /* Reduced height */
+    height: 490px;
+    min-height: 490px; /* Reduced height */
     position: relative;
     border-radius: 10px; /* Smaller radius */
     overflow: hidden;
@@ -1233,11 +1234,15 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 
   /* Card image adjustments - smaller for better spacing */
   .card-image {
-    height: 120px; /* Reduced height */
+    height: 220px; /* Reduced height */
     position: relative;
     overflow: hidden;
   }
 
+  .details-hero-image {
+    width: 786px;
+    border-radius: none;
+  }
   /* Heart button - smaller and repositioned */
   .heart-btn {
     position: absolute;
@@ -1298,7 +1303,7 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 
   /* Card content adjustments - more compact */
   .card-header {
-    padding: 12px 14px 4px 14px; /* Reduced padding */
+    padding: 12px 24px 4px 24px; /* Reduced padding */
     gap: 8px;
     flex-direction: row;
     align-items: flex-start;
@@ -1319,14 +1324,15 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
   }
 
   .bp2-region-line {
-    margin: -2px 14px 6px 14px; /* Adjusted margins */
+    margin: -2px 24px 6px 24px; /* Adjusted margins */
     font-size: 0.75rem;
     color: #2563eb;
   }
 
   .description {
     font-size: 0.75rem;
-    margin: 4px 12px 6px 12px;
+    margin: 4px 24px 6px 24px;
+    padding-left: 5px;
     display: -webkit-box;
     -webkit-line-clamp: 2; /* Reduced lines to save space */
     -webkit-box-orient: vertical;
@@ -1337,7 +1343,8 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 
   /* Tags - more compact */
   .tag-container {
-    margin: 6px 14px 8px 14px; /* Reduced margins */
+    padding: 12px 24px 4px 24px; /* Reduced padding */
+    margin: 6px 24px 8px 24px !important; /* Reduced margins */
     gap: 4px;
   }
 
@@ -1498,15 +1505,15 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
   }
 
   .grid-card {
-    min-height: 220px; /* Smaller height */
+    min-height: 120px; /* Smaller height */
   }
 
   .card-image {
-    height: 100px; /* Smaller image */
+    height: 220px; /* Smaller image */
   }
 
   .card-header {
-    padding: 10px 12px 3px 12px;
+    padding: 10px 24px 3px 24px;
   }
 
   .card-header h2 {
@@ -1576,21 +1583,42 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 
 /* Responsive adjustments for View Details modal */
 @media (max-width: 768px) {
+  .modal-overlay {
+    align-items: stretch !important; /* allow full-height modal */
+  }
+
   .modal-content,
   .details-modal {
+    position: fixed !important;
+    inset: 0 !important;                 /* top/right/bottom/left = 0 */
     width: 100vw !important;
     max-width: 100vw !important;
-    min-width: 0 !important;
+    height: 100dvh !important;           /* dynamic viewport height */
+    max-height: 100dvh !important;
+    min-height: 100vh !important;        /* fallback */
     border-radius: 0 !important;
     margin: 0 !important;
     box-shadow: none !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    height: 100vh !important;
-    overflow-y: auto !important;
+    overflow: hidden !important;         /* prevent double scrollbars */
     padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
+
+  /* Make the hero a fixed height on mobile */
+  .details-hero1 {
+    height: 180px !important;            /* adjust as you like */
+    flex: 0 0 180px !important;
+  }
+
+  /* Fill the remaining space and scroll the content */
+  .details-body1 {
+    flex: 1 1 auto !important;
+    max-height: none !important;         /* override desktop cap */
+    overflow-y: auto !important;
+    padding: 5px 24px 24px 24px !important; /* compact padding on mobile */
+  }
+
 
   .modal-header {
     padding: 16px 10px !important;
