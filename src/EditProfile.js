@@ -5,26 +5,26 @@ import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
 
+
 const interestsList = [
-  { icon: "🏄‍♂️", label: "Surfer", color: "#e0f7fa" },
-  { icon: "🎒", label: "Backpacker", color: "#f3e8ff" },
-  { icon: "🍜", label: "Foodie Traveler", color: "#fffbe6" },
-  { icon: "🏛️", label: "Culture Seeker", color: "#ede9fe" },
-  { icon: "⚡", label: "Adventure Junkie", color: "#fee2e2" },
-  { icon: "🌿", label: "Nature Enthusiast", color: "#e7fbe7" },
-  { icon: "💻", label: "Digital Nomad", color: "#e0f2fe" },
-  { icon: "🚗", label: "Road Tripper", color: "#fef3c7" },
-  { icon: "🏖️", label: "Beach Lover", color: "#e0e7ff" },
-  { icon: "🏙️", label: "City Explorer", color: "#f7f8fa" },
-  { icon: "📸", label: "Photographer", color: "#f3f4f6" },
-  { icon: "🏺", label: "Historian", color: "#e6fffa" },
-  { icon: "🎉", label: "Festival Hopper", color: "#ffe4e6" },
-  { icon: "🥾", label: "Hiker", color: "#dcfce7" },
-  { icon: "💎", label: "Luxury Traveler", color: "#f0f5ff" },
-  { icon: "🌱", label: "Eco-Traveler", color: "#e6fffa" },
-  { icon: "🛳️", label: "Cruise Lover", color: "#e0e7ff" },
-  { icon: "⛷️", label: "Winter Sports Enthusiast", color: "#e0f2fe" },
-  { icon: "🧳", label: "Solo Wanderer", color: "#fef3c7" }
+  { icon: "🏄‍♂️", label: "Surfer", color: "#f0f9ff" },
+  { icon: "🎒", label: "Backpacker", color: "#f0f9ff" },
+  { icon: "🍜", label: "Foodie Traveler", color: "#f0f9ff" },
+  { icon: "🏛️", label: "Culture Seeker", color: "#f0f9ff" },
+  { icon: "⚡", label: "Adventure Junkie", color: "#f0f9ff" },
+  { icon: "🌿", label: "Nature Enthusiast", color: "#f0f9ff" },
+  { icon: "💻", label: "Digital Nomad", color: "#f0f9ff" },
+  { icon: "🚗", label: "Road Tripper", color: "#f0f9ff" },
+  { icon: "🏖️", label: "Beach Lover", color: "#f0f9ff" },
+  { icon: "🏙️", label: "City Explorer", color: "#f0f9ff" },
+  { icon: "📸", label: "Photographer", color: "#f0f9ff" },
+  { icon: "🏺", label: "Historian", color: "#f0f9ff" },
+  { icon: "🎉", label: "Festival Hopper", color: "#f0f9ff" },
+  { icon: "🥾", label: "Hiker", color: "#f0f9ff" },
+  { icon: "💎", label: "Luxury Traveler", color: "#f0f9ff" },
+  { icon: "🌱", label: "Eco-Traveler", color: "#f0f9ff" },
+  { icon: "🛳️", label: "Cruise Lover", color: "#f0f9ff" },
+  { icon: "🧳", label: "Solo Wanderer", color: "#f0f9ff" }
 ];
 
 const MAX_BIO = 300;
