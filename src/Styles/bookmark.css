@@ -655,11 +655,7 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  height: 300px;
   min-height: 200px;
-  background: #e0e7ef;
-  /* Optionally add a border or shadow for separation */
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 
 .bm-modal-body {
@@ -677,24 +673,6 @@
 }
 
 /* Responsive: stack modal body on mobile */
-@media (max-width: 768px) {
-  .bm-modal {
-    height: 100vh;
-    max-height: 100vh;
-  }
-  .bm-modal-hero {
-    height: 160px;
-    min-height: 120px;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
-  .bm-modal-body {
-    max-height: calc(100% - 160px);
-    padding: 20px 16px;
-    display: block;
-  }
-}
 .bm-modal-close {
   position: absolute;
   top: 16px;
@@ -876,7 +854,6 @@
 @media (max-width: 768px) {
   .App { 
     padding: 16px 8px; 
-    background: linear-gradient(180deg, #eaf0ff 0%, #eef4ff 60%, #f6f8ff 100%);
   }
 
   .bookmark-section {
@@ -903,6 +880,7 @@
   .bm-title-wrap {
     width: 100%;
     justify-content: flex-start;
+    padding: 12px 24px 0 24px;
   }
 
   .bm-title {
@@ -918,6 +896,7 @@
   /* Controls row */
   .bm-controls {
     width: 100%;
+    padding: 0 24px 0 24px;
     flex-direction: row;
     justify-content: space-between;
     gap: 10px;
@@ -928,6 +907,22 @@
     max-width: 200px;
     height: 44px;
     font-size: 14px;
+  }
+
+  .bm-modal {
+    height: 100vh;
+    max-height: 100vh;
+  }
+  .bm-modal-hero {
+    min-height: 190px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .bm-modal-body {
+    max-height: calc(100% - 300px);
+    padding: 24px 24px 24px 24px;
+    display: block;
   }
 
   .bm-clear-btn {
@@ -941,7 +936,7 @@
   .bm-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    margin: 16px 0 20px;
+    margin: 16px 24px 20px;
   }
 
   .bm-stat-card {
@@ -1119,15 +1114,6 @@
     z-index: 10;
   }
 
-  .bm-modal-hero {
-    height: 160px;
-  }
-
-  .bm-modal-body {
-    display: block;
-    padding: 20px 16px;
-  }
-
   .bm-modal-title {
     font-size: 22px;
     text-align: left;
@@ -1257,6 +1243,7 @@
 
   .bm-title {
     font-size: 20px;
+    padding: 0 0 0 0;
   }
 
   .bm-subtitle {
@@ -1267,7 +1254,7 @@
   .bm-stats {
     grid-template-columns: 1fr;
     gap: 8px;
-    margin: 12px 0 16px;
+    margin: 12px 24px 16px;
   }
 
   .bm-stat-card {
@@ -1330,6 +1317,14 @@
   /* Controls */
   .bm-controls {
     gap: 6px;
+  }
+  
+  .bm-modal-hero {
+    height: 190px;
+  }
+
+  .bookmarks-grid {
+    padding: 12px;
   }
 
   .bm-sort {
@@ -1498,5 +1493,31 @@
 @media (min-width: 770px) {
   .bm-remove-text {
     display: inline !important;
+  }
+}
+
+@media (min-width: 945px) {
+  .bm-info-panel-inline { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .bm-info-panel-inline { display: block; margin-top: 8px; }
+  /* Hide the sidebar info panel on mobile to avoid duplication */
+  .bm-modal-aside { display: none !important; }
+}
+@media (max-width: 945px) {
+  .bm-info-panel-inline { display: block; margin-top: 8px; }
+  /* Hide the sidebar info panel on mobile to avoid duplication */
+  .bm-modal-aside { display: none !important; }
+  .bm-modal-body {
+    grid: none;
+  }
+}
+
+@media (max-width: 870px) {
+  .bm-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 16px 10px 20px;
   }
 }
