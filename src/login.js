@@ -155,6 +155,23 @@ const Login = () => {
     navigate("/register");
   };
 
+  // Helper: after login, set a flag if interests missing
+  async function ensureSetupFlag(uid) {
+    try {
+      const snap = await getDoc(doc(db, "users", uid));
+      const data = snap.exists() ? snap.data() : {};
+      const interests = Array.isArray(data?.interests) ? data.interests : [];
+      if (!interests.length) {
+        localStorage.setItem("SHOW_PROFILE_SETUP", "1");
+      } else {
+        localStorage.removeItem("SHOW_PROFILE_SETUP");
+      }
+    } catch (e) {
+      // Non-fatal
+      console.warn("ensureSetupFlag failed:", e);
+    }
+  }
+
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     try {
@@ -203,6 +220,9 @@ const Login = () => {
         target: "user_session",
         clientTime: Date.now(), // optional
       });
+
+      // Check if interests exist; mark flag if not
+      await ensureSetupFlag(userCredential.user.uid);
 
       if (rememberMe) localStorage.setItem("rememberedEmail", email);
       else localStorage.removeItem("rememberedEmail");
@@ -304,6 +324,9 @@ const Login = () => {
         target: "user_session",
       });
 
+      // Mark flag if interests are missing
+      await ensureSetupFlag(result.user.uid);
+
       // New code block start
       const user = result.user;
       const token = await user.getIdToken();
@@ -373,6 +396,9 @@ const Login = () => {
         session: sessionId,
         target: "user_session",
       });
+
+      // Mark flag if interests are missing
+      await ensureSetupFlag(result.user.uid);
 
       navigate("/dashboard");
     } catch (err) {
