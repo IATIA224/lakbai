@@ -280,9 +280,7 @@ export function SharedDestinationCard({
 }) {
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [showHotels, setShowHotels] = useState(false);
   const [showCostEstimation, setShowCostEstimation] = useState(false);
-  const [showAgency, setShowAgency] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
 
   const days =
@@ -449,19 +447,19 @@ export function SharedDestinationCard({
             🛠️ Tools
             <span style={{ 
               fontSize: "10px",
-              transform: showToolsMenu ? "rotate(0deg)" : "rotate(180deg)", // CHANGED: Flip rotation
+              transform: showToolsMenu ? "rotate(0deg)" : "rotate(180deg)",
               transition: "transform 0.2s"
             }}>▲</span> {/* CHANGED: Changed from ▼ to ▲ */}
           </button>
 
-          {/* Tools Dropdown Menu - CHANGED: Now opens upward */}
+          {/* Tools Dropdown Menu - ONLY Summary and Estimate Transport Cost */}
           {showToolsMenu && (
             <div 
               className="itn-tools-menu"
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
-                bottom: "calc(100% + 8px)", // CHANGED: from 'top' to 'bottom'
+                bottom: "calc(100% + 8px)",
                 right: 0,
                 background: "#fff",
                 border: "2px solid #6366f1",
@@ -470,7 +468,7 @@ export function SharedDestinationCard({
                 zIndex: 9999,
                 minWidth: 240,
                 overflow: "hidden",
-                animation: "slideUp 0.2s ease-out" // CHANGED: from slideDown to slideUp
+                animation: "slideUp 0.2s ease-out"
               }}
             >
               <button
@@ -480,7 +478,7 @@ export function SharedDestinationCard({
                 }}
                 className="itn-tools-menu-item"
               >
-                <span style={{ fontSize: "18px" }}>📋</span>
+                <span style={{ fontSize: "18px" }}></span>
                 <span>View Summary</span>
               </button>
 
@@ -491,43 +489,15 @@ export function SharedDestinationCard({
                 }}
                 className="itn-tools-menu-item"
               >
-                <span style={{ fontSize: "18px" }}>🚗</span>
+                <span style={{ fontSize: "18px" }}></span>
                 <span>Estimate Transport Cost</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowHotels(true);
-                  setShowToolsMenu(false);
-                }}
-                className="itn-tools-menu-item"
-              >
-                <span style={{ fontSize: "18px" }}>🏨</span>
-                <span>View Accredited Hotels</span>
-              </button>
-
-              <div style={{ 
-                height: "1px", 
-                background: "linear-gradient(90deg, transparent, #e5e7eb, transparent)",
-                margin: "4px 0"
-              }}></div>
-
-              <button
-                onClick={() => {
-                  setShowAgency(true);
-                  setShowToolsMenu(false);
-                }}
-                className="itn-tools-menu-item"
-              >
-                <span style={{ fontSize: "18px" }}>✈️</span>
-                <span>Travel Agencies</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* UPDATED: Render summary modal without SuggestionView wrapper */}
+      {/* Only render summary and cost estimation modals */}
       {showSummary && (
         <ItinerarySummaryModal 
           item={item} 
@@ -535,45 +505,9 @@ export function SharedDestinationCard({
         />
       )}
 
-      {showHotels && (
-        <ItineraryHotelsModal
-          open={showHotels}
-          onClose={() => setShowHotels(false)}
-          onSelect={(hotel) => {
-            setShowHotels(false);
-            if (setEditing && setSharedItineraryId) {
-              setEditing({
-                ...item,
-                accomType: hotel.type,
-                accomName: hotel.name,
-                accomNotes: hotel.address,
-              });
-              setSharedItineraryId(sharedId);
-            }
-          }}
-        />
-      )}
-
       {showCostEstimation && (
         <ItineraryCostEstimationModal
           onClose={() => setShowCostEstimation(false)}
-        />
-      )}
-
-      {showAgency && (
-        <ItineraryAgencyModal
-          open={showAgency}
-          onClose={() => setShowAgency(false)}
-          onSelect={(agency) => {
-            setShowAgency(false);
-            if (setEditing && setSharedItineraryId && !readOnly) {
-              setEditing({
-                ...item,
-                transportNotes: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
-              });
-              setSharedItineraryId(sharedId);
-            }
-          }}
         />
       )}
     </>
@@ -915,20 +849,20 @@ export function ItinerarySummaryModal({ item, onClose }) {
     <div className="itn-modal-backdrop itn-summary-backdrop" onClick={onClose}>
       <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
         <div className="itn-modal-header">
-          <div className="itn-modal-title">📋 Trip Summary</div>
+          <div className="itn-modal-title"> Trip Summary</div>
           <button className="itn-close" onClick={onClose}>×</button>
         </div>
 
         <div className="itn-modal-body">
           <div className="itn-summary-content">
             <div className="itn-summary-section">
-              <h3 className="itn-summary-heading">📍 Destination</h3>
+              <h3 className="itn-summary-heading"> Destination</h3>
               <div className="itn-summary-item">
                 <strong>{item.name}</strong>
                 {item.region && <span className="itn-summary-region">{item.region}</span>}
                 {item.location && (
                   <div style={{ marginTop: 8, fontSize: '0.95rem', color: '#64748b' }}>
-                    <span className="itn-summary-label">📌 Location: </span>
+                    <span className="itn-summary-label"> Location: </span>
                     <span>{item.location}</span>
                   </div>
                 )}
@@ -937,7 +871,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
 
             {(item.arrival || item.departure) && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">📅 Travel Dates</h3>
+                <h3 className="itn-summary-heading"> Travel Dates</h3>
                 <div className="itn-summary-grid">
                   {item.arrival && (
                     <div className="itn-summary-item">
@@ -963,7 +897,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
 
             {item.estimatedExpenditure > 0 && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">💰 Budget</h3>
+                <h3 className="itn-summary-heading"> Budget</h3>
                 <div className="itn-summary-item">
                   <span className="itn-summary-amount">
                     ₱{Number(item.estimatedExpenditure).toLocaleString()}
@@ -974,7 +908,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
 
             {item.activities && item.activities.length > 0 && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">🎯 Activities</h3>
+                <h3 className="itn-summary-heading"> Activities</h3>
                 <div className="itn-summary-tags">
                   {item.activities.map((activity, idx) => (
                     <span key={idx} className="itn-summary-tag">{activity}</span>
@@ -985,7 +919,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
 
             {(item.accomType || item.accomName) && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">🏨 Accommodation</h3>
+                <h3 className="itn-summary-heading"> Accommodation</h3>
                 <div className="itn-summary-item">
                   {item.accomType && <span className="itn-summary-badge">{item.accomType}</span>}
                   {item.accomName && <strong>{item.accomName}</strong>}
@@ -996,7 +930,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
 
             {item.transport && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">🚗 Transportation</h3>
+                <h3 className="itn-summary-heading"> Transportation</h3>
                 <div className="itn-summary-item">
                   <span className="itn-summary-badge">{item.transport}</span>
                   {item.transportNotes && <p className="itn-summary-notes">{item.transportNotes}</p>}
@@ -1006,7 +940,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
 
             {item.agency && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">✈️ Agency</h3>
+                <h3 className="itn-summary-heading"> Agency</h3>
                 <div className="itn-summary-item">
                   <p className="itn-summary-notes">{item.agency}</p>
                 </div>
@@ -1015,7 +949,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
 
             {item.notes && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">📝 Notes</h3>
+                <h3 className="itn-summary-heading"> Notes</h3>
                 <div className="itn-summary-item">
                   <p className="itn-summary-notes">{item.notes}</p>
                 </div>
@@ -1023,7 +957,7 @@ export function ItinerarySummaryModal({ item, onClose }) {
             )}
 
             <div className="itn-summary-section">
-              <h3 className="itn-summary-heading">✅ Status</h3>
+              <h3 className="itn-summary-heading"> Status</h3>
               <div className="itn-summary-item">
                 <span className={`itn-summary-status ${item.status.toLowerCase()}`}>
                   {item.status}
