@@ -629,11 +629,46 @@ const getTotalPrice = (basePrice) => {
 
     function getFirebaseImageForDestination(firebaseImages, destName) {
       if (!destName) return null;
-      const normalized = destName.trim().toLowerCase();
-      const found = firebaseImages.find(img =>
-        (img.name && img.name.trim().toLowerCase() === normalized) ||
-        (img.publicId && img.publicId.trim().toLowerCase() === normalized)
+
+      const normalize = (s) =>
+        String(s || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ')            // collapse spaces
+          .replace(/[’'`"]/g, '')          // remove quotes
+          .replace(/[()]/g, '')            // remove parentheses
+          .replace(/[.]/g, '')             // remove dots
+          .replace(/\s*-\s*/g, '-')        // unify hyphens
+          .replace(/\s/g, '-');            // spaces -> hyphen
+
+      const plain = (s) =>
+        String(s || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ')
+          .replace(/[’'`"]/g, '')
+          .replace(/[()]/g, '')
+          .replace(/[.]/g, '');
+
+      const normalized = normalize(destName);
+      const plainName = plain(destName);
+
+      // Exact match first (previous behavior)
+      let found = firebaseImages.find(img =>
+        (img.name && plain(img.name) === plainName) ||
+        (img.publicId && plain(img.publicId) === plainName) ||
+        (img.name && normalize(img.name) === normalized) ||
+        (img.publicId && normalize(img.publicId) === normalized)
       );
+
+      if (!found) {
+        // Fallback: contains/startsWith checks on normalized strings
+        found = firebaseImages.find(img => {
+          const n1 = normalize(img.name || img.publicId || '');
+          return n1 === normalized || n1.includes(normalized) || normalized.includes(n1);
+        });
+      }
+
       return found && found.url ? found.url : null;
     }
 
@@ -1358,58 +1393,70 @@ const getTotalPrice = (basePrice) => {
             <div className="grid-container">
               {pageItems.map((d) => (
                 <div className="grid-card-anim">
-                <div className="grid-card" key={d.id}>
-                  <div className="card-image">
-                    {cloudImages.length === 0 ? (
-                      <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
+              <div className="grid-card" key={d.id}>
+                <div className="card-image">
+                  {(() => {
+                    // Prefer per-destination URL first, then Firebase, then Cloudinary
+                    const cloudUrl = getImageForDestination(cloudImages, d.name);
+                    const firebaseUrl = getFirebaseImageForDestination(firebaseImages, d.name);
+                    const imgUrl = d.image || firebaseUrl || cloudUrl;
+
+                    // Consider any of these as ready sources to avoid the "Loading..." state
+                    const hasImageSources =
+                      Boolean(d.image) ||
+                      (firebaseImages && firebaseImages.length > 0) ||
+                      (cloudImages && cloudImages.length > 0);
+
+                    if (!hasImageSources) {
+                      return (
+                        <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>
+                          Loading...
+                        </div>
+                      );
+                    }
+
+                    return imgUrl ? (
+                      <img
+                        src={imgUrl}
+                        alt={d.name}
+                        className="destination-img"
+                        style={{
+                          width: "100%",
+                          height: 200,
+                          objectFit: "cover",
+                          borderRadius: "12px 12px 0 0",
+                          marginBottom: 6,
+                          background: "#e0e7ef"
+                        }}
+                      />
                     ) : (
-                      (() => {
-                        const cloudUrl = getImageForDestination(cloudImages, d.name);
-                        const firebaseUrl = getFirebaseImageForDestination(firebaseImages, d.name);
-                        const imgUrl = cloudUrl || firebaseUrl;
-                        return imgUrl ? (
-                          <img
-                            src={imgUrl}
-                            alt={d.name}
-                            className="destination-img"
-                            style={{
-                              width: "100%",
-                              height: 200,
-                              objectFit: "cover",
-                              borderRadius: "12px 12px 0 0",
-                              marginBottom: 6,
-                              background: "#e0e7ef"
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: "100%",
-                              height: 180,
-                              borderRadius: "12px 12px 0 0",
-                              background: "#e0e7ef",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#94a3b8",
-                              fontSize: 32,
-                              marginBottom: 6
-                            }}
-                          >
-                            🏝️
-                          </div>
-                        );
-                      })()
-                    )}
-                    <button
-                      className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
-                      onClick={() => toggleBookmark(d)}
-                      aria-label="Toggle bookmark"
-                      title="Bookmark"
-                    >
-                      {bookmarks.has(d.id) ? '❤️' : '🤍'}
-                    </button>
-                  </div>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: 180,
+                          borderRadius: "12px 12px 0 0",
+                          background: "#e0e7ef",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#94a3b8",
+                          fontSize: 32,
+                          marginBottom: 6
+                        }}
+                      >
+                        🏝️
+                      </div>
+                    );
+                  })()}
+                  <button
+                    className={`bookmark-bubble ${bookmarks.has(d.id) ? 'active' : ''}`}
+                    onClick={() => toggleBookmark(d)}
+                    aria-label="Toggle bookmark"
+                    title="Bookmark"
+                  >
+                    {bookmarks.has(d.id) ? '❤️' : '🤍'}
+                  </button>
+                </div>
 
                   <div className="card-header">
                     <h2>{d.name}</h2>
@@ -1469,49 +1516,63 @@ const getTotalPrice = (basePrice) => {
                 position: 'relative',
                 zIndex: 1,
               }}>
-                    <div className="details-hero-image"
-                    style={{ height: DETAILS_HERO_HEIGHT }}>
-                      {cloudImages.length === 0 ? (
-                        <div style={{ width: "100%", height: DETAILS_HERO_HEIGHT, background: "#e0e7ef", borderRadius: 16  }} />
-                      ) : (
-                        (() => {
-                          const cloudUrl = getImageForDestination(cloudImages, selected.name);
-                          const firebaseUrl = getFirebaseImageForDestination(firebaseImages, selected.name);
-                          const imgUrl = cloudUrl || firebaseUrl;
-                          return imgUrl ? (
-                            <img
-                              src={imgUrl}
-                              alt={selected.name}
-                              style={{
-                                width: "100%",
-                                height: 240,
-                                objectFit: "cover",
-                                objectPosition: "center",
-                                borderRadius: "16px 16px 0 0",
-                                marginBottom: 8,
-                                background: "#e0e7ef"
-                              }}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                width: "100%",
-                                height: 180,
-                                borderRadius: 12,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 48,
-                                marginBottom: 8
-                              }}
-                            >
-                              🏝️
-                            </div>
-                          );
-                        })()
-                      )}
+              <div className="details-hero-image" style={{ height: DETAILS_HERO_HEIGHT }}>
+                {(() => {
+                  const cloudUrl = getImageForDestination(cloudImages, selected.name);
+                  const firebaseUrl = getFirebaseImageForDestination(firebaseImages, selected.name);
+                  const imgUrl = selected.image || firebaseUrl || cloudUrl;
+
+                  const hasImageSources =
+                    Boolean(selected.image) ||
+                    (firebaseImages && firebaseImages.length > 0) ||
+                    (cloudImages && cloudImages.length > 0);
+
+                  if (!hasImageSources) {
+                    return (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: DETAILS_HERO_HEIGHT,
+                          background: "#e0e7ef",
+                          borderRadius: 16
+                        }}
+                      />
+                    );
+                  }
+
+                  return imgUrl ? (
+                    <img
+                      src={imgUrl}
+                      alt={selected.name}
+                      style={{
+                        width: "100%",
+                        height: 240,
+                        objectFit: "cover",
+                        objectPosition: "center",
+                        borderRadius: "16px 16px 0 0",
+                        marginBottom: 8,
+                        background: "#e0e7ef"
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 180,
+                        borderRadius: 12,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 48,
+                        marginBottom: 8
+                      }}
+                    >
+                      🏝️
                     </div>
-                  </div>
+                  );
+                })()}
+              </div>
+            </div>
 
                     <div className="details-body1">
                       <div className="details-head-row">
