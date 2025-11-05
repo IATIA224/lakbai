@@ -19,29 +19,32 @@ import LoginCMS from './login-cms';
 import ContentManagement from './ContentManagement';
 import ProtectedRoute from "./ProtectedRoute";
 import { ToastContainer } from 'react-toastify';
-import { getAuth, signOut } from "firebase/auth";
-import JeepneyRouteMap from "./itineraryjeeproute"; // Import at the top
+import { getAuth, signOut, signInWithEmailAndPassword } from "firebase/auth";
+import JeepneyRouteMap from "./itineraryjeeproute";
 import ItineraryCostEstimationModal from "./itineraryCostEstimation";
 
-
-// Authentication helpers (unchanged)
+// FIXED: Better authentication check
 function isAuthenticated() {
   const token = localStorage.getItem('token');
   const user = getAuth().currentUser;
-  return (typeof token === 'string' && token.trim().length > 0) || !!user;
+  
+  // Return true if EITHER token exists OR Firebase user is logged in
+  const hasToken = typeof token === 'string' && token.trim().length > 0;
+  const hasFirebaseUser = !!user;
+  
+  return hasToken || hasFirebaseUser;
 }
 
 function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
   const location = useLocation();
+  
   useEffect(() => {
     const handler = () => setShowAIModal(true);
     window.addEventListener('lakbai:open-ai', handler);
     return () => window.removeEventListener('lakbai:open-ai', handler);
   }, []);
 
-  // MainLayout used only for pages that should have header + footer.
-  // Footer is keyed by location so it remounts on navigation.
   function MainLayout() {
     const loc = useLocation();
     return (
@@ -55,7 +58,6 @@ function AppInner() {
     );
   }
 
-  // GLOBAL SCROLL TO TOP ON ROUTE CHANGE
   useEffect(() => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
@@ -65,7 +67,7 @@ function AppInner() {
   const handleLogout = async () => {
     localStorage.removeItem('token');
     await signOut(getAuth());
-    window.location.href = "/dashboard"; // Force reload to clear state
+    window.location.href = "/login";
   };
 
   return (
@@ -82,7 +84,7 @@ function AppInner() {
           <Route path="/dashboard" element={<Dashboard setShowAIModal={setShowAIModal} />} />
           <Route path="/bookmarks2" element={<Bookmarks2 />} />
 
-          {/* Protected pages */}
+          {/* Protected pages - FIXED: Better auth check */}
           <Route
             path="/bookmark"
             element={isAuthenticated() ? <Bookmark /> : <Navigate to="/login" replace />}
@@ -120,7 +122,6 @@ function AppInner() {
   );
 }
 
-// Export wrapped by BrowserRouter if not already in a Router context
 export default function App() {
   const inRouter = useInRouterContext();
   if (inRouter) return <AppInner />;

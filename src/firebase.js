@@ -1,8 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getDatabase } from "firebase/database"; // Add this import
-import { getApp } from "firebase/app"; // Add temporarily for debug
+import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAHYtSKJ6KntJNaZhh8JJKQF4Viu50Egns",
@@ -14,11 +13,12 @@ const firebaseConfig = {
   measurementId: "G-TXEE2C3HJW"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Initialize services
 const auth = getAuth(app);
 const db = getFirestore(app);
-const rtdb = getDatabase(app); // Add this line
+const rtdb = getDatabase(app);
 
-console.log("Firebase project:", getApp().options.projectId); // Debug line
-
-export { auth, db, rtdb }; // Export rtdb
+export { auth, db, rtdb, app };
