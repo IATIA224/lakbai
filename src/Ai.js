@@ -5,6 +5,94 @@ import { collection, doc, setDoc, serverTimestamp, updateDoc, getDocs, query, or
 import { addTripForCurrentUser } from './Itinerary';
 import { Client } from "@gradio/client";
 
+// --- RAG helpers: load dataset from public CSV and cache it ---
+let _csvCache = null;
+async function loadCsvData() {
+  if (_csvCache) return _csvCache;
+  try {
+    const res = await fetch('/data/ai/data-main-data-main.csv-2.csv');
+    if (!res.ok) throw new Error('Failed to fetch CSV');
+    const text = await res.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length === 0) {
+      _csvCache = { header: [], rows: [] };
+      return _csvCache;
+    }
+    const header = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+    const rows = lines.slice(1).map(line => {
+      const vals = parseCsvLine(line);
+      const obj = {};
+      for (let i = 0; i < header.length; i++) {
+        obj[header[i]] = (vals[i] || '').trim();
+      }
+      return obj;
+    });
+    _csvCache = { header, rows };
+    return _csvCache;
+  } catch (e) {
+    console.error('Failed to load CSV for RAG:', e);
+    _csvCache = { header: [], rows: [] };
+    return _csvCache;
+  }
+}
+
+function parseCsvLine(line) {
+  const res = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+      continue;
+    }
+    if (ch === ',' && !inQuotes) {
+      res.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  res.push(cur);
+  return res;
+}
+
+function mapCategoryKeyword(text) {
+  const t = (text || '').toLowerCase();
+  if (/\b(beach|beaches|coast|seaside|shore)\b/.test(t)) return 'beach';
+  if (/\b(mountain|mountains|peak|hike|hill)\b/.test(t)) return 'mountain';
+  if (/\b(history|historical|heritage|old town|church|fort|site)\b/.test(t)) return 'historical';
+  return null;
+}
+
+async function getRagBlockForCategory(categoryKey, limit = 10) {
+  if (!categoryKey) return '';
+  const data = await loadCsvData();
+  if (!data || !data.rows || data.rows.length === 0) return '';
+  const header = data.header;
+  const rows = data.rows;
+  const categoryCols = ['category','type','tags','classification','group'];
+  const nameCols = ['name','title','place','destination','location'];
+  const descCols = ['description','desc','notes','summary'];
+  const catCol = header.find(h => categoryCols.includes(h)) || null;
+  const nameCol = header.find(h => nameCols.includes(h)) || header[0] || null;
+  const descCol = header.find(h => descCols.includes(h)) || null;
+  const matches = rows.filter(r => {
+    if (catCol && r[catCol]) return r[catCol].toLowerCase().includes(categoryKey);
+    return Object.values(r).some(v => (v || '').toLowerCase().includes(categoryKey));
+  }).slice(0, limit);
+  if (matches.length === 0) return '';
+  const lines = matches.map(m => {
+    const name = (nameCol && m[nameCol]) ? m[nameCol] : Object.values(m)[0];
+    const desc = (descCol && m[descCol]) ? m[descCol] : '';
+    const region = m.region || m.location || '';
+    return `- ${name}${region ? ` (${region})` : ''}${desc ? ` - ${desc}` : ''}`;
+  });
+  return `Relevant dataset items (${categoryKey}):\n` + lines.join('\n');
+}
+
+
 // Helper to get user profile from Firestore
 async function fetchUserProfile(uid) {
   if (!uid) return null;
@@ -66,21 +154,12 @@ export default function ChatbaseAI({ onClose }) {
       fetchUserProfile(user.uid).then(setProfile);
     }
   }, []);
-
   // Scroll to bottom when messages change
   useEffect(() => {
     if (shouldScrollRef.current && chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
-  }, [messages, loading]);
-
-  // Detect if user scrolled up manually
-  const handleScroll = () => {
-    if (!chatRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
-    // If user is not at the bottom, disable auto-scroll
-    shouldScrollRef.current = scrollHeight - scrollTop - clientHeight < 50;
-  };
+  }, [messages]);
 
   // Load chat history on mount
   useEffect(() => {
@@ -89,25 +168,23 @@ export default function ChatbaseAI({ onClose }) {
 
     const chatsRef = collection(db, 'users', user.uid, 'aiChats');
     const q = query(chatsRef, orderBy('updatedAt', 'desc'));
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const chats = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setChatHistory(chats);
-      
+
       // If no current chat, create a new one
-      if (!currentChatId && chats.length === 0) {
-        createNewChat();
-      } else if (!currentChatId && chats.length > 0) {
-        // Load the most recent chat
-        loadChat(chats[0].id);
+      if (!currentChatId) {
+        if (chats.length === 0) {
+          createNewChat();
+        } else {
+          loadChat(chats[0].id);
+        }
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentChatId]);
 
   // Save messages to Firestore whenever they change
   useEffect(() => {
@@ -170,34 +247,119 @@ export default function ChatbaseAI({ onClose }) {
     setMessages(prev => [...prev, { role, text, timestamp: new Date().toISOString() }]);
   }
 
+  function handleScroll() {
+    const el = chatRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    shouldScrollRef.current = atBottom;
+  }
+
+  // Strip common model-added scope/refusal banners while preserving legitimate refusals
+  function sanitizeModelResponse(text) {
+    if (!text) return text;
+    let t = String(text).replace(/\r/g, '').trim();
+    // Remove any HTML tags
+    t = t.replace(/<[^>]*>/g, '').trim();
+
+    const lines = t.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return t;
+
+    // Patterns that commonly appear as model-hosted boilerplate/disclaimer lines
+    // We intentionally avoid matching short, explicit refusals authored by our app
+    const BOILERPLATE_REGEX = /\b(this assistant only|only provides|please ask about|please ask|only assists|this assistant is|this bot only|this model is|for safety reasons|scope:|note:|disclaimer|usage:|usage note)\b/i;
+
+    // Remove any lines that match the boilerplate regex or are horizontal separators
+    const filtered = lines.filter(l => {
+      if (!l) return false;
+      if (/^[-*_]{3,}$/.test(l)) return false;
+      // Drop lines that look like boilerplate/disclaimer
+      if (BOILERPLATE_REGEX.test(l)) return false;
+      return true;
+    });
+
+    const remaining = filtered.join('\n').trim();
+    // If removing boilerplate would leave nothing, fall back to original text
+    return remaining || t;
+  }
+
   async function sendToGradio(messagesPayload) {
+    // Use Chuxia-sys/Qwen_lora and call /predict with a composed prompt
     try {
-      const client = await Client.connect("Chuxia-sys/gemma-merged-v2");
-      const history = messagesPayload.slice(0, -1).map(m => ({
-        role: m.role,
-        metadata: null,
-        content: m.content,
-        options: null
-      }));
-      const latestMessage = messagesPayload[messagesPayload.length - 1];
-      const message = latestMessage?.content || '';
-      const result = await client.predict("/chat", { 
-        message,
-        history
-      });
-      if (result?.data && Array.isArray(result.data)) {
-        const conversation = result.data[0];
-        if (Array.isArray(conversation) && conversation.length > 1) {
-          const assistantResponse = conversation[1];
-          if (assistantResponse?.content) {
-            return String(assistantResponse.content);
-          }
+      const latest = messagesPayload[messagesPayload.length - 1]?.content || '';
+      
+
+      // Compose prompt: recent conversation
+      let convo = '';
+      for (const m of messagesPayload) {
+        const label = m.role === 'user' ? 'User' : 'Assistant';
+        convo += `${label}: ${m.content}\n`;
+      }
+  // System instruction: encourage the model to use destinations across the whole Philippines
+  const systemInstruction = `You are an expert Philippine travel planner. When suggesting places, use destinations from across the entire Philippines — Luzon, Visayas, and Mindanao — and do not limit recommendations to Cebu, Bohol, or Palawan. Provide balanced suggestions from different regions when appropriate.`;
+
+  // If the user asked for a category (beach, mountain, historical), augment prompt with dataset hits
+      const categoryKey = mapCategoryKeyword(latest);
+      let ragBlock = '';
+      if (categoryKey) {
+        try {
+          ragBlock = await getRagBlockForCategory(categoryKey, 12);
+        } catch (e) {
+          console.warn('RAG block build failed', e);
         }
       }
-      return `Debug: Could not parse response. Check console for structure.`;
+
+  const prompt = `${systemInstruction}\n\n${ragBlock ? ragBlock + '\n\n' : ''}\n${convo}Assistant:`;
+
+      const client = await Client.connect("Chuxia-sys/Qwen_lora");
+
+      // Try multiple predict signatures for compatibility
+      let result = null;
+      const attempts = [
+        async () => await client.predict('/predict', { prompt }),
+        async () => await client.predict('/predict', prompt),
+        async () => await client.predict('/predict', [prompt]),
+      ];
+
+      for (const fn of attempts) {
+        try {
+          result = await fn();
+          if (result != null) break;
+        } catch (err) {
+          console.warn('predict pattern failed:', err?.message || err);
+        }
+      }
+
+      console.log('Qwen_lora result:', result);
+
+      // Robust parsing (same as before)
+      if (result && typeof result === 'object') {
+        if (Array.isArray(result.data)) {
+          const first = result.data[0];
+          if (Array.isArray(first)) {
+            const assistantEntries = first.filter(m => m && m.role === 'assistant' && m.content).map(m => m.content);
+            if (assistantEntries.length) {
+              let response = assistantEntries[assistantEntries.length - 1].trim();
+              const prevAssistantTexts = messagesPayload.filter(m => m.role === 'assistant').map(m => m.content || '');
+              for (const prev of prevAssistantTexts) {
+                if (prev && response.endsWith(prev)) {
+                  response = response.slice(0, -prev.length).trim();
+                }
+              }
+              if (!response) response = assistantEntries[assistantEntries.length - 1].trim();
+              return sanitizeModelResponse(response);
+            }
+          } else if (typeof first === 'string') {
+            return sanitizeModelResponse(String(first).trim());
+          }
+        }
+        if (result?.content) return sanitizeModelResponse(String(result.content).trim());
+        if (result?.text) return sanitizeModelResponse(String(result.text).trim());
+      }
+      if (typeof result === 'string') return sanitizeModelResponse(result.trim());
+      return 'Debug: Could not parse response. Check console for structure.';
     } catch (e) {
-      console.error('Gradio send failed', e);
-      return `Error: ${e.message}`;
+      console.error('Gradio (Qwen_lora) send failed', e);
+      return `Error: ${e?.message || e}`;
     }
   }
 
