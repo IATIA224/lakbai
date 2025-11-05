@@ -672,8 +672,8 @@ html, body, #root {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(168, 85, 247, 0.2);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -763,6 +763,17 @@ html, body, #root {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

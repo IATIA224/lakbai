@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 // fix: use react-leaflet, not "react-g"
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -116,6 +116,7 @@ const Profile = () => {
   const [shareCode, setShareCode] = useState("");
   const [completedDestinations, setCompletedDestinations] = useState([]);
   const [friends, setFriends] = useState([]);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
 
   // Map state - simplified (no search)
   const [mapCenter, setMapCenter] = useState([12.8797, 121.774]);
@@ -764,6 +765,21 @@ const Profile = () => {
     return () => unsubscribe();
   }, [userId]);
 
+  // Add this ref for the dropdown
+  const settingsDropdownRef = useRef(null);
+
+  // Add this useEffect to close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (settingsDropdownRef.current && !settingsDropdownRef.current.contains(event.target)) {
+        setShowSettingsDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <>
       {/* Animated background elements - MORE VISIBLE */}
@@ -824,12 +840,131 @@ const Profile = () => {
             <div className="profile-title-row">
               <h2>{profile?.name || "Your Name"}</h2>
               {/* Make Edit Profile look like the other buttons */}
-              <button
-                className="btn btn-primary"
-                onClick={() => setShowEditProfile(true)}
-              >
-                Edit Profile
-              </button>
+              <div style={{ position: "relative" }} ref={settingsDropdownRef}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  ⚙️ Settings
+                </button>
+
+                {/* Dropdown Menu */}
+                {showSettingsDropdown && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      right: 0,
+                      marginTop: "8px",
+                      background: "white",
+                      border: "1px solid rgba(168, 85, 247, 0.2)",
+                      borderRadius: "12px",
+                      boxShadow: "0 8px 24px rgba(168, 85, 247, 0.2)",
+                      zIndex: 1000,
+                      minWidth: "200px",
+                      overflow: "hidden",
+                      animation: "slideDown 0.2s ease",
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setShowEditProfile(true);
+                        setShowSettingsDropdown(false);
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "12px 16px",
+                        border: "none",
+                        background: "transparent",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        color: "#475569",
+                        transition: "all 0.2s ease",
+                        borderBottom: "1px solid rgba(168, 85, 247, 0.1)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(168, 85, 247, 0.08)";
+                        e.currentTarget.style.color = "#a855f7";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.color = "#475569";
+                      }}
+                    >
+                       Edit Profile
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleShareProfile();
+                        setShowSettingsDropdown(false);
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "12px 16px",
+                        border: "none",
+                        background: "transparent",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        color: "#475569",
+                        transition: "all 0.2s ease",
+                        borderBottom: "1px solid rgba(168, 85, 247, 0.1)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(168, 85, 247, 0.08)";
+                        e.currentTarget.style.color = "#a855f7";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.color = "#475569";
+                      }}
+                    >
+                       Share Profile
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setShowSettingsDropdown(false);
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "12px 16px",
+                        border: "none",
+                        background: "transparent",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        color: "#dc2626",
+                        transition: "all 0.2s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(220, 38, 38, 0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                       Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="profile-meta">
               <span>🌟 Explorer</span>
@@ -1535,22 +1670,62 @@ const Profile = () => {
           <div
             style={{
               position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(0, 0, 0, 0.9)",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.5)",
+              backdropFilter: "blur(2px)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               zIndex: 10000,
+              animation: "fadeIn 0.3s ease",
             }}
             onClick={() => setShowEditProfile(false)}
           >
             <div
-              style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}
+              style={{
+                position: "relative",
+                maxWidth: "90vw",
+                maxHeight: "90vh",
+                width: "600px",
+                background: "white",
+                borderRadius: "24px",
+                boxShadow: "0 20px 60px rgba(168, 85, 247, 0.3)",
+                animation: "slideUp 0.3s ease",
+                overflow: "auto",
+              }}
               onClick={(e) => e.stopPropagation()}
             >
+              <button
+                onClick={() => setShowEditProfile(false)}
+                style={{
+                  position: "absolute",
+                  top: "16px",
+                  right: "16px",
+                  width: "36px",
+                  height: "36px",
+                  border: "none",
+                  borderRadius: "50%",
+                  background: "rgba(168, 85, 247, 0.1)",
+                  color: "#a855f7",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1001,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#a855f7";
+                  e.currentTarget.style.color = "white";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(168, 85, 247, 0.1)";
+                  e.currentTarget.style.color = "#a855f7";
+                }}
+              >
+                ×
+              </button>
               <EditProfile
                 onClose={() => setShowEditProfile(false)}
                 onProfileUpdate={() => unlockAchievement(5, "Profile Pioneer")}
@@ -1753,41 +1928,232 @@ const Profile = () => {
         {/* Share Code Popup */}
         {showShareCode && (
           <div
-            className="sharecode-backdrop"
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.5)",
+              backdropFilter: "blur(2px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10000,
+              animation: "fadeIn 0.3s ease",
+            }}
             onClick={() => setShowShareCode(false)}
           >
             <div
-              className="sharecode-card"
+              style={{
+                position: "relative",
+                background: "linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)",
+                borderRadius: "24px",
+                maxWidth: "500px",
+                width: "90%",
+                maxHeight: "85vh",
+                overflow: "auto",
+                boxShadow: "0  20px 60px rgba(168, 85, 247, 0.3)",
+                animation: "slideUp 0.3s ease",
+                border: "1px solid rgba(168, 85, 247, 0.2)",
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sharecode-header">
-                <div className="sharecode-title">Share Profile Code</div>
+              {/* Header - Sticky */}
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+                  padding: "32px 24px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 10,
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ position: "relative", zIndex: 1 }}>
+                  <div style={{ fontSize: "28px", fontWeight: "700", color: "white", marginBottom: "4px", display: "flex", alignItems: "center", gap: "12px" }}>
+                    🔗 Share Your Profile
+                  </div>
+                  <div style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>
+                    Invite friends to connect with you
+                  </div>
+                </div>
                 <button
-                  className="sharecode-close"
                   onClick={() => setShowShareCode(false)}
+                  style={{
+                    position: "relative",
+                    zIndex: 2,
+                    width: "36px",
+                    height: "36px",
+                    border: "none",
+                    borderRadius: "50%",
+                    background: "rgba(255, 255, 255, 0.2)",
+                    color: "white",
+                    fontSize: "24px",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.3)";
+                    e.currentTarget.style.transform = "scale(1.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+                    e.currentTarget.style.transform = "scale(1)";
+                  }}
                 >
                   ×
                 </button>
               </div>
 
-              <div className="sharecode-body">
-                <div className="sharecode-box">{shareCode || "--------"}</div>
-                <div className="sharecode-actions">
-                  <button
-                    className="sharecode-btn primary"
-                    onClick={copyShareCode}
+              {/* Body */}
+              <div style={{ padding: "32px 24px" }}>
+                {/* Info Box */}
+                <div
+                  style={{
+                    background: "linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
+                    border: "1px solid rgba(168, 85, 247, 0.2)",
+                    borderRadius: "16px",
+                    padding: "16px",
+                    marginBottom: "24px",
+                    display: "flex",
+                    gap: "12px",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <span style={{ fontSize: "20px", flexShrink: 0 }}>ℹ️</span>
+                  <div style={{ fontSize: "13px", color: "#475569", lineHeight: "1.5" }}>
+                    Share this code with friends. They can use it to add you as a friend in the Community section.
+                  </div>
+                </div>
+
+                {/* Share Code Display */}
+                <div style={{ marginBottom: "24px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "700", color: "#a855f7", textTransform: "uppercase", marginBottom: "8px", letterSpacing: "0.5px" }}>
+                    Your Share Code
+                  </div>
+                  <div
+                    style={{
+                      background: "linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%)",
+                      border: "2px solid rgba(168, 85, 247, 0.2)",
+                      borderRadius: "12px",
+                      padding: "20px",
+                      textAlign: "center",
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
                   >
-                    Copy Code
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        width: "100px",
+                        height: "100px",
+                        background: "radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)",
+                        borderRadius: "50%",
+                        transform: "translate(30%, -30%)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <div
+                      style={{
+                        fontSize: "32px",
+                        fontWeight: "700",
+                        fontFamily: "monospace",
+                        color: "#a855f7",
+                        letterSpacing: "3px",
+                        position: "relative",
+                        zIndex: 1,
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {shareCode || "--------"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: "flex", gap: "12px", flexDirection: "column" }}>
+                  <button
+                    onClick={copyShareCode}
+                    style={{
+                      width: "100%",
+                      padding: "14px 20px",
+                      border: "none",
+                      borderRadius: "12px",
+                      background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+                      color: "white",
+                      fontSize: "14px",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      boxShadow: "0 4px 12px rgba(168, 85, 247, 0.3)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "0 6px 16px rgba(168, 85, 247, 0.4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 4px 12px rgba(168, 85, 247, 0.3)";
+                    }}
+                  >
+                    📋 Copy Code
                   </button>
                   <button
-                    className="sharecode-btn ghost"
                     onClick={handleShareProfile}
+                    style={{
+                      width: "100%",
+                      padding: "14px 20px",
+                      border: "2px solid rgba(168, 85, 247, 0.3)",
+                      borderRadius: "12px",
+                      background: "transparent",
+                      color: "#a855f7",
+                      fontSize: "14px",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(168, 85, 247, 0.08)";
+                      e.currentTarget.style.borderColor = "#a855f7";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.borderColor = "rgba(168, 85, 247, 0.3)";
+                    }}
                   >
-                    Regenerate
+                    🔄 Generate New Code
                   </button>
                 </div>
-                <div className="sharecode-hint">
-                  Friends can add you by entering this code in Community → Friends.
+
+                {/* Footer Hint */}
+                <div
+                  style={{
+                    marginTop: "20px",
+                    padding: "12px",
+                    background: "rgba(168, 85, 247, 0.05)",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    color: "#64748b",
+                    textAlign: "center",
+                    lineHeight: "1.5",
+                  }}
+                >
+                  💡 Friends can add you via <strong>Community → Friends → Enter Code</strong>
                 </div>
               </div>
             </div>
