@@ -705,7 +705,7 @@ export default function ItineraryCostEstimationModal({ onClose }) {
     <div className="cost-backdrop" onClick={onClose}>
       <div className="cost-modal" onClick={(e) => e.stopPropagation()}>
         <div className="cost-header">
-          <div className="cost-title">🚗 Transportation Cost Estimator</div>
+          <div className="cost-title"> Transportation Cost Estimator Beta (inside taguig only)</div>
           <button className="cost-close" onClick={onClose}>×</button>
         </div>
 
