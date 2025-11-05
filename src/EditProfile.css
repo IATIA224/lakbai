@@ -221,13 +221,35 @@
   transform: scale(1.15);
 }
 
+.ep-setup-modal,
+.edit-profile-modal {
+  display: flex;               /* stack header, content, actions */
+  flex-direction: column;
+  height: 100dvh;              /* fill viewport */
+  max-height: 100dvh;
+}
+
+/* Make the middle content scroll and let actions sit at bottom */
+.ep-setup-modal .edit-profile-content,
+.edit-profile-modal .edit-profile-content {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
 .edit-profile-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 24px 32px 32px 32px;
+  margin-top: auto;            /* push to bottom in flex column */
+  position: sticky;
+  bottom: 0;                  /* stick to bottom of viewport */
+  border-radius: 0;            /* flush with bottom edge */
+  border-top: 1px solid #eef2ff;
+  box-shadow: 0 -6px 18px rgba(108,99,255,0.08);
   background: #fff;
-  border-radius: 0 0 22px 22px;
+  z-index: 2;   
+  display: flex;                 /* arrange buttons in a row */
+  justify-content: flex-end;     /* keep them on the right */
+  align-items: center;
+  gap: 12px;                     /* space between buttons */
+  padding: 16px 20px;  
 }
 
 .edit-profile-cancel {
@@ -256,12 +278,18 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
+  position: relative;
 }
 
 .edit-profile-save:hover {
   background: #4f46e5;
 }
 
+@media (min-width: 769px) {
+  .edit-profile-actions {
+    padding: 16px 16px 20px 16px;
+  }
+}
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
   .edit-profile-modal {
