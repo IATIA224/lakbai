@@ -335,10 +335,10 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
           </div>
         </div>
         <div className="edit-profile-actions">
-          <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
           <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Profile"}
           </button>
+          <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
         </div>
       </div>
     </div>
