@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import { 
   collection, getDocs, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc, serverTimestamp,
   where as fsWhere, setDoc, arrayUnion, arrayRemove, runTransaction, orderBy
 } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "./firebase";
+import EditProfileNewAcc from "./EditProfile-new-acc";
 import './dashboardBanner.css';
 import { fetchCloudinaryImages, getImageForDestination as getCloudImageForDestination } from "./image-router";
 import destImages from './dest-images.json';
@@ -462,6 +464,40 @@ function Dashboard({ setShowAIModal }) {
   const [addingTripId, setAddingTripId] = useState(null);
   const [addedTripId, setAddedTripId] = useState(null);
   const topRatedDestinations = useTopRatedDestinations(10);
+
+  const [showSetupProfile, setShowSetupProfile] = useState(false);
+  const [setupInitialData, setSetupInitialData] = useState({});
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) { setShowSetupProfile(false); return; }
+      try {
+        const snap = await getDoc(doc(db, "users", u.uid));
+        const data = snap.exists() ? (snap.data() || {}) : {};
+        const interests = Array.isArray(data.interests) ? data.interests : [];
+        const shouldShow = interests.length === 0; // core condition
+
+        // also honor the flag set during login (helps first-run UX)
+        const flagged = localStorage.getItem("SHOW_PROFILE_SETUP") === "1";
+        const show = shouldShow || flagged;
+
+        setShowSetupProfile(show);
+        setSetupInitialData({
+          name: data.travelerName || data.displayName || u.displayName || "",
+          profilePicture: data.profilePicture || data.photoURL || u.photoURL || "/user.png",
+          interests: interests
+        });
+
+        if (show) {
+          // clear flag after deciding to show
+          localStorage.removeItem("SHOW_PROFILE_SETUP");
+        }
+      } catch (e) {
+        console.warn("Dashboard interests check failed:", e);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u));
@@ -1439,6 +1475,14 @@ useEffect(() => {
             </div>
           </div>
         </div>
+      )}
+
+      {showSetupProfile && (
+        <EditProfileNewAcc
+          initialData={setupInitialData}
+          onProfileUpdate={() => setShowSetupProfile(false)}
+          onClose={() => setShowSetupProfile(false)}
+        />
       )}
     </div>
   );

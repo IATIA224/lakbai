@@ -4,27 +4,29 @@ import "./EditProfile.css";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
+import { signOut } from "firebase/auth";              // <-- add
+import { useNavigate } from "react-router-dom";  
 
 const interestsList = [
-  { icon: "🏄‍♂️", label: "Surfer", color: "#e0f7fa" },
-  { icon: "🎒", label: "Backpacker", color: "#f3e8ff" },
-  { icon: "🍜", label: "Foodie Traveler", color: "#fffbe6" },
-  { icon: "🏛️", label: "Culture Seeker", color: "#ede9fe" },
-  { icon: "⚡", label: "Adventure Junkie", color: "#fee2e2" },
-  { icon: "🌿", label: "Nature Enthusiast", color: "#e7fbe7" },
-  { icon: "💻", label: "Digital Nomad", color: "#e0f2fe" },
-  { icon: "🚗", label: "Road Tripper", color: "#fef3c7" },
-  { icon: "🏖️", label: "Beach Lover", color: "#e0e7ff" },
-  { icon: "🏙️", label: "City Explorer", color: "#f7f8fa" },
-  { icon: "📸", label: "Photographer", color: "#f3f4f6" },
-  { icon: "🏺", label: "Historian", color: "#e6fffa" },
-  { icon: "🎉", label: "Festival Hopper", color: "#ffe4e6" },
-  { icon: "🥾", label: "Hiker", color: "#dcfce7" },
-  { icon: "💎", label: "Luxury Traveler", color: "#f0f5ff" },
-  { icon: "🌱", label: "Eco-Traveler", color: "#e6fffa" },
-  { icon: "🛳️", label: "Cruise Lover", color: "#e0e7ff" },
-  { icon: "⛷️", label: "Winter Sports Enthusiast", color: "#e0f2fe" },
-  { icon: "🧳", label: "Solo Wanderer", color: "#fef3c7" }
+  { icon: "🏄‍♂️", label: "Surfer", color: "#f0f9ff" },
+  { icon: "🎒", label: "Backpacker", color: "#f0f9ff" },
+  { icon: "🍜", label: "Foodie Traveler", color: "#f0f9ff" },
+  { icon: "🏛️", label: "Culture Seeker", color: "#f0f9ff" },
+  { icon: "⚡", label: "Adventure Junkie", color: "#f0f9ff" },
+  { icon: "🌿", label: "Nature Enthusiast", color: "#f0f9ff" },
+  { icon: "💻", label: "Digital Nomad", color: "#f0f9ff" },
+  { icon: "🚗", label: "Road Tripper", color: "#f0f9ff" },
+  { icon: "🏖️", label: "Beach Lover", color: "#f0f9ff" },
+  { icon: "🏙️", label: "City Explorer", color: "#f0f9ff" },
+  { icon: "📸", label: "Photographer", color: "#f0f9ff" },
+  { icon: "🏺", label: "Historian", color: "#f0f9ff" },
+  { icon: "🎉", label: "Festival Hopper", color: "#f0f9ff" },
+  { icon: "🥾", label: "Hiker", color: "#f0f9ff" },
+  { icon: "💎", label: "Luxury Traveler", color: "#f0f9ff" },
+  { icon: "🌱", label: "Eco-Traveler", color: "#f0f9ff" },
+  { icon: "🛳️", label: "Cruise Lover", color: "#f0f9ff" },
+  { icon: "⛷️", label: "Winter Sports Enthusiast", color: "#f0f9ff" },
+  { icon: "🧳", label: "Solo Wanderer", color: "#f0f9ff" }
 ];
 
 const MAX_BIO = 300;
@@ -34,6 +36,8 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   const [photoFile, setPhotoFile] = useState(null); // <-- store file
   const [name, setName] = useState(initialData.name || "");
   const [bio, setBio] = useState(initialData.bio || "");
+  const [loggingOut, setLoggingOut] = useState(false);   // <-- add
+  const navigate = useNavigate();   
   // if initialData.interests is an empty array, fall back to default interestsList
   const [interests, setInterests] = useState(
     Array.isArray(initialData.interests) && initialData.interests.length
@@ -49,6 +53,22 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   });
   const [saving, setSaving] = useState(false);
 
+  const handleLogout = async () => {
+    if (loggingOut || saving) return;
+    setLoggingOut(true);
+    try {
+      localStorage.removeItem("SHOW_PROFILE_SETUP"); // clear setup flag
+      await signOut(auth);
+      try {
+        navigate("/login", { replace: true });
+      } catch {
+        window.location.href = "/login";
+      }
+    } catch (err) {
+      alert("Failed to log out: " + (err?.message || err));
+      setLoggingOut(false);
+    }
+  };
   // Toggle status: null -> like -> dislike -> null
   // UPDATED: if the clicked interest is already active (has border), remove it from Firestore
   const handleInterestClick = async (idx) => {
@@ -186,9 +206,70 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     return () => typeof unsub === 'function' && unsub();
   }, []);
 
+  // Lock body scroll, hide site header, close on Esc while open
+  React.useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // Hide common header elements
+    const selectors = ['.header', '.app-header', '.site-header', '#header', '#site-header', 'header'];
+    const headers = [];
+    const prevDisplay = [];
+    selectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        if (!headers.includes(el)) {
+          headers.push(el);
+          prevDisplay.push(el.style.display);
+          el.style.display = 'none';
+        }
+      });
+    });
+
+    const onKey = (e) => e.key === 'Escape' && onClose?.();
+    window.addEventListener('keydown', onKey);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+      headers.forEach((el, i) => { el.style.display = prevDisplay[i]; });
+    };
+  }, [onClose]);
+
+  const overlayStyle = {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(15,23,42,0.55)',
+    zIndex: 2147483647, // ensure above any header
+    display: 'flex',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+  };
+
+  const modalStyle = {
+    width: '100vw',
+    maxWidth: '100vw',
+    height: '100dvh',
+    maxHeight: '100dvh',
+    background: '#fff',
+    borderRadius: 0,
+    boxShadow: 'none',
+    overflowY: 'auto',
+    padding: 0,
+  };
+
   return (
-    <div className="edit-profile-backdrop">
-      <div className="edit-profile-modal">
+    <div
+      className="ep-setup-overlay"
+      style={overlayStyle}
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => e.currentTarget === e.target && onClose?.()}
+    >
+      <div
+        className="ep-setup-modal"
+        style={modalStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="edit-profile-header">
           <span>Setup Travel Profile</span>
           <div className="edit-profile-sub">Customize your adventure identity</div>
@@ -331,6 +412,9 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
         <div className="edit-profile-actions">
           <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Profile"}
+          </button>
+          <button className="edit-profile-cancel" onClick={handleLogout} disabled={saving}>
+            Log out
           </button>
         </div>
       </div>
