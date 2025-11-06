@@ -7,6 +7,84 @@ import { Client } from "@gradio/client";
 
 // --- RAG helpers: load dataset from public CSV and cache it ---
 let _csvCache = null;
+
+// === Place + Keyword Lists ===
+const PHILIPPINE_PLACES = [
+  "philippines", "palawan", "cebu", "bohol", "baguio", "manila", "ilocos",
+  "sagada", "siargao", "davao", "vigan", "boracay", "tagaytay", "subic",
+  "bacolod", "dumaguete", "camiguin", "bataan", "batangas", "zambales",
+  "bicol", "naga", "la union", "pampanga", "pangasinan", "antipolo",
+  "rizal", "isabela", "surigao", "tarlac", "bukidnon", "cagayan de oro",
+  "coron", "el nido", "panglao", "mactan"
+];
+
+const TRAVEL_CATEGORIES = [
+  "mountain", "mountains", "beach", "beaches", "waterfall", "falls",
+  "historical", "heritage", "museum", "cultural", "festival", "church",
+  "temple", "park", "lake", "river", "island", "dive", "snorkel", "hike"
+];
+
+const FORBIDDEN_KEYWORDS = [
+  "sex", "porn", "violence", "politic", "drugs", "weapon", "crime", "war",
+  "killing", "fight", "murder", "gun", "nude", "terror", "death", "suicide",
+  "religion", "church", "president", "senator", "election", "vote"
+];
+
+const FOREIGN_PLACES = [
+  "japan", "tokyo", "osaka", "kyoto", "china", "beijing", "shanghai", "hong kong",
+  "singapore", "thailand", "bangkok", "malaysia", "kuala lumpur", "vietnam", "hanoi", "ho chi minh",
+  "indonesia", "bali", "jakarta", "korea", "seoul", "busan", "taiwan", "taipei",
+  "australia", "sydney", "melbourne", "usa", "america", "new york", "los angeles",
+  "canada", "toronto", "vancouver", "uk", "england", "london", "paris", "france",
+  "italy", "rome", "venice", "spain", "barcelona", "madrid", "germany", "berlin",
+  "dubai", "saudi", "qatar", "india", "mumbai", "delhi", "nepal", "sri lanka",
+  "russia", "moscow", "brazil", "mexico", "argentina", "peru", "egypt", "cairo",
+  "turkey", "istanbul", "greece", "athens", "switzerland", "zurich", "norway", "finland",
+  "sweden", "denmark", "netherlands", "amsterdam"
+];
+
+const NON_TRAVEL_TOPICS = [
+  "math", "science", "history of", "coding", "python", "ai", "chatgpt", "recipe",
+  "movie", "music", "lyrics", "song", "story", "joke", "essay",
+  "love", "relationship", "study", "school", "exam", "finance", "stock", "crypto",
+  "news", "sports", "basketball", "nba", "football", "tiktok", "facebook", "instagram",
+  "youtube", "technology", "programming", "hacking", "politics", "business", "apple", "tv",
+  "netflix", "stream", "force"
+];
+
+// Reusable matcher for lists
+function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function matchesAnyGlobal(text, list) {
+  const t = String(text || '');
+  for (const item of list) {
+    const pat = new RegExp('\\b' + escapeRegex(item) + '\\b', 'i');
+    if (pat.test(t)) return true;
+  }
+  return false;
+}
+
+// --- Simple client-side limits for repeated out-of-scope requests ---
+const LIMIT_THRESHOLD = 3; // number of allowed infractions before blocking
+let _limitState = { forbidden: 0, foreign: 0, nontravel: 0, blocked: false };
+
+function checkAndIncrementLimit(type) {
+  if (_limitState.blocked) return { blocked: true, message: 'You have exceeded the allowed number of out-of-scope requests. Please start a new chat to continue.' };
+  if (!['forbidden','foreign','nontravel'].includes(type)) type = 'nontravel';
+  _limitState[type] = (_limitState[type] || 0) + 1;
+  console.warn('Limit increment', type, _limitState[type]);
+  if (_limitState[type] >= LIMIT_THRESHOLD) {
+    _limitState.blocked = true;
+    return { blocked: true, message: 'You have exceeded the allowed number of out-of-scope requests. Please start a new chat to continue.' };
+  }
+  // gentle refusal message
+  if (type === 'forbidden') return { blocked: false, message: "Sorry, I can't assist with that." };
+  return { blocked: false, message: "sorry im only focus on travel planning for philippines only and i cant answer unrelated to that" };
+}
+
+function resetLimits() {
+  _limitState = { forbidden: 0, foreign: 0, nontravel: 0, blocked: false };
+}
+
 async function loadCsvData() {
   if (_csvCache) return _csvCache;
   try {
@@ -66,6 +144,48 @@ function mapCategoryKeyword(text) {
   return null;
 }
 
+function parseRequestedLocationAndDays(text) {
+  const s = (text || '').toLowerCase();
+  let days = null;
+  const daysMatch = s.match(/(\b\d{1,2}\b)\s*-?\s*(day|days)\b/);
+  if (daysMatch) days = parseInt(daysMatch[1], 10);
+  else {
+    const words = s.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b\s*(day|days)/);
+    if (words) {
+      const map = { one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10 };
+      days = map[words[1]] || null;
+    }
+  }
+
+  let location = null;
+  for (const p of PHILIPPINE_PLACES) if (s.indexOf(p) !== -1) { location = p; break; }
+  if (!location) {
+    const toMatch = s.match(/\b(?:to|in)\s+([a-z\- ]{2,40})\b/);
+    if (toMatch) {
+      location = toMatch[1].trim().split(/\s+/)[0];
+    }
+  }
+  return { location, days };
+}
+
+function responseMatchesRequest(responseText, request) {
+  if (!responseText) return false;
+  const r = (responseText || '').toLowerCase();
+  if (!request) return false;
+  const { location, days } = request;
+  if (location) {
+    if (r.indexOf(location.toLowerCase()) === -1) return false;
+  }
+  if (days) {
+    const pat = new RegExp('\\b' + String(days) + '\\s*-?\\s*(day|days|day)\\b', 'i');
+    if (!pat.test(responseText)) {
+      const alt = new RegExp(String(days) + '[^\n\d]{0,3}day', 'i');
+      if (!alt.test(responseText)) return false;
+    }
+  }
+  return true;
+}
+
 async function getRagBlockForCategory(categoryKey, limit = 10) {
   if (!categoryKey) return '';
   const data = await loadCsvData();
@@ -92,8 +212,6 @@ async function getRagBlockForCategory(categoryKey, limit = 10) {
   return `Relevant dataset items (${categoryKey}):\n` + lines.join('\n');
 }
 
-
-// Helper to get user profile from Firestore
 async function fetchUserProfile(uid) {
   if (!uid) return null;
   try {
@@ -137,31 +255,26 @@ export default function ChatbaseAI({ onClose }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState('');
   const chatRef = useRef(null);
-  const shouldScrollRef = useRef(true); // Add this flag
+  const shouldScrollRef = useRef(true);
 
-  // Chat history state
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
-
-  // User profile state
   const [profile, setProfile] = useState(null);
 
-  // Fetch profile on mount
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
       fetchUserProfile(user.uid).then(setProfile);
     }
   }, []);
-  // Scroll to bottom when messages change
+
   useEffect(() => {
     if (shouldScrollRef.current && chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Load chat history on mount
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -173,7 +286,6 @@ export default function ChatbaseAI({ onClose }) {
       const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setChatHistory(chats);
 
-      // If no current chat, create a new one
       if (!currentChatId) {
         if (chats.length === 0) {
           createNewChat();
@@ -186,7 +298,6 @@ export default function ChatbaseAI({ onClose }) {
     return () => unsubscribe();
   }, [currentChatId]);
 
-  // Save messages to Firestore whenever they change
   useEffect(() => {
     if (!currentChatId || messages.length === 0) return;
     
@@ -218,7 +329,9 @@ export default function ChatbaseAI({ onClose }) {
       });
       
       setCurrentChatId(newChatRef.id);
-      setMessages([]);
+  setMessages([]);
+  // Reset client-side out-of-scope limits for the new chat
+  try { resetLimits(); } catch (e) { /* ignore */ }
       setModalContent('');
     } catch (e) {
       console.error('Create new chat failed:', e);
@@ -254,50 +367,126 @@ export default function ChatbaseAI({ onClose }) {
     shouldScrollRef.current = atBottom;
   }
 
-  // Strip common model-added scope/refusal banners while preserving legitimate refusals
   function sanitizeModelResponse(text) {
     if (!text) return text;
     let t = String(text).replace(/\r/g, '').trim();
-    // Remove any HTML tags
     t = t.replace(/<[^>]*>/g, '').trim();
 
     const lines = t.split(/\n+/).map(l => l.trim()).filter(Boolean);
     if (!lines.length) return t;
 
-    // Patterns that commonly appear as model-hosted boilerplate/disclaimer lines
-    // We intentionally avoid matching short, explicit refusals authored by our app
     const BOILERPLATE_REGEX = /\b(this assistant only|only provides|please ask about|please ask|only assists|this assistant is|this bot only|this model is|for safety reasons|scope:|note:|disclaimer|usage:|usage note)\b/i;
 
-    // Remove any lines that match the boilerplate regex or are horizontal separators
     const filtered = lines.filter(l => {
       if (!l) return false;
       if (/^[-*_]{3,}$/.test(l)) return false;
-      // Drop lines that look like boilerplate/disclaimer
       if (BOILERPLATE_REGEX.test(l)) return false;
       return true;
     });
 
     const remaining = filtered.join('\n').trim();
-    // If removing boilerplate would leave nothing, fall back to original text
     return remaining || t;
   }
 
+  function extractRawModelText(result) {
+    try {
+      if (!result && result !== '') return undefined;
+      if (typeof result === 'string') return result;
+
+      if (result?.content) return result.content;
+      if (result?.text) return result.text;
+      if (result?.generated_text) return result.generated_text;
+
+      if (Array.isArray(result.data) && result.data.length > 0) {
+        const first = result.data[0];
+        if (typeof first === 'string') return first;
+        if (Array.isArray(first)) {
+          for (let i = first.length - 1; i >= 0; i--) {
+            const it = first[i];
+            if (!it) continue;
+            if (typeof it === 'string') return it;
+            if (typeof it === 'object') {
+              if (it.content) return it.content;
+              if (it.text) return it.text;
+              if (it.generated_text) return it.generated_text;
+            }
+          }
+        }
+        if (typeof first === 'object') {
+          if (first.data) return first.data;
+          if (first.content) return first.content;
+          if (first.text) return first.text;
+        }
+      }
+
+      if (Array.isArray(result.outputs) && result.outputs.length) {
+        const o = result.outputs[0];
+        if (typeof o === 'string') return o;
+        if (o && typeof o === 'object') {
+          if (o.data) return o.data;
+          if (o.text) return o.text;
+        }
+      }
+      if (Array.isArray(result.predictions) && result.predictions.length) {
+        const p = result.predictions[0];
+        if (typeof p === 'string') return p;
+        if (p && typeof p === 'object') {
+          if (p.generated_text) return p.generated_text;
+          if (p.text) return p.text;
+        }
+      }
+
+      const scalarFields = ['output','message','answer','reply'];
+      for (const f of scalarFields) if (result[f]) return result[f];
+    } catch (err) {
+      console.warn('extractRawModelText failed', err);
+    }
+    return undefined;
+  }
+
   async function sendToGradio(messagesPayload) {
-    // Use Chuxia-sys/Qwen_lora and call /predict with a composed prompt
+    let connectedModel = null;
     try {
       const latest = messagesPayload[messagesPayload.length - 1]?.content || '';
-      
+      const lower = String(latest).toLowerCase();
 
-      // Compose prompt: recent conversation
+      const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const matchesAny = (text, list) => {
+        for (const item of list) {
+          const pat = new RegExp('\\b' + escapeRegex(item) + '\\b', 'i');
+          if (pat.test(text)) return true;
+        }
+        return false;
+      };
+
+      if (matchesAny(lower, FORBIDDEN_KEYWORDS)) {
+        const res = checkAndIncrementLimit('forbidden');
+        return res.message;
+      }
+
+      const travelIntent = /\b(plan|create|generate|make|itinerary|trip|vacation|days|nights|budget|travel|visit)\b/i.test(latest);
+      const mentionsPhil = matchesAny(lower, PHILIPPINE_PLACES);
+      const mentionsForeign = matchesAny(lower, FOREIGN_PLACES);
+      const mentionsTravelCategory = matchesAny(lower, TRAVEL_CATEGORIES);
+
+      if (matchesAny(lower, NON_TRAVEL_TOPICS) && !travelIntent && !mentionsPhil && !mentionsTravelCategory) {
+        const res = checkAndIncrementLimit('nontravel');
+        return res.message;
+      }
+
+      if (travelIntent && mentionsForeign && !mentionsPhil) {
+        const res = checkAndIncrementLimit('foreign');
+        return res.message;
+      }
+
       let convo = '';
       for (const m of messagesPayload) {
         const label = m.role === 'user' ? 'User' : 'Assistant';
         convo += `${label}: ${m.content}\n`;
       }
-  // System instruction: encourage the model to use destinations across the whole Philippines
-  const systemInstruction = `You are an expert Philippine travel planner. When suggesting places, use destinations from across the entire Philippines — Luzon, Visayas, and Mindanao — and do not limit recommendations to Cebu, Bohol, or Palawan. Provide balanced suggestions from different regions when appropriate.`;
 
-  // If the user asked for a category (beach, mountain, historical), augment prompt with dataset hits
+      const systemInstruction = `You are an expert Philippine travel planner. When suggesting places, use destinations from across the entire Philippines — Luzon, Visayas, and Mindanao — and do not limit recommendations to Cebu, Bohol, or Palawan. Provide balanced suggestions from different regions when appropriate.`;
+
       const categoryKey = mapCategoryKeyword(latest);
       let ragBlock = '';
       if (categoryKey) {
@@ -308,72 +497,149 @@ export default function ChatbaseAI({ onClose }) {
         }
       }
 
-  const prompt = `${systemInstruction}\n\n${ragBlock ? ragBlock + '\n\n' : ''}\n${convo}Assistant:`;
+      const prompt = `${systemInstruction}\n\n${ragBlock ? ragBlock + '\n\n' : ''}\n${convo}Assistant:`;
 
-      const client = await Client.connect("Chuxia-sys/Qwen_lora");
+      const modelCandidates = ["Chuxia-sys/gemma-lora"];
+      let client = null;
+      let lastConnectError = null;
 
-      // Try multiple predict signatures for compatibility
-      let result = null;
-      const attempts = [
-        async () => await client.predict('/predict', { prompt }),
-        async () => await client.predict('/predict', prompt),
-        async () => await client.predict('/predict', [prompt]),
-      ];
-
-      for (const fn of attempts) {
+      for (const m of modelCandidates) {
         try {
-          result = await fn();
-          if (result != null) break;
+          client = await Client.connect(m);
+          connectedModel = m;
+          break;
         } catch (err) {
-          console.warn('predict pattern failed:', err?.message || err);
+          console.warn('Gradio connect failed for', m, err?.message || err);
+          lastConnectError = err;
         }
       }
 
-      console.log('Qwen_lora result:', result);
+      if (!client) {
+        const msg = 'Error: Could not load model space metadata. Check model name, network/CORS, or that the model is public.';
+        console.error(msg, lastConnectError);
+        return `${msg} (${lastConnectError?.message || lastConnectError})`;
+      }
 
-      // Robust parsing (same as before)
-      if (result && typeof result === 'object') {
-        if (Array.isArray(result.data)) {
-          const first = result.data[0];
-          if (Array.isArray(first)) {
-            const assistantEntries = first.filter(m => m && m.role === 'assistant' && m.content).map(m => m.content);
-            if (assistantEntries.length) {
-              let response = assistantEntries[assistantEntries.length - 1].trim();
-              const prevAssistantTexts = messagesPayload.filter(m => m.role === 'assistant').map(m => m.content || '');
-              for (const prev of prevAssistantTexts) {
-                if (prev && response.endsWith(prev)) {
-                  response = response.slice(0, -prev.length).trim();
-                }
-              }
-              if (!response) response = assistantEntries[assistantEntries.length - 1].trim();
-              return sanitizeModelResponse(response);
-            }
-          } else if (typeof first === 'string') {
-            return sanitizeModelResponse(String(first).trim());
+      // FIX: Use the correct parameter format for the Gradio predict endpoint
+      let result = null;
+      try {
+        // Try the standard predict call with prompt as a positional argument
+        result = await client.predict("/predict", [prompt]);
+      } catch (err) {
+        console.warn('First predict attempt failed:', err?.message || err);
+        
+        // Try alternative formats
+        const attempts = [
+          async () => await client.predict("/predict", { prompt: prompt }),
+          async () => await client.predict("/predict", { data: [prompt] }),
+        ];
+
+        for (const fn of attempts) {
+          try {
+            result = await fn();
+            if (result != null) break;
+          } catch (e) {
+            console.warn('Alternative predict attempt failed:', e?.message || e);
           }
         }
-        if (result?.content) return sanitizeModelResponse(String(result.content).trim());
-        if (result?.text) return sanitizeModelResponse(String(result.text).trim());
       }
-      if (typeof result === 'string') return sanitizeModelResponse(result.trim());
-      return 'Debug: Could not parse response. Check console for structure.';
+
+      console.log(`${connectedModel || 'gemma-lora'} result:`, result);
+
+      const raw = extractRawModelText(result);
+      let chosenText = undefined;
+
+      if (typeof raw === 'string' && raw.length > 0) {
+        chosenText = raw;
+      } else {
+        console.warn('No parseable model text found in result', result);
+        return 'Debug: Could not parse response. Check console for structure.';
+      }
+
+      const latestUser = messagesPayload[messagesPayload.length - 1]?.content || '';
+      const req = parseRequestedLocationAndDays(latestUser);
+      const ok = responseMatchesRequest(chosenText, req);
+
+      if (!ok && (req.location || req.days)) {
+        console.warn('Response did not match request, attempting automatic regeneration', { req, chosenText });
+        let regenInstr = `Please ignore your previous answer and rewrite strictly to the user's request.`;
+        if (req.days) regenInstr += ` The user asked for a ${req.days}-day trip.`;
+        if (req.location) regenInstr += ` The destination must be ${req.location}.`;
+        regenInstr += ` Return only the revised itinerary and make it a ${req.days || 'appropriate-length'} trip to ${req.location || 'the requested destination'}. Provide a day-by-day plan, suggested activities, approximate budget estimates, and short travel tips.`;
+
+        const regenPrompt = `${systemInstruction}\n${ragBlock ? ragBlock + '\n\n' : ''}\nUser: ${latestUser}\nAssistant: ${chosenText}\n\nREWRITE: ${regenInstr}`;
+
+        try {
+          const regenResult = await client.predict("/predict", [regenPrompt]);
+          if (regenResult != null) {
+            const raw2 = extractRawModelText(regenResult);
+            if (typeof raw2 === 'string' && raw2.length > 0) return raw2;
+          }
+        } catch (e) {
+          console.warn('Regeneration attempt failed', e);
+        }
+      }
+
+      return sanitizeModelResponse(chosenText);
     } catch (e) {
-      console.error('Gradio (Qwen_lora) send failed', e);
+      console.error(`Gradio (${connectedModel || 'gemma-lora'}) send failed`, e);
       return `Error: ${e?.message || e}`;
     }
   }
 
   const handleSend = async () => {
-    const text = input.trim(); 
+    const text = input.trim();
     if (!text) return;
-    setInput(''); 
-    addMessage(text, 'user'); 
+
+    // Quick client-side limits & scope checks before sending to model
+    // If blocked globally, return immediate block message
+    if (_limitState.blocked) {
+      addMessage(text, 'user');
+      addMessage('You have exceeded the allowed number of out-of-scope requests. Please start a new chat to continue.', 'assistant');
+      setInput('');
+      return;
+    }
+
+    // Forbidden keywords
+    if (matchesAnyGlobal(text, FORBIDDEN_KEYWORDS)) {
+      const res = checkAndIncrementLimit('forbidden');
+      addMessage(text, 'user');
+      addMessage(res.message, 'assistant');
+      setInput('');
+      return;
+    }
+
+    // Non-travel topics (unless travel intent or mentions PH)
+    const travelIntent = /\b(plan|create|generate|make|itinerary|trip|vacation|days|nights|budget|travel|visit)\b/i.test(text);
+    const mentionsPhil = matchesAnyGlobal(text, PHILIPPINE_PLACES);
+    const mentionsTravelCategory = matchesAnyGlobal(text, TRAVEL_CATEGORIES);
+    if (matchesAnyGlobal(text, NON_TRAVEL_TOPICS) && !travelIntent && !mentionsPhil && !mentionsTravelCategory) {
+      const res = checkAndIncrementLimit('nontravel');
+      addMessage(text, 'user');
+      addMessage(res.message, 'assistant');
+      setInput('');
+      return;
+    }
+
+    // Travel intent but mentions only foreign places
+    const mentionsForeign = matchesAnyGlobal(text, FOREIGN_PLACES);
+    if (travelIntent && mentionsForeign && !mentionsPhil) {
+      const res = checkAndIncrementLimit('foreign');
+      addMessage(text, 'user');
+      addMessage(res.message, 'assistant');
+      setInput('');
+      return;
+    }
+
+    // Passed quick checks; proceed to call model
+    setInput('');
+    addMessage(text, 'user');
     setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
     const reply = await sendToGradio(payload);
     addMessage(reply, 'assistant');
     if (!reply.toLowerCase().startsWith('error:')) {
-      setModalContent(reply); 
+      setModalContent(reply);
       setModalOpen(true);
     }
     setLoading(false);
@@ -401,7 +667,6 @@ export default function ChatbaseAI({ onClose }) {
     }
   };
 
-  // Dispatch the event on component mount
   useEffect(() => {
     window.dispatchEvent(new Event('lakbai:open-ai'));
   }, []);
@@ -410,7 +675,6 @@ export default function ChatbaseAI({ onClose }) {
     <>
       <div className="ai-popup-overlay" onClick={onClose}>
         <div className="ai-card" onClick={e => e.stopPropagation()}>
-          {/* Chat History Sidebar */}
           {showHistory && (
             <div className="ai-sidebar">
               <div className="ai-sidebar-header">
@@ -455,7 +719,6 @@ export default function ChatbaseAI({ onClose }) {
             </div>
           </div>
 
-          {/* Make chat scrollable with scroll handler */}
           <div 
             ref={chatRef} 
             className="ai-chat-container" 
@@ -474,7 +737,6 @@ export default function ChatbaseAI({ onClose }) {
                   <button className="ai-suggestion" onClick={() => setInput('Plan a 3-day trip to Baguio')}>
                     🗺️ Trip planning
                   </button>
-        
                 </div>
               </div>
             ) : (
