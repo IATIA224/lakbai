@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from "react-router-dom";
+import { createPortal } from 'react-dom'; // ADD THIS
+import { useNavigate } from 'react-router-dom';
 import { 
   collection, getDocs, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc, serverTimestamp,
   where as fsWhere, setDoc, arrayUnion, arrayRemove, runTransaction, orderBy
 } from 'firebase/firestore';
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "./firebase";
-import EditProfileNewAcc from "./EditProfile-new-acc";
+import { db, auth } from './firebase';
 import './dashboardBanner.css';
 import { fetchCloudinaryImages, getImageForDestination as getCloudImageForDestination } from "./image-router";
 import destImages from './dest-images.json';
@@ -22,6 +21,7 @@ import BookmarksPreview from './components/BookmarksPreview';
 import { breakdown } from './rules';
 import Carousel from 'react-multi-carousel';
 import 'react-multi-carousel/lib/styles.css';
+
 
 
 // Helper to get image URL by destination name
@@ -464,40 +464,6 @@ function Dashboard({ setShowAIModal }) {
   const [addingTripId, setAddingTripId] = useState(null);
   const [addedTripId, setAddedTripId] = useState(null);
   const topRatedDestinations = useTopRatedDestinations(10);
-
-  const [showSetupProfile, setShowSetupProfile] = useState(false);
-  const [setupInitialData, setSetupInitialData] = useState({});
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) { setShowSetupProfile(false); return; }
-      try {
-        const snap = await getDoc(doc(db, "users", u.uid));
-        const data = snap.exists() ? (snap.data() || {}) : {};
-        const interests = Array.isArray(data.interests) ? data.interests : [];
-        const shouldShow = interests.length === 0; // core condition
-
-        // also honor the flag set during login (helps first-run UX)
-        const flagged = localStorage.getItem("SHOW_PROFILE_SETUP") === "1";
-        const show = shouldShow || flagged;
-
-        setShowSetupProfile(show);
-        setSetupInitialData({
-          name: data.travelerName || data.displayName || u.displayName || "",
-          profilePicture: data.profilePicture || data.photoURL || u.photoURL || "/user.png",
-          interests: interests
-        });
-
-        if (show) {
-          // clear flag after deciding to show
-          localStorage.removeItem("SHOW_PROFILE_SETUP");
-        }
-      } catch (e) {
-        console.warn("Dashboard interests check failed:", e);
-      }
-    });
-    return () => unsub();
-  }, []);
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u));
@@ -1101,228 +1067,162 @@ useEffect(() => {
     }
     };
 
-  return (
-    <div className="dash-page">
-      {/* Animated background layers */}
-      <div className="dash-bg-dots" />
-      <div className="dash-bg-wave" />
-      <div className="dash-bg-circle c1" />
-      <div className="dash-bg-circle c2" />
-      <div className="dash-bg-circle c3" />
-      <div className="dash-bg-circle c4" />
-      <div className="dash-bg-shapes">
-        <div className="dash-bg-shape s1" />
-        <div className="dash-bg-shape s2" />
-        <div className="dash-bg-shape s3" />
-      </div>
+  // BODY SCROLL LOCK WHEN MODAL OPEN
+  useEffect(() => {
+    if (detailsModalOpen) {
+      document.body.classList.add('modal-open');
+      // optional: focus top
+      setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 10);
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => document.body.classList.remove('modal-open');
+  }, [detailsModalOpen]);
 
-      <DashboardBanner setShowAIModal={setShowAIModal} />
-      <DashboardStats />
+  // PORTAL MODAL CONTENT (replaces inline block previously inside return)
+  const detailsModalPortal = (detailsModalOpen && selectedCard)
+    ? createPortal(
+        (
+          <div
+            className="modal-overlay active"
+            onClick={(e) => {
+              if (e.target.classList.contains('modal-overlay')) closeDetailsModal();
+            }}
+          >
+            <div className="modal-content details-modal">
+              <button
+                className="modal-close-floating"
+                onClick={closeDetailsModal}
+                aria-label="Close"
+              >
+                ✕
+              </button>
 
-      {/* Replace old carousel with hero carousel */}
-      <TopRatedHeroCarousel
-        destinations={topRatedDestinations}
-        cloudImages={cloudImages}
-        firebaseImages={firebaseImages}
-        onViewDetails={handlePersonalizedDetails}
-      />
-
-      <div className="dashboard-preview-row">
-        <TripsPreview setShowAIModal={setShowAIModal} />
-        <BookmarksPreview onOpenDetails={handlePersonalizedDetails} />
-      </div>
-
-      <div className="personalized-section-dashboard">
-        <div className="personalized-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-          <span>Personalized for You</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <label htmlFor="personalized-sort" style={{ fontSize: 15, color: '#64748b' }}>Sort by:</label>
-            <select
-              id="personalized-sort"
-              value={personalizedSort}
-              onChange={e => setPersonalizedSort(e.target.value)}
-              style={{ borderRadius: 8, border: '1px solid #e5e7eb', padding: '4px 10px', fontSize: 14, background: '#f8fafc', color: '#334155' }}
-            >
-              <option value="rating-desc" className='description'>Highest Rating</option>
-              <option value="rating-asc" className='description'>Lowest Rating</option>
-            </select>
-          </div>
-        </div>
-
-        {recoLoading && (
-          <div className="dashboard-preview-empty">Finding destinations based on your interests…</div>
-        )}
-
-        {!recoLoading && sortedRecommendedDestinations.length === 0 && (
-          <div className="dashboard-preview-empty">
-            No personalized destinations yet. Add interests on your profile to get recommendations.
-          </div>
-        )}
-
-        <div className="personalized-cards-grid">
-          {sortedRecommendedDestinations.map((d) => {
-            const ratingData = personalizedRatingsByDest[d.id] || { avg: 0, count: 0 };
-            const displayRating = ratingData.count > 0 ? ratingData.avg : (d.avgRating || d.rating || 0);
-            
-            return (
-              <DestinationCard
-                key={d.id}
-                id={d.id}
-                name={d.name}
-                region={d.region}
-                rating={displayRating}
-                price={d.price}
-                priceTier={d.priceTier}
-                description={d.description}
-                tags={(d.tags || d.categories || []).slice(0, 8)}
-                image={pickCardImage(d.name)}
-                isBookmarked={!!personalizedBookmarks[d.id]}
-                onBookmarkClick={() => handlePersonalizedBookmark(d.id)}
-                onDetails={() => handlePersonalizedDetails(d)}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {detailsModalOpen && selectedCard && (
-        <div
-          className="modal-overlay active"
-          onClick={(e) => e.target.classList.contains('modal-overlay') && closeDetailsModal()}
-        >
-          <div className="modal-content details-modal">
-            <button className="modal-close-floating" onClick={closeDetailsModal} aria-label="Close">
-              ✕
-            </button>
-
-            <div className="details-hero1">
-              <div className="details-hero-image">
-                {cloudImages.length === 0 ? (
-                  <div style={{ width: "100%", height: 240, background: "#e0e7ef", borderRadius: 16 }} />
-                ) : (
+              <div className="details-hero1">
+                <div className="details-hero-image">
                   <img
                     src={pickCardImage(selectedCard.name)}
                     alt={selectedCard.name}
                     style={{
                       width: "100%",
-                      height: 240,
+                      height: 260,
                       objectFit: "cover",
                       objectPosition: "center",
-                      borderRadius: "16px 16px 0 0",
-                      marginBottom: 8,
+                      borderRadius: "18px 18px 0 0",
                       background: "#e0e7ef"
                     }}
+                    onError={(e) => { e.currentTarget.src = "/placeholder.png"; }}
                   />
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="details-body1">
-              <div className="details-head-row">
-                <div className="details-title-col">
-                  <div className="details-grid">
-                    <h2 className="details-title">{selectedCard.name}</h2>
-                      <div className="trip-item">
-                        <span
-                          className={`pill small ${
-                            selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'
-                          }`}
-                          title={selectedCard.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
-                        >
-                          {selectedFares.length > 0
-                            ? `₱${getTotalPrice(selectedCard.price).toLocaleString()}`
-                            : formatPeso(selectedCard.price)}
-                        </span>
-                        {selectedCard.category ? (
-                          <span className="badge purple">{selectedCard.category}</span>
+              <div className="details-body1">
+                {/* START OF ORIGINAL BLOCK */}
+                <div className="details-head-row">
+                  <div className="details-title-col">
+                    <div className="details-grid">
+                      <h2 className="details-title">{selectedCard.name}</h2>
+                        <div className="trip-item">
+                          <span
+                            className={`pill small ${
+                              selectedCard.priceTier === 'less' ? 'pill-green' : 'pill-gray'
+                            }`}
+                            title={selectedCard.priceTier === 'less' ? 'Less Expensive tier' : 'Expensive tier'}
+                          >
+                            {selectedFares.length > 0
+                              ? `₱${getTotalPrice(selectedCard.price).toLocaleString()}`
+                              : formatPeso(selectedCard.price)}
+                          </span>
+                          {selectedCard.category ? (
+                            <span className="badge purple">{selectedCard.category}</span>
+                          ) : (
+                            <span className="badge purple">No category</span>
+                          )}
+                      </div>
+                    </div>
+
+                    <div className='details-grid'>
+                      <div className="section-title1">
+                        {selectedCard.location ? (
+                          <span className="badge blue">{selectedCard.location}</span>
                         ) : (
-                          <span className="badge purple">No category</span>
+                          <span className="badge blue">No location  </span>
                         )}
+                        <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
+                          {selectedCard.region}
+                        </a>
+                      </div>
+                      <div className="section-title1">
+                        <div className="trip-label">Best Time to Visit</div>
+                        <div className="trip-text">{selectedCard.bestTime}</div>
+                      </div>  
+                    </div>
+
+                    <div className="details-rating-row">
+                      <span className="star">⭐</span>
+                      <span className="muted">
+                        {(personalizedRatingsByDest[selectedCard.id]?.count ?? 0) > 0
+                          ? (personalizedRatingsByDest[selectedCard.id].avg).toFixed(1)
+                          : '0'}
+                      </span>
+                      {/* <span className="muted"> (Average Rating)</span> */}
+                      <span className="muted">
+                        ({personalizedRatingsCountByDest[selectedCard.id] !== undefined
+                          ? personalizedRatingsCountByDest[selectedCard.id]
+                          : 0} ratings)
+                      </span>
+                      <span className="muted sep">Rating:</span>
+                      <div
+                        className="your-stars"
+                        role="img"
+                        aria-label={`Your rating: ${Math.round(personalizedUserRating)} out of 5`}
+                      >
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <span
+                            key={n}
+                            className={`star-btn ${personalizedUserRating >= n ? 'filled' : ''}`}
+                            aria-hidden="true"
+                            title={`${n} star${n > 1 ? 's' : ''}`}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      <span className="muted sep">
+                        Reviews: {
+                          userReviewsCountByDest[selectedCard.id] !== undefined
+                            ? userReviewsCountByDest[selectedCard.id]
+                            : 0
+                        }
+                      </span>
                     </div>
                   </div>
 
-                  <div className='details-grid'>
-                    <div className="section-title1">
-                      {selectedCard.location ? (
-                        <span className="badge blue">{selectedCard.location}</span>
-                      ) : (
-                        <span className="badge blue">No location  </span>
-                      )}
-                      <a href="https://maps.google.com" className="details-region" onClick={(e) => e.preventDefault()}>
-                        {selectedCard.region}
-                      </a>
-                    </div>
-                    <div className="section-title1">
-                      <div className="trip-label">Best Time to Visit</div>
-                      <div className="trip-text">{selectedCard.bestTime}</div>
-                    </div>  
-                  </div>
-
-                  <div className="details-rating-row">
-                    <span className="star">⭐</span>
-                    <span className="muted">
-                      {(personalizedRatingsByDest[selectedCard.id]?.count ?? 0) > 0
-                        ? (personalizedRatingsByDest[selectedCard.id].avg).toFixed(1)
-                        : '0'}
-                    </span>
-                    {/* <span className="muted"> (Average Rating)</span> */}
-                    <span className="muted">
-                      ({personalizedRatingsCountByDest[selectedCard.id] !== undefined
-                        ? personalizedRatingsCountByDest[selectedCard.id]
-                        : 0} ratings)
-                    </span>
-                    <span className="muted sep">Rating:</span>
-                    <div
-                      className="your-stars"
-                      role="img"
-                      aria-label={`Your rating: ${Math.round(personalizedUserRating)} out of 5`}
+                  <div className="details-actions1">
+                    <button 
+                      className={`btn-outline ${personalizedBookmarks[selectedCard.id] ? 'active' : ''}`}
+                      onClick={() => handlePersonalizedBookmark(selectedCard.id)}
                     >
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <span
-                          key={n}
-                          className={`star-btn ${personalizedUserRating >= n ? 'filled' : ''}`}
-                          aria-hidden="true"
-                          title={`${n} star${n > 1 ? 's' : ''}`}
-                        >
-                          ★
-                        </span>
-                      ))}
-                    </div>
-                    <span className="muted sep">
-                      Reviews: {
-                        userReviewsCountByDest[selectedCard.id] !== undefined
-                          ? userReviewsCountByDest[selectedCard.id]
-                          : 0
-                      }
-                    </span>
+                      <span className="icon">{personalizedBookmarks[selectedCard.id] ? '❤️' : '🤍'}</span>
+                      {personalizedBookmarks[selectedCard.id] ? 'Bookmarked' : 'Bookmark'}
+                    </button>
+                    <button
+                      className={`btn-green ${addedTripId === selectedCard.id ? 'btn-success' : ''}`}
+                      onClick={() => onAddToTrip(selectedCard)}
+                      disabled={addingTripId === selectedCard.id}
+                      aria-busy={addingTripId === selectedCard.id}
+                    >
+                      <span className="icon">
+                        {addedTripId === selectedCard.id ? '✔' : '＋'}
+                      </span>
+                      {addingTripId === selectedCard.id
+                        ? 'Adding…'
+                        : addedTripId === selectedCard.id
+                        ? 'Added!'
+                        : 'Add to Trip'}
+                    </button>
                   </div>
                 </div>
-
-                <div className="details-actions1">
-                  <button 
-                    className={`btn-outline ${personalizedBookmarks[selectedCard.id] ? 'active' : ''}`}
-                    onClick={() => handlePersonalizedBookmark(selectedCard.id)}
-                  >
-                    <span className="icon">{personalizedBookmarks[selectedCard.id] ? '❤️' : '🤍'}</span>
-                    {personalizedBookmarks[selectedCard.id] ? 'Bookmarked' : 'Bookmark'}
-                  </button>
-                  <button
-                    className={`btn-green ${addedTripId === selectedCard.id ? 'btn-success' : ''}`}
-                    onClick={() => onAddToTrip(selectedCard)}
-                    disabled={addingTripId === selectedCard.id}
-                    aria-busy={addingTripId === selectedCard.id}
-                  >
-                    <span className="icon">
-                      {addedTripId === selectedCard.id ? '✔' : '＋'}
-                    </span>
-                    {addingTripId === selectedCard.id
-                      ? 'Adding…'
-                      : addedTripId === selectedCard.id
-                      ? 'Added!'
-                      : 'Add to Trip'}
-                  </button>
-                </div>
-              </div>
 
                 <div className="details-left">
                   <div className="section-title">Description</div>
@@ -1472,18 +1372,100 @@ useEffect(() => {
                     })()}
                   </div>
                 </div>
+                {/* END OF ORIGINAL BLOCK */}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        ),
+        document.body
+      )
+    : null;
 
-      {showSetupProfile && (
-        <EditProfileNewAcc
-          initialData={setupInitialData}
-          onProfileUpdate={() => setShowSetupProfile(false)}
-          onClose={() => setShowSetupProfile(false)}
-        />
-      )}
+  return (
+    <div className="dash-page">
+      {/* Animated background layers */}
+      <div className="dash-bg-dots" />
+      <div className="dash-bg-wave" />
+      <div className="dash-bg-circle c1" />
+      <div className="dash-bg-circle c2" />
+      <div className="dash-bg-circle c3" />
+      <div className="dash-bg-circle c4" />
+      <div className="dash-bg-shapes">
+        <div className="dash-bg-shape s1" />
+        <div className="dash-bg-shape s2" />
+        <div className="dash-bg-shape s3" />
+      </div>
+
+      <DashboardBanner setShowAIModal={setShowAIModal} />
+      <DashboardStats />
+
+      {/* Replace old carousel with hero carousel */}
+      <TopRatedHeroCarousel
+        destinations={topRatedDestinations}
+        cloudImages={cloudImages}
+        firebaseImages={firebaseImages}
+        onViewDetails={handlePersonalizedDetails}
+      />
+
+      <div className="dashboard-preview-row">
+        <TripsPreview setShowAIModal={setShowAIModal} />
+        <BookmarksPreview onOpenDetails={handlePersonalizedDetails} />
+      </div>
+
+      <div className="personalized-section-dashboard">
+        <div className="personalized-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <span>Personalized for You</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label htmlFor="personalized-sort" style={{ fontSize: 15, color: '#64748b' }}>Sort by:</label>
+            <select
+              id="personalized-sort"
+              value={personalizedSort}
+              onChange={e => setPersonalizedSort(e.target.value)}
+              style={{ borderRadius: 8, border: '1px solid #e5e7eb', padding: '4px 10px', fontSize: 14, background: '#f8fafc', color: '#334155' }}
+            >
+              <option value="rating-desc" className='description'>Highest Rating</option>
+              <option value="rating-asc" className='description'>Lowest Rating</option>
+            </select>
+          </div>
+        </div>
+
+        {recoLoading && (
+          <div className="dashboard-preview-empty">Finding destinations based on your interests…</div>
+        )}
+
+        {!recoLoading && sortedRecommendedDestinations.length === 0 && (
+          <div className="dashboard-preview-empty">
+            No personalized destinations yet. Add interests on your profile to get recommendations.
+          </div>
+        )}
+
+        <div className="personalized-cards-grid">
+          {sortedRecommendedDestinations.map((d) => {
+            const ratingData = personalizedRatingsByDest[d.id] || { avg: 0, count: 0 };
+            const displayRating = ratingData.count > 0 ? ratingData.avg : (d.avgRating || d.rating || 0);
+            
+            return (
+              <DestinationCard
+                key={d.id}
+                id={d.id}
+                name={d.name}
+                region={d.region}
+                rating={displayRating}
+                price={d.price}
+                priceTier={d.priceTier}
+                description={d.description}
+                tags={(d.tags || d.categories || []).slice(0, 8)}
+                image={pickCardImage(d.name)}
+                isBookmarked={!!personalizedBookmarks[d.id]}
+                onBookmarkClick={() => handlePersonalizedBookmark(d.id)}
+                onDetails={() => handlePersonalizedDetails(d)}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {detailsModalOpen && selectedCard && detailsModalPortal}
     </div>
   );
 }
