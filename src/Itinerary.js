@@ -44,7 +44,11 @@ import { logActivity } from "./profile"; // ADD THIS IMPORT
 
 // NEW: import UpdateCSV component
 import UpdateCSV from "./updatecsv";
-import { SuggestionView } from "./ItinerarySuggestion";
+import { 
+  SuggestionView,
+  HotelSuggestion,
+  AgencySuggestion 
+} from "./ItinerarySuggestion";
 
 // ==================== ADD TO TRIP HELPER (moved to top) ====================
 export async function addTripForCurrentUser(dest) {
@@ -176,6 +180,7 @@ async function searchPlace(q) {
 }
 
 function EditDestinationModal({ initial, onSave, onClose }) {
+  const isMobile = useIsMobile();
   const [form, setForm] = useState(() => ({
     name: initial?.display_name?.split(",")[0] || initial?.name || "",
     region:
@@ -199,9 +204,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   }));
 
   const [notif, setNotif] = useState("");
-
-  // Check if this is from quick add (has place_id from Nominatim)
-  const isFromQuickAdd = initial?.id?.startsWith('nominatim_') || initial?.place_id;
+  const [mobileViewMode, setMobileViewMode] = useState("form");
 
   const addActivity = React.useCallback(() => {
     const v = form.activityDraft.trim();
@@ -211,6 +214,11 @@ function EditDestinationModal({ initial, onSave, onClose }) {
   
   const removeActivity = (i) =>
     setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+  };
 
   const handleSave = async () => {
     try {
@@ -224,8 +232,8 @@ function EditDestinationModal({ initial, onSave, onClose }) {
         setNotif("");
         onClose();
       }, 1200);
-    } catch (e) {
-      setNotif("Failed to update itinerary item.");
+    } catch (err) {
+      setNotif("Itinerary item update failed.");
       setTimeout(() => setNotif(""), 2000);
     }
   };
@@ -237,6 +245,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
       accomName: hotel.name,
       accomNotes: hotel.address,
     }));
+    if (isMobile) setMobileViewMode("form");
   };
 
   const handleSelectAgency = (agency) => {
@@ -244,6 +253,7 @@ function EditDestinationModal({ initial, onSave, onClose }) {
       ...prev,
       agency: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
     }));
+    if (isMobile) setMobileViewMode("form");
   };
 
   useEffect(() => {
@@ -258,298 +268,472 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [addActivity, onClose]);
 
-  // CHANGED: Only wrap in SuggestionView if NOT from quick add
-  const modalContent = (
-    <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
-      <div className="itn-modal-header">
-        <div className="itn-modal-title">Edit Destination Details</div>
-        <button className="itn-close" onClick={onClose}>×</button>
-      </div>
+  const formContent = (
+    <div className="itn-form-grid">
+      <div className="itn-form-col">
+        <div className="itn-field">
+          <span className="itn-label">Destination Name</span>
+          <input
+            className="itn-input"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="City or place name (required)"
+          />
+        </div>
 
-      <div className="itn-modal-body">
-        <div className="itn-form-grid">
-          <div className="itn-form-col">
-            <div className="itn-grid">
-              <label className="itn-field">
-                <span className="itn-label">Destination Name</span>
-                <input
-                  className="itn-input"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="City or place name (required)"
-                  required
-                />
-              </label>
-              <label className="itn-field">
-                <span className="itn-label">Country/Region</span>
-                <input
-                  className="itn-input"
-                  value={form.region}
-                  onChange={(e) => setForm({ ...form, region: e.target.value })}
-                  placeholder="Region (e.g., Metro Manila)"
-                />
-              </label>
-              <label className="itn-field">
-                <span className="itn-label">Location</span>
-                <input
-                  className="itn-input"
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  placeholder="Full address or location"
-                />
-              </label>
-            </div>
+        <div className="itn-field">
+          <span className="itn-label">Country/Region</span>
+          <input
+            className="itn-input"
+            name="region"
+            value={form.region}
+            onChange={handleChange}
+            placeholder="Region (e.g., Metro Manila)"
+          />
+        </div>
 
-            <div className="itn-grid">
-              <label className="itn-field">
-                <span className="itn-label">Arrival Date</span>
-                <input
-                  type="date"
-                  className="itn-input"
-                  value={form.arrival}
-                  onChange={(e) => setForm({ ...form, arrival: e.target.value })}
-                />
-              </label>
-              <label className="itn-field">
-                <span className="itn-label">Departure Date</span>
-                <input
-                  type="date"
-                  className="itn-input"
-                  value={form.departure}
-                  onChange={(e) => setForm({ ...form, departure: e.target.value })}
-                />
-              </label>
-              <label className="itn-field">
-                <span className="itn-label">Trip Status</span>
-                <select
-                  className="itn-input"
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                >
-                  <option>Upcoming</option>
-                  <option>Ongoing</option>
-                  <option>Completed</option>
-                  <option>Cancelled</option>
-                </select>
-              </label>
-            </div>
+        <div className="itn-field">
+          <span className="itn-label">Location</span>
+          <input
+            className="itn-input"
+            name="location"
+            value={form.location}
+            onChange={handleChange}
+            placeholder="Full address or location"
+          />
+        </div>
 
-            <div className="itn-grid">
-              <label className="itn-field">
-                <span className="itn-label">Estimated Expenditure (₱)</span>
-                <input
-                  className="itn-input"
-                  type="number"
-                  value={form.estimatedExpenditure}
-                  onChange={(e) => setForm({ ...form, estimatedExpenditure: e.target.value })}
-                />
-              </label>
-            </div>
+        <div className="itn-grid-2">
+          <div className="itn-field">
+            <span className="itn-label">Arrival Date</span>
+            <input
+              type="date"
+              className="itn-input"
+              name="arrival"
+              value={form.arrival}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="itn-field">
+            <span className="itn-label">Departure Date</span>
+            <input
+              type="date"
+              className="itn-input"
+              name="departure"
+              value={form.departure}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
 
-            <div className="itn-field">
-              <span className="itn-label">Activities & Things to Do</span>
-              <div className="itn-grid-2">
-                <input
-                  id="itn-activity-draft"
-                  className="itn-input"
-                  placeholder="e.g., Snorkeling, Hiking..."
-                  value={form.activityDraft}
-                  onChange={(e) => setForm({ ...form, activityDraft: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addActivity())}
-                />
-                <button className="itn-btn primary" onClick={addActivity}>
-                  Add Activity
-                </button>
-              </div>
-              {form.activities.length > 0 && (
-                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {form.activities.map((act, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "linear-gradient(90deg, #a084ee 60%, #6c63ff 100%)",
-                        color: "#fff",
-                        borderRadius: 16,
-                        padding: "4px 12px",
-                        fontSize: 13,
-                        fontWeight: 500,
-                      }}
+        <div className="itn-grid-2">
+          <div className="itn-field">
+            <span className="itn-label">Trip Status</span>
+            <select
+              className="itn-input"
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+            >
+              <option>Upcoming</option>
+              <option>Ongoing</option>
+              <option>Completed</option>
+              <option>Cancelled</option>
+            </select>
+          </div>
+          <div className="itn-field">
+            <span className="itn-label">Estimated Expenditure (₱)</span>
+            <input
+              className="itn-input"
+              name="estimatedExpenditure"
+              type="number"
+              value={form.estimatedExpenditure}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="itn-field">
+          <span className="itn-label">Activities & Things to Do</span>
+          <div className="itn-grid-2">
+            <input
+              id="itn-activity-draft"
+              className="itn-input"
+              placeholder="e.g., Snorkeling, Hiking..."
+              value={form.activityDraft}
+              onChange={(e) => setForm({ ...form, activityDraft: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addActivity())}
+            />
+            <button type="button" className="itn-btn primary" onClick={addActivity}>
+              Add Activity
+            </button>
+          </div>
+          {form.activities.length > 0 && (
+            <div className="itn-activities-wrapper" style={{ marginTop: 8 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {form.activities.map((act, i) => (
+                  <div key={i} className="itn-activity-tag">
+                    <span>{act}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeActivity(i)}
+                      className="itn-activity-remove-btn"
                     >
-                      <span>{act}</span>
-                      <button
-                        onClick={() => removeActivity(i)}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: "#fff",
-                          cursor: "pointer",
-                          fontSize: 16,
-                          lineHeight: 1,
-                          padding: 0,
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="itn-form-col">
-            <div className="itn-field">
-              <span className="itn-label">Accommodation Details</span>
-              <div className="itn-grid-2">
-                <select
-                  className="itn-input"
-                  value={form.accomType}
-                  onChange={(e) => setForm({ ...form, accomType: e.target.value })}
-                >
-                  <option value="">Select type...</option>
-                  <option>Hotel</option>
-                  <option>Hostel</option>
-                  <option>Apartment</option>
-                  <option>Resort</option>
-                  <option>Homestay</option>
-                </select>
-                <input
-                  className="itn-input"
-                  placeholder="Hotel/Place name"
-                  value={form.accomName}
-                  onChange={(e) => setForm({ ...form, accomName: e.target.value })}
-                />
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
-              <textarea
-                rows={2}
-                className="itn-input"
-                placeholder="Address, booking details, special notes..."
-                value={form.accomNotes}
-                onChange={(e) => setForm({ ...form, accomNotes: e.target.value })}
-              />
             </div>
-
-            <div className="itn-field">
-              <span className="itn-label">Transport</span>
-              <div className="itn-grid-2">
-                <select
-                  className="itn-input"
-                  value={form.transport}
-                  onChange={(e) => setForm({ ...form, transport: e.target.value })}
-                >
-                  <option value="">Select transportation...</option>
-                  <option>Flight</option>
-                  <option>Train</option>
-                  <option>Bus</option>
-                  <option>Car</option>
-                  <option>Ferry</option>
-                </select>
-              </div>
-              <textarea
-                rows={2}
-                className="itn-input"
-                placeholder="Transport notes..."
-                value={form.transportNotes}
-                onChange={(e) => setForm({ ...form, transportNotes: e.target.value })}
-              />
-            </div>
-
-            <div className="itn-field">
-              <span className="itn-label">Additional Notes</span>
-              <textarea
-                rows={3}
-                className="itn-input"
-                placeholder="Any other important details..."
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-
-            <div className="itn-field">
-              <span className="itn-label">Travel Agency</span>
-              <input
-                className="itn-input"
-                placeholder="Agency name or details"
-                value={form.agency}
-                onChange={(e) => setForm({ ...form, agency: e.target.value })}
-              />
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      <div className="itn-modal-footer">
-        <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="itn-btn primary" onClick={handleSave}>Save Details</button>
-      </div>
-
-      {notif && (
-        <div
-          style={{
-            position: "fixed",
-            top: 20,
-            right: 20,
-            background: "#6c63ff",
-            color: "#fff",
-            padding: "12px 20px",
-            borderRadius: 8,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            zIndex: 10000,
-          }}
-        >
-          {notif}
+      <div className="itn-form-col">
+        <div className="itn-field">
+          <span className="itn-label">Accommodation Details</span>
+          <div className="itn-grid-2">
+            <select
+              className="itn-input"
+              name="accomType"
+              value={form.accomType}
+              onChange={handleChange}
+            >
+              <option value="">Select type...</option>
+              <option>Hotel</option>
+              <option>Hostel</option>
+              <option>Apartment</option>
+              <option>Resort</option>
+              <option>Homestay</option>
+            </select>
+            <input
+              className="itn-input"
+              placeholder="Hotel/Place name"
+              name="accomName"
+              value={form.accomName}
+              onChange={handleChange}
+            />
+          </div>
+          <textarea
+            rows={2}
+            className="itn-input"
+            name="accomNotes"
+            placeholder="Address, booking details, special notes..."
+            value={form.accomNotes}
+            onChange={handleChange}
+          />
         </div>
-      )}
+
+        <div className="itn-field">
+          <span className="itn-label">Transport</span>
+          <div className="itn-grid-2">
+            <select
+              className="itn-input"
+              name="transport"
+              value={form.transport}
+              onChange={handleChange}
+            >
+              <option value="">Select transportation...</option>
+              <option>Flight</option>
+              <option>Train</option>
+              <option>Bus</option>
+              <option>Car</option>
+              <option>Ferry</option>
+            </select>
+          </div>
+          <textarea
+            rows={2}
+            className="itn-input"
+            name="transportNotes"
+            placeholder="Transport notes..."
+            value={form.transportNotes}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="itn-field">
+          <span className="itn-label">Travel Agency</span>
+          <input
+            className="itn-input"
+            placeholder="Agency name or details"
+            name="agency"
+            value={form.agency}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="itn-field">
+          <span className="itn-label">Additional Notes</span>
+          <textarea
+            rows={3}
+            className="itn-input"
+            name="notes"
+            placeholder="Any other important details..."
+            value={form.notes}
+            onChange={handleChange}
+          />
+        </div>
+      </div>
     </div>
   );
 
-  // CHANGED: Only wrap in SuggestionView if NOT from quick add
-  const wrappedContent = isFromQuickAdd 
-    ? modalContent 
-    : <SuggestionView 
-        item={initial} 
-        onClose={onClose}
-        onSelectHotel={handleSelectHotel}
-        onSelectAgency={handleSelectAgency}
+  // MOBILE: Bottom sheet
+  if (isMobile) {
+    const mobileContent = (
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          zIndex: 9999,
+          animation: 'slideUp 0.3s ease-out'
+        }}
+        onClick={onClose}
       >
-        {modalContent}
-      </SuggestionView>;
+        <div 
+          style={{
+            background: '#fff',
+            borderRadius: '20px 20px 0 0',
+            width: '100%',
+            maxHeight: '95vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            overflow: 'hidden'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div style={{
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+            color: '#fff',
+            padding: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0
+          }}>
+            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>
+              Edit Details
+            </h2>
+            <button 
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                color: '#fff',
+                fontSize: '24px',
+                cursor: 'pointer',
+                padding: '0 8px',
+                borderRadius: '8px'
+              }}
+            >
+              ×
+            </button>
+          </div>
 
-  // Render to body using Portal
-  return ReactDOM.createPortal(wrappedContent, document.body);
+          {/* Mobile Tabs */}
+          <div style={{
+            padding: '12px 16px',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: '8px',
+            flexShrink: 0
+          }}>
+            <button
+              onClick={() => setMobileViewMode("form")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "form" ? '2px solid #6366f1' : '1px solid #e5e7eb',
+                background: mobileViewMode === "form" ? '#eef2ff' : '#fff',
+                color: mobileViewMode === "form" ? '#6366f1' : '#64748b',
+                fontWeight: mobileViewMode === "form" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✏️ Details
+            </button>
+            <button
+              onClick={() => setMobileViewMode("hotels")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "hotels" ? '2px solid #10b981' : '1px solid #e5e7eb',
+                background: mobileViewMode === "hotels" ? '#ecfdf5' : '#fff',
+                color: mobileViewMode === "hotels" ? '#10b981' : '#64748b',
+                fontWeight: mobileViewMode === "hotels" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              🏨 Hotels
+            </button>
+            <button
+              onClick={() => setMobileViewMode("agencies")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "agencies" ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+                background: mobileViewMode === "agencies" ? '#fffbeb' : '#fff',
+                color: mobileViewMode === "agencies" ? '#f59e0b' : '#64748b',
+                fontWeight: mobileViewMode === "agencies" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              🛫 Agencies
+            </button>
+          </div>
+
+          {/* Content */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            padding: '16px'
+          }}>
+            {mobileViewMode === "form" && formContent}
+            {mobileViewMode === "hotels" && (
+              <HotelSuggestion details={initial} onSelect={handleSelectHotel} />
+            )}
+            {mobileViewMode === "agencies" && (
+              <AgencySuggestion details={initial} onSelect={handleSelectAgency} />
+            )}
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            padding: '12px 16px',
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: '12px',
+            justifyContent: 'flex-end',
+            flexShrink: 0,
+            background: '#f8fafc'
+          }}>
+            <button 
+              onClick={onClose}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: '#fff',
+                color: '#374151',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            {mobileViewMode === "form" && (
+              <button 
+                onClick={handleSave}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Save Details
+              </button>
+            )}
+          </div>
+
+          {notif && (
+            <div style={{
+              position: "fixed",
+              top: 20,
+              right: 20,
+              background: "#6c63ff",
+              color: "#fff",
+              padding: "12px 20px",
+              borderRadius: 8,
+              zIndex: 10001,
+            }}>
+              {notif}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+    return ReactDOM.createPortal(mobileContent, document.body);
+  }
+
+  // DESKTOP: SuggestionView with form in center
+  const desktopContent = (
+    <SuggestionView 
+      item={initial} 
+      onClose={onClose}
+      onSelectHotel={handleSelectHotel}
+      onSelectAgency={handleSelectAgency}
+    >
+      <form className="itn-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header">
+          <div className="itn-modal-title">Edit Destination Details</div>
+          <button type="button" className="itn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="itn-modal-body">
+          {formContent}
+        </div>
+
+        <div className="itn-modal-footer">
+          <button type="button" className="itn-btn ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="itn-btn primary" onClick={handleSave}>Save Details</button>
+        </div>
+        
+        {notif && (
+          <div className="itn-notification">
+            {notif}
+          </div>
+        )}
+      </form>
+    </SuggestionView>
+  );
+
+  return ReactDOM.createPortal(desktopContent, document.body);
 }
-
 function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEditing }) {
+  const isMobile = useIsMobile();
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [showHotels, setShowHotels] = useState(false);
   const [showCostEstimation, setShowCostEstimation] = useState(false);
-  const [showAgency, setShowAgency] = useState(false); // REMOVE LATER
-  const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
-  // NEW: Update CSV modal state
-  const [showUpdateCsv, setShowUpdateCsv] = useState(false); // REMOVE LATER
-  
   // ADD THIS - Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => setShowToolsMenu(false);
-    if (showToolsMenu) {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.itn-card-settings') && !e.target.closest('.itn-card-menu')) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
     }
-  }, [showToolsMenu]);
-
-  // NEW: Add/remove a class to body when summary is open to prevent background scroll
-  useEffect(() => {
-    if (showSummary) {
-      document.body.classList.add('modal-open');
-    } else {
-      document.body.classList.remove('modal-open');
-    }
-  }, [showSummary]);
+  }, [showMenu]);
 
   const days =
     item.arrival && item.departure
@@ -565,26 +749,51 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
   const activities = item.activities || [];
   const showToggle = activities.length > 3;
 
-  // Pick a color class based on index (cycle through 5 colors)
-  const colorClass = `color-${index % 5}`;
-  const statColors = [
-    "stat-color-0",
-    "stat-color-1",
-    "stat-color-2",
-    "stat-color-3",
-    "stat-color-4"
-  ];
-
   return (
     <>
-      <div className={`itn-card ${colorClass}`} style={{ overflow: 'visible' }}>
+      <div className={`itn-card`} style={{ overflow: 'visible', position: 'relative' }}>
+        {/* ADD THIS - Settings button for mobile only */}
+        <button
+          className="itn-card-settings"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowMenu(!showMenu);
+          }}
+          title="Options"
+        >
+          ⚙️
+        </button>
+
+        {/* ADD THIS - Settings menu (mobile only) */}
+        {showMenu && (
+          <div className="itn-card-menu">
+            <button
+              className="itn-card-menu-item"
+              onClick={() => {
+                setShowSummary(true);
+                setShowMenu(false);
+              }}
+            >
+              👁️ View Summary
+            </button>
+            <button
+              className="itn-card-menu-item"
+              onClick={() => {
+                setShowCostEstimation(true);
+                setShowMenu(false);
+              }}
+            >
+              💰 Estimate Transport Cost
+            </button>
+          </div>
+        )}
+
         <div className="itn-card-head">
           <div className="itn-card-title">
             <span className="itn-step">{index + 1}</span>
             <div>
               <div className="itn-name">{item.name || "Destination"}</div>
               <div className="itn-sub">{item.region}</div>
-              {/* ADD THIS - Show location below region */}
               {item.location && (
                 <div className="itn-location" style={{ 
                   fontSize: '0.85rem', 
@@ -596,11 +805,21 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
               )}
             </div>
           </div>
-          <div className="itn-actions">
+          
+          <div className="itn-actions" style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? 6 : 8,
+            minWidth: isMobile ? 'auto' : '240px'
+          }}>
             <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
-            <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle Status</button>
-            <button className="itn-btn" onClick={() => onEdit(item)}>Edit</button>
-            <button className="itn-btn danger" onClick={() => onRemove(item.id)}>Remove</button>
+            {!isMobile && (
+              <>
+                <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle</button>
+                <button className="itn-btn" onClick={() => setEditing(item)}>Edit</button>
+                <button className="itn-btn" onClick={() => onRemove(item.id)}>Remove</button>
+              </>
+            )}
           </div>
         </div>
 
@@ -636,7 +855,6 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
             </div>
           </div>
 
-          {/* Agency is TEAL (distinct color from Stay) */}
           <div className="itn-stat purple">
             <div className="itn-stat-title">Agency</div>
             <div className="itn-stat-body">
@@ -673,88 +891,103 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
           </div>
         </div>
 
-        {/* REPLACE the buttons section with this Tools dropdown */}
-        <div style={{ 
-          textAlign: "right", 
-          marginTop: 12, 
-          display: "flex", 
-          gap: 8, 
-          justifyContent: "flex-end",
-          position: "relative",
-          zIndex: 10
-        }}>
-          <button
-            className="itn-btn primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowToolsMenu(!showToolsMenu);
-            }}
-            style={{ 
-              display: "flex", 
-              alignItems: "center", 
-              gap: 6,
-              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-              color: "#fff",
-              border: "none",
-              padding: "10px 18px",
-              borderRadius: "10px",
-              fontWeight: "600",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              boxShadow: showToolsMenu ? "0 4px 12px rgba(99, 102,241, 0.3)" : "none"
-            }}
-          >
-            🛠️ Tools
-            <span style={{ 
-              fontSize: "10px",
-              transform: showToolsMenu ? "rotate(0deg)" : "rotate(180deg)",
-              transition: "transform 0.2s"
-            }}>▲</span>
-          </button>
-
-          {/* Tools Dropdown Menu - CHANGED: Now opens upward */}
-          {showToolsMenu && (
-            <div 
-              className="itn-tools-menu"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: "absolute",
-                bottom: "calc(100% + 8px)",
-                right: 0,
-                background: "#fff",
-                border: "2px solid #6366f1",
-                borderRadius: 12,
-                boxShadow: "0 10px 40px rgba(99, 102, 241, 0.25)",
-                zIndex: 9999,
-                minWidth: 240,
-                overflow: "hidden",
-                animation: "slideUp 0.2s ease-out"
+        {/* Action buttons - full width stacked (MOBILE ONLY) */}
+        {isMobile && (
+          <div style={{ 
+            marginTop: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            width: '100%'
+          }}>
+            <button 
+              onClick={() => onToggleStatus(item.id)}
+              style={{ 
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                background: '#f3f4f6',
+                color: '#374151',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#e5e7eb';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#f3f4f6';
               }}
             >
-              <button
-                onClick={() => {
-                  setShowSummary(true);
-                  setShowToolsMenu(false);
-                }}
-                className="itn-tools-menu-item"
-              >
-                <span style={{ fontSize: "18px" }}></span>
-                <span>View Summary</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowCostEstimation(true);
-                  setShowToolsMenu(false);
-                }}
-                className="itn-tools-menu-item"
-              >
-                <span style={{ fontSize: "18px" }}></span>
-                <span>Estimate Transport Cost</span>
-              </button>
-            </div>
-          )}
-        </div>
+              ☑️ Toggle
+            </button>
+            
+            <button 
+              onClick={() => setEditing(item)}
+              style={{ 
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 12px rgba(99, 102,241, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)';
+              }}
+            >
+              ✏️ Edit
+            </button>
+            
+            <button 
+              onClick={() => onRemove(item.id)}
+              style={{ 
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '10px',
+                background: '#fee2e2',
+                color: '#991b1b',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#fecaca';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#fee2e2';
+              }}
+            >
+              🗑️ Remove
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Render modals OUTSIDE the card */}
@@ -767,10 +1000,22 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
           onClose={() => setShowCostEstimation(false)}
         />
       )}
-
-      {/* REMOVED: Hotels, Agency, Update CSV modals */}
     </>
   );
+}
+
+// ADD THIS - Mobile detection hook at the top level
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
 }
 
 function ItinerarySummaryModal({ item, onClose }) {
@@ -977,7 +1222,7 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, color: "#1e293b" }}>{item.name}</div>
                   <div style={{ fontSize: 13, color: "#64748b", marginTop: "4px" }}>{item.region}</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: "6px", lineHeight: "1.5" }}>
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: "6px", lineHeight: 1.5 }}>
                     {item.arrival && <>Arrival: {item.arrival} • </>}
                     {item.departure && <>Departure: {item.departure} • </>}
                     {item.status && <>Status: {item.status}</>}
@@ -1532,7 +1777,7 @@ export default function Itinerary() {
             0: {
               cellWidth: 50,
               fontStyle: "bold",
-              textColor: [41, 128, 185]
+              textColor: [41, 128,185]
             },
             1: {
               cellWidth: maxWidth - 50
@@ -1598,7 +1843,7 @@ export default function Itinerary() {
           id: current.id,
           name: current.name,
           region: current.region,
-          location: current.location,
+          location: current.location, // ADD THIS LINE
           arrival: current.arrival,
           departure: current.departure,
         });
@@ -1612,7 +1857,7 @@ export default function Itinerary() {
         await trackDestinationUncompleted(user.uid, {
           id: current.id,
           name: current.name,
-          region: current.region,
+                   region: current.region,
           location: current.location,
         });
       }
@@ -1853,6 +2098,7 @@ export default function Itinerary() {
             className="itn-btn ghost"
             onClick={markAllComplete}
             disabled={!items.length}
+
           >
              Mark All Complete
           </button>
@@ -1897,7 +2143,7 @@ export default function Itinerary() {
                     marginBottom: 20,
                     padding: '16px 20px',
                     background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
-                    borderRadius: 14,
+                    borderRadius: '14px',
                     border: '2px solid #e5e7eb',
                     alignItems: 'center'
                   }}>
@@ -1986,15 +2232,13 @@ export default function Itinerary() {
                           fontSize: '15px',
                           cursor: 'pointer',
                           transition: 'all 0.3s',
-                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                          boxShadow: '0 4px 12px rgba(99, 102,241, 0.3)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
                           margin: '0 auto'
                         }}
                         onMouseEnter={(e) => {
-                          e.target.style.transform = 'translateY(-2px)';
-                          e.target.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.4)';
                         }}
                         onMouseLeave={(e) => {
                           e.target.style.transform = 'translateY(0)';
