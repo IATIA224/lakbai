@@ -1268,7 +1268,7 @@ export default function Itinerary() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  // ADD THESE MISSING STATE VARIABLES
+  // ADD THESE STATE VARIABLES AT THE TOP
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
   const [showShareModal, setShowShareModal] = useState(false);
@@ -1526,12 +1526,10 @@ export default function Itinerary() {
 
   const selectAllExport = () => {
     setExportSelected(prevSelected => {
-      // If all items are already selected, deselect all
       if (prevSelected.size === items.length && items.length > 0) {
         console.log("Deselecting all");
         return new Set();
       }
-      // Otherwise, select all items
       console.log("Selecting all");
       return new Set(items.map(i => i.id));
     });
@@ -2095,6 +2093,7 @@ export default function Itinerary() {
             disabled={!items.length}
             title={!items.length ? "No itineraries to share" : "Share with friends"}
           >
+            
              Share Itinerary
           </button>
           <button 
@@ -2109,7 +2108,6 @@ export default function Itinerary() {
             className="itn-btn ghost"
             onClick={markAllComplete}
             disabled={!items.length}
-
           >
              Mark All Complete
           </button>
