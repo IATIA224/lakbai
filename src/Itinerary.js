@@ -1258,12 +1258,6 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
   return ReactDOM.createPortal(modalContent, document.body);
 }
 
-// UPDATE the openExport function
-const openExport = () => {
-  setShowExport(true);
-  setExportSelected(new Set(items.map(i => i.id)));
-};
-
 export default function Itinerary() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
@@ -1510,7 +1504,6 @@ export default function Itinerary() {
     checkMiniPlannerAchievement();
   }, [user, items]);
 
-  // MOVE THIS FUNCTION INSIDE THE COMPONENT (before the return statement)
   const openExport = () => {
     setShowExport(true);
     setExportSelected(new Set(items.map(i => i.id)));
