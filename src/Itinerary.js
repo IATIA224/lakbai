@@ -1268,12 +1268,23 @@ export default function Itinerary() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
+  // ADD THESE MISSING STATE VARIABLES
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareSelected, setShareSelected] = useState(new Set());
   const [activeTab, setActiveTab] = useState("personal");
-
+  
+  // Search/Add state
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState([]);
+  const [selected, setSelected] = useState(null);
+  
+  // Trip adding state
+  const [addingTripId, setAddingTripId] = useState(null);
+  const [addedTripId, setAddedTripId] = useState(null);
+  
   const [user, setUser] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
 
