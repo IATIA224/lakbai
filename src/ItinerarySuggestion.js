@@ -593,3 +593,175 @@ export function SuggestionView({ item, children, onClose, onSelectHotel, onSelec
 
   return ReactDOM.createPortal(viewContent, document.body);
 }
+
+function EditDestinationModal({ initial, onSave, onClose }) {
+  const isMobile = useIsMobile();
+  const [form, setForm] = useState(() => ({
+    // ...existing form state...
+  }));
+
+  // ...existing code...
+
+  // REPLACE the modalContent div with proper modal styling
+  const modalContent = (
+    <div 
+      className="itn-modal-backdrop"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: isMobile ? '8px' : '20px',
+        overflowY: 'auto'
+      }}
+    >
+      <div 
+        className="itn-modal" 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          width: isMobile ? '100%' : '90%',
+          maxWidth: isMobile ? '100%' : '1000px',
+          maxHeight: isMobile ? '95vh' : '90vh',
+          borderRadius: isMobile ? '16px' : '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#fff',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          overflow: 'hidden'
+        }}
+      >
+        <div className="itn-modal-header">
+          <div className="itn-modal-title">{isMobile ? 'Edit Details' : 'Edit Destination Details'}</div>
+          <button className="itn-close" onClick={onClose}>×</button>
+        </div>
+
+        {/* ADD THIS - Mobile View Mode Selector */}
+        {isMobile && !isFromQuickAdd && (
+          <div style={{
+            padding: '12px 16px',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: '8px'
+          }}>
+            <button
+              onClick={() => setMobileViewMode("form")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "form" ? '2px solid #6366f1' : '1px solid #e5e7eb',
+                background: mobileViewMode === "form" ? '#eef2ff' : '#fff',
+                color: mobileViewMode === "form" ? '#6366f1' : '#64748b',
+                fontWeight: mobileViewMode === "form" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✏️ Details
+            </button>
+            <button
+              onClick={() => setMobileViewMode("hotels")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "hotels" ? '2px solid #10b981' : '1px solid #e5e7eb',
+                background: mobileViewMode === "hotels" ? '#ecfdf5' : '#fff',
+                color: mobileViewMode === "hotels" ? '#10b981' : '#64748b',
+                fontWeight: mobileViewMode === "hotels" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              🏨 Hotels
+            </button>
+            <button
+              onClick={() => setMobileViewMode("agencies")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "agencies" ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+                background: mobileViewMode === "agencies" ? '#fffbeb' : '#fff',
+                color: mobileViewMode === "agencies" ? '#f59e0b' : '#64748b',
+                fontWeight: mobileViewMode === "agencies" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              🛫 Agencies
+            </button>
+          </div>
+        )}
+
+        {/* Scrollable content area */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}>
+          {/* CHANGED: Conditional rendering based on mobile view mode */}
+          {(!isMobile || mobileViewMode === "form") && (
+            <div className="itn-modal-body">
+              {/* ...rest of form content... */}
+            </div>
+          )}
+
+          {/* ADD THIS - Mobile Hotels View */}
+          {isMobile && mobileViewMode === "hotels" && (
+            <div className="itn-modal-body" style={{ padding: '16px' }}>
+              <HotelSuggestion details={initial} onSelect={handleSelectHotel} />
+            </div>
+          )}
+
+          {/* ADD THIS - Mobile Agencies View */}
+          {isMobile && mobileViewMode === "agencies" && (
+            <div className="itn-modal-body" style={{ padding: '16px' }}>
+              <AgencySuggestion details={initial} onSelect={handleSelectAgency} />
+            </div>
+          )}
+        </div>
+
+        <div className="itn-modal-footer">
+          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
+          {!isMobile || mobileViewMode === "form" ? (
+            <button className="itn-btn primary" onClick={handleSave}>Save Details</button>
+          ) : null}
+        </div>
+
+        {notif && (
+          <div
+            style={{
+              position: "fixed",
+              top: 20,
+              right: 20,
+              background: "#6c63ff",
+              color: "#fff",
+              padding: "12px 20px",
+              borderRadius: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              zIndex: 10000,
+            }}
+          >
+            {notif}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Return to body using Portal
+  return ReactDOM.createPortal(modalContent, document.body);
+}
