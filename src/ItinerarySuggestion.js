@@ -594,13 +594,103 @@ export function SuggestionView({ item, children, onClose, onSelectHotel, onSelec
   return ReactDOM.createPortal(viewContent, document.body);
 }
 
-function EditDestinationModal({ initial, onSave, onClose }) {
+// ADD THIS HOOK at the top level, before the components
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return isMobile;
+}
+
+// UPDATE EditDestinationModal function signature and add missing state
+function EditDestinationModal({ initial, onSave, onClose, isFromQuickAdd = false }) {
   const isMobile = useIsMobile();
+  
+  // ADD MISSING STATE VARIABLES
+  const [mobileViewMode, setMobileViewMode] = useState("form");
+  const [notif, setNotif] = useState("");
+  
   const [form, setForm] = useState(() => ({
-    // ...existing form state...
+    name: initial?.display_name?.split(",")[0] || initial?.name || "",
+    region:
+      initial?.display_name?.split(",").slice(1).join(",").trim() ||
+      initial?.region ||
+      "",
+    location: initial?.location || "",
+    arrival: initial?.arrival || "",
+    departure: initial?.departure || "",
+    status: initial?.status || "Upcoming",
+    estimatedExpenditure: initial?.estimatedExpenditure ?? initial?.budget ?? 0,
+    accomType: initial?.accomType || "",
+    accomName: initial?.accomName || "",
+    accomNotes: initial?.accomNotes || "",
+    activities: initial?.activities || [],
+    activityDraft: "",
+    transport: initial?.transport || "",
+    transportNotes: initial?.transportNotes || "",
+    notes: initial?.notes || "",
+    agency: initial?.agency || "",
   }));
 
-  // ...existing code...
+  // ADD MISSING HANDLER FUNCTIONS
+  const handleSelectHotel = (hotelRow) => {
+    setForm(prev => ({
+      ...prev,
+      accomType: hotelRow.type || "Hotel",
+      accomName: hotelRow.name || "",
+      accomNotes: `${hotelRow.address || ""}\n${hotelRow.phone || ""}`
+    }));
+    setNotif("Hotel added to accommodation!");
+    setTimeout(() => setNotif(""), 3000);
+  };
+
+  const handleSelectAgency = (agencyRow) => {
+    setForm(prev => ({
+      ...prev,
+      agency: agencyRow.name || "",
+      notes: `Agency: ${agencyRow.name}\n${agencyRow.address || ""}\nPhone: ${agencyRow.phone || ""}`
+    }));
+    setNotif("Agency added!");
+    setTimeout(() => setNotif(""), 3000);
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim()) {
+      setNotif("Please enter a destination name");
+      return;
+    }
+    
+    const payload = {
+      ...initial,
+      name: form.name,
+      region: form.region,
+      location: form.location,
+      arrival: form.arrival,
+      departure: form.departure,
+      status: form.status,
+      estimatedExpenditure: Number(form.estimatedExpenditure) || 0,
+      accomType: form.accomType,
+      accomName: form.accomName,
+      accomNotes: form.accomNotes,
+      activities: form.activities,
+      transport: form.transport,
+      transportNotes: form.transportNotes,
+      notes: form.notes,
+      agency: form.agency,
+    };
+
+    onSave?.(payload);
+    setNotif("Destination saved!");
+    setTimeout(() => onClose?.(), 1500);
+  };
 
   // REPLACE the modalContent div with proper modal styling
   const modalContent = (
