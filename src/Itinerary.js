@@ -1268,7 +1268,7 @@ export default function Itinerary() {
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
-  // ADD THESE STATE VARIABLES AT THE TOP
+  // State variables
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
   const [showShareModal, setShowShareModal] = useState(false);
@@ -1510,6 +1510,7 @@ export default function Itinerary() {
     checkMiniPlannerAchievement();
   }, [user, items]);
 
+  // MOVE THIS FUNCTION INSIDE THE COMPONENT (before the return statement)
   const openExport = () => {
     setShowExport(true);
     setExportSelected(new Set(items.map(i => i.id)));
@@ -1527,10 +1528,8 @@ export default function Itinerary() {
   const selectAllExport = () => {
     setExportSelected(prevSelected => {
       if (prevSelected.size === items.length && items.length > 0) {
-        console.log("Deselecting all");
         return new Set();
       }
-      console.log("Selecting all");
       return new Set(items.map(i => i.id));
     });
   };
@@ -2095,6 +2094,7 @@ export default function Itinerary() {
           >
             
              Share Itinerary
+         
           </button>
           <button 
             className="itn-btn ghost"
