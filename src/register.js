@@ -10,7 +10,7 @@ import {
   sendEmailVerification,
   fetchSignInMethodsForEmail
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 import EditProfile from "./EditProfile-new-acc"; // ADD THIS IMPORT
 
@@ -247,7 +247,8 @@ const Register = () => {
       await setDoc(doc(db, "users", userCredential.user.uid), {
         firstName,
         lastName,
-        email
+        email,
+        createdAt: serverTimestamp()
       });
       await sendEmailVerification(userCredential.user);
       // Show EditProfile modal after registration, before dashboard
