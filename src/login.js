@@ -181,6 +181,10 @@ const Login = () => {
       // Reset login attempts on successful login
       resetLoginAttempts(email);
 
+      // FIXED: Set token for email login (same as Google)
+      const token = await userCredential.user.getIdToken();
+      localStorage.setItem('token', token);
+
       // --- Ensure auditLogs collection exists (create a dummy doc if empty) ---
       const auditLogsSnap = await getDocs(query(collection(db, "auditLogs"), limit(1)));
       if (auditLogsSnap.empty) {
@@ -218,7 +222,7 @@ const Login = () => {
         location: "",
         session: sessionId,
         target: "user_session",
-        clientTime: Date.now(), // optional
+        clientTime: Date.now(),
       });
 
       // Check if interests exist; mark flag if not
@@ -226,6 +230,9 @@ const Login = () => {
 
       if (rememberMe) localStorage.setItem("rememberedEmail", email);
       else localStorage.removeItem("rememberedEmail");
+
+      // FIXED: Set user context (same as Google)
+      if (setUser) setUser({ uid: userCredential.user.uid, email: userCredential.user.email });
 
       navigate("/dashboard");
     } catch (err) {
@@ -287,17 +294,22 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
-    if (isSigningIn) return; // prevent duplicate popups
+    if (isSigningIn) return;
     setIsSigningIn(true);
+    
     const provider = new GoogleAuthProvider();
     provider.addScope("profile");
     provider.addScope("email");
     provider.setCustomParameters({ prompt: "select_account" });
-    provider.addScope("profile");
-    provider.addScope("email");
-    provider.setCustomParameters({ prompt: "select_account" });
+    
     try {
+      // FIXED: Use signInWithPopup with error handling
       const result = await signInWithPopup(auth, provider);
+      
+      if (!result || !result.user) {
+        throw new Error("No user returned from Google login");
+      }
+      
       await saveUserToFirestore(result.user);
 
       // --- Add audit log for Google login ---
@@ -327,34 +339,47 @@ const Login = () => {
       // Mark flag if interests are missing
       await ensureSetupFlag(result.user.uid);
 
-      // New code block start
       const user = result.user;
       const token = await user.getIdToken();
       localStorage.setItem('token', token);
 
-      // update your context/state so ProtectedRoute sees the user
       if (setUser) setUser({ uid: user.uid, email: user.email });
 
-      // finally navigate to protected page
+      // Navigate with replace to clear history
       navigate('/dashboard', { replace: true });
-      // New code block end
+      
     } catch (err) {
       console.error("Google login error:", err);
-      // common popup-related errors
-      if (err.code === "auth/cancelled-popup-request" || err.code === "auth/popup-closed-by-user") {
-        console.warn("Google sign-in popup canceled/closed", err);
-      } else if (err.code === "auth/operation-not-supported-in-this-environment") {
-        // environment blocks popups (e.g., in an iframe) - fallback to redirect
+      
+      // FIXED: Handle specific errors better
+      if (err.code === "auth/popup-closed-by-user") {
+        console.warn("User closed the Google sign-in popup");
+        // Don't show error - user intentionally closed it
+        return;
+      } 
+      else if (err.code === "auth/cancelled-popup-request") {
+        console.warn("Google sign-in popup was cancelled");
+        return;
+      }
+      else if (err.code === "auth/operation-not-supported-in-this-environment") {
+        console.warn("Popups blocked in this environment, trying redirect...");
         try {
           await signInWithRedirect(auth, provider);
         } catch (redirectErr) {
-          console.error("Redirect fallback failed", redirectErr);
+          console.error("Redirect also failed:", redirectErr);
+          setPopup({ 
+            show: true, 
+            type: "error", 
+            message: "Could not open Google sign-in. Please check your browser settings." 
+          });
         }
-      } else {
-        const msg = mapAuthError(err.code);
+        return;
+      }
+      else {
+        // Generic error
+        const msg = mapAuthError(err.code) || "Google sign-in failed. Please try again.";
         setPopup({ show: true, type: "error", message: msg });
       }
-      // If popup was closed/cancelled by user, do nothing
     } finally {
       setIsSigningIn(false);
     }
@@ -367,11 +392,13 @@ const Login = () => {
       provider.addScope("email");
       provider.addScope("public_profile");
       provider.setCustomParameters({ display: "popup" });
-      provider.addScope("email");
-      provider.addScope("public_profile");
-      provider.setCustomParameters({ display: "popup" });
+      
       const result = await signInWithPopup(auth, provider);
       await saveUserToFirestore(result.user);
+
+      // FIXED: Set token for Facebook login
+      const token = await result.user.getIdToken();
+      localStorage.setItem('token', token);
 
       // --- Add audit log for Facebook login ---
       const deviceInfo = getDeviceInfo();
@@ -400,6 +427,9 @@ const Login = () => {
       // Mark flag if interests are missing
       await ensureSetupFlag(result.user.uid);
 
+      // FIXED: Set user context
+      if (setUser) setUser({ uid: result.user.uid, email: result.user.email });
+
       navigate("/dashboard");
     } catch (err) {
       console.error("Facebook login error:", err);
@@ -410,7 +440,6 @@ const Login = () => {
         const msg = mapAuthError(err.code);
         setPopup({ show: true, type: "error", message: msg });
       }
-      // If popup was closed/cancelled by user, do nothing
     }
   };
 

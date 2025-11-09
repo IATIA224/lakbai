@@ -1,4 +1,4 @@
-  /* Modal backdrop and base */
+/* Modal backdrop and base */
 .cost-backdrop {
   position: fixed;
   inset: 0;
@@ -1260,7 +1260,6 @@
   color: #fff;
   font-size: 0.9rem;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
 }
 
 .fare-jeepney-total strong {
@@ -1386,75 +1385,537 @@
 
 /* Responsive - Mobile */
 @media (max-width: 768px) {
+  .cost-backdrop {
+    padding: 0;
+    align-items: flex-start;
+  }
+
   .cost-modal {
     width: 100vw;
     max-height: 100vh;
+    height: 100vh;
     border-radius: 0;
+    max-width: 100%;
+  }
+
+  .cost-header {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .cost-title {
+    font-size: 0.95rem;
+    gap: 6px;
+  }
+
+  .cost-close {
+    width: 26px;
+    height: 26px;
+    font-size: 1.2rem;
+  }
+
+  .cost-controls {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .cost-location-group {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .cost-location-box {
+    position: relative;
+  }
+
+  .cost-label {
+    gap: 3px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cost-input {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    height: 32px;
+  }
+
+  .cost-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .cost-select {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    height: 32px;
+  }
+
+  .cost-suggestions {
+    max-height: 120px;
+    font-size: 0.75rem;
+  }
+
+  .cost-suggestion-item {
+    padding: 6px 8px;
+    font-size: 0.75rem;
   }
 
   .map-fare-container {
     height: auto;
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .fare-section-left {
-    height: 450px;
+    height: 360px;
+    border-right: none;
+    border-bottom: 2px solid #e2e8f0;
   }
 
   .map-section-right {
-    height: 400px;
+    height: 300px;
+  }
+
+  .fare-section-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .fare-section-header h4 {
+    font-size: 0.9rem;
+    margin: 0;
   }
 
   .fare-section-body {
-    padding: 12px;
+    padding: 10px;
+    gap: 10px;
   }
 
   .fare-route-box {
-    padding: 12px;
+    padding: 10px;
+    gap: 8px;
+    border-radius: 10px;
   }
 
-  .cost-controls {
-    padding: 14px 16px;
+  .fare-box-title {
+    font-size: 0.85rem;
+    padding-bottom: 6px;
+    gap: 4px;
+    margin: 0;
   }
 
-  .cost-location-group {
-    grid-template-columns: 1fr;
+  .fare-route-steps {
+    max-height: 130px;
+    gap: 6px;
+    padding-right: 2px;
   }
 
-  .cost-grid {
-    grid-template-columns: 1fr;
+  .fare-route-step {
+    padding: 7px 9px;
+    gap: 8px;
+    border-radius: 6px;
+  }
+
+  .fare-step-icon {
+    font-size: 1.1rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  .fare-step-info {
+    gap: 1px;
+  }
+
+  .fare-step-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .fare-step-distance {
+    font-size: 0.68rem;
+  }
+
+  .fare-summary-grid {
+    gap: 7px;
+    padding: 8px 0;
+  }
+
+  .fare-summary-item {
+    padding: 7px;
+    gap: 3px;
+    border-radius: 6px;
+  }
+
+  .fare-summary-label {
+    font-size: 0.68rem;
+  }
+
+  .fare-summary-value {
+    font-size: 0.9rem;
+    font-weight: 800;
+  }
+
+  .fare-jeepney-total {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    gap: 8px;
+  }
+
+  .fare-jeepney-total strong {
+    font-size: 1.15rem;
+  }
+
+  .fare-vehicle-list {
+    max-height: 170px;
+    gap: 6px;
+    padding-right: 2px;
+  }
+
+  .fare-vehicle-item {
+    padding: 8px 10px;
+    gap: 9px;
+    border-radius: 8px;
+  }
+
+  .fare-vehicle-icon {
+    font-size: 1.4rem;
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+  }
+
+  .fare-vehicle-info {
+    gap: 1px;
+  }
+
+  .fare-vehicle-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .fare-vehicle-desc {
+    font-size: 0.7rem;
+  }
+
+  .fare-vehicle-price {
+    font-size: 1rem;
+    font-weight: 800;
+  }
+
+  .fare-placeholder-icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+  }
+
+  .fare-placeholder-title {
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  .fare-placeholder-text {
+    font-size: 0.75rem;
+    max-width: 220px;
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+
+  .fare-placeholder-features {
+    gap: 7px;
+    max-width: 220px;
+  }
+
+  .fare-placeholder-feature {
+    padding: 7px 10px;
+    gap: 8px;
+    border-radius: 6px;
+  }
+
+  .feature-icon {
+    font-size: 1rem;
+    width: 26px;
+  }
+
+  .feature-text {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  button[style*="Show Routes"],
+  button[style*="Hide Routes"] {
+    padding: 8px 16px !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+    height: 36px !important;
+    width: 100% !important;
   }
 }
 
 /* Very small screens */
 @media (max-width: 480px) {
+  .cost-backdrop {
+    padding: 8px;
+  }
+
+  .cost-header {
+    padding: 9px 12px;
+  }
+
+  .cost-title {
+    font-size: 0.9rem;
+    gap: 4px;
+  }
+
+  .cost-close {
+    width: 24px;
+    height: 24px;
+    font-size: 1.1rem;
+  }
+
+  .cost-controls {
+    padding: 9px 12px;
+  }
+
+  .cost-location-group {
+    gap: 7px;
+    margin-bottom: 7px;
+  }
+
+  .cost-label {
+    font-size: 0.7rem;
+    gap: 2px;
+  }
+
+  .cost-input,
+  .cost-select {
+    padding: 5px 9px;
+    font-size: 0.75rem;
+    height: 30px;
+    border-radius: 5px;
+  }
+
+  .cost-grid {
+    gap: 7px;
+  }
+
+  .cost-suggestions {
+    max-height: 100px;
+    font-size: 0.7rem;
+  }
+
+  .cost-suggestion-item {
+    padding: 5px 7px;
+    font-size: 0.7rem;
+  }
+
+  .map-fare-container {
+    gap: 0;
+  }
+
   .fare-section-left {
-    height: 400px;
+    height: 340px;
   }
 
   .map-section-right {
-    height: 350px;
+    height: 280px;
   }
 
-  .fare-step-icon,
-  .fare-vehicle-icon {
-    font-size: 1.5rem;
-    width: 36px;
-    height: 36px;
+  .fare-section-header {
+    padding: 9px 10px;
   }
 
-  .fare-vehicle-price {
+  .fare-section-header h4 {
+    font-size: 0.85rem;
+  }
+
+  .fare-section-body {
+    padding: 9px;
+    gap: 9px;
+  }
+
+  .fare-route-box {
+    padding: 9px;
+    gap: 7px;
+    border-radius: 8px;
+  }
+
+  .fare-box-title {
+    font-size: 0.8rem;
+    padding-bottom: 5px;
+  }
+
+  .fare-route-steps {
+    max-height: 120px;
+    gap: 5px;
+  }
+
+  .fare-route-step {
+    padding: 6px 8px;
+    gap: 7px;
+  }
+
+  .fare-step-icon {
+    width: 26px;
+    height: 26px;
     font-size: 1rem;
   }
 
+  .fare-step-label {
+    font-size: 0.75rem;
+  }
+
+  .fare-step-distance {
+    font-size: 0.65rem;
+  }
+
+  .fare-summary-grid {
+    gap: 6px;
+  }
+
+  .fare-summary-item {
+    padding: 6px;
+  }
+
+  .fare-summary-label {
+    font-size: 0.65rem;
+  }
+
+  .fare-summary-value {
+    font-size: 0.85rem;
+  }
+
+  .fare-jeepney-total {
+    padding: 9px 10px;
+    font-size: 0.75rem;
+  }
+
   .fare-jeepney-total strong {
+    font-size: 1.1rem;
+  }
+
+  .fare-vehicle-list {
+    max-height: 160px;
+    gap: 5px;
+  }
+
+  .fare-vehicle-item {
+    padding: 7px 9px;
+    gap: 8px;
+  }
+
+  .fare-vehicle-icon {
     font-size: 1.2rem;
+    width: 32px;
+    height: 32px;
+  }
+
+  .fare-vehicle-name {
+    font-size: 0.75rem;
+  }
+
+  .fare-vehicle-desc {
+    font-size: 0.65rem;
+  }
+
+  .fare-vehicle-price {
+    font-size: 0.95rem;
   }
 
   .fare-placeholder-icon {
-    font-size: 2.5rem;
+    font-size: 2rem;
+    margin-bottom: 10px;
   }
 
   .fare-placeholder-title {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
+    margin-bottom: 7px;
+  }
+
+  .fare-placeholder-text {
+    font-size: 0.7rem;
+    max-width: 200px;
+    margin-bottom: 10px;
+  }
+
+  .fare-placeholder-features {
+    gap: 6px;
+    max-width: 200px;
+  }
+
+  .fare-placeholder-feature {
+    padding: 6px 9px;
+    gap: 7px;
+    border-radius: 5px;
+  }
+
+  .feature-icon {
+    font-size: 0.95rem;
+    width: 24px;
+  }
+
+  .feature-text {
+    font-size: 0.7rem;
+  }
+
+  button[style*="Show Routes"],
+  button[style*="Hide Routes"] {
+    padding: 7px 14px !important;
+    font-size: 0.75rem !important;
+    height: 32px !important;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 768px) and (orientation: landscape) {
+  .cost-modal {
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .cost-controls {
+    padding: 8px 12px;
+  }
+
+  .cost-location-group {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .cost-grid {
+    gap: 6px;
+  }
+
+  .fare-section-left {
+    height: 280px;
+  }
+
+  .map-section-right {
+    height: 240px;
+  }
+
+  .fare-route-steps,
+  .fare-vehicle-list {
+    max-height: 100px;
+  }
+
+  .fare-section-body {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  button[style*="Show Routes"],
+  button[style*="Hide Routes"] {
+    padding: 7px 12px !important;
+    font-size: 0.75rem !important;
+    height: 30px !important;
   }
 }
