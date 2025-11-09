@@ -132,7 +132,7 @@ function ShareTripModal({ onClose, onCreate }) {
     <div className="community-modal-backdrop" onClick={onClose}>
       <div className="community-modal share-trip-modal" onClick={(e) => e.stopPropagation()}>
         <div className="share-modal-header">
-          <h3>✈️ Share Your Travel Experience</h3>
+          <h3> Share Your Travel Experience</h3>
           <p style={{ margin: "8px 0 0", opacity: 0.95, fontSize: "0.95rem" }}>
             Share your amazing journey with the community
           </p>
@@ -439,7 +439,7 @@ function ReportPostModal({ post, onClose }) {
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
         <div className="community-modal" onClick={e => e.stopPropagation()}>
@@ -482,7 +482,8 @@ function ReportPostModal({ post, onClose }) {
         </div>
       </div>
       {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -586,7 +587,7 @@ function ReportCommentModal({ comment, post, onClose }) {
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
         <div className="community-modal" onClick={e => e.stopPropagation()}>
@@ -629,7 +630,8 @@ function ReportCommentModal({ comment, post, onClose }) {
         </div>
       </div>
       {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -943,160 +945,165 @@ function CommentModal({ post, onClose, onCountChange }) {
 
   return (
     <>
-      <div className="community-modal-backdrop" onClick={onClose}>
-        <div className="community-modal cmt-modal-enhanced" onClick={(e) => e.stopPropagation()}>
-          <div className="cmt-header-enhanced">
-            <h3>
-              💬 Comments <span className="cmt-count-enhanced">({comments.length})</span>
-            </h3>
-            <button className="cmt-close-enhanced" onClick={onClose} aria-label="Close">×</button>
-          </div>
+      {ReactDOM.createPortal(
+        <>
+          <div className="community-modal-backdrop" onClick={onClose}>
+            <div className="community-modal cmt-modal-enhanced" onClick={(e) => e.stopPropagation()}>
+              <div className="cmt-header-enhanced">
+                <h3>
+                  💬 Comments <span className="cmt-count-enhanced">({comments.length})</span>
+                </h3>
+                <button className="cmt-close-enhanced" onClick={onClose} aria-label="Close">×</button>
+              </div>
 
-          <div className="cmt-list-enhanced" ref={commentListRef}>
-            {fetching ? (
-              <div className="cmt-skeleton-enhanced">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="cmt-skel-item">
-                    <div className="cmt-skel-avatar"></div>
-                    <div className="cmt-skel-content">
-                      <div className="cmt-skel-line" style={{ width: '60%' }}></div>
-                      <div className="cmt-skel-line" style={{ width: '90%' }}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : comments.length === 0 ? (
-              <div className="cmt-empty-enhanced">
-                <div className="cmt-empty-icon">💭</div>
-                <div className="cmt-empty-text">No comments yet. Be the first!</div>
-              </div>
-            ) : (
-              comments.map((c) => (
-                <div 
-                  key={c.id} 
-                  className={`cmt-item-enhanced ${c.pending ? 'pending' : ''}`}
-                >
-                  <div className="cmt-avatar-enhanced">
-                    {c.userPhoto ? 
-                      <img src={c.userPhoto} alt={c.userName || "User"} /> : 
-                      <div className="cmt-avatar-initials">{getInitials(c.userName)}</div>
-                    }
-                  </div>
-                  <div className="cmt-bubble">
-                    <div className="cmt-meta-enhanced">
-                      <span className="cmt-name-enhanced">{c.userName}</span>
-                      <span className="cmt-time-enhanced">{timeAgo(c.createdAt?.toMillis?.() ?? c.createdAtClient)}</span>
-                      {c.edited && <span className="cmt-edited-badge">edited</span>}
-                    </div>
-                    
-                    {editingComment?.id === c.id ? (
-                      <div className="cmt-edit-form-enhanced">
-                        <textarea
-                          ref={editTextareaRef}
-                          className="cmt-edit-input"
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          maxLength={500}
-                        />
-                        <div className="cmt-edit-actions">
-                          <button
-                            type="button"
-                            className="btn-cancel"
-                            onClick={() => setEditingComment(null)}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-save"
-                            onClick={() => handleEditComment(c)}
-                            disabled={!editText.trim() || editText.trim() === c.text || loading}
-                          >
-                            Save
-                          </button>
+              <div className="cmt-list-enhanced" ref={commentListRef}>
+                {fetching ? (
+                  <div className="cmt-skeleton-enhanced">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="cmt-skel-item">
+                        <div className="cmt-skel-avatar"></div>
+                        <div className="cmt-skel-content">
+                          <div className="cmt-skel-line" style={{ width: '60%' }}></div>
+                          <div className="cmt-skel-line" style={{ width: '90%' }}></div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="cmt-text-enhanced">{c.text}</div>
-                    )}
-                    
-                    <div className="cmt-actions-enhanced">
-                      <button
-                        type="button"
-                        className={`cmt-heart-btn ${c.heartedBy?.includes(auth.currentUser?.uid) ? "active" : ""}`}
-                        onClick={() => handleHeart(c)}
-                      >
-                        ❤️ {c.hearts > 0 && <span>{c.hearts}</span>}
-                      </button>
-                      
-                      {auth.currentUser && auth.currentUser.uid === c.userId && (
-                        <div className="cmt-owner-actions">
-                          <button
-                            type="button"
-                            className="cmt-action-btn"
-                            onClick={() => setEditingComment(c)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="cmt-action-btn delete"
-                            onClick={() => handleDeleteComment(c.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                      
-                      {auth.currentUser && auth.currentUser.uid !== c.userId && (
-                        <button
-                          type="button"
-                          className="cmt-report-btn"
-                          onClick={() => setReportingComment(c)}
-                        >
-                          Report
-                        </button>
-                      )}
-                    </div>
+                    ))}
                   </div>
+                ) : comments.length === 0 ? (
+                  <div className="cmt-empty-enhanced">
+                    <div className="cmt-empty-icon">💭</div>
+                    <div className="cmt-empty-text">No comments yet. Be the first!</div>
+                  </div>
+                ) : (
+                  comments.map((c) => (
+                    <div 
+                      key={c.id} 
+                      className={`cmt-item-enhanced ${c.pending ? 'pending' : ''}`}
+                    >
+                      <div className="cmt-avatar-enhanced">
+                        {c.userPhoto ? 
+                          <img src={c.userPhoto} alt={c.userName || "User"} /> : 
+                          <div className="cmt-avatar-initials">{getInitials(c.userName)}</div>
+                        }
+                      </div>
+                      <div className="cmt-bubble">
+                        <div className="cmt-meta-enhanced">
+                          <span className="cmt-name-enhanced">{c.userName}</span>
+                          <span className="cmt-time-enhanced">{timeAgo(c.createdAt?.toMillis?.() ?? c.createdAtClient)}</span>
+                          {c.edited && <span className="cmt-edited-badge">edited</span>}
+                        </div>
+                        
+                        {editingComment?.id === c.id ? (
+                          <div className="cmt-edit-form-enhanced">
+                            <textarea
+                              ref={editTextareaRef}
+                              className="cmt-edit-input"
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              maxLength={500}
+                            />
+                            <div className="cmt-edit-actions">
+                              <button
+                                type="button"
+                                className="btn-cancel"
+                                onClick={() => setEditingComment(null)}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-save"
+                                onClick={() => handleEditComment(c)}
+                                disabled={!editText.trim() || editText.trim() === c.text || loading}
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="cmt-text-enhanced">{c.text}</div>
+                        )}
+                        
+                        <div className="cmt-actions-enhanced">
+                          <button
+                            type="button"
+                            className={`cmt-heart-btn ${c.heartedBy?.includes(auth.currentUser?.uid) ? "active" : ""}`}
+                            onClick={() => handleHeart(c)}
+                          >
+                            ❤️ {c.hearts > 0 && <span>{c.hearts}</span>}
+                          </button>
+                          
+                          {auth.currentUser && auth.currentUser.uid === c.userId && (
+                            <div className="cmt-owner-actions">
+                              <button
+                                type="button"
+                                className="cmt-action-btn"
+                                onClick={() => setEditingComment(c)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="cmt-action-btn delete"
+                                onClick={() => handleDeleteComment(c.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                          
+                          {auth.currentUser && auth.currentUser.uid !== c.userId && (
+                            <button
+                              type="button"
+                              className="cmt-report-btn"
+                              onClick={() => setReportingComment(c)}
+                            >
+                              Report
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <form className="cmt-composer-enhanced" onSubmit={handleSubmit}>
+                <div className="cmt-composer-wrap">
+                  <textarea
+                    ref={textareaRef}
+                    className="cmt-input-enhanced"
+                    rows={1}
+                    placeholder="Write a comment..."
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={onComposerKeyDown}
+                    maxLength={500}
+                    required
+                  />
+                  <button 
+                    type="submit" 
+                    className="cmt-send-btn" 
+                    disabled={!text.trim() || loading}
+                    aria-label="Send comment"
+                  >
+                    ➤
+                  </button>
                 </div>
-              ))
-            )}
+                <div className="cmt-char-count">{text.length}/500</div>
+              </form>
+            </div>
           </div>
 
-          <form className="cmt-composer-enhanced" onSubmit={handleSubmit}>
-            <div className="cmt-composer-wrap">
-              <textarea
-                ref={textareaRef}
-                className="cmt-input-enhanced"
-                rows={1}
-                placeholder="Write a comment..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={onComposerKeyDown}
-                maxLength={500}
-                required
-              />
-              <button 
-                type="submit" 
-                className="cmt-send-btn" 
-                disabled={!text.trim() || loading}
-                aria-label="Send comment"
-              >
-                ➤
-              </button>
-            </div>
-            <div className="cmt-char-count">{text.length}/500</div>
-          </form>
-        </div>
-      </div>
-
-      {reportingComment && (
-        <ReportCommentModal
-          comment={reportingComment}
-          post={post}
-          onClose={() => setReportingComment(null)}
-        />
+          {reportingComment && (
+            <ReportCommentModal
+              comment={reportingComment}
+              post={post}
+              onClose={() => setReportingComment(null)}
+            />
+          )}
+        </>,
+        document.body
       )}
     </>
   );
@@ -1145,32 +1152,79 @@ function PostActionMenu({ post, onEdit, onDelete }) {
   );
 }
 
-// Add this function:
-async function getUserPostCount(uid) {
-  const q = query(collection(db, "community"), where("authorId", "==", uid));
-  const snap = await getDocs(q);
-  return snap.size;
+// Add this component near the top of the file, after the imports
+function TruncatedText({ text, maxLength = 100 }) {
+  const [expanded, setExpanded] = useState(false);
+  
+  if (!text) return null;
+  
+  // Find the first sentence (ending with . ! or ?)
+  const firstSentenceMatch = text.match(/^[^.!?]+[.!?]+/);
+  const firstSentence = firstSentenceMatch ? firstSentenceMatch[0].trim() : text.slice(0, maxLength);
+  
+  const shouldTruncate = text.length > firstSentence.length;
+  
+  if (!shouldTruncate) {
+    return <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>;
+  }
+  
+  return (
+    <div>
+      <p style={{ margin: 0, whiteSpace: "pre-wrap", display: "inline" }}>
+        {expanded ? text : firstSentence}
+      </p>
+      {shouldTruncate && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            background: "none",
+            border: "none",
+            color: "#6366f1",
+            fontWeight: 600,
+            cursor: "pointer",
+            padding: "0 4px",
+            marginLeft: "4px",
+            fontSize: "0.95rem"
+          }}
+        >
+          {expanded ? "See less" : "See more"}
+        </button>
+      )}
+    </div>
+  );
 }
 
-// Add this helper function near the top:
-async function getUserLikesCount(uid) {
-  // Likes on posts
-  const postSnap = await getDocs(query(collection(db, "community"), where("authorId", "==", uid)));
-  let postLikes = 0;
-  postSnap.forEach(doc => { postLikes += doc.data().likes || 0; });
+async function getUserPostCount(userId) {
+  try {
+    const q = query(collection(db, "community"), where("authorId", "==", userId));
+    const snapshot = await getDocs(q);
+    return snapshot.size;
+  } catch (err) {
+    console.error("Failed to get user post count:", err);
+    return 0;
+  }
+}
 
-  // Likes on comments
-  const commentSnap = await getDocs(query(collection(db, "comments"), where("userId", "==", uid)));
-  let commentLikes = 0;
-  commentSnap.forEach(doc => { commentLikes += doc.data().hearts || 0; });
-
-  return postLikes + commentLikes;
+async function getUserLikesCount(userId) {
+  try {
+    const q = query(collection(db, "community"), where("authorId", "==", userId));
+    const snapshot = await getDocs(q);
+    let totalLikes = 0;
+    snapshot.docs.forEach(doc => {
+      totalLikes += doc.data().likes || 0;
+    });
+    return totalLikes;
+  } catch (err) {
+    console.error("Failed to get user likes count:", err);
+    return 0;
+  }
 }
 
 function CommunitySidebar(props) {
   const [postCount, setPostCount] = useState(0);
   const [likeCount, setLikeCount] = useState(0);
-  const [friendCount, setFriendCount] = useState(0); // <-- Add this state
+  const [friendCount, setFriendCount] = useState(0);
+  const [profilePicture, setProfilePicture] = useState(null);
 
   useEffect(() => {
     if (props.user?.uid) {
@@ -1181,6 +1235,18 @@ function CommunitySidebar(props) {
       getDocs(collection(db, "users", props.user.uid, "friends"))
         .then(snap => setFriendCount(snap.size))
         .catch(() => setFriendCount(0));
+
+      // Fetch user's profile picture
+      getDoc(doc(db, "users", props.user.uid))
+        .then(snap => {
+          if (snap.exists()) {
+            setProfilePicture(snap.data()?.profilePicture || null);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch profile picture:", err);
+          setProfilePicture(null);
+        });
     }
   }, [props.user]);
 
@@ -1200,14 +1266,14 @@ function CommunitySidebar(props) {
     <div className="community-left">
       {/* Title */}
       <div className="community-title">
-        <span className="title-emoji">🌍</span>
+        <span className="title-emoji"></span>
         Community Feed
       </div>
 
       {/* Action Buttons */}
       <div className="sidebar-actions">
         <button className="sidebar-btn sidebar-btn-primary" onClick={props.onShareTrip}>
-          ✈️ Share Trip
+           Share Trip
         </button>
         <button className="sidebar-btn sidebar-btn-secondary" onClick={props.onFriendSettings}>
           👥 Friend Settings
@@ -1259,7 +1325,15 @@ function CommunitySidebar(props) {
             <div className="sidebar-user-card">
               <div className="sidebar-user-header">
                 <div className="sidebar-user-avatar">
-                  {(props.user.displayName || props.user.email || 'U')[0].toUpperCase()}
+                  {profilePicture ? (
+                    <img 
+                      src={profilePicture} 
+                      alt={props.user.displayName || "User"} 
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    (props.user.displayName || props.user.email || 'U')[0].toUpperCase()
+                  )}
                 </div>
                 <div className="sidebar-user-info">
                   <div className="sidebar-user-name">
@@ -1668,7 +1742,7 @@ export default function Community() {
               </div>
             ) : posts.length === 0 ? (
               <div className="community-empty">
-                <div className="empty-badge">✈️</div>
+                <div className="empty-badge"></div>
                 <h3>No travel stories yet</h3>
                 <p>Be the first to share your adventure!</p>
                 <button className="btn-primary" onClick={() => setShowShareModal(true)}>
@@ -1744,10 +1818,11 @@ export default function Community() {
                     )}
 
                     <div className="card-body">
-                      <p>{post.details}</p>
+                      <TruncatedText text={post.details} />
                       {post.highlights && (
                         <div className="highlights">
-                          <strong>Highlights: </strong>{post.highlights}
+                          <strong>Highlights: </strong>
+                          <TruncatedText text={post.highlights} />
                         </div>
                       )}
                     </div>

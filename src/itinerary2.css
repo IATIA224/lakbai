@@ -612,7 +612,11 @@ select.itn-form-input {
 textarea.itn-input,
 textarea.itn-form-input {
   min-height: 80px;
+  max-height: 200px;
   resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box; /* ADD THIS */
 }
 
 /* Activities section */
@@ -1268,43 +1272,135 @@ textarea.itn-form-input {
 .itn-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .itn-label {
   font-weight: 600;
   color: #374151;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.itn-input {
-  padding: 10px 12px;
+/* FIX: Add box-sizing to all inputs */
+.itn-input,
+.itn-form-input {
+  padding: 12px 14px;
   border: 2px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-family: inherit;
   transition: all 0.2s;
   background: #fff;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box; /* ADD THIS */
+  display: block;
 }
 
-.itn-input:focus {
+.itn-input:focus,
+.itn-form-input:focus {
   outline: none;
   border-color: #6c63ff;
   box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
 }
 
-.itn-input::placeholder {
-  color: #9ca3af;
+textarea.itn-input,
+textarea.itn-form-input {
+  min-height: 80px;
+  max-height: 200px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box; /* ADD THIS */
 }
 
-/* Allow long agency text (name + phone + email) to wrap nicely */
-.itn-text-wrap {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: anywhere;
-  color: #111827;
+select.itn-input,
+select.itn-form-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c63ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 36px;
+  box-sizing: border-box; /* ADD THIS */
 }
 
+/* Mobile responsive - FIX for overlap */
+@media (max-width: 768px) {
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .itn-form-col {
+    gap: 16px;
+  }
+
+  .itn-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .itn-field {
+    width: 100%;
+  }
+
+  .itn-input,
+  .itn-form-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 12px 14px;
+    box-sizing: border-box; /* Ensure padding included */
+  }
+
+  textarea.itn-input,
+  textarea.itn-form-input {
+    min-height: 100px;
+    box-sizing: border-box;
+  }
+
+  .itn-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .itn-form-col {
+    gap: 12px;
+  }
+
+  .itn-grid,
+  .itn-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .itn-input,
+  .itn-form-input {
+    padding: 11px 12px;
+    font-size: 15px;
+    box-sizing: border-box;
+  }
+
+  .itn-field {
+    margin-bottom: 4px;
+  }
+
+  .itn-label {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+}
 /* UPDATED: Suggestion View Layout */
 .suggestion-view-backdrop {
   position: fixed;
@@ -1400,6 +1496,8 @@ textarea.itn-form-input {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .itn-label {
@@ -1435,6 +1533,7 @@ textarea.itn-input {
   resize: vertical;
   font-family: inherit;
   line-height: 1.5;
+  box-sizing: border-box;
 }
 
 /* UPDATED: Activities section */

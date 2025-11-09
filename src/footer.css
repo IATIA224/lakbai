@@ -1,9 +1,29 @@
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#main-content {
+  flex: 1;
+}
+
 .global-footer {
   background: #1a2332;
   color: #e3eaf5;
   padding: 40px 0 0 0;
   font-size: 1rem;
   margin-top: 48px;
+  flex-shrink: 0;
 }
 .footer-main {
   display: flex;

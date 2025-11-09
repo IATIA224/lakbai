@@ -387,6 +387,8 @@ const Login = () => {
   };
 
   const handleFacebookLogin = async () => {
+    setIsSigningIn(true);  // ADD THIS LINE
+    
     try {
       const provider = new FacebookAuthProvider();
       provider.addScope("email");
@@ -394,6 +396,11 @@ const Login = () => {
       provider.setCustomParameters({ display: "popup" });
       
       const result = await signInWithPopup(auth, provider);
+      
+      if (!result || !result.user) {
+        throw new Error("No user returned from Facebook login");
+      }
+      
       await saveUserToFirestore(result.user);
 
       // FIXED: Set token for Facebook login
@@ -433,12 +440,39 @@ const Login = () => {
       navigate("/dashboard");
     } catch (err) {
       console.error("Facebook login error:", err);
-      if (
-        err.code !== "auth/popup-closed-by-user" &&
-        err.code !== "auth/cancelled-popup-request"
-      ) {
-        const msg = mapAuthError(err.code);
+      
+      // FIXED: Handle specific errors better
+      if (err.code === "auth/popup-closed-by-user") {
+        console.warn("User closed the Facebook sign-in popup");
+        // Don't show error - user intentionally closed it
+        setIsSigningIn(false);  // ADD THIS
+        return;
+      }
+      else if (err.code === "auth/cancelled-popup-request") {
+        console.warn("Facebook sign-in popup was cancelled");
+        setIsSigningIn(false);  // ADD THIS
+        return;
+      }
+      else if (err.code === "auth/operation-not-supported-in-this-environment") {
+        console.warn("Popups blocked in this environment, trying redirect...");
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectErr) {
+          console.error("Redirect also failed:", redirectErr);
+          setPopup({ 
+            show: true, 
+            type: "error", 
+            message: "Could not open Facebook sign-in. Please check your browser settings." 
+          });
+        }
+        setIsSigningIn(false);  // ADD THIS
+        return;
+      }
+      else {
+        // Generic error
+        const msg = mapAuthError(err.code) || "Facebook sign-in failed. Please try again.";
         setPopup({ show: true, type: "error", message: msg });
+        setIsSigningIn(false);  // ADD THIS
       }
     }
   };
