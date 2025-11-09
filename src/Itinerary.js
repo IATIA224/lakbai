@@ -339,7 +339,6 @@ function EditDestinationModal({ initial, onSave, onClose }) {
               <option>Upcoming</option>
               <option>Ongoing</option>
               <option>Completed</option>
-              <option>Cancelled</option>
             </select>
           </div>
           <div className="itn-field">
@@ -774,7 +773,7 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
                 setShowMenu(false);
               }}
             >
-              👁️ View Summary
+               View Summary
             </button>
             <button
               className="itn-card-menu-item"
@@ -783,7 +782,7 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
                 setShowMenu(false);
               }}
             >
-              💰 Estimate Transport Cost
+               Estimate Transport Cost
             </button>
           </div>
         )}
@@ -1730,12 +1729,11 @@ export default function Itinerary() {
           upcoming: toExport.filter(i => (i.status || "upcoming").toLowerCase() === "upcoming").length,
           ongoing: toExport.filter(i => i.status?.toLowerCase() === "ongoing").length,
           completed: toExport.filter(i => i.status?.toLowerCase() === "completed").length,
-          cancelled: toExport.filter(i => i.status?.toLowerCase() === "cancelled").length,
         };
 
         summaryData.push([
           "Status Breakdown",
-          `Upcoming: ${statusCounts.upcoming} | Ongoing: ${statusCounts.ongoing} | Completed: ${statusCounts.completed} | Cancelled: ${statusCounts.cancelled}`
+          `Upcoming: ${statusCounts.upcoming} | Ongoing: ${statusCounts.ongoing} | Completed: ${statusCounts.completed}`
         ]);
 
         const accommodations = toExport
@@ -1797,7 +1795,7 @@ export default function Itinerary() {
     }
   };
 
-  // ==================== OPTIMIZED: Toggle status with optimistic update ====================
+  // ==================== OPTIMIZED: Toggle status with custom confirmation ====================
   const toggleStatus = async (id) => {
     if (!user) return;
     const current = items.find((i) => i.id === id);
@@ -1806,70 +1804,112 @@ export default function Itinerary() {
     const statusFlow = {
       'Upcoming': 'Ongoing',
       'Ongoing': 'Completed',
-      'Completed': 'Cancelled',
-      'Cancelled': 'Upcoming'
+      'Completed': 'Upcoming'
     };
     
     const nextStatus = statusFlow[current.status] || 'Upcoming';
     
-    // CONFIRMATION DIALOG WITH EMOJIS
     const statusEmojis = {
       'Upcoming': '🔜',
       'Ongoing': '⏳',
-      'Completed': '✅',
-      'Cancelled': '❌'
+      'Completed': '✅'
     };
     
-    const confirmMessage = `Are you sure you want to change the status?\n\n` +
-      `${statusEmojis[current.status]} Current: ${current.status}\n` +
-      `${statusEmojis[nextStatus]} Next: ${nextStatus}`;
-    
-    if (!window.confirm(confirmMessage)) {
-      return; // User cancelled
-    }
-    
-    // Optimistic update
-    setItems(prev => prev.map(item => 
-      item.id === id ? { ...item, status: nextStatus } : item
-    ));
-    
-    try {
-      await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
-        status: nextStatus,
-        updatedAt: serverTimestamp(),
-      });
-
-      if (nextStatus === "Completed" && current.status !== "Completed") {
-        await trackDestinationCompleted(user.uid, {
-          id: current.id,
-          name: current.name,
-          region: current.region,
-          location: current.location, // ADD THIS LINE
-          arrival: current.arrival,
-          departure: current.departure,
-        });
+    // Use custom confirmation dialog
+    return new Promise((resolve) => {
+      const handleConfirm = async () => {
+        document.body.removeChild(backdrop);
+        
+        // Optimistic update
+        setItems(prev => prev.map(item => 
+          item.id === id ? { ...item, status: nextStatus } : item
+        ));
         
         try {
-          await unlockAchievement(8, "Checklist Champ");
-        } catch (error) {
-          console.error("Error unlocking Checklist Champ achievement:", error);
+          await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
+            status: nextStatus,
+            updatedAt: serverTimestamp(),
+          });
+
+          if (nextStatus === "Completed" && current.status !== "Completed") {
+            await trackDestinationCompleted(user.uid, {
+              id: current.id,
+              name: current.name,
+              region: current.region,
+              location: current.location,
+              arrival: current.arrival,
+              departure: current.departure,
+            });
+            
+            try {
+              await unlockAchievement(8, "Checklist Champ");
+            } catch (error) {
+              console.error("Error unlocking achievement:", error);
+            }
+          } else if (current.status === "Completed" && nextStatus !== "Completed") {
+            await trackDestinationUncompleted(user.uid, {
+              id: current.id,
+              name: current.name,
+              region: current.region,
+              location: current.location,
+            });
+          }
+          resolve(true);
+        } catch (e) {
+          console.error("Toggle status failed:", e);
+          setItems(prev => prev.map(item => 
+            item.id === id ? { ...item, status: current.status } : item
+          ));
+          alert("Failed to update status. Please try again.");
+          resolve(false);
         }
-      } else if (current.status === "Completed" && nextStatus !== "Completed") {
-        await trackDestinationUncompleted(user.uid, {
-          id: current.id,
-          name: current.name,
-                   region: current.region,
-          location: current.location,
-        });
-      }
-    } catch (e) {
-      console.error("Toggle status failed:", e);
-      // Rollback on error
-      setItems(prev => prev.map(item => 
-        item.id === id ? { ...item, status: current.status } : item
-      ));
-      alert("Failed to update status. Please try again.");
-    }
+      };
+
+      const handleCancel = () => {
+        document.body.removeChild(backdrop);
+        resolve(false);
+      };
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'itn-confirm-backdrop';
+      backdrop.innerHTML = `
+        <div class="itn-confirm-dialog">
+          <div class="itn-confirm-header">
+            <div class="itn-confirm-icon">⚠️</div>
+            <h2 class="itn-confirm-title">Change Status?</h2>
+          </div>
+          <div class="itn-confirm-content">
+            <div class="itn-confirm-item">
+              <div class="itn-confirm-item-emoji">${statusEmojis[current.status]}</div>
+              <div class="itn-confirm-item-text">
+                <span class="itn-confirm-item-label">Current</span>
+                <span class="itn-confirm-item-value">${current.status}</span>
+              </div>
+            </div>
+            <div style="text-align: center; color: #cbd5e1; margin: 8px 0;">↓</div>
+            <div class="itn-confirm-item">
+              <div class="itn-confirm-item-emoji">${statusEmojis[nextStatus]}</div>
+              <div class="itn-confirm-item-text">
+                <span class="itn-confirm-item-label">Next</span>
+                <span class="itn-confirm-item-value">${nextStatus}</span>
+              </div>
+            </div>
+          </div>
+          <div class="itn-confirm-footer">
+            <button class="itn-confirm-btn cancel" id="confirm-cancel">Cancel</button>
+            <button class="itn-confirm-btn confirm" id="confirm-ok">Update</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(backdrop);
+      
+      document.getElementById('confirm-ok').addEventListener('click', handleConfirm);
+      document.getElementById('confirm-cancel').addEventListener('click', handleCancel);
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) handleCancel();
+      });
+    });
   };
 
   // ==================== OPTIMIZED: Remove with optimistic update ====================
@@ -2061,7 +2101,7 @@ export default function Itinerary() {
   };
 
   return (
-    <div className="itn-page">
+       <div className="itn-page">
       {/* Animated background layers */}
       <div className="itn-bg-dots" />
       <div className="itn-bg-wave" />
@@ -2168,7 +2208,6 @@ export default function Itinerary() {
                       <option value="upcoming">🔜 Upcoming ({items.filter(i => (i.status || 'upcoming').toLowerCase() === 'upcoming').length})</option>
                       <option value="ongoing">⏳ Ongoing ({items.filter(i => i.status?.toLowerCase() === 'ongoing').length})</option>
                       <option value="completed">✅ Completed ({items.filter(i => i.status?.toLowerCase() === 'completed').length})</option>
-                      <option value="cancelled">❌ Cancelled ({items.filter(i => i.status?.toLowerCase() === 'cancelled').length})</option>
                     </select>
                   </div>
                 )}

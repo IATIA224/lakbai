@@ -1579,3 +1579,564 @@
   }
 }
 
+/* ============================================
+   CUSTOM CONFIRMATION DIALOG
+============================================ */
+.itn-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(6px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.itn-confirm-dialog {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 25px 80px rgba(108, 99, 255, 0.3);
+  padding: 0;
+  overflow: hidden;
+  max-width: 420px;
+  width: 90vw;
+  animation: scaleIn 0.3s ease-out;
+  border: 1px solid rgba(108, 99, 255, 0.1);
+}
+
+.itn-confirm-header {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  padding: 24px 24px 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.itn-confirm-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.itn-confirm-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.itn-confirm-content {
+  padding: 24px;
+  font-size: 15px;
+  color: #475569;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  
+  
+}
+
+.itn-confirm-content strong {
+  color: #1e293b;
+  font-weight: 700;
+  display: block;
+  margin-top: 12px;
+}
+
+.itn-confirm-content strong:first-child {
+  margin-top: 0;
+}
+
+.itn-confirm-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.itn-confirm-item-emoji {
+  font-size: 20px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.itn-confirm-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itn-confirm-item-label {
+  color: #64748b;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.itn-confirm-item-value {
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.itn-confirm-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
+}
+
+.itn-confirm-btn {
+  padding: 11px 24px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 100px;
+}
+
+.itn-confirm-btn:hover {
+  transform: translateY(-2px);
+}
+
+.itn-confirm-btn:active {
+  transform: translateY(0);
+}
+
+.itn-confirm-btn.cancel {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.itn-confirm-btn.cancel:hover {
+  background: #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.itn-confirm-btn.confirm {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.itn-confirm-btn.confirm:hover {
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .itn-confirm-dialog {
+    width: 95vw;
+    max-width: 95vw;
+  }
+
+  .itn-confirm-header {
+    padding: 16px 16px 14px 16px;
+  }
+
+  .itn-confirm-title {
+    font-size: 16px;
+  }
+
+  .itn-confirm-icon {
+    font-size: 24px;
+  }
+
+  .itn-confirm-content {
+    padding: 14px 16px;
+    font-size: 13px;
+  }
+
+  .itn-confirm-footer {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .itn-confirm-btn {
+    flex: 1;
+    min-width: unset;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}
+
+/* ============================================
+   CUSTOM CONFIRMATION DIALOG (COMPACT)
+============================================ */
+.itn-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(6px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.itn-confirm-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 25px 80px rgba(108, 99, 255, 0.3);
+  padding: 0;
+  overflow: hidden;
+  max-width: 360px;
+  width: 90vw;
+  animation: scaleIn 0.3s ease-out;
+  border: 1px solid rgba(108, 99, 255, 0.1);
+}
+
+.itn-confirm-header {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  padding: 18px 20px 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.itn-confirm-icon {
+  font-size: 28px;
+  line-height: 1;
+  min-width: 28px;
+}
+
+.itn-confirm-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.itn-confirm-content {
+  padding: 18px 20px;
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.itn-confirm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.itn-confirm-item-emoji {
+  font-size: 18px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.itn-confirm-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.itn-confirm-item-label {
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.itn-confirm-item-value {
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* Arrow divider */
+.itn-confirm-content > div:nth-child(2) {
+  text-align: center;
+  color: #cbd5e1;
+  margin: 6px 0 !important;
+  font-size: 13px;
+}
+
+.itn-confirm-footer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
+}
+
+.itn-confirm-btn {
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 90px;
+}
+
+.itn-confirm-btn:hover {
+  transform: translateY(-1px);
+}
+
+.itn-confirm-btn:active {
+  transform: translateY(0);
+}
+
+.itn-confirm-btn.cancel {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.itn-confirm-btn.cancel:hover {
+  background: #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.itn-confirm-btn.confirm {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.itn-confirm-btn.confirm:hover {
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.4);
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .itn-confirm-dialog {
+    width: 95vw;
+    max-width: 95vw;
+  }
+
+  .itn-confirm-header {
+    padding: 12px 14px 10px 14px;
+  }
+
+  .itn-confirm-title {
+    font-size: 15px;
+  }
+
+  .itn-confirm-icon {
+    font-size: 22px;
+  }
+
+  .itn-confirm-content {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+
+  .itn-confirm-footer {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+
+  .itn-confirm-btn {
+    flex: 1;
+    min-width: unset;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+}
+
+/* ============================================
+   CUSTOM CONFIRMATION DIALOG (HALF HEIGHT)
+============================================ */
+.itn-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(6px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.itn-confirm-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 25px 80px rgba(108, 99, 255, 0.3);
+  padding: 0;
+  overflow: hidden;
+  max-width: 340px;
+  width: 90vw;
+  animation: scaleIn 0.3s ease-out;
+  border: 1px solid rgba(108, 99, 255, 0.1);
+}
+
+.itn-confirm-header {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  padding: 14px 18px 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itn-confirm-icon {
+  font-size: 24px;
+  line-height: 1;
+  min-width: 24px;
+  flex-shrink: 0;
+}
+
+.itn-confirm-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.itn-confirm-content {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.itn-confirm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.itn-confirm-item-emoji {
+  font-size: 16px;
+  min-width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.itn-confirm-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+}
+
+.itn-confirm-item-label {
+  color: #94a3b8;
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+.itn-confirm-item-value {
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+/* Arrow divider */
+.itn-confirm-content > div:nth-child(2) {
+  text-align: center;
+  color: #cbd5e1;
+  margin: 3px 0 !important;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.itn-confirm-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
+}
+
+.itn-confirm-btn {
+  padding: 7px 16px;
+  border-radius: 9px;
+  border: none;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 80px;
+}
+
+.itn-confirm-btn:hover {
+  transform: translateY(-1px);
+}
+
+.itn-confirm-btn:active {
+  transform: translateY(0);
+}
+
+.itn-confirm-btn.cancel {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.itn-confirm-btn.cancel:hover {
+  background: #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.itn-confirm-btn.confirm {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.itn-confirm-btn.confirm:hover {
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .itn-confirm-dialog {
+    width: 95vw;
+    max-width: 95vw;
+  }
+
+  .itn-confirm-header {
+    padding: 12px 14px 10px 14px;
+  }
+
+  .itn-confirm-title {
+    font-size: 15px;
+  }
+
+  .itn-confirm-icon {
+    font-size: 22px;
+  }
+
+  .itn-confirm-content {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+
+  .itn-confirm-footer {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+
+  .itn-confirm-btn {
+    flex: 1;
+    min-width: unset;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+}
+

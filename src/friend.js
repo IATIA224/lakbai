@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import "./friend.css";
 import { db, auth } from "./firebase";
 import {
@@ -265,9 +266,10 @@ const FriendPopup = ({ onClose }) => {
     }
   };
 
-  return (
-    <div className="friend-modal-backdrop" onClick={onClose}>
-      <div className="friend-modal" onClick={(e) => e.stopPropagation()}>
+  // In friend.js, update the return statement to use createPortal
+  return ReactDOM.createPortal(
+    <div className="community-modal-backdrop" onClick={onClose}>
+      <div className="community-modal" onClick={(e) => e.stopPropagation()}>
         <div className="friend-modal-header">
           <div className="friend-modal-title">
             <span role="img" aria-label="friends">👥</span> Your Friends
@@ -437,7 +439,8 @@ const FriendPopup = ({ onClose }) => {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
