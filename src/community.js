@@ -439,7 +439,7 @@ function ReportPostModal({ post, onClose }) {
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
         <div className="community-modal" onClick={e => e.stopPropagation()}>
@@ -482,7 +482,8 @@ function ReportPostModal({ post, onClose }) {
         </div>
       </div>
       {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -586,7 +587,7 @@ function ReportCommentModal({ comment, post, onClose }) {
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
         <div className="community-modal" onClick={e => e.stopPropagation()}>
@@ -629,7 +630,8 @@ function ReportCommentModal({ comment, post, onClose }) {
         </div>
       </div>
       {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -941,7 +943,7 @@ function CommentModal({ post, onClose, onCountChange }) {
     return () => el.removeEventListener("input", fit);
   }, [editingComment]);
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
         <div className="community-modal cmt-modal-enhanced" onClick={(e) => e.stopPropagation()}>
@@ -1098,7 +1100,8 @@ function CommentModal({ post, onClose, onCountChange }) {
           onClose={() => setReportingComment(null)}
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }
 
