@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
@@ -1042,7 +1043,7 @@ const getImageForDestination = (name) => {
       )}
 
       {/* NEW: Details modal */}
-      {modalOpen && selected && (
+      {modalOpen && selected && ReactDOM.createPortal(
         <div className="bm-modal-backdrop" onClick={closeDetails}>
           <div className="bm-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <button className="bm-modal-close" onClick={closeDetails} aria-label="Close">✕</button>
@@ -1403,30 +1404,31 @@ const getImageForDestination = (name) => {
               </aside>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* NEW: Confirm Clear All modal (matches existing modal theme) */}
-      {confirmClearOpen && (
+      {confirmClearOpen && ReactDOM.createPortal(
         <div className="bm-modal-backdrop" onClick={() => setConfirmClearOpen(false)}>
-          <div
-            className="bm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="clear-all-title"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: 560,
-              background: '#ffffff' // removed glass effect
-            }}
-          >
-            <button className="bm-modal-close" onClick={() => setConfirmClearOpen(false)} aria-label="Close">✕</button>
-            <div
-              className="bm-modal-body"
-              // make it a vertical stack: title -> text -> actions
-              style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-            >
-              <h2
+           <div
+             className="bm-modal"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="clear-all-title"
+             onClick={(e) => e.stopPropagation()}
+             style={{
+               maxWidth: 560,
+               background: '#ffffff' // removed glass effect
+             }}
+           >
+             <button className="bm-modal-close" onClick={() => setConfirmClearOpen(false)} aria-label="Close">✕</button>
+             <div
+               className="bm-modal-body"
+               // make it a vertical stack: title -> text -> actions
+               style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+             >
+               <h2
                 id="clear-all-title"
                 className="bm-modal-title"
                 style={{ fontSize: '1.25rem', margin: '0 0 4px', lineHeight: 1.2 }}
@@ -1453,7 +1455,8 @@ const getImageForDestination = (name) => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* NEW: themed error toast (click to dismiss) */}
