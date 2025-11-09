@@ -1048,36 +1048,38 @@ const Profile = () => {
             <div style={{ height: 2, background: "#e2e8f0", marginBottom: 20, borderRadius: 2 }} />
             
             {completedDestinations.length > 0 ? (
-              <div style={{ position: "relative", width: "100%", height: "500px", borderRadius: "16px", overflow: "hidden", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.15)" }}>
-                <MapContainer
-                  center={mapCenter}
-                  zoom={mapZoom}
-                  style={{ width: "100%", height: "100%" }}
-                  key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  />
-                  {completedDestinations.map((dest) => (
-                    <Marker
-                      key={dest.id}
-                      position={[dest.latitude, dest.longitude]}
-                      icon={customIcon}
-                    >
-                      <Popup>
-                        <div style={{ fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>
-                          {dest.name}
-                        </div>
-                        {dest.region && (
-                          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
-                            {dest.region}
+              <div style={{ width: "100%", height: "auto" }}>
+                <div style={{ position: "relative", width: "100%", height: "400px", borderRadius: "0 0 16px 16px", overflow: "hidden", boxShadow: "0 4px 12px rgba(102, 126, 234, 0.15)" }}>
+                  <MapContainer
+                    center={mapCenter}
+                    zoom={mapZoom}
+                    style={{ width: "100%", height: "100%" }}
+                    key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    {completedDestinations.map((dest) => (
+                      <Marker
+                        key={dest.id}
+                        position={[dest.latitude, dest.longitude]}
+                        icon={customIcon}
+                      >
+                        <Popup>
+                          <div style={{ fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>
+                            {dest.name}
                           </div>
-                        )}
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
+                          {dest.region && (
+                            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+                              {dest.region}
+                            </div>
+                          )}
+                        </Popup>
+                      </Marker>
+                    ))}
+                  </MapContainer>
+                </div>
               </div>
             ) : (
               <div style={{
