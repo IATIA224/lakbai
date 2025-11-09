@@ -251,7 +251,6 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     height: '100dvh',
     maxHeight: '100dvh',
     background: '#fff',
-    borderRadius: 0,
     boxShadow: 'none',
     overflowY: 'auto',
     padding: 0,
@@ -270,7 +269,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
         style={modalStyle}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="edit-profile-header">
+        <div className="edit-profile-header1">
           <span>Setup Travel Profile</span>
           <div className="edit-profile-sub">Customize your adventure identity</div>
         </div>

@@ -28,6 +28,21 @@
   z-index: 1000000 !important;
 }
 
+.edit-profile-modal1 {
+  background: #fff;
+  max-width: 700px;
+  margin: 32px auto;
+  box-shadow: 0 8px 32px rgba(108,99,255,0.13);
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+  /* Apply Inter font to the whole modal */
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  z-index: 1000000 !important;
+}
+
 .edit-profile-header {
   background: linear-gradient(90deg, #6c63ff 60%, #a084ee 100%);
   color: #fff;
@@ -36,6 +51,15 @@
   font-weight: 700;
   position: relative;
   border-radius: 22px 22px 0 0;
+  text-align: left;
+}
+.edit-profile-header1 {
+  background: linear-gradient(90deg, #6c63ff 60%, #a084ee 100%);
+  color: #fff;
+  padding: 32px 32px 18px 32px;
+  font-size: 2rem;
+  font-weight: 700;
+  position: relative;
   text-align: left;
 }
 

@@ -992,31 +992,31 @@ const Profile = () => {
             className={`profile-nav-btn${activeTab === "statistics" ? " active" : ""}`}
             onClick={() => setActiveTab("statistics")}
           >
-            📊 Statistics
+             Statistics
           </button>
           <button
             className={`profile-nav-btn${activeTab === "activity" ? " active" : ""}`}
             onClick={() => setActiveTab("activity")}
           >
-            🔥 Activity
+             Activity
           </button>
           <button
             className={`profile-nav-btn${activeTab === "photos" ? " active" : ""}`}
             onClick={() => setActiveTab("photos")}
           >
-            🖼️ Photos
+             Photos
           </button>
           <button
             className={`profile-nav-btn${activeTab === "achievements" ? " active" : ""}`}
             onClick={() => setActiveTab("achievements")}
           >
-            🏆 Achievements
+             Achievements
           </button>
           <button
             className={`profile-nav-btn${activeTab === "friends" ? " active" : ""}`}
             onClick={() => setActiveTab("friends")}
           >
-            👥 Friends
+             Friends
           </button>
         </div>
 
