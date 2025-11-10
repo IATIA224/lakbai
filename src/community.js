@@ -42,6 +42,9 @@ function ShareTripModal({ onClose, onCreate }) {
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("success");
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -71,13 +74,17 @@ function ShareTripModal({ onClose, onCreate }) {
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      alert("Please enter a title for your trip");
+      setAlertMessage("Please enter a title for your trip");
+      setAlertType("error");
+      setShowAlert(true);
       return;
     }
 
     const currentUser = auth.currentUser;
     if (!currentUser) {
-      alert("Please sign in to share a trip");
+      setAlertMessage("Please sign in to share a trip");
+      setAlertType("error");
+      setShowAlert(true);
       return;
     }
 
@@ -113,16 +120,24 @@ function ShareTripModal({ onClose, onCreate }) {
         user: currentUser
       });
 
-      // Unlock achievement if first post
+      // Unlock achievement if first post (with check to prevent duplicates)
       await unlockHelloWorldAchievement();
 
       onCreate(postData);
-      onClose();
-
-      alert("Trip shared successfully! 🎉");
+      
+      // Show success alert
+      setAlertMessage("Trip shared successfully! 🎉");
+      setAlertType("success");
+      setShowAlert(true);
+      
+      setTimeout(() => {
+        onClose();
+      }, 2200);
     } catch (err) {
       console.error("Failed to create post:", err);
-      alert("Failed to share trip. Please try again.");
+      setAlertMessage("Failed to share trip. Please try again.");
+      setAlertType("error");
+      setShowAlert(true);
     } finally {
       setUploading(false);
     }
@@ -318,6 +333,14 @@ function ShareTripModal({ onClose, onCreate }) {
             </button>
           </div>
         </div>
+
+        {showAlert && (
+          <AlertPopup 
+            message={alertMessage} 
+            type={alertType}
+            onClose={() => setShowAlert(false)}
+          />
+        )}
       </div>
     </div>,
     document.body
@@ -332,9 +355,12 @@ function ReportSuccessPopup({ onClose }) {
   return (
     <div className="report-success-backdrop">
       <div className="report-success-popup">
-        <span className="report-success-icon">✅</span>
-        <div className="report-success-title">Report Submitted</div>
-        <div className="report-success-desc">Thank you for helping keep the community safe.</div>
+        <div className="report-success-icon-wrapper">
+          <span className="report-success-icon">✅</span>
+        </div>
+        <div className="report-success-title">Trip Shared Successfully!</div>
+        <div className="report-success-desc">Your adventure is now live in the community.</div>
+        <div className="report-success-bar"></div>
       </div>
     </div>
   );
@@ -1142,10 +1168,10 @@ function PostActionMenu({ post, onEdit, onDelete }) {
       {showDropdown && (
         <div className="action-dropdown">
           <div className="action-item" onClick={() => { onEdit(); setShowDropdown(false); }}>
-            <span className="action-item-icon">✏️</span> Edit
+            <span className="action-item-icon"></span> Edit
           </div>
           <div className="action-item delete" onClick={() => { onDelete(); setShowDropdown(false); }}>
-            <span className="action-item-icon">🗑️</span> Delete
+            <span className="action-item-icon"></span> Delete
           </div>
         </div>
       )}
@@ -1912,62 +1938,67 @@ export default function Community() {
 
 // Achievement and activity functions
 async function unlockHelloWorldAchievement() {
-  const user = auth.currentUser;
-  if (!user) return;
-  try {
-    await updateDoc(doc(db, "users", user.uid), { ["achievements.4"]: true });
-    await addActivity(user.uid, "You posted in the community!", "💬");
-    emitAchievement("Hello, World! Achievement Unlocked! 🎉");
-  } catch (err) {
-    console.error("Failed to unlock Hello World achievement:", err);
-  }
-}
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
 
-// Helper to add activity for a user
-async function addActivity(userId, text, icon = "🔵") {
   try {
-    const activityData = {
-      userId,
-      text,
-      icon,
-      timestamp: new Date().toISOString()
-    };
-    await addDoc(collection(db, "activities"), activityData);
+    const userRef = doc(db, "users", currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    
+    // Check if already unlocked
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      if (userData.achievements?.helloWorldUnlocked) {
+        console.log("Hello World already unlocked");
+        return; // Don't unlock again
+      }
+    }
+
+    // Only unlock if not already done
+    await updateDoc(userRef, {
+      "achievements.helloWorldUnlocked": true,
+      "achievements.helloWorldDate": serverTimestamp()
+    });
+
+    console.log("Hello World achievement unlocked!");
   } catch (error) {
-    console.error("Error adding activity:", error);
+    console.error("Error unlocking achievement:", error);
   }
 }
 
-// New helper to truncate long post/comment text with "Read more"
-function ReadMore({ text, maxChars = 300 }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!text) return null;
-  if (text.length <= maxChars) return <p className="card-body-text">{text}</p>;
-  return (
-    <div className="card-body-text">
-      {expanded ? text : text.slice(0, maxChars) + "…"}
-      <button
-        type="button"
-        className="readmore-btn"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-      >
-        {expanded ? "Show less" : "Read more"}
-      </button>
-    </div>
-  );
-}
+// Add new alert popup component
+function AlertPopup({ message, type = "success", onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 2200);
+    return () => clearTimeout(timer);
+  }, [onClose]);
 
-// New mobile-specific loader: bouncing dots animation
-function BouncingDotsLoader({ text = "Loading community feed…" }) {
-  return (
-    <div className="bouncing-dots-loader" role="status" aria-live="polite" aria-busy="true">
-      <div className="dots-container">
-        <div className="dot dot-1" aria-hidden="true"></div>
-        <div className="dot dot-2" aria-hidden="true"></div>
-        <div className="dot dot-3" aria-hidden="true"></div>
+  const icons = {
+    success: "✅",
+    error: "❌",
+    warning: "⚠️",
+    info: "ℹ️"
+  };
+
+  const colors = {
+    success: { bg: "#d1fae5", border: "#86efac", gradient: "135deg, #10b981 0%, #059669 100%", icon: "#10b981" },
+    error: { bg: "#fee2e2", border: "#fca5a5", gradient: "135deg, #ef4444 0%, #dc2626 100%", icon: "#ef4444" },
+    warning: { bg: "#fef3c7", border: "#fde68a", gradient: "135deg, #f59e0b 0%, #d97706 100%", icon: "#f59e0b" },
+    info: { bg: "#dbeafe", border: "#bfdbfe", gradient: "135deg, #3b82f6 0%, #1d4ed8 100%", icon: "#3b82f6" }
+  };
+
+  const color = colors[type] || colors.success;
+
+  return ReactDOM.createPortal(
+    <div className="alert-popup-backdrop">
+      <div className="alert-popup">
+        <div className="alert-popup-icon-wrapper" style={{ background: `linear-gradient(${color.gradient})` }}>
+          <span className="alert-popup-icon">{icons[type]}</span>
+        </div>
+        <div className="alert-popup-message">{message}</div>
+        <div className="alert-popup-bar" style={{ background: `linear-gradient(90deg, ${color.icon}, ${color.bg})` }}></div>
       </div>
-      <div className="loader-text">{text}</div>
-    </div>
+    </div>,
+    document.body
   );
 }
