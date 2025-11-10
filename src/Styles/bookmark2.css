@@ -205,7 +205,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 100002 !important;
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
@@ -1851,5 +1851,5 @@ background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/200
 
 /* Make sure overlays stay above everything */
 .bm2-loading-backdrop,
-.modal-overlay,
-.toast { z-index: 1000; }
+.modal-overlay { z-index: 100002 !important; }
+.toast { z-index: 100002 !important; }
