@@ -1499,16 +1499,15 @@ const getTotalPrice = (basePrice) => {
       </div>
 
       {/* Details Modal */}
-      {modalOpen && selected && (
+      {modalOpen && selected && ReactDOM.createPortal(
         <div
           className="modal-overlay active"
           onClick={(e) => e.target.classList.contains('modal-overlay') && closeDetails()}
         >
           <div className="modal-content details-modal">
-            <button className="modal-close-floating" onClick={closeDetails} aria-label="Close">
-              ✕
-            </button>
-
+              <button className="modal-close-floating" onClick={closeDetails} aria-label="Close">
+                ✕
+              </button>
             <div className="details-hero1"
               style={{
                 // make the hero occupy normal flow with a fixed height so the body starts below it
@@ -1844,7 +1843,8 @@ const getTotalPrice = (basePrice) => {
 
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

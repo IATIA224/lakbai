@@ -943,7 +943,7 @@ function CommentModal({ post, onClose, onCountChange }) {
     return () => el.removeEventListener("input", fit);
   }, [editingComment]);
 
-  return (
+  return ReactDOM.createPortal(
     <>
       {ReactDOM.createPortal(
         <>
@@ -1105,7 +1105,8 @@ function CommentModal({ post, onClose, onCountChange }) {
         </>,
         document.body
       )}
-    </>
+    </>,
+    document.body
   );
 }
 
