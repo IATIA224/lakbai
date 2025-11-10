@@ -117,6 +117,7 @@ const Profile = () => {
   const [completedDestinations, setCompletedDestinations] = useState([]);
   const [friends, setFriends] = useState([]);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const [moderationNotices, setModerationNotices] = useState([]); // ADD STATE (near other useState declarations)
 
   // Map state - simplified (no search)
   const [mapCenter, setMapCenter] = useState([12.8797, 121.774]);
@@ -780,6 +781,62 @@ const Profile = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ADD EFFECT (after existing userRef snapshot effects)
+  useEffect(() => {
+    if (!userId) {
+      setModerationNotices([]);
+      return;
+    }
+    const ref = doc(db, 'users', userId);
+    const unsub = onSnapshot(ref, snap => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const mod = data.moderation || {};
+      const notices = [];
+
+      if (Array.isArray(mod.warnings)) {
+        for (const w of mod.warnings.slice(-3)) {
+          notices.push({
+            type: 'warning',
+            text: w.message || w.reason || 'Warning issued',  // prefer message
+            at: w.at?.toMillis?.() ? new Date(w.at.toMillis()) : new Date()
+          });
+        }
+      }
+
+      if (Array.isArray(mod.removals)) {
+        for (const r of mod.removals.slice(-3)) {
+          notices.push({
+            type: 'removal',
+            text: `Content removed (${r.reason})`,
+            at: r.at?.toMillis?.() ? new Date(r.at.toMillis()) : new Date()
+          });
+        }
+      }
+
+      if (mod.status === 'suspended') {
+        const untilMs = mod.suspensionEnds?.toMillis?.() ?? (mod.suspensionEnds ? Date.parse(mod.suspensionEnds) : 0);
+        if (untilMs && Date.now() < untilMs) {
+          notices.push({
+            type: 'suspended',
+            text: `Suspended until ${new Date(untilMs).toLocaleString()}`,
+            at: Date.now()
+          });
+        }
+      }
+      if (mod.status === 'banned') {
+        notices.push({
+          type: 'banned',
+          text: 'Account banned',
+          at: Date.now()
+        });
+      }
+
+      setModerationNotices(notices);
+    });
+    return () => unsub();
+  }, [userId]);
+
   return (
     <>
       {/* Animated background elements - MORE VISIBLE */}
@@ -960,7 +1017,7 @@ const Profile = () => {
                         e.currentTarget.style.background = "transparent";
                       }}
                     >
-                       Logout
+                        Logout
                     </button>
                   </div>
                 )}
@@ -983,6 +1040,29 @@ const Profile = () => {
               ))}
             </div>
             <div className="profile-bio">{profile?.bio || "No bio yet."}</div>
+            {moderationNotices.length > 0 && (
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {moderationNotices.map((n, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: n.type === 'warning' ? '#fef3c7' : '#fee2e2',
+                      border: `1px solid ${n.type === 'warning' ? '#fde68a' : '#fecaca'}`,
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      color: n.type === 'warning' ? '#92400e' : '#7f1d1d',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <span>{n.type === 'warning' ? '⚠️' : n.type === 'removal' ? '🗑️' : n.type === 'suspended' ? '⏸️' : n.type === 'banned' ? '⛔' : 'ℹ️'}</span>
+                    <span style={{ flex: 1 }}>{n.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -992,25 +1072,25 @@ const Profile = () => {
             className={`profile-nav-btn${activeTab === "statistics" ? " active" : ""}`}
             onClick={() => setActiveTab("statistics")}
           >
-             Statistics
+              Statistics
           </button>
           <button
             className={`profile-nav-btn${activeTab === "activity" ? " active" : ""}`}
             onClick={() => setActiveTab("activity")}
           >
-             Activity
+              Activity
           </button>
           <button
             className={`profile-nav-btn${activeTab === "photos" ? " active" : ""}`}
             onClick={() => setActiveTab("photos")}
           >
-             Photos
+              Photos
           </button>
           <button
             className={`profile-nav-btn${activeTab === "achievements" ? " active" : ""}`}
             onClick={() => setActiveTab("achievements")}
           >
-             Achievements
+              Achievements
           </button>
           <button
             className={`profile-nav-btn${activeTab === "friends" ? " active" : ""}`}
@@ -1888,6 +1968,7 @@ const Profile = () => {
                         src={transformCloudinary(photo.url, { w: 600, h: 600 })}
                         alt="Gallery"
                         style={{
+
                           position: "absolute",
                           top: 0,
                           left: 0,
