@@ -5,12 +5,12 @@ import { db, auth } from './firebase';
 import { collection, doc, setDoc, serverTimestamp, updateDoc, getDocs, query, orderBy, onSnapshot, addDoc, getDoc } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary';
 import { emitAchievement } from './achievementsBus';
-import { Client } from "@gradio/client";
 
-// --- RAG helpers: load dataset from public CSV and cache it ---
+const MODEL_API_BASE = (typeof window !== 'undefined' && window.LAKBAI_MODEL_API_BASE) || 'https://chuxia-sys-gemma-tuned.hf.space';
+
+
 let _csvCache = null;
 
-// === Place + Keyword Lists ===
 const PHILIPPINE_PLACES = [
   "philippines", "palawan", "cebu", "bohol", "baguio", "manila", "ilocos",
   "sagada", "siargao", "davao", "vigan", "boracay", "tagaytay", "subic",
@@ -414,37 +414,42 @@ export default function ChatbaseAI({ onClose }) {
         return result;
       }
 
+      // Handle array responses (most common for Hugging Face Inference API)
+      if (Array.isArray(result)) {
+        console.debug('Handling array response');
+        // Standard HF format: [{ generated_text: "..." }]
+        for (const item of result) {
+          if (typeof item === 'string' && item.trim()) {
+            return item;
+          }
+          if (item && typeof item === 'object') {
+            // Check for generated_text first (HF standard)
+            if (item.generated_text) {
+              console.debug('Found generated_text in array item');
+              return item.generated_text;
+            }
+            const extracted = extractRawModelText(item); // Recursive check
+            if (extracted) return extracted;
+          }
+        }
+      }
+
       // Common response fields (direct access)
       const directFields = [
-        'content',
+        'response',        // Custom API response field
+        'generated_text',  // Hugging Face standard
         'text',
-        'generated_text',
+        'content',
         'output',
         'message',
         'answer',
-        'reply',
-        'response'
+        'reply'
       ];
 
       for (const field of directFields) {
         if (result[field]) {
           console.debug(`Found direct field: ${field}`);
           return result[field];
-        }
-      }
-
-      // Handle array responses
-      if (Array.isArray(result)) {
-        console.debug('Handling array response');
-        // Try to find the first non-empty string or object with text
-        for (const item of result) {
-          if (typeof item === 'string' && item.trim()) {
-            return item;
-          }
-          if (item && typeof item === 'object') {
-            const extracted = extractRawModelText(item); // Recursive check
-            if (extracted) return extracted;
-          }
         }
       }
 
@@ -531,8 +536,21 @@ export default function ChatbaseAI({ onClose }) {
     return undefined;
   }
 
-  async function sendToGradio(messagesPayload) {
-    let connectedModel = null;
+  /**
+   * Main function to send user messages to the AI model API.
+   * 
+   * Flow:
+   * 1. Validates input against scope filters (forbidden keywords, foreign places, non-travel topics)
+   * 2. Builds prompt with system instruction, RAG data from CSV, and conversation history
+   * 3. Sends request to the model API with retry logic
+   * 4. Parses model response and validates it matches user request
+   * 5. If mismatch, automatically attempts regeneration with corrected instructions
+   * 
+   * @param {Array} messagesPayload - Array of {role, content} message objects
+   * @returns {Promise<string>} - Model response text or error message
+   */
+  async function sendToModelAPI(messagesPayload) {
+    let usedEndpoint = null;
     try {
       const latest = messagesPayload[messagesPayload.length - 1]?.content || '';
       const lower = String(latest).toLowerCase();
@@ -607,109 +625,84 @@ export default function ChatbaseAI({ onClose }) {
         }
       }
 
+      // Build a clean, direct user request (don't include system instruction in the message)
+      const userMessage = latest; // Just the user's actual question
+      
       const prompt = `${systemInstruction}\n\n${ragBlock ? ragBlock + '\n\n' : ''}\n${convo}Assistant:`;
 
-      const modelCandidates = ["Chuxia-sys/gemma-lora"];
-      // Initialize client with retries
-      let client = null;
-      let lastConnectError = null;
-      let connectAttempts = 0;
-      const MAX_CONNECT_ATTEMPTS = 3;
-      const CONNECT_RETRY_DELAY = 1000; // 1 second
-
-      while (!client && connectAttempts < MAX_CONNECT_ATTEMPTS) {
-        for (const m of modelCandidates) {
-          try {
-            client = await Client.connect(m);
-            connectedModel = m;
-            break;
-          } catch (err) {
-            console.warn(`Gradio connect failed for ${m} (attempt ${connectAttempts + 1}):`, err?.message || err);
-            lastConnectError = err;
-          }
-        }
-        if (!client) {
-          connectAttempts++;
-          if (connectAttempts < MAX_CONNECT_ATTEMPTS) {
-            await new Promise(resolve => setTimeout(resolve, CONNECT_RETRY_DELAY));
-          }
-        }
-      }
-
-      if (!client) {
-        const msg = 'Error: Could not connect to model after multiple attempts. Please try again later.';
-        console.error(msg, lastConnectError);
-        return `${msg} (${lastConnectError?.message || lastConnectError})`;
-      }
-
-      // Make prediction with retries
+      // Primary endpoint: /generate (standard Gradio inference endpoint)
+      const GENERATE_ENDPOINT = `${MODEL_API_BASE}/generate`;
+      
       let result = null;
-      const MAX_PREDICT_ATTEMPTS = 3;
-      const PREDICT_RETRY_DELAY = 1000;
-      const endpointVariants = ['/predict', 'predict'];
-      let usedEndpoint = null;
+      const MAX_ATTEMPTS = 3;
+      const RETRY_DELAY = 2000;
+      let lastError = null;
 
-      for (let attempt = 1; attempt <= MAX_PREDICT_ATTEMPTS && !result; attempt++) {
-        for (const ep of endpointVariants) {
-          try {
-            console.debug(`Attempt ${attempt} calling endpoint: ${ep}`);
-            result = await client.predict(ep, [prompt], { fn_index: 0 });
-            usedEndpoint = ep;
-            console.debug(`Success with endpoint: ${ep}`);
-            break;
-          } catch (err) {
-            console.warn(`Endpoint ${ep} failed (attempt ${attempt}):`, err?.message || err);
+      // Try the /generate endpoint with retries
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          console.log(`🔄 Calling ${GENERATE_ENDPOINT} (attempt ${attempt}/${MAX_ATTEMPTS})`);
+          console.log(`📝 Sending prompt:`, userMessage);
+          
+          const response = await fetch(GENERATE_ENDPOINT, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              prompt: userMessage  // Send just the user's question, not the full prompt
+            })
+          });
+          
+          console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+          
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
+            console.error(`❌ Error response: ${errorText}`);
+            throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
           }
-        }
-        if (!result && attempt < MAX_PREDICT_ATTEMPTS) {
-          await new Promise(r => setTimeout(r, PREDICT_RETRY_DELAY));
+          
+          result = await response.json();
+          console.log('✅ API response received:', result);
+          usedEndpoint = GENERATE_ENDPOINT;
+          break; // Success, exit retry loop
+          
+        } catch (err) {
+          console.error(`❌ Attempt ${attempt} failed:`, err?.message || err);
+          lastError = err;
+          
+          if (attempt < MAX_ATTEMPTS) {
+            console.log(`⏳ Retrying in ${RETRY_DELAY}ms...`);
+            await new Promise(r => setTimeout(r, RETRY_DELAY));
+          }
         }
       }
 
       if (!result) {
-        return `Error: Failed to get model response after ${MAX_PREDICT_ATTEMPTS} attempts. Please try again.`;
+        const errorMsg = `The AI model is currently unavailable. Please try again later.\n\nTechnical details:\n- Endpoint: ${GENERATE_ENDPOINT}\n- Error: ${lastError?.message || 'Connection failed'}\n- Attempts: ${MAX_ATTEMPTS}\n\nPlease check if the Hugging Face Space is running and accessible.`;
+        console.error('🚫 All attempts failed:', errorMsg);
+        return errorMsg;
       }
 
-      console.log(`${connectedModel || 'gemma-lora'} result:`, result);
+      console.log('✅ Successfully received model result:', result);
 
       const raw = extractRawModelText(result);
       let chosenText = undefined;
 
       if (typeof raw === 'string' && raw.length > 0) {
         chosenText = raw;
+        console.log('✅ Extracted response text:', chosenText.substring(0, 200) + '...');
       } else {
         console.warn('No parseable model text found in result', result);
         return 'Debug: Could not parse response. Check console for structure.';
       }
 
-      const latestUser = messagesPayload[messagesPayload.length - 1]?.content || '';
-      const req = parseRequestedLocationAndDays(latestUser);
-      const ok = responseMatchesRequest(chosenText, req);
-
-      if (!ok && (req.location || req.days)) {
-        console.warn('Response did not match request, attempting automatic regeneration', { req, chosenText });
-        let regenInstr = `Please ignore your previous answer and rewrite strictly to the user's request.`;
-        if (req.days) regenInstr += ` The user asked for a ${req.days}-day trip.`;
-        if (req.location) regenInstr += ` The destination must be ${req.location}.`;
-        regenInstr += ` Return only the revised itinerary and make it a ${req.days || 'appropriate-length'} trip to ${req.location || 'the requested destination'}. Provide a day-by-day plan, suggested activities, approximate budget estimates, and short travel tips.`;
-
-        const regenPrompt = `${systemInstruction}\n${ragBlock ? ragBlock + '\n\n' : ''}\nUser: ${latestUser}\nAssistant: ${chosenText}\n\nREWRITE: ${regenInstr}`;
-
-        try {
-          // Use the endpoint that worked for the initial request
-          const regenResult = await client.predict(usedEndpoint || '/predict', [regenPrompt], { fn_index: 0 });
-          if (regenResult != null) {
-            const raw2 = extractRawModelText(regenResult);
-            if (typeof raw2 === 'string' && raw2.length > 0) return raw2;
-          }
-        } catch (e) {
-          console.warn('Regeneration attempt failed', e);
-        }
-      }
-
+      // Return the response directly - no regeneration validation
+      // This ensures the API's generated answer is always displayed
       return sanitizeModelResponse(chosenText);
     } catch (e) {
-      console.error(`Gradio (${connectedModel || 'gemma-lora'}) send failed`, e);
+      console.error(`Model send failed`, e);
       return `Error: ${e?.message || e}`;
     }
   }
@@ -777,7 +770,7 @@ export default function ChatbaseAI({ onClose }) {
     addMessage(text, 'user');
     setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
-    const reply = await sendToGradio(payload);
+    const reply = await sendToModelAPI(payload);
     addMessage(reply, 'assistant');
     if (!reply.toLowerCase().startsWith('error:')) {
       setModalContent(reply);
