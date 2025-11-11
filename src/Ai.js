@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import './Ai.css';
+import './Styles/ai-modal.css';
 import { db, auth } from './firebase';
 import { collection, doc, setDoc, serverTimestamp, updateDoc, getDocs, query, orderBy, onSnapshot, addDoc, getDoc } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary';
-import { Client } from "@gradio/client";
+import { emitAchievement } from './achievementsBus';
 
-// --- RAG helpers: load dataset from public CSV and cache it ---
+const MODEL_API_BASE = (typeof window !== 'undefined' && window.LAKBAI_MODEL_API_BASE) || 'https://chuxia-sys-gemma-tuned.hf.space';
+
+
 let _csvCache = null;
 
-// === Place + Keyword Lists ===
 const PHILIPPINE_PLACES = [
   "philippines", "palawan", "cebu", "bohol", "baguio", "manila", "ilocos",
   "sagada", "siargao", "davao", "vigan", "boracay", "tagaytay", "subic",
@@ -44,12 +46,11 @@ const FOREIGN_PLACES = [
 ];
 
 const NON_TRAVEL_TOPICS = [
-  "math", "science", "history of", "coding", "python", "ai", "chatgpt", "recipe",
-  "movie", "music", "lyrics", "song", "story", "joke", "essay",
-  "love", "relationship", "study", "school", "exam", "finance", "stock", "crypto",
-  "news", "sports", "basketball", "nba", "football", "tiktok", "facebook", "instagram",
-  "youtube", "technology", "programming", "hacking", "politics", "business", "apple", "tv",
-  "netflix", "stream", "force"
+  "math equations", "science experiments", "computer coding", "python programming", "chatgpt",  
+  "recipe cooking", "song lyrics", "movie review", "jokes", "essay writing",
+  "love advice", "relationship advice", "school homework", "exam help", "stock market",
+  "sports scores", "nba games", "football matches", "social media", "computer hacking",
+  "politics news", "business finance", "streaming movies", "gaming"
 ];
 
 // Reusable matcher for lists
@@ -226,17 +227,24 @@ async function fetchUserProfile(uid) {
   return null;
 }
 
-function ChatModal({ open, onClose, content, onAddToItinerary }) {
+function ChatModal({ open, onClose, content, onAddToItinerary, confirmation }) {
   if (!open) return null;
   return (
-    <div className="ai-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="ai-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="ai-modal-close" aria-label="Close">×</button>
-        <div className="ai-modal-header">
-          <span className="ai-modal-icon">✨</span>
-          <h3>LakbAI Response</h3>
+     <div className="ai-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
+       <div className="ai-modal-content" onClick={(e) => e.stopPropagation()}>
+        {confirmation ? (
+          <div className="ai-modal-confirmation">
+            ✅ {confirmation}
+          </div>
+        ) : null}
+         <button onClick={onClose} className="ai-modal-close" aria-label="Close">×</button>
+         <div className="ai-modal-header">
+           <span className="ai-modal-icon">✨</span>
+           <h3>LakbAI Response</h3>
+         </div>
+        <div className="ai-modal-body">
+          {content}
         </div>
-        <div className="ai-modal-body">{content}</div>
         <div className="ai-modal-footer">
           <button className="ai-btn ai-btn-outline" onClick={onAddToItinerary}>
             📋 Add to Itinerary
@@ -254,6 +262,7 @@ export default function ChatbaseAI({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState('');
+  const [modalConfirmation, setModalConfirmation] = useState('');
   const chatRef = useRef(null);
   const shouldScrollRef = useRef(true);
 
@@ -328,11 +337,12 @@ export default function ChatbaseAI({ onClose }) {
         updatedAt: serverTimestamp()
       });
       
-      setCurrentChatId(newChatRef.id);
+  setCurrentChatId(newChatRef.id);
   setMessages([]);
   // Reset client-side out-of-scope limits for the new chat
   try { resetLimits(); } catch (e) { /* ignore */ }
-      setModalContent('');
+  setModalContent('');
+  setModalConfirmation('');
     } catch (e) {
       console.error('Create new chat failed:', e);
     }
@@ -390,71 +400,170 @@ export default function ChatbaseAI({ onClose }) {
 
   function extractRawModelText(result) {
     try {
-      if (!result && result !== '') return undefined;
-      if (typeof result === 'string') return result;
+      // Log the raw response for debugging
+      console.debug('Raw model response:', result);
 
-      if (result?.content) return result.content;
-      if (result?.text) return result.text;
-      if (result?.generated_text) return result.generated_text;
+      // Handle null/undefined
+      if (!result && result !== '') {
+        console.warn('Received null/undefined response');
+        return undefined;
+      }
 
-      if (Array.isArray(result.data) && result.data.length > 0) {
-        const first = result.data[0];
-        if (typeof first === 'string') return first;
-        if (Array.isArray(first)) {
-          for (let i = first.length - 1; i >= 0; i--) {
-            const it = first[i];
-            if (!it) continue;
-            if (typeof it === 'string') return it;
-            if (typeof it === 'object') {
-              if (it.content) return it.content;
-              if (it.text) return it.text;
-              if (it.generated_text) return it.generated_text;
+      // Direct string response
+      if (typeof result === 'string') {
+        return result;
+      }
+
+      // Handle array responses (most common for Hugging Face Inference API)
+      if (Array.isArray(result)) {
+        console.debug('Handling array response');
+        // Standard HF format: [{ generated_text: "..." }]
+        for (const item of result) {
+          if (typeof item === 'string' && item.trim()) {
+            return item;
+          }
+          if (item && typeof item === 'object') {
+            // Check for generated_text first (HF standard)
+            if (item.generated_text) {
+              console.debug('Found generated_text in array item');
+              return item.generated_text;
             }
+            const extracted = extractRawModelText(item); // Recursive check
+            if (extracted) return extracted;
           }
         }
-        if (typeof first === 'object') {
-          if (first.data) return first.data;
-          if (first.content) return first.content;
-          if (first.text) return first.text;
+      }
+
+      // Common response fields (direct access)
+      const directFields = [
+        'response',        // Custom API response field
+        'generated_text',  // Hugging Face standard
+        'text',
+        'content',
+        'output',
+        'message',
+        'answer',
+        'reply'
+      ];
+
+      for (const field of directFields) {
+        if (result[field]) {
+          console.debug(`Found direct field: ${field}`);
+          return result[field];
         }
       }
 
-      if (Array.isArray(result.outputs) && result.outputs.length) {
-        const o = result.outputs[0];
-        if (typeof o === 'string') return o;
-        if (o && typeof o === 'object') {
-          if (o.data) return o.data;
-          if (o.text) return o.text;
+      // Common nested structures
+      const nestedPaths = [
+        ['data', 0],
+        ['outputs', 0],
+        ['predictions', 0],
+        ['results', 0],
+        ['choices', 0, 'text'],
+        ['choices', 0, 'message', 'content'],
+        ['data', 0, 'content'],
+        ['data', 0, 'text']
+      ];
+
+      for (const path of nestedPaths) {
+        let current = result;
+        for (const key of path) {
+          if (!current) break;
+          current = current[key];
         }
-      }
-      if (Array.isArray(result.predictions) && result.predictions.length) {
-        const p = result.predictions[0];
-        if (typeof p === 'string') return p;
-        if (p && typeof p === 'object') {
-          if (p.generated_text) return p.generated_text;
-          if (p.text) return p.text;
+        if (current) {
+          if (typeof current === 'string') {
+            console.debug(`Found nested string at path: ${path.join('.')}`);
+            return current;
+          }
+          if (typeof current === 'object') {
+            const extracted = extractRawModelText(current); // Recursive check
+            if (extracted) return extracted;
+          }
         }
       }
 
-      const scalarFields = ['output','message','answer','reply'];
-      for (const f of scalarFields) if (result[f]) return result[f];
+      // Handle streaming response format
+      if (result.data && Array.isArray(result.data)) {
+        console.debug('Handling streaming response format');
+        // Join multiple chunks if they're strings
+        const chunks = result.data
+          .map(chunk => {
+            if (typeof chunk === 'string') return chunk;
+            if (chunk && typeof chunk === 'object') {
+              return extractRawModelText(chunk);
+            }
+            return null;
+          })
+          .filter(Boolean);
+        
+        if (chunks.length > 0) {
+          return chunks.join('');
+        }
+      }
+
+      // Final fallback: try to extract any string content
+      console.warn('No standard fields found, attempting deep string extraction');
+      const extractedStrings = [];
+      
+      function extractStrings(obj, depth = 0) {
+        if (depth > 5) return; // Prevent infinite recursion
+        if (!obj) return;
+        
+        if (typeof obj === 'string' && obj.trim()) {
+          extractedStrings.push(obj.trim());
+        } else if (typeof obj === 'object') {
+          for (const key in obj) {
+            extractStrings(obj[key], depth + 1);
+          }
+        } else if (Array.isArray(obj)) {
+          obj.forEach(item => extractStrings(item, depth + 1));
+        }
+      }
+      
+      extractStrings(result);
+      
+      if (extractedStrings.length > 0) {
+        console.debug('Found strings through deep extraction:', extractedStrings);
+        return extractedStrings[0]; // Return the first non-empty string found
+      }
+
     } catch (err) {
-      console.warn('extractRawModelText failed', err);
+      console.error('Error extracting model text:', err);
     }
+
+    console.warn('Could not extract text from model response');
     return undefined;
   }
 
-  async function sendToGradio(messagesPayload) {
-    let connectedModel = null;
+  /**
+   * Main function to send user messages to the AI model API.
+   * 
+   * Flow:
+   * 1. Validates input against scope filters (forbidden keywords, foreign places, non-travel topics)
+   * 2. Builds prompt with system instruction, RAG data from CSV, and conversation history
+   * 3. Sends request to the model API with retry logic
+   * 4. Parses model response and validates it matches user request
+   * 5. If mismatch, automatically attempts regeneration with corrected instructions
+   * 
+   * @param {Array} messagesPayload - Array of {role, content} message objects
+   * @returns {Promise<string>} - Model response text or error message
+   */
+  async function sendToModelAPI(messagesPayload) {
+    let usedEndpoint = null;
     try {
       const latest = messagesPayload[messagesPayload.length - 1]?.content || '';
       const lower = String(latest).toLowerCase();
+      console.debug('Processing input:', latest);
 
       const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const matchesAny = (text, list) => {
         for (const item of list) {
           const pat = new RegExp('\\b' + escapeRegex(item) + '\\b', 'i');
-          if (pat.test(text)) return true;
+          if (pat.test(text)) {
+            console.debug(`Matched term "${item}" in list:`, list.slice(0, 3).join(', ') + '...');
+            return true;
+          }
         }
         return false;
       };
@@ -469,12 +578,31 @@ export default function ChatbaseAI({ onClose }) {
       const mentionsForeign = matchesAny(lower, FOREIGN_PLACES);
       const mentionsTravelCategory = matchesAny(lower, TRAVEL_CATEGORIES);
 
-      if (matchesAny(lower, NON_TRAVEL_TOPICS) && !travelIntent && !mentionsPhil && !mentionsTravelCategory) {
+      console.debug('Input analysis:', {
+        hasTravel: travelIntent,
+        mentionsPhilippines: mentionsPhil,
+        mentionsForeign: mentionsForeign,
+        hasTravelCategory: mentionsTravelCategory
+      });
+
+      // If it's clearly about non-travel topics and has no travel indicators
+      if (matchesAny(lower, NON_TRAVEL_TOPICS) && 
+          !travelIntent && 
+          !mentionsPhil && 
+          !mentionsTravelCategory &&
+          !lower.includes('travel') &&
+          !lower.includes('trip') &&
+          !lower.includes('tour') &&
+          !lower.includes('visit')) {
+        console.debug('Rejected: Non-travel topic without travel context');
         const res = checkAndIncrementLimit('nontravel');
         return res.message;
       }
 
-      if (travelIntent && mentionsForeign && !mentionsPhil) {
+      // If it's specifically about foreign travel without Philippine context
+      if (mentionsForeign && !mentionsPhil && 
+          (travelIntent || lower.includes('travel') || lower.includes('trip'))) {
+        console.debug('Rejected: Foreign travel without Philippine context');
         const res = checkAndIncrementLimit('foreign');
         return res.message;
       }
@@ -497,92 +625,84 @@ export default function ChatbaseAI({ onClose }) {
         }
       }
 
+      // Build a clean, direct user request (don't include system instruction in the message)
+      const userMessage = latest; // Just the user's actual question
+      
       const prompt = `${systemInstruction}\n\n${ragBlock ? ragBlock + '\n\n' : ''}\n${convo}Assistant:`;
 
-      const modelCandidates = ["Chuxia-sys/gemma-lora"];
-      let client = null;
-      let lastConnectError = null;
-
-      for (const m of modelCandidates) {
-        try {
-          client = await Client.connect(m);
-          connectedModel = m;
-          break;
-        } catch (err) {
-          console.warn('Gradio connect failed for', m, err?.message || err);
-          lastConnectError = err;
-        }
-      }
-
-      if (!client) {
-        const msg = 'Error: Could not load model space metadata. Check model name, network/CORS, or that the model is public.';
-        console.error(msg, lastConnectError);
-        return `${msg} (${lastConnectError?.message || lastConnectError})`;
-      }
-
-      // FIX: Use the correct parameter format for the Gradio predict endpoint
+      // Primary endpoint: /generate (standard Gradio inference endpoint)
+      const GENERATE_ENDPOINT = `${MODEL_API_BASE}/generate`;
+      
       let result = null;
-      try {
-        // Try the standard predict call with prompt as a positional argument
-        result = await client.predict("/predict", [prompt]);
-      } catch (err) {
-        console.warn('First predict attempt failed:', err?.message || err);
-        
-        // Try alternative formats
-        const attempts = [
-          async () => await client.predict("/predict", { prompt: prompt }),
-          async () => await client.predict("/predict", { data: [prompt] }),
-        ];
+      const MAX_ATTEMPTS = 3;
+      const RETRY_DELAY = 2000;
+      let lastError = null;
 
-        for (const fn of attempts) {
-          try {
-            result = await fn();
-            if (result != null) break;
-          } catch (e) {
-            console.warn('Alternative predict attempt failed:', e?.message || e);
+      // Try the /generate endpoint with retries
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          console.log(`🔄 Calling ${GENERATE_ENDPOINT} (attempt ${attempt}/${MAX_ATTEMPTS})`);
+          console.log(`📝 Sending prompt:`, userMessage);
+          
+          const response = await fetch(GENERATE_ENDPOINT, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              prompt: userMessage  // Send just the user's question, not the full prompt
+            })
+          });
+          
+          console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+          
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
+            console.error(`❌ Error response: ${errorText}`);
+            throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+          }
+          
+          result = await response.json();
+          console.log('✅ API response received:', result);
+          usedEndpoint = GENERATE_ENDPOINT;
+          break; // Success, exit retry loop
+          
+        } catch (err) {
+          console.error(`❌ Attempt ${attempt} failed:`, err?.message || err);
+          lastError = err;
+          
+          if (attempt < MAX_ATTEMPTS) {
+            console.log(`⏳ Retrying in ${RETRY_DELAY}ms...`);
+            await new Promise(r => setTimeout(r, RETRY_DELAY));
           }
         }
       }
 
-      console.log(`${connectedModel || 'gemma-lora'} result:`, result);
+      if (!result) {
+        const errorMsg = `The AI model is currently unavailable. Please try again later.\n\nTechnical details:\n- Endpoint: ${GENERATE_ENDPOINT}\n- Error: ${lastError?.message || 'Connection failed'}\n- Attempts: ${MAX_ATTEMPTS}\n\nPlease check if the Hugging Face Space is running and accessible.`;
+        console.error('🚫 All attempts failed:', errorMsg);
+        return errorMsg;
+      }
+
+      console.log('✅ Successfully received model result:', result);
 
       const raw = extractRawModelText(result);
       let chosenText = undefined;
 
       if (typeof raw === 'string' && raw.length > 0) {
         chosenText = raw;
+        console.log('✅ Extracted response text:', chosenText.substring(0, 200) + '...');
       } else {
         console.warn('No parseable model text found in result', result);
         return 'Debug: Could not parse response. Check console for structure.';
       }
 
-      const latestUser = messagesPayload[messagesPayload.length - 1]?.content || '';
-      const req = parseRequestedLocationAndDays(latestUser);
-      const ok = responseMatchesRequest(chosenText, req);
-
-      if (!ok && (req.location || req.days)) {
-        console.warn('Response did not match request, attempting automatic regeneration', { req, chosenText });
-        let regenInstr = `Please ignore your previous answer and rewrite strictly to the user's request.`;
-        if (req.days) regenInstr += ` The user asked for a ${req.days}-day trip.`;
-        if (req.location) regenInstr += ` The destination must be ${req.location}.`;
-        regenInstr += ` Return only the revised itinerary and make it a ${req.days || 'appropriate-length'} trip to ${req.location || 'the requested destination'}. Provide a day-by-day plan, suggested activities, approximate budget estimates, and short travel tips.`;
-
-        const regenPrompt = `${systemInstruction}\n${ragBlock ? ragBlock + '\n\n' : ''}\nUser: ${latestUser}\nAssistant: ${chosenText}\n\nREWRITE: ${regenInstr}`;
-
-        try {
-          const regenResult = await client.predict("/predict", [regenPrompt]);
-          if (regenResult != null) {
-            const raw2 = extractRawModelText(regenResult);
-            if (typeof raw2 === 'string' && raw2.length > 0) return raw2;
-          }
-        } catch (e) {
-          console.warn('Regeneration attempt failed', e);
-        }
-      }
-
+      // Return the response directly - no regeneration validation
+      // This ensures the API's generated answer is always displayed
       return sanitizeModelResponse(chosenText);
     } catch (e) {
-      console.error(`Gradio (${connectedModel || 'gemma-lora'}) send failed`, e);
+      console.error(`Model send failed`, e);
       return `Error: ${e?.message || e}`;
     }
   }
@@ -613,7 +733,17 @@ export default function ChatbaseAI({ onClose }) {
     const travelIntent = /\b(plan|create|generate|make|itinerary|trip|vacation|days|nights|budget|travel|visit)\b/i.test(text);
     const mentionsPhil = matchesAnyGlobal(text, PHILIPPINE_PLACES);
     const mentionsTravelCategory = matchesAnyGlobal(text, TRAVEL_CATEGORIES);
-    if (matchesAnyGlobal(text, NON_TRAVEL_TOPICS) && !travelIntent && !mentionsPhil && !mentionsTravelCategory) {
+    const lower = text.toLowerCase();
+    // Only block clear non-travel topics without any travel context
+    if (matchesAnyGlobal(text, NON_TRAVEL_TOPICS) && 
+        !travelIntent && 
+        !mentionsPhil && 
+        !mentionsTravelCategory &&
+        !lower.includes('travel') &&
+        !lower.includes('trip') &&
+        !lower.includes('tour') &&
+        !lower.includes('visit')) {
+      console.debug('Blocked: Non-travel topic without travel context');
       const res = checkAndIncrementLimit('nontravel');
       addMessage(text, 'user');
       addMessage(res.message, 'assistant');
@@ -621,9 +751,11 @@ export default function ChatbaseAI({ onClose }) {
       return;
     }
 
-    // Travel intent but mentions only foreign places
+    // Only block if specifically about foreign travel
     const mentionsForeign = matchesAnyGlobal(text, FOREIGN_PLACES);
-    if (travelIntent && mentionsForeign && !mentionsPhil) {
+    if (mentionsForeign && !mentionsPhil && 
+        (travelIntent || lower.includes('travel') || lower.includes('trip'))) {
+      console.debug('Blocked: Foreign travel without Philippine context');
       const res = checkAndIncrementLimit('foreign');
       addMessage(text, 'user');
       addMessage(res.message, 'assistant');
@@ -632,11 +764,13 @@ export default function ChatbaseAI({ onClose }) {
     }
 
     // Passed quick checks; proceed to call model
-    setInput('');
+  // A valid input should reset previous infractions so one refusal doesn't block valid follow-ups
+  try { resetLimits(); } catch (e) { /* ignore */ }
+  setInput('');
     addMessage(text, 'user');
     setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
-    const reply = await sendToGradio(payload);
+    const reply = await sendToModelAPI(payload);
     addMessage(reply, 'assistant');
     if (!reply.toLowerCase().startsWith('error:')) {
       setModalContent(reply);
@@ -651,7 +785,7 @@ export default function ChatbaseAI({ onClose }) {
       alert('Please sign in to add to your itinerary'); 
       return; 
     }
-    try {
+      try {
       const dest = {
         name: `AI Plan - ${new Date().toLocaleDateString()}`,
         region: '',
@@ -660,10 +794,14 @@ export default function ChatbaseAI({ onClose }) {
       const id = await addTripForCurrentUser(dest);
       const itemRef = doc(db, 'itinerary', user.uid, 'items', id);
       await updateDoc(itemRef, { notes: modalContent, updatedAt: serverTimestamp() });
-      alert('Added to your itinerary. You can edit details in My Trips.');
+      // Use the app's toast/notification system for consistent UI
+      try { emitAchievement('Added to your itinerary. Open My Trips to edit details.'); } catch (e) { console.log('emitAchievement failed', e); }
+      // Show confirmation in the AI modal too
+      try { setModalConfirmation('Added to your itinerary. Open My Trips to edit details.'); setTimeout(() => setModalConfirmation(''), 4000); } catch (e) {}
     } catch (e) {
       console.error('Add to itinerary failed', e);
-      alert('Failed to add to itinerary');
+      try { emitAchievement('Failed to add to itinerary. Please try again.'); } catch (err) { console.log('emitAchievement failed', err); }
+      try { setModalConfirmation('Failed to add to itinerary. Please try again.'); setTimeout(() => setModalConfirmation(''), 4000); } catch (e) {}
     }
   };
 
@@ -803,11 +941,12 @@ export default function ChatbaseAI({ onClose }) {
         open={modalOpen} 
         onClose={() => setModalOpen(false)} 
         content={modalContent} 
-        onAddToItinerary={handleAddToItinerary} 
+        onAddToItinerary={handleAddToItinerary}
+        confirmation={modalConfirmation}
       />
     </>
   );
 }
 
 export { ChatbaseAI, ChatModal };
-export { ChatModal as ChatbaseAIModal };  
+export { ChatModal as ChatbaseAIModal };
