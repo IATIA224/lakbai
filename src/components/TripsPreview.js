@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { doc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useTrips } from '../hooks/useTrips';
@@ -15,6 +16,7 @@ function getImageForDestination(name) {
 }
 
 function TripsPreview({ setShowAIModal }) {
+  const navigate = useNavigate();
   const { trips, loading: tripsLoading } = useTrips();
   const [showTripSummaryModal, setShowTripSummaryModal] = useState(false);
   const [summaryTrip, setSummaryTrip] = useState(null);
@@ -136,7 +138,7 @@ function TripsPreview({ setShowAIModal }) {
         <div className="dashboard-preview-title">Your trips</div>
         <button 
           className="dashboard-preview-btn"
-          onClick={() => setShowAIModal(true)}
+          onClick={() => navigate('/itinerary')}
         >
           + Plan new trip
         </button>
