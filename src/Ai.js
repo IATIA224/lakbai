@@ -271,6 +271,9 @@ export default function ChatbaseAI({ onClose }) {
   const [showHistory, setShowHistory] = useState(false);
   const [profile, setProfile] = useState(null);
 
+  // Add this near the top of the component, after the state declarations
+  const abortControllerRef = useRef(null);
+
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
@@ -325,6 +328,11 @@ export default function ChatbaseAI({ onClose }) {
   }, [messages, currentChatId]);
 
   const createNewChat = async () => {
+    // ADD THIS - Cancel any ongoing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
     const user = auth.currentUser;
     if (!user) return;
 
@@ -337,12 +345,12 @@ export default function ChatbaseAI({ onClose }) {
         updatedAt: serverTimestamp()
       });
       
-  setCurrentChatId(newChatRef.id);
-  setMessages([]);
-  // Reset client-side out-of-scope limits for the new chat
-  try { resetLimits(); } catch (e) { /* ignore */ }
-  setModalContent('');
-  setModalConfirmation('');
+      setCurrentChatId(newChatRef.id);
+      setMessages([]);
+      setLoading(false); // ADD THIS - Stop the loading state
+      resetLimits();
+      setModalContent('');
+      setModalConfirmation('');
     } catch (e) {
       console.error('Create new chat failed:', e);
     }
@@ -552,6 +560,10 @@ export default function ChatbaseAI({ onClose }) {
   async function sendToModelAPI(messagesPayload) {
     let usedEndpoint = null;
     try {
+      // Create new abort controller for this request
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
       const latest = messagesPayload[messagesPayload.length - 1]?.content || '';
       const lower = String(latest).toLowerCase();
       console.debug('Processing input:', latest);
@@ -650,8 +662,9 @@ export default function ChatbaseAI({ onClose }) {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },
+            signal: signal, // ADD THIS LINE
             body: JSON.stringify({
-              prompt: userMessage  // Send just the user's question, not the full prompt
+              prompt: userMessage
             })
           });
           
@@ -669,6 +682,12 @@ export default function ChatbaseAI({ onClose }) {
           break; // Success, exit retry loop
           
         } catch (err) {
+          // Check if error is from abort
+          if (err.name === 'AbortError') {
+            console.log('Request was cancelled');
+            setLoading(false);
+            return 'Request cancelled.';
+          }
           console.error(`❌ Attempt ${attempt} failed:`, err?.message || err);
           lastError = err;
           
@@ -772,10 +791,6 @@ export default function ChatbaseAI({ onClose }) {
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
     const reply = await sendToModelAPI(payload);
     addMessage(reply, 'assistant');
-    if (!reply.toLowerCase().startsWith('error:')) {
-      setModalContent(reply);
-      setModalOpen(true);
-    }
     setLoading(false);
   };
 
@@ -804,6 +819,19 @@ export default function ChatbaseAI({ onClose }) {
       try { setModalConfirmation('Failed to add to itinerary. Please try again.'); setTimeout(() => setModalConfirmation(''), 4000); } catch (e) {}
     }
   };
+
+  // Add this useEffect to handle page unload/navigation
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   useEffect(() => {
     window.dispatchEvent(new Event('lakbai:open-ai'));
@@ -841,7 +869,9 @@ export default function ChatbaseAI({ onClose }) {
 
           <div className="ai-header">
             <div className="ai-header-content">
-              <div className="ai-header-icon">🤖</div>
+              <div className="ai-header-icon">
+                <img src="/coconut-tree.png" alt="LakbAI" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+              </div>
               <div>
                 <h2 className="ai-title">LakbAI Assistant</h2>
                 <p className="ai-subtitle">Ask anything about travel planning, destinations, or get personalized tips for your next adventure in the Philippines!</p>
@@ -885,7 +915,7 @@ export default function ChatbaseAI({ onClose }) {
                       ? (profile?.profilePicture
                           ? <img src={profile.profilePicture} alt="User" style={{ width: 40, height: 40, borderRadius: '50%' }} />
                           : '👤')
-                      : '🤖'}
+                      : <img src="/coconut-tree.png" alt="LakbAI" style={{ width: 40, height: 40, objectFit: 'contain' }} />}
                   </div>
                   <div className="ai-message-content">
                     <div className="ai-message-role">
@@ -900,7 +930,9 @@ export default function ChatbaseAI({ onClose }) {
             )}
             {loading && (
               <div className="ai-message ai-message-assistant">
-                <div className="ai-message-avatar">🤖</div>
+                <div className="ai-message-avatar">
+                  <img src="/coconut-tree.png" alt="LakbAI" style={{ width: 40, height: 40, objectFit: 'contain' }} />
+                </div>
                 <div className="ai-message-content">
                   <div className="ai-message-role">LakbAI</div>
                   <div className="ai-typing">
@@ -915,7 +947,6 @@ export default function ChatbaseAI({ onClose }) {
 
           <div className="ai-input-container">
             <div className="ai-input-wrapper">
-              <button className="ai-input-icon" title="Attach file">📎</button>
               <textarea 
                 value={input} 
                 onChange={e => setInput(e.target.value)} 
@@ -930,7 +961,7 @@ export default function ChatbaseAI({ onClose }) {
                 className="ai-send-btn"
                 title="Send message"
               >
-                {loading ? '⏳' : '🚀'}
+                {loading ? '⏳' : '➤'}
               </button>
             </div>
           </div>
