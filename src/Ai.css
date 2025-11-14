@@ -41,12 +41,13 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   width: 420px;
   max-width: 96vw;
-  min-height: 540px;
+  min-height: 740px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: fadeInUp 0.3s ease-out;
   padding-bottom: 0; /* Remove any bottom padding */
+  position: relative;
 }
 
 @keyframes fadeInUp {
@@ -168,18 +169,21 @@
 
 /* Main Card */
 .ai-card {
-  background: #ffffff;
+  background: #f9fafb;
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   padding: 0;
   width: 950px;
   max-width: 96vw;
-  min-height: 500px;
-  display: flex;
+  min-height: 700px;
   flex-direction: column;
   overflow: hidden;
   animation: fadeInUp 0.4s ease-out;
   padding-bottom: -25px; /* Remove any bottom padding */
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: min(86vh, 900px);
+  box-sizing: border-box;
 }
 
 @keyframes fadeInUp {
@@ -326,6 +330,18 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: 0; /* was 910px; extend container down to the input */
+  min-height: 520px;
+}
+
+.ai-input-container {
+  position: static;          /* override previous sticky */
+  left: auto;
+  right: auto;
+  bottom: auto;
+  border-top: 2px solid #f3f4f6;
 }
 
 /* Empty State */
@@ -498,6 +514,10 @@
   padding: 12px 16px 12px 16px;
   background: #fff;
   border-top: 2px solid #f3f4f6;
+  position: static;  /* override previous sticky */
+  bottom: auto;
+  left: auto;
+  right: auto;
 }
 
 .ai-input-wrapper {
@@ -509,6 +529,7 @@
   border-radius: 16px;
   padding: 8px 12px;
   transition: all 0.2s;
+  position: relative;
 }
 
 .ai-input-wrapper:focus-within {
@@ -680,6 +701,21 @@
   justify-content: flex-end;
   gap: 12px;
 }
+@media (max-width: 821px) {
+  .ai-chat-container {
+    min-height: 500px;
+  }
+}
+@media (max-width: 516px) {
+  .ai-chat-container {
+    min-height: 480px;
+  }
+}
+@media (max-width: 385px) {
+  .ai-chat-container {
+    min-height: 460px;
+  }
+}
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -697,7 +733,7 @@
 
   .ai-card {
     width: 100%;
-    min-height: calc(100vh - 40px);
+    min-height: 90vh;
   }
 
   .ai-header {
@@ -739,7 +775,7 @@
 @media (max-width: 600px) {
   .ai-card {
     width: 98vw;
-    min-height: 80vh;
+    min-height: 90vh;
     border-radius: 12px;
   }
 }
