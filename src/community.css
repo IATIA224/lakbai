@@ -92,6 +92,7 @@
   grid-template-columns: 400px 1fr;
   gap: 24px;
   align-items: start;
+  padding-top: 44px;
 }
 
 /* Left Sidebar - Sticky like the map */
@@ -191,7 +192,7 @@
   letter-spacing: 0.05em;
   margin-bottom: 12px;
 }
-
+  
 .sidebar-menu {
   display: flex;
   flex-direction: column;
@@ -687,6 +688,7 @@
 
 .action-item-icon {
   font-size: 1rem;
+  color: #dc2626;
 }
 
 /* Add these styles at the end of your existing CSS file */
@@ -1416,8 +1418,9 @@
 }
 
 /* Mobile Responsive */
-@media (max-width: 1024px) {
+@media (max-width: 1164px) {
   .community-grid-main {
+    padding-top: 54px;
     grid-template-columns: 1fr;
   }
 
@@ -1429,6 +1432,12 @@
 
   .community-bg {
     padding: 16px;
+  }
+}
+@media (max-width: 600px) {
+  .community-grid-main {
+    gap: 16px;
+    padding: 0 !important;
   }
 }
 
@@ -1443,6 +1452,7 @@
 
   .community-grid-main {
     gap: 16px;
+    padding-top: 54px;
   }
 
   .community-left,
