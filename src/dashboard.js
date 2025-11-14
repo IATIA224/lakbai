@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom'; // ADD THIS
+import { createPortal } from 'react-dom'; // already present
 import { useNavigate } from 'react-router-dom';
 import { 
   collection, getDocs, query as fsQuery, limit, doc, getDoc, onSnapshot, deleteDoc, serverTimestamp,
@@ -21,8 +21,7 @@ import BookmarksPreview from './components/BookmarksPreview';
 import { breakdown } from './rules';
 import Carousel from 'react-multi-carousel';
 import 'react-multi-carousel/lib/styles.css';
-
-
+import ChatbaseAI from './Ai';
 
 // Helper to get image URL by destination name
 function getImageForDestination(name) {
@@ -441,7 +440,7 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
   );
 }
 
-function Dashboard({ setShowAIModal }) {
+function Dashboard({ setShowAIModal: parentSetShowAIModal }) {
   const navigate = useNavigate();
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
@@ -464,6 +463,15 @@ function Dashboard({ setShowAIModal }) {
   const [addingTripId, setAddingTripId] = useState(null);
   const [addedTripId, setAddedTripId] = useState(null);
   const topRatedDestinations = useTopRatedDestinations(10);
+  const [showAIModal, setShowAIModal] = useState(false);
+
+  const openAIModal = (v = true) => {
+    const next = typeof v === 'boolean' ? v : true;
+    setShowAIModal(next);
+    if (typeof parentSetShowAIModal === 'function') {
+      try { parentSetShowAIModal(next); } catch {}
+    }
+  };
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u));
@@ -936,7 +944,7 @@ useEffect(() => {
     return Number(match[2].replace(/,/g, ''));
     }
     
-    const onAddToTrip = async (dest) => {
+    const onAddToTrip= async (dest) => {
         const u = auth.currentUser;
         if (!u) { alert('Please sign in to add to My Trips.'); return; }
         setAddingTripId(dest.id);
@@ -1381,6 +1389,24 @@ useEffect(() => {
       )
     : null;
 
+  // Portal for AI modal so it sits above all dashboard content
+  const aiModalPortal = showAIModal
+    ? createPortal(
+        (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 2147483647, // ensure on top
+            }}
+          >
+            <ChatbaseAI onClose={() => setShowAIModal(false)} />
+          </div>
+        ),
+        document.body
+      )
+    : null;
+
   return (
     <div className="dash-page">
       {/* Animated background layers */}
@@ -1396,7 +1422,7 @@ useEffect(() => {
         <div className="dash-bg-shape s3" />
       </div>
 
-      <DashboardBanner setShowAIModal={setShowAIModal} />
+      <DashboardBanner setShowAIModal={openAIModal} />
       <DashboardStats />
 
       {/* Replace old carousel with hero carousel */}
@@ -1408,7 +1434,7 @@ useEffect(() => {
       />
 
       <div className="dashboard-preview-row">
-        <TripsPreview setShowAIModal={setShowAIModal} />
+        <TripsPreview setShowAIModal={openAIModal} />
         <BookmarksPreview onOpenDetails={handlePersonalizedDetails} />
       </div>
 
@@ -1466,6 +1492,7 @@ useEffect(() => {
       </div>
 
       {detailsModalOpen && selectedCard && detailsModalPortal}
+      {aiModalPortal}
     </div>
   );
 }
