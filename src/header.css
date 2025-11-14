@@ -110,6 +110,10 @@
   .logo-subtitle { font-size: 0.72rem; }
 }
 
+@media (max-width: 400px) {
+  .logo-subtitle { display: none; }
+}
+
 .header-nav {
   display: flex;
   gap: 14px;
