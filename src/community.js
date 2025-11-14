@@ -1136,13 +1136,14 @@ function CommentModal({ post, onClose, onCountChange }) {
   );
 }
 
-function PostActionMenu({ post, onEdit, onDelete }) {
+function PostActionMenu({ post, user, friends, onEdit, onDelete, onAddFriend, onReport, addingFriendId }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
-  const currentUser = auth.currentUser;
-  const isOwner = currentUser && post.authorId === currentUser.uid;
-  
-  // Close dropdown when clicking outside
+
+  const isOwner = !!user && post.authorId === user.uid;
+  const isFriend = friends?.has?.(post.authorId);
+  const addDisabled = !user || isOwner || isFriend || post.requestedByMe || addingFriendId === post.authorId;
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -1152,27 +1153,63 @@ function PostActionMenu({ post, onEdit, onDelete }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  
-  if (!isOwner) return null;
-  
+
+  const addLabel = isOwner
+    ? "You"
+    : isFriend
+    ? "Friends"
+    : post.requestedByMe
+    ? "Requested"
+    : addingFriendId === post.authorId
+    ? "Sending..."
+    : "+ Add Friend";
+
   return (
     <div className="action-menu" ref={dropdownRef}>
-      <button 
-        className="action-dots" 
-        onClick={() => setShowDropdown(!showDropdown)}
+      <button
+        className="action-dots"
+        onClick={() => setShowDropdown((s) => !s)}
         aria-label="Post options"
       >
         •••
       </button>
-      
+
       {showDropdown && (
         <div className="action-dropdown">
-          <div className="action-item" onClick={() => { onEdit(); setShowDropdown(false); }}>
-            <span className="action-item-icon"></span> Edit
-          </div>
-          <div className="action-item delete" onClick={() => { onDelete(); setShowDropdown(false); }}>
-            <span className="action-item-icon"></span> Delete
-          </div>
+          {isOwner ? (
+            <>
+              <div className="action-item" onClick={() => { onEdit?.(); setShowDropdown(false); }}>
+                <span className="action-item-icon"></span> Edit
+              </div>
+              <div className="action-item delete" onClick={() => { onDelete?.(); setShowDropdown(false); }}>
+                <span className="action-item-icon"></span> Delete
+              </div>
+            </>
+          ) : (
+            <>
+              {!isFriend && (
+                <div
+                  className="action-item"
+                  onClick={() => {
+                    if (!addDisabled) {
+                      onAddFriend?.(post.authorId);
+                      setShowDropdown(false);
+                    }
+                  }}
+                  style={addDisabled ? { opacity: 0.6, pointerEvents: "none" } : undefined}
+                  title={addDisabled ? addLabel : undefined}
+                >
+                  <span className="action-item-icon"></span> {addLabel}
+                </div>
+              )}
+              <div
+                className="action-item"
+                onClick={() => { onReport?.(); setShowDropdown(false); }}
+              style={{color: "#dc2626"}}>
+                <span className="action-item-icon" ></span> Report
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -1800,35 +1837,16 @@ export default function Community() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <PostActionMenu 
-                          post={post} 
-                          onEdit={() => setEditingPost(post)} 
+                        <PostActionMenu
+                          post={post}
+                          user={user}
+                          friends={friends}
+                          addingFriendId={addingFriendId}
+                          onEdit={() => setEditingPost(post)}
                           onDelete={() => handleDeletePost(post.id)}
+                          onAddFriend={handleAddFriend}
+                          onReport={() => setReporting(post)}
                         />
-                        <button
-                          className="add-friend"
-                          onClick={() => handleAddFriend(post.authorId)}
-                          disabled={
-                            !user ||
-                            user.uid === post.authorId ||
-                            friends.has(post.authorId) ||
-                            post.requestedByMe ||
-                            addingFriendId === post.authorId
-                          }
-                        >
-                          {user?.uid === post.authorId
-                            ? "You"
-                            : friends.has(post.authorId)
-                              ? "Friends"
-                              : post.requestedByMe
-                                ? "Requested"
-                                : addingFriendId === post.authorId
-                                  ? "Sending..."
-                                  : "+ Add Friend"}
-                        </button>
-                        <button className="report-btn" onClick={() => setReporting(post)}>
-                          Report
-                        </button>
                       </div>
                     </header>
 
