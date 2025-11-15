@@ -17,14 +17,14 @@ function ItinerarySummaryModal({ item, onClose }) {
     <div className="itn-modal-backdrop itn-summary-backdrop" onClick={onClose}>
       <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
         <div className="itn-modal-header">
-          <div className="itn-modal-title">📋 Trip Summary</div>
+          <div className="itn-modal-title"> Trip Summary</div>
           <button className="itn-close" onClick={onClose}>×</button>
         </div>
 
         <div className="itn-modal-body">
           <div className="itn-summary-content">
             <div className="itn-summary-section">
-              <h3 className="itn-summary-heading">📍 Destination</h3>
+              <h3 className="itn-summary-heading"> Destination</h3>
               <div className="itn-summary-item">
                 <strong>{item.name}</strong>
                 {item.region && <span className="itn-summary-region">{item.region}</span>}
@@ -32,7 +32,7 @@ function ItinerarySummaryModal({ item, onClose }) {
               {item.location && (
                 <div className="itn-summary-item" style={{ marginTop: '12px' }}>
                   <span className="itn-summary-label" style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                    📌 Location:
+                     Location:
                   </span>
                   <span style={{ marginLeft: '8px', color: '#475569' }}>
                     {item.location}
@@ -43,7 +43,7 @@ function ItinerarySummaryModal({ item, onClose }) {
 
             {(item.arrival || item.departure) && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">📅 Travel Dates</h3>
+                <h3 className="itn-summary-heading"> Travel Dates</h3>
                 <div className="itn-summary-grid">
                   {item.arrival && (
                     <div className="itn-summary-item">
@@ -69,7 +69,7 @@ function ItinerarySummaryModal({ item, onClose }) {
 
             {item.estimatedExpenditure > 0 && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">💰 Budget</h3>
+                <h3 className="itn-summary-heading"> Budget</h3>
                 <div className="itn-summary-item">
                   <span className="itn-summary-amount">
                     ${Number(item.estimatedExpenditure).toLocaleString()}
@@ -80,7 +80,7 @@ function ItinerarySummaryModal({ item, onClose }) {
 
             {item.activities && item.activities.length > 0 && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">🎯 Activities</h3>
+                <h3 className="itn-summary-heading"> Activities</h3>
                 <div className="itn-summary-tags">
                   {item.activities.map((activity, idx) => (
                     <span key={idx} className="itn-summary-tag">{activity}</span>
@@ -91,7 +91,7 @@ function ItinerarySummaryModal({ item, onClose }) {
 
             {(item.accomType || item.accomName) && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">🏨 Accommodation</h3>
+                <h3 className="itn-summary-heading"> Accommodation</h3>
                 <div className="itn-summary-item">
                   {item.accomType && <span className="itn-summary-badge">{item.accomType}</span>}
                   {item.accomName && <strong>{item.accomName}</strong>}
@@ -102,7 +102,7 @@ function ItinerarySummaryModal({ item, onClose }) {
 
             {item.transport && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">🚗 Transportation</h3>
+                <h3 className="itn-summary-heading"> Transportation</h3>
                 <div className="itn-summary-item">
                   <span className="itn-summary-badge">{item.transport}</span>
                   {item.transportNotes && <p className="itn-summary-notes">{item.transportNotes}</p>}
@@ -112,7 +112,7 @@ function ItinerarySummaryModal({ item, onClose }) {
 
             {item.notes && (
               <div className="itn-summary-section">
-                <h3 className="itn-summary-heading">📝 Notes</h3>
+                <h3 className="itn-summary-heading"> Notes</h3>
                 <div className="itn-summary-item">
                   <p className="itn-summary-notes">{item.notes}</p>
                 </div>
@@ -120,7 +120,7 @@ function ItinerarySummaryModal({ item, onClose }) {
             )}
 
             <div className="itn-summary-section">
-              <h3 className="itn-summary-heading">✅ Status</h3>
+              <h3 className="itn-summary-heading"> Status</h3>
               <div className="itn-summary-item">
                 <span className={`itn-summary-status ${item.status?.toLowerCase()}`}>
                   {item.status}

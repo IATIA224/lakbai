@@ -5,6 +5,7 @@ import { db, auth } from '../firebase';
 import { useTrips } from '../hooks/useTrips';
 import ItinerarySummaryModal from './ItinerarySummaryModal';
 import EditDestinationModal from './EditDestinationModal';
+import { createPortal } from 'react-dom';
 
 // Helper to get image URL by destination name from a local JSON
 // In a real app, this might be part of a larger utility library.
@@ -28,29 +29,16 @@ function TripsPreview({ setShowAIModal }) {
   const tripAnchorRef = useRef(null);
   const [openTripActionsId, setOpenTripActionsId] = useState(null);
   const [tripActionsPos, setTripActionsPos] = useState({ top: 0, left: 0 });
+  const [portalPos, setPortalPos] = useState({ top: 0, left: 0 });
 
   const computeAndSetTripPos = (anchorEl) => {
-    if (!anchorEl || !tripsContainerRef.current) return;
+    if (!anchorEl) return;
     const anchorRect = anchorEl.getBoundingClientRect();
-    const parent = tripsContainerRef.current;
-    const parentRect = parent.getBoundingClientRect();
-    const popup = tripActionsRef.current;
     const margin = 8;
-
-    let left = Math.max(margin, parentRect.width - 160 - margin) + parent.scrollLeft;
-    let top = anchorRect.top - parentRect.top + parent.scrollTop;
-
-    if (popup) {
-      const popupRect = popup.getBoundingClientRect();
-      const popupW = popupRect.width || 160;
-      const popupH = popupRect.height || 120;
-      left = Math.max(margin, parentRect.width - popupW - margin) + parent.scrollLeft;
-      const anchorCenter = anchorRect.top + anchorRect.height / 2;
-      top = Math.round(anchorCenter - parentRect.top - popupH / 2 + parent.scrollTop);
-      const maxTop = Math.max(margin, parentRect.height - popupH - margin) + parent.scrollTop;
-      top = Math.min(Math.max(margin + parent.scrollTop, top), maxTop);
-    }
-    setTripActionsPos({ top, left });
+    setPortalPos({
+      top: anchorRect.bottom + window.scrollY + margin,
+      left: anchorRect.left + window.scrollX
+    });
   };
 
   const toggleTripActions = (e, id) => {
@@ -178,56 +166,57 @@ function TripsPreview({ setShowAIModal }) {
                   >
                     ⋯
                   </button>
-                  {openTripActionsId === trip.id && (
-                    <div
-                      ref={tripActionsRef}
-                      className="dashboard-trip-actions dashboard-preview-actions"
-                      style={{
-                        position: 'absolute',
-                        top: tripActionsPos.top,
-                        left: tripActionsPos.left,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                        background: '#fff',
-                        borderRadius: 8,
-                        padding: 8,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                        zIndex: 2000,
-                        minWidth: 160
-                      }}
+                </div>
+                {openTripActionsId === trip.id && createPortal(
+                  <div
+                    ref={tripActionsRef}
+                    className="dashboard-trip-actions dashboard-preview-actions"
+                    style={{
+                      position: 'absolute',
+                      top: portalPos.top,
+                      left: portalPos.left,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      background: '#fff',
+                      borderRadius: 8,
+                      padding: 8,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                      zIndex: 999999,
+                      minWidth: 160
+                    }}
+                  >
+                    <button
+                      className="dashboard-preview-btn"
+                      onClick={() => openTripSummary(trip)}
+                      style={{ padding: '6px 10px', textAlign: 'left' }}
                     >
-                      <button
-                        className="dashboard-preview-btn"
-                        onClick={() => openTripSummary(trip)}
-                        style={{ padding: '6px 10px', textAlign: 'left' }}
-                      >
-                        🔎 View Summary
-                      </button>
-                      <button
-                        className="dashboard-preview-btn"
-                        onClick={() => editTrip(trip)}
-                        style={{ padding: '6px 10px', textAlign: 'left' }}
-                      >
-                        ✏️ Edit
-                      </button>
-                      <button
-                        className="dashboard-preview-btn"
-                        onClick={() => removeTrip(trip)}
-                        style={{ padding: '6px 10px', background: '#ffecec', textAlign: 'left' }}
-                      >
-                        🗑️ Remove
-                      </button>
-                    </div>
-                  )}
-                </div>
-                </div>
-              ))
-            ) : (
-              <div className="dashboard-preview-empty">No trips found. Start planning your first trip!</div>
-            )}
-          </div>
+                      View Summary
+                    </button>
+                    <button
+                      className="dashboard-preview-btn"
+                      onClick={() => editTrip(trip)}
+                      style={{ padding: '6px 10px', textAlign: 'left' }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="dashboard-preview-btn"
+                      onClick={() => removeTrip(trip)}
+                      style={{ padding: '6px 10px', background: '#ffecec', textAlign: 'left' }}
+                    >
+                      Remove
+                    </button>
+                  </div>,
+                  document.body
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="dashboard-preview-empty">No trips found. Start planning your first trip!</div>
+          )}
         </div>
+      </div>
 
       {showTripSummaryModal && summaryTrip && (
         <ItinerarySummaryModal item={summaryTrip} onClose={() => setShowTripSummaryModal(false)} />
