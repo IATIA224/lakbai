@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useBookmarks } from '../hooks/useBookmarks';
+import { addTripForCurrentUser } from '../Itinerary'; // <-- import this
+import { trackDestinationAdded } from '../itinerary_Stats'; // <-- import this
+import { createPortal } from 'react-dom';
 
 // Helper to get image URL by destination name from a local JSON
 import destImages from '../dest-images.json';
@@ -21,29 +24,16 @@ function BookmarksPreview({ onOpenDetails }) {
   const anchorRef = useRef(null);
   const [openActionsId, setOpenActionsId] = useState(null);
   const [actionsPos, setActionsPos] = useState({ top: 0, left: 0 });
+  const [portalPos, setPortalPos] = useState({ top: 0, left: 0 });
 
   const computeAndSetPos = (anchorEl) => {
-    if (!anchorEl || !bookmarksContainerRef.current) return;
+    if (!anchorEl) return;
     const anchorRect = anchorEl.getBoundingClientRect();
-    const parent = bookmarksContainerRef.current;
-    const parentRect = parent.getBoundingClientRect();
-    const popup = actionsRef.current;
-    const margin = 8;
-
-    let left = margin + parent.scrollLeft;
-    let top = anchorRect.top - parentRect.top + parent.scrollTop;
-
-    if (popup) {
-      const popupRect = popup.getBoundingClientRect();
-      const popupW = popupRect.width || 160;
-      const popupH = popupRect.height || 120;
-      left = Math.max(margin, parentRect.width - popupW - margin) + parent.scrollLeft;
-      const anchorCenter = anchorRect.top + (anchorRect.height / 2);
-      top = Math.round(anchorCenter - parentRect.top - popupH / 2 + parent.scrollTop);
-      const maxTop = Math.max(margin, parentRect.height - popupH - margin) + parent.scrollTop;
-      top = Math.min(Math.max(margin + parent.scrollTop, top), maxTop);
-    }
-    setActionsPos({ top, left });
+    const margin = 4;
+    setPortalPos({
+      top: anchorRect.bottom + window.scrollY + margin,
+      left: anchorRect.left + window.scrollX
+    });
   };
 
   const toggleBookmarkActions = (e, id) => {
@@ -70,8 +60,39 @@ function BookmarksPreview({ onOpenDetails }) {
     return () => document.removeEventListener('click', handleDocClick);
   }, []);
 
-  const addBookmarkToTrip = (bm) => {
-    navigate('/itinerary', { state: { prefill: bm } });
+  const addBookmarkToTrip = async (bm) => {
+    const u = auth.currentUser;
+    if (!u) { alert('Please sign in to add to My Trips.'); return; }
+    // Prepare the destination object (copy from Bookmark.js)
+    const destinationData = {
+      id: bm.id,
+      name: bm.name || '',
+      display_name: bm.name || '',
+      region: bm.region || bm.locationRegion || '',
+      location: bm.location || '',
+      description: bm.description || '',
+      lat: bm.lat || bm.latitude,
+      lon: bm.lon || bm.longitude,
+      place_id: bm.place_id || bm.id,
+      rating: bm.rating || 0,
+      price: bm.price || '',
+      priceTier: bm.priceTier || null,
+      tags: Array.isArray(bm.tags) ? bm.tags : [],
+      categories: Array.isArray(bm.categories) ? bm.categories : [],
+      bestTime: bm.bestTime || bm.best_time || '',
+      image: bm.image || '',
+    };
+    await addTripForCurrentUser(destinationData);
+    await trackDestinationAdded(u.uid, {
+      id: bm.id,
+      name: bm.name,
+      region: bm.region || bm.locationRegion,
+      location: bm.location,
+      latitude: bm.lat || bm.latitude,
+      longitude: bm.lon || bm.longitude,
+    });
+    // Optionally show feedback or navigate
+    navigate('/itinerary');
   };
 
   const removeBookmarkPreview = async (id) => {
@@ -95,7 +116,7 @@ function BookmarksPreview({ onOpenDetails }) {
       >
         + Add new bookmark
       </button>
-      <div className="dashboard-preview-list" ref={bookmarksContainerRef} style={{ position: 'relative' }}>
+      <div className="dashboard-preview-list" ref={bookmarksContainerRef} style={{ position: 'relative', overflow: 'visible' }}>
         {bookmarksLoading ? (
           <div className="dashboard-preview-empty">Loading bookmarks…</div>
         ) : bookmarks.length === 0 ? (
@@ -107,7 +128,7 @@ function BookmarksPreview({ onOpenDetails }) {
             <div
               className="dashboard-preview-bookmark"
               key={bm.id}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
                 <img
@@ -131,55 +152,57 @@ function BookmarksPreview({ onOpenDetails }) {
                 >
                   ⋯
                 </button>
-
-                {openActionsId === bm.id && (
-                  <div
-                    ref={actionsRef}
-                    className="dashboard-preview-actions"
-                    style={{
-                      position: 'absolute',
-                      top: actionsPos.top,
-                      left: actionsPos.left,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                      background: '#fff',
-                      borderRadius: 8,
-                      padding: 8,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                      zIndex: 2000,
-                      minWidth: 160
-                    }}
+              </div>
+              {openActionsId === bm.id && createPortal(
+                <div
+                  ref={actionsRef}
+                  className="dashboard-preview-actions"
+                  style={{
+                    position: 'absolute',
+                    left: portalPos.left,
+                    top: portalPos.top,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    background: '#fff',
+                    borderRadius: 8,
+                    padding: 8,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    zIndex: 999999,
+                    minWidth: 160
+                  }}
+                >
+                  <button
+                    className="dashboard-preview-btn"
+                    onClick={() => { onOpenDetails(bm); setOpenActionsId(null); }}
+                    style={{ padding: '6px 10px', textAlign: 'left', background: 'transparent', border: 'none', fontWeight: 500, fontSize: 15, borderRadius: 6, cursor: 'pointer' }}
                   >
-                    <button
-                      className="dashboard-preview-btn"
-                      onClick={() => { onOpenDetails(bm); setOpenActionsId(null); }}
-                      style={{ padding: '6px 10px', textAlign: 'left' }}
-                    >
-                      🔎 View
-                    </button>
-                    <button
-                      className={`itn-btn success`}
-                      onClick={() => { addBookmarkToTrip(bm); setOpenActionsId(null); }}
-                      style={{ padding: '6px 10px', textAlign: 'left' }}
-                    >
-                      ✅ Add to Trip
-                    </button>
-                    <button
-                      className="dashboard-preview-btn"
-                      onClick={() => { removeBookmarkPreview(bm.id); setOpenActionsId(null); }}
-                      style={{ padding: '6px 10px', background: '#ffecec', textAlign: 'left' }}
-                    >
-                      🗑️ Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-              </div>
-            ))
-          )}
-        </div>
+                    View
+                  </button>
+                  <button
+                    className="dashboard-preview-btn"
+                    onClick={async () => {
+                      await addBookmarkToTrip(bm);
+                      setOpenActionsId(null);
+                    }}
+                    style={{ padding: '6px 10px', textAlign: 'left', background: 'transparent', border: 'none', fontWeight: 500, fontSize: 15, borderRadius: 6, cursor: 'pointer' }}
+                  >
+                    Add to Trip
+                  </button>
+                  <button
+                    className="dashboard-preview-btn"
+                    onClick={() => { removeBookmarkPreview(bm.id); setOpenActionsId(null); }}
+                    style={{ padding: '6px 10px', background: '#ffecec', textAlign: 'left', border: 'none', fontWeight: 500, fontSize: 15, borderRadius: 6, cursor: 'pointer' }}
+                  >
+                    Remove
+                  </button>
+                </div>,
+                document.body
+              )}
+            </div>
+          )))}
       </div>
+    </div>
   );
 }
 
