@@ -16,8 +16,6 @@ import { trackDestinationAdded } from './itinerary_Stats';
 
 import DashboardBanner from './components/DashboardBanner';
 import DashboardStats from './components/DashboardStats';
-import TripsPreview from './components/TripsPreview';
-import BookmarksPreview from './components/BookmarksPreview';
 import { breakdown } from './rules';
 import Carousel from 'react-multi-carousel';
 import 'react-multi-carousel/lib/styles.css';
@@ -1432,11 +1430,6 @@ useEffect(() => {
         firebaseImages={firebaseImages}
         onViewDetails={handlePersonalizedDetails}
       />
-
-      <div className="dashboard-preview-row">
-        <TripsPreview setShowAIModal={openAIModal} />
-        <BookmarksPreview onOpenDetails={handlePersonalizedDetails} />
-      </div>
 
       <div className="personalized-section-dashboard">
         <div className="personalized-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
