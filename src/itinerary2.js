@@ -1597,105 +1597,17 @@ export function SharedItinerariesTab({ user }) {
   const [expandedMembers, setExpandedMembers] = useState(new Set());
   const { sharedWithMe, loading, error } = useSharedItineraries(user);
   const [copyingId, setCopyingId] = useState(null);
-  
+
   const [groupBy, setGroupBy] = useState('none');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // FIXED: Only count shared itineraries that have items
-  const visibleShared = useMemo(
-    () => sharedWithMe.filter(s => 
-      Array.isArray(s.items) && 
-      s.items.length > 0 &&
-      s.sharedBy && // Ensure sharedBy exists
-      s.sharedBy.id // Ensure sharedBy.id exists
-    ),
-    [sharedWithMe]
-  );
-
-  // FIXED: Calculate total items from visible shared itineraries only
-  const totalItems = useMemo(
-    () => visibleShared.reduce((sum, s) => sum + (s.items?.length || 0), 0),
-    [visibleShared]
-  );
-
-  const groupedSharedItems = useMemo(() => {
-    const allItems = visibleShared.flatMap(shared => 
-      shared.items.map(item => ({ ...item, sharedId: shared.id, sharedBy: shared.sharedBy }))
-    );
-    
-    let filtered = allItems;
-    
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(item => 
-        (item.status || 'upcoming').toLowerCase() === filterStatus.toLowerCase()
-      );
-    }
-    
-    if (groupBy === 'status') {
-      const groups = { upcoming: [], ongoing: [], completed: [], cancelled: [] };
-      filtered.forEach(item => {
-        const status = (item.status || 'upcoming').toLowerCase();
-        if (groups[status]) groups[status].push(item);
-      });
-      return Object.entries(groups).filter(([_, items]) => items.length > 0);
-    } else if (groupBy === 'date') {
-      const groups = {};
-      filtered.forEach(item => {
-        const year = item.arrival ? new Date(item.arrival).getFullYear() : 'No Date';
-        if (!groups[year]) groups[year] = [];
-        groups[year].push(item);
-      });
-      return Object.entries(groups).sort((a, b) => {
-        if (a[0] === 'No Date') return 1;
-        if (b[0] === 'No Date') return -1;
-        return Number(b[0]) - Number(a[0]);
-      });
-    } else if (groupBy === 'owner') {
-      const groups = {};
-      filtered.forEach(item => {
-        const owner = item.sharedBy?.name || 'Unknown';
-        if (!groups[owner]) groups[owner] = [];
-        groups[owner].push(item);
-      });
-      return Object.entries(groups);
-    }
-    
-    return [['all', filtered]];
-  }, [visibleShared, groupBy, filterStatus]);
-
+  // Helper to check if user can edit
   const canEditShared = (shared) =>
     !!user &&
     shared.collaborative &&
     (shared.sharedBy.id === user.uid || (shared.sharedWith || []).includes(user.uid));
 
-  const handleCopyToMyItinerary = async (shared) => {
-    if (!user || !shared) return;
-    if (!shared.items || shared.items.length === 0) return;
-    try {
-      setCopyingId(shared.id);
-      const batch = writeBatch(db);
-      for (const it of shared.items) {
-        const { id: sharedItemId, ...payload } = it;
-        const destRef = doc(collection(db, "itinerary", user.uid, "items"));
-        batch.set(destRef, {
-          ...payload,
-          importedAt: serverTimestamp(),
-          isShared: false,
-          sharedFrom: shared.id
-        });
-      }
-      await batch.commit();
-      await updateDoc(doc(db, "sharedItineraries", shared.id), {
-        lastUpdated: serverTimestamp()
-      });
-    } catch (e) {
-      console.error("Copy to My Itinerary failed:", e);
-      alert("Failed to copy. Please try again.");
-    } finally {
-      setCopyingId(null);
-    }
-  };
-
+  // Move these handlers inside the component so they have access to user/sharedWithMe/canEditShared
   const handleToggleStatus = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
     if (!shared || !canEditShared(shared)) return;
@@ -1787,30 +1699,6 @@ export function SharedItinerariesTab({ user }) {
     }
   };
 
-  const handleSaveEdit = async (data) => {
-    if (!sharedItineraryId) return;
-    const shared = sharedWithMe.find(s => s.id === sharedItineraryId);
-    if (!shared || !canEditShared(shared)) return;
-    try {
-      await updateDoc(doc(db, "sharedItineraries", sharedItineraryId, "items", data.id), {
-        ...data,
-        updatedAt: serverTimestamp(),
-        lastEditedBy: user.uid,
-        lastEditedByName: user.displayName || user.email || 'User'
-      });
-      await updateDoc(doc(db, "sharedItineraries", sharedItineraryId), {
-        lastUpdated: serverTimestamp()
-      });
-      
-      await checkMiniPlannerAchievement(user);
-      
-      setEditing(null);
-      setSharedItineraryId(null);
-    } catch (e) {
-      console.error("Edit save failed:", e);
-    }
-  };
-
   const handleRemoveItem = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
     if (!shared || !canEditShared(shared)) return;
@@ -1858,11 +1746,6 @@ export function SharedItinerariesTab({ user }) {
     } catch (e) {
       console.error("Remove failed:", e);
     }
-  };
-
-  const handleEditItem = (sharedId, item) => {
-    setEditing(item);
-    setSharedItineraryId(sharedId);
   };
 
   // Add this effect to check achievement when shared itineraries change
@@ -2432,145 +2315,3 @@ function showCustomConfirm({ icon, title, items, body, confirmText = "Confirm", 
     });
   });
 }
-
-// Replace handleToggleStatus with custom confirmation dialog
-const handleToggleStatus = async (sharedId, itemId) => {
-  const shared = sharedWithMe.find(s => s.id === sharedId);
-  if (!shared || !canEditShared(shared)) return;
-
-  try {
-    const item = shared.items.find(i => i.id === itemId);
-    if (!item) return;
-
-    const statusFlow = {
-      'Upcoming': 'Ongoing',
-      'Ongoing': 'Completed',
-      'Completed': 'Cancelled',
-      'Cancelled': 'Upcoming'
-    };
-
-    const currentStatus = item.status || 'Upcoming';
-    const nextStatus = statusFlow[currentStatus] || 'Upcoming';
-
-    const statusEmojis = {
-      'Upcoming': '🔜',
-      'Ongoing': '⏳',
-      'Completed': '✅',
-      'Cancelled': '❌'
-    };
-
-    // Use custom confirmation dialog
-    const confirmed = await showCustomConfirm({
-      icon: "⚠️",
-      title: "Change Status?",
-      items: `
-        <div class="itn-confirm-item">
-          <div class="itn-confirm-item-emoji">${statusEmojis[currentStatus]}</div>
-          <div class="itn-confirm-item-text">
-            <span class="itn-confirm-item-label">Current</span>
-            <span class="itn-confirm-item-value">${currentStatus}</span>
-          </div>
-        </div>
-        <div style="text-align: center; color: #cbd5e1; margin: 8px 0;">↓</div>
-        <div class="itn-confirm-item">
-          <div class="itn-confirm-item-emoji">${statusEmojis[nextStatus]}</div>
-          <div class="itn-confirm-item-text">
-            <span class="itn-confirm-item-label">Next</span>
-            <span class="itn-confirm-item-value">${nextStatus}</span>
-          </div>
-        </div>
-      `,
-      confirmText: "Update",
-      cancelText: "Cancel"
-    });
-
-    if (!confirmed) return;
-
-    await updateDoc(doc(db, "sharedItineraries", sharedId, "items", itemId), {
-      status: nextStatus,
-      updatedAt: serverTimestamp(),
-      lastEditedBy: user.uid,
-      lastEditedByName: user.displayName || user.email || 'User'
-    });
-
-    await updateDoc(doc(db, "sharedItineraries", sharedId), {
-      lastUpdated: serverTimestamp()
-    });
-
-    // Track completion stats
-    if (nextStatus === "Completed" && currentStatus !== "Completed") {
-      await trackDestinationCompleted(user.uid, {
-        id: item.id,
-        name: item.name,
-        region: item.region,
-        arrival: item.arrival,
-        departure: item.departure,
-      });
-
-      try {
-        await unlockAchievement(8, "Checklist Champ");
-      } catch (error) {
-        console.error("Error unlocking Checklist Champ achievement:", error);
-      }
-    } else if (currentStatus === "Completed" && nextStatus !== "Completed") {
-      await trackDestinationUncompleted(user.uid, {
-        id: item.id,
-        name: item.name,
-        region: item.region,
-      });
-    }
-  } catch (e) {
-    console.error("Toggle status failed:", e);
-    alert("Failed to update status. Please try again.");
-  }
-};
-
-// Replace handleRemoveItem with custom confirmation dialog
-const handleRemoveItem = async (sharedId, itemId) => {
-  const shared = sharedWithMe.find(s => s.id === sharedId);
-  if (!shared || !canEditShared(shared)) return;
-
-  const itemToRemove = shared.items.find(i => i.id === itemId);
-
-  const confirmed = await showCustomConfirm({
-    icon: "🗑️",
-    title: "Remove Destination?",
-    items: `
-      <div class="itn-confirm-item">
-        <div class="itn-confirm-item-emoji">📍</div>
-        <div class="itn-confirm-item-text">
-          <span class="itn-confirm-item-label">Destination</span>
-          <span class="itn-confirm-item-value">${itemToRemove?.name || "Untitled"}</span>
-        </div>
-      </div>
-    `,
-    body: "This action cannot be undone.",
-    confirmText: "Remove",
-    cancelText: "Cancel",
-    danger: true
-  });
-
-  if (!confirmed) return;
-
-  try {
-    await deleteDoc(doc(db, "sharedItineraries", sharedId, "items", itemId));
-
-    const remainingSnap = await getDocs(collection(db, "sharedItineraries", sharedId, "items"));
-    if (remainingSnap.empty) {
-      if (shared.sharedBy.id === user.uid) {
-        await deleteSharedItinerary(sharedId);
-      } else {
-        await updateDoc(doc(db, "sharedItineraries", sharedId), {
-          sharedWith: arrayRemove(user.uid)
-        });
-      }
-    } else {
-      await updateDoc(doc(db, "sharedItineraries", sharedId), {
-        lastUpdated: serverTimestamp(),
-        itemCount: remainingSnap.size
-      });
-    }
-  } catch (e) {
-    console.error("Remove failed:", e);
-  }
-};
