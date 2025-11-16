@@ -1699,44 +1699,62 @@ export function SharedItinerariesTab({ user }) {
   const handleToggleStatus = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
     if (!shared || !canEditShared(shared)) return;
-    
+
     try {
       const item = shared.items.find(i => i.id === itemId);
       if (!item) return;
-      
+
       const statusFlow = {
         'Upcoming': 'Ongoing',
         'Ongoing': 'Completed',
         'Completed': 'Cancelled',
         'Cancelled': 'Upcoming'
       };
-      
+
       const currentStatus = item.status || 'Upcoming';
       const nextStatus = statusFlow[currentStatus] || 'Upcoming';
-      
-      // CONFIRMATION DIALOG WITH EMOJIS
+
       const statusEmojis = {
         'Upcoming': '🔜',
         'Ongoing': '⏳',
         'Completed': '✅',
         'Cancelled': '❌'
       };
-      
-      const confirmMessage = `Are you sure you want to change the status for "${item.name}"?\n\n` +
-        `${statusEmojis[currentStatus]} Current: ${currentStatus}\n` +
-        `${statusEmojis[nextStatus]} Next: ${nextStatus}`;
-      
-      if (!window.confirm(confirmMessage)) {
-        return; // User cancelled
-      }
-      
+
+      // Use custom confirmation dialog
+      const confirmed = await showCustomConfirm({
+        icon: "⚠️",
+        title: "Change Status?",
+        items: `
+          <div class="itn-confirm-item">
+            <div class="itn-confirm-item-emoji">${statusEmojis[currentStatus]}</div>
+            <div class="itn-confirm-item-text">
+              <span class="itn-confirm-item-label">Current</span>
+              <span class="itn-confirm-item-value">${currentStatus}</span>
+            </div>
+          </div>
+          <div style="text-align: center; color: #cbd5e1; margin: 8px 0;">↓</div>
+          <div class="itn-confirm-item">
+            <div class="itn-confirm-item-emoji">${statusEmojis[nextStatus]}</div>
+            <div class="itn-confirm-item-text">
+              <span class="itn-confirm-item-label">Next</span>
+              <span class="itn-confirm-item-value">${nextStatus}</span>
+            </div>
+          </div>
+        `,
+        confirmText: "Update",
+        cancelText: "Cancel"
+      });
+
+      if (!confirmed) return;
+
       await updateDoc(doc(db, "sharedItineraries", sharedId, "items", itemId), {
         status: nextStatus,
         updatedAt: serverTimestamp(),
         lastEditedBy: user.uid,
         lastEditedByName: user.displayName || user.email || 'User'
       });
-      
+
       await updateDoc(doc(db, "sharedItineraries", sharedId), {
         lastUpdated: serverTimestamp()
       });
@@ -1750,7 +1768,7 @@ export function SharedItinerariesTab({ user }) {
           arrival: item.arrival,
           departure: item.departure,
         });
-        
+
         try {
           await unlockAchievement(8, "Checklist Champ");
         } catch (error) {
@@ -1796,7 +1814,28 @@ export function SharedItinerariesTab({ user }) {
   const handleRemoveItem = async (sharedId, itemId) => {
     const shared = sharedWithMe.find(s => s.id === sharedId);
     if (!shared || !canEditShared(shared)) return;
-    if (!window.confirm("Remove this destination?")) return;
+
+    const itemToRemove = shared.items.find(i => i.id === itemId);
+
+    const confirmed = await showCustomConfirm({
+      icon: "🗑️",
+      title: "Remove Destination?",
+      items: `
+        <div class="itn-confirm-item">
+          <div class="itn-confirm-item-emoji">📍</div>
+          <div class="itn-confirm-item-text">
+            <span class="itn-confirm-item-label">Destination</span>
+            <span class="itn-confirm-item-value">${itemToRemove?.name || "Untitled"}</span>
+          </div>
+        </div>
+      `,
+      body: "This action cannot be undone.",
+      confirmText: "Remove",
+      cancelText: "Cancel",
+      danger: true
+    });
+
+    if (!confirmed) return;
 
     try {
       await deleteDoc(doc(db, "sharedItineraries", sharedId, "items", itemId));
@@ -2354,3 +2393,184 @@ async function logActivity(text, icon = "🔵") {
     console.error("Error logging activity:", error);
  }
 }
+
+// Add this helper for custom confirmation dialog
+function showCustomConfirm({ icon, title, items, body, confirmText = "Confirm", cancelText = "Cancel", danger = false }) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'itn-confirm-backdrop';
+    backdrop.innerHTML = `
+      <div class="itn-confirm-dialog">
+        <div class="itn-confirm-header">
+          <div class="itn-confirm-icon">${icon}</div>
+          <h2 class="itn-confirm-title">${title}</h2>
+        </div>
+        <div class="itn-confirm-content">
+          ${items || ""}
+          ${body ? `<div style="color:#ef4444; text-align:center; margin:10px 0;">${body}</div>` : ""}
+        </div>
+        <div class="itn-confirm-footer">
+          <button class="itn-confirm-btn cancel" id="confirm-cancel">${cancelText}</button>
+          <button class="itn-confirm-btn confirm${danger ? " itn-confirm-btn--danger" : ""}" id="confirm-ok">${confirmText}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+    document.getElementById('confirm-ok').addEventListener('click', () => {
+      document.body.removeChild(backdrop);
+      resolve(true);
+    });
+    document.getElementById('confirm-cancel').addEventListener('click', () => {
+      document.body.removeChild(backdrop);
+      resolve(false);
+    });
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        document.body.removeChild(backdrop);
+        resolve(false);
+      }
+    });
+  });
+}
+
+// Replace handleToggleStatus with custom confirmation dialog
+const handleToggleStatus = async (sharedId, itemId) => {
+  const shared = sharedWithMe.find(s => s.id === sharedId);
+  if (!shared || !canEditShared(shared)) return;
+
+  try {
+    const item = shared.items.find(i => i.id === itemId);
+    if (!item) return;
+
+    const statusFlow = {
+      'Upcoming': 'Ongoing',
+      'Ongoing': 'Completed',
+      'Completed': 'Cancelled',
+      'Cancelled': 'Upcoming'
+    };
+
+    const currentStatus = item.status || 'Upcoming';
+    const nextStatus = statusFlow[currentStatus] || 'Upcoming';
+
+    const statusEmojis = {
+      'Upcoming': '🔜',
+      'Ongoing': '⏳',
+      'Completed': '✅',
+      'Cancelled': '❌'
+    };
+
+    // Use custom confirmation dialog
+    const confirmed = await showCustomConfirm({
+      icon: "⚠️",
+      title: "Change Status?",
+      items: `
+        <div class="itn-confirm-item">
+          <div class="itn-confirm-item-emoji">${statusEmojis[currentStatus]}</div>
+          <div class="itn-confirm-item-text">
+            <span class="itn-confirm-item-label">Current</span>
+            <span class="itn-confirm-item-value">${currentStatus}</span>
+          </div>
+        </div>
+        <div style="text-align: center; color: #cbd5e1; margin: 8px 0;">↓</div>
+        <div class="itn-confirm-item">
+          <div class="itn-confirm-item-emoji">${statusEmojis[nextStatus]}</div>
+          <div class="itn-confirm-item-text">
+            <span class="itn-confirm-item-label">Next</span>
+            <span class="itn-confirm-item-value">${nextStatus}</span>
+          </div>
+        </div>
+      `,
+      confirmText: "Update",
+      cancelText: "Cancel"
+    });
+
+    if (!confirmed) return;
+
+    await updateDoc(doc(db, "sharedItineraries", sharedId, "items", itemId), {
+      status: nextStatus,
+      updatedAt: serverTimestamp(),
+      lastEditedBy: user.uid,
+      lastEditedByName: user.displayName || user.email || 'User'
+    });
+
+    await updateDoc(doc(db, "sharedItineraries", sharedId), {
+      lastUpdated: serverTimestamp()
+    });
+
+    // Track completion stats
+    if (nextStatus === "Completed" && currentStatus !== "Completed") {
+      await trackDestinationCompleted(user.uid, {
+        id: item.id,
+        name: item.name,
+        region: item.region,
+        arrival: item.arrival,
+        departure: item.departure,
+      });
+
+      try {
+        await unlockAchievement(8, "Checklist Champ");
+      } catch (error) {
+        console.error("Error unlocking Checklist Champ achievement:", error);
+      }
+    } else if (currentStatus === "Completed" && nextStatus !== "Completed") {
+      await trackDestinationUncompleted(user.uid, {
+        id: item.id,
+        name: item.name,
+        region: item.region,
+      });
+    }
+  } catch (e) {
+    console.error("Toggle status failed:", e);
+    alert("Failed to update status. Please try again.");
+  }
+};
+
+// Replace handleRemoveItem with custom confirmation dialog
+const handleRemoveItem = async (sharedId, itemId) => {
+  const shared = sharedWithMe.find(s => s.id === sharedId);
+  if (!shared || !canEditShared(shared)) return;
+
+  const itemToRemove = shared.items.find(i => i.id === itemId);
+
+  const confirmed = await showCustomConfirm({
+    icon: "🗑️",
+    title: "Remove Destination?",
+    items: `
+      <div class="itn-confirm-item">
+        <div class="itn-confirm-item-emoji">📍</div>
+        <div class="itn-confirm-item-text">
+          <span class="itn-confirm-item-label">Destination</span>
+          <span class="itn-confirm-item-value">${itemToRemove?.name || "Untitled"}</span>
+        </div>
+      </div>
+    `,
+    body: "This action cannot be undone.",
+    confirmText: "Remove",
+    cancelText: "Cancel",
+    danger: true
+  });
+
+  if (!confirmed) return;
+
+  try {
+    await deleteDoc(doc(db, "sharedItineraries", sharedId, "items", itemId));
+
+    const remainingSnap = await getDocs(collection(db, "sharedItineraries", sharedId, "items"));
+    if (remainingSnap.empty) {
+      if (shared.sharedBy.id === user.uid) {
+        await deleteSharedItinerary(sharedId);
+      } else {
+        await updateDoc(doc(db, "sharedItineraries", sharedId), {
+          sharedWith: arrayRemove(user.uid)
+        });
+      }
+    } else {
+      await updateDoc(doc(db, "sharedItineraries", sharedId), {
+        lastUpdated: serverTimestamp(),
+        itemCount: remainingSnap.size
+      });
+    }
+  } catch (e) {
+    console.error("Remove failed:", e);
+  }
+};
