@@ -1580,6 +1580,124 @@
 }
 
 /* ============================================
+   CONFIRMATION POPUPS
+============================================ */
+.itn-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11000;
+  animation: fadeIn 0.25s ease;
+}
+
+.itn-confirm-dialog {
+  width: min(360px, calc(100% - 40px));
+  background: #fff;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.45);
+}
+
+.itn-confirm-header {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  padding: 28px 24px 20px;
+  text-align: center;
+  color: #fff;
+}
+
+.itn-confirm-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  margin: 0 auto 8px;
+}
+
+.itn-confirm-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.itn-confirm-content {
+  padding: 20px 28px;
+  background: #f2f4ff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.itn-confirm-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.itn-confirm-item-emoji {
+  font-size: 20px;
+}
+
+.itn-confirm-body {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.itn-confirm-footer {
+  padding: 16px 22px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.itn-confirm-btn {
+  flex: 1;
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-weight: 700;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.itn-confirm-btn.cancel {
+  background: #fff;
+  color: #475569;
+  border: 1px solid #e5e7eb;
+}
+
+.itn-confirm-btn.confirm {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(220, 38, 38, 0.35);
+}
+
+.itn-confirm-btn--danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.itn-confirm-btn:hover {
+  transform: translateY(-1px);
+}
+
+.itn-confirm-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ============================================
    CUSTOM CONFIRMATION DIALOG
 ============================================ */
 .itn-confirm-backdrop {
@@ -1830,6 +1948,7 @@
   align-items: center;
   gap: 10px;
   padding: 6px 0;
+  font-size: 14px;
 }
 
 .itn-confirm-item-emoji {
@@ -1862,14 +1981,15 @@
 .itn-confirm-content > div:nth-child(2) {
   text-align: center;
   color: #cbd5e1;
-  margin: 6px 0 !important;
-  font-size: 13px;
+  margin: 3px 0 !important;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .itn-confirm-footer {
   display: flex;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 10px 12px;
   background: #f8fafc;
   border-top: 1px solid #e5e7eb;
   justify-content: flex-end;
@@ -1912,7 +2032,7 @@
 }
 
 .itn-confirm-btn.confirm:hover {
-  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
 }
 
 /* Mobile responsive */
