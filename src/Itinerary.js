@@ -816,7 +816,8 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
               <>
                 <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle</button>
                 <button className="itn-btn" onClick={() => setEditing(item)}>Edit</button>
-                <button className="itn-btn" onClick={() => onRemove(item.id)}>Remove</button>
+                {/* CHANGE THIS LINE: add 'danger' class */}
+                <button className="itn-btn danger" onClick={() => onRemove(item.id)}>Remove</button>
               </>
             )}
           </div>
@@ -1255,6 +1256,60 @@ function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onCl
   );
 
   return ReactDOM.createPortal(modalContent, document.body);
+}
+
+// Custom confirmation dialog for remove
+function showCustomConfirm({ icon, title, items, body, confirmText = "Confirm", cancelText = "Cancel", danger = false }) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'itn-confirm-backdrop';
+    backdrop.innerHTML = `
+      <div class="itn-confirm-dialog">
+        <div class="itn-confirm-header">
+          <div class="itn-confirm-icon">${icon}</div>
+          <h2 class="itn-confirm-title">${title}</h2>
+        </div>
+        <div class="itn-confirm-content">
+          ${items || ""}
+          ${body ? `<div style="color:#ef4444; text-align:center; margin:10px 0;">${body}</div>` : ""}
+        </div>
+        <div class="itn-confirm-footer">
+          <button class="itn-confirm-btn cancel" id="confirm-cancel">${cancelText}</button>
+          <button class="itn-confirm-btn confirm${danger ? " itn-confirm-btn--danger" : ""}" id="confirm-ok">${confirmText}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+    document.getElementById('confirm-ok').addEventListener('click', () => {
+      document.body.removeChild(backdrop);
+      resolve(true);
+    });
+    document.getElementById('confirm-cancel').addEventListener('click', () => {
+      document.body.removeChild(backdrop);
+      resolve(false);
+    });
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        document.body.removeChild(backdrop);
+        resolve(false);
+      }
+    });
+  });
+}
+
+// ==================== EXPORT FUNCTIONS ====================
+export async function removeTripForAllUsers(itemId) {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+  // Deletes users/*/trips/<itemId> for every user. Does not touch itinerary/sharedItineraries.
+  await deleteTripDestination(u, itemId);
+}
+
+export async function clearAllTripsForAllUsers() {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+  // Clears users/*/trips for every user. Does not touch itinerary/sharedItineraries.
+  await clearAllTripDestinations(u);
 }
 
 export default function Itinerary() {
@@ -1915,16 +1970,34 @@ export default function Itinerary() {
   // ==================== OPTIMIZED: Remove with optimistic update ====================
   const removeItem = async (id) => {
     if (!user) return;
-    if (!window.confirm("Remove this destination?")) return;
-    
     const itemToRemove = items.find((i) => i.id === id);
-    
+
+    const confirmed = await showCustomConfirm({
+      icon: "🗑️",
+      title: "Remove Destination?",
+      items: `
+        <div class="itn-confirm-item">
+          <div class="itn-confirm-item-emoji">📍</div>
+          <div class="itn-confirm-item-text">
+            <span class="itn-confirm-item-label">Destination</span>
+            <span class="itn-confirm-item-value">${itemToRemove?.name || "Untitled"}</span>
+          </div>
+        </div>
+      `,
+      body: "This action cannot be undone.",
+      confirmText: "Remove",
+      cancelText: "Cancel",
+      danger: true
+    });
+
+    if (!confirmed) return;
+
     // Optimistic update
     setItems(prev => prev.filter(item => item.id !== id));
-    
+
     try {
       await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
-      
+
       if (itemToRemove) {
         await trackDestinationRemoved(
           user.uid,
@@ -1942,6 +2015,7 @@ export default function Itinerary() {
       if (itemToRemove) {
         setItems(prev => [...prev, itemToRemove]);
       }
+      alert("Failed to remove destination. Please try again.");
     }
   };
 
@@ -2025,6 +2099,7 @@ export default function Itinerary() {
         location: dest.location || '', // ADD THIS - Include location
         description: dest.description || '',
         lat: dest.lat || dest.latitude,
+
         lon: dest.lon || dest.longitude,
         place_id: dest.place_id || dest.id,
         rating: dest.rating || 0,
@@ -2351,19 +2426,4 @@ export default function Itinerary() {
       )}
     </div>
   );
-}
-
-// ==================== EXPORT FUNCTIONS ====================
-export async function removeTripForAllUsers(itemId) {
-  const u = auth.currentUser;
-  if (!u) throw new Error("AUTH_REQUIRED");
-  // Deletes users/*/trips/<itemId> for every user. Does not touch itinerary/sharedItineraries.
-  await deleteTripDestination(u, itemId);
-}
-
-export async function clearAllTripsForAllUsers() {
-  const u = auth.currentUser;
-  if (!u) throw new Error("AUTH_REQUIRED");
-  // Clears users/*/trips for every user. Does not touch itinerary/sharedItineraries.
-  await clearAllTripDestinations(u);
 }
