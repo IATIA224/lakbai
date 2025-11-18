@@ -166,6 +166,51 @@ export default function Bookmarks2() {
     category: true,
   });
 
+  // NEW: subfilter state for locations per region + UI expand state
+  const [selectedLocations, setSelectedLocations] = useState({});
+  const [openRegionLocations, setOpenRegionLocations] = useState({});
+
+  // NEW: derive locations per region from loaded destinations
+  const locationsByRegion = useMemo(() => {
+    const map = new Map();
+    for (const d of destinations) {
+      const r = (d.region || '').trim();
+      const loc = (d.location || '').trim();
+      if (!r || !loc) continue;
+      if (!map.has(r)) map.set(r, new Set());
+      map.get(r).add(loc);
+    }
+    const out = {};
+    for (const [r, set] of map.entries()) {
+      out[r] = Array.from(set).sort((a, b) => a.localeCompare(b));
+    }
+    return out;
+  }, [destinations]);
+
+  // NEW: toggle expand/collapse of a region's locations list
+  const toggleRegionLocationsOpen = useCallback((region) => {
+    setOpenRegionLocations(prev => ({ ...prev, [region]: !prev[region] }));
+  }, []);
+
+  // NEW: toggle a single location under a region
+  const toggleLocation = useCallback((region, loc) => {
+    setSelectedLocations(prev => {
+      const currentSet = prev[region] instanceof Set ? prev[region] : new Set();
+      const nextSet = new Set(currentSet);
+      if (nextSet.has(loc)) nextSet.delete(loc);
+      else nextSet.add(loc);
+
+      const next = { ...prev };
+      if (nextSet.size === 0) {
+        // remove empty region entry
+        const { [region]: _, ...rest } = next;
+        return rest;
+      }
+      next[region] = nextSet;
+      return next;
+    });
+  }, []);
+
   const toggleGroup = useCallback((key) => {
     setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
@@ -435,24 +480,155 @@ const getTotalPrice = (basePrice) => {
     (categoriesMemo || []).forEach((c) => set.add(c));
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)));
   }, [categories, categoriesMemo]);
-  
+
+  // NEW: build simple lowercase search index for each destination
+  const searchIndex = useMemo(() => {
+    const idx = {};
+    for (const d of destinations) {
+      idx[d.id] = [
+        d.name,
+        d.description,
+        d.region,
+        d.location,
+        (d.tags || []).join(' '),
+        (d.categories || []).join(' '),
+        d.bestTime,
+        d.price,        // raw price string
+        d.priceTier
+      ].filter(Boolean).join(' | ').toLowerCase();
+    }
+    return idx;
+  }, [destinations]);
+
+  // NEW: parse advanced query (supports plain tokens AND, or field prefixes: tag:, cat:, region:, loc:, price:<N, price:>N)
+  const parseSearchQuery = useCallback((raw) => {
+    const out = {
+      tokens: [],         // plain tokens (AND)
+      tags: [],
+      cats: [],
+      regions: [],
+      locs: [],
+      priceLt: null,
+      priceGt: null,
+    };
+    if (!raw) return out;
+    // split by space respecting simple quotes
+    const parts = raw.match(/"[^"]+"|\S+/g) || [];
+    for (let p of parts) {
+      p = p.trim();
+      if (!p) continue;
+      const lower = p.toLowerCase();
+
+      // Quoted phrase -> treat as token
+      if (p.startsWith('"') && p.endsWith('"') && p.length > 2) {
+        out.tokens.push(p.slice(1, -1).toLowerCase());
+        continue;
+      }
+
+      // Field-based filters
+      if (lower.startsWith('tag:')) {
+        out.tags.push(lower.slice(4));
+        continue;
+      }
+      if (lower.startsWith('cat:')) {
+        out.cats.push(lower.slice(4));
+        continue;
+      }
+      if (lower.startsWith('region:')) {
+        out.regions.push(lower.slice(7));
+        continue;
+      }
+      if (lower.startsWith('loc:')) {
+        out.locs.push(lower.slice(4));
+        continue;
+      }
+      if (lower.startsWith('price:<')) {
+        const n = Number(lower.replace(/price:<\s*/, '').replace(/[^\d]/g, ''));
+        if (Number.isFinite(n)) out.priceLt = n;
+        continue;
+      }
+      if (lower.startsWith('price:>')) {
+        const n = Number(lower.replace(/price:>\s*/, '').replace(/[^\d]/g, ''));
+        if (Number.isFinite(n)) out.priceGt = n;
+        continue;
+      }
+
+      // Plain token
+      out.tokens.push(lower);
+    }
+    return out;
+  }, []);
+
   // Filter + sort
   const filtered = useMemo(() => {
     let list = destinations.filter(
       (d) => String(d.status || '').toUpperCase() === 'PUBLISHED'
     );
-    
+
+    const rawQuery = query.trim();
+    const { tokens, tags, cats: catTokens, regions: regionTokens, locs, priceLt, priceGt } =
+      parseSearchQuery(rawQuery);
+
+    // Detect if user is using any field syntax (so we don't force raw string match)
+    const hasFieldSyntax = /(?:^|\s)(tag:|cat:|region:|loc:|price:[<>])/i.test(rawQuery);
+
+    const anyLocationSelected = Object.values(selectedLocations).some(s => s && s.size > 0);
+
     list = list.filter((d) => {
-      const q = query.toLowerCase();
+      const idx = searchIndex[d.id] || '';
+
+      // FIX: include location and correct OR chain (missing || plus stray semicolon caused silent failure)
+      const simpleMatches =
+        !rawQuery ||
+        d.name?.toLowerCase().includes(rawQuery.toLowerCase()) ||
+        d.description?.toLowerCase().includes(rawQuery.toLowerCase()) ||
+        d.region?.toLowerCase().includes(rawQuery.toLowerCase()) ||
+        d.location?.toLowerCase().includes(rawQuery.toLowerCase());
+
+      // Advanced token AND: every token must appear somewhere in index
+      const tokensMatch = tokens.length === 0 || tokens.every(t => idx.includes(t));
+
+      // Field-specific filters (OR within each group)
+      const tagsMatch = tags.length === 0 || tags.some(t =>
+        (d.tags || []).some(x => String(x).toLowerCase().includes(t))
+      );
+      const catsMatch = catTokens.length === 0 || catTokens.some(t =>
+        (d.categories || d.category ? (Array.isArray(d.categories) ? d.categories : Array.isArray(d.category) ? d.category : [d.category]) : [])
+          .filter(Boolean)
+          .some(x => String(x).toLowerCase().includes(t))
+      );
+      const regionsMatch =
+        regionTokens.length === 0 ||
+        regionTokens.some(r => String(d.region || '').toLowerCase().includes(r));
+      const locsMatch =
+        locs.length === 0 ||
+        locs.some(l => String(d.location || '').toLowerCase().includes(l));
+
+      // Price numeric comparisons
+      const priceDigits = String(d.price || '').replace(/[^\d]/g, '');
+      const priceNum = priceDigits ? Number(priceDigits) : null;
+      const priceLtMatch = priceLt == null || (priceNum != null && priceNum < priceLt);
+      const priceGtMatch = priceGt == null || (priceNum != null && priceNum > priceGt);
+
+      // If field syntax used, skip requiring simpleMatches
       const matchesQ =
-        !query ||
-        d.name?.toLowerCase().includes(q) ||
-        d.description?.toLowerCase().includes(q) ||
-        d.region?.toLowerCase().includes(q);
+        tokensMatch &&
+        tagsMatch &&
+        catsMatch &&
+        regionsMatch &&
+        locsMatch &&
+        priceLtMatch &&
+        priceGtMatch &&
+        (hasFieldSyntax ? true : simpleMatches);
+
       const matchesRegion = !selectedRegions.size || selectedRegions.has(d.region);
+      const matchesLocation = !anyLocationSelected
+        ? true
+        : !!(selectedLocations[d.region] && selectedLocations[d.region].has(d.location || ''));
       const matchesPrice = !selectedPrice || selectedPrice === d.priceTier;
       const matchesCat = !selectedCats.size || (d.categories || []).some((c) => selectedCats.has(c));
-      return matchesQ && matchesRegion && matchesPrice && matchesCat;
+
+      return matchesQ && matchesRegion && matchesLocation && matchesPrice && matchesCat;
     });
 
     if (sortBy === 'name') list = [...list].sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -466,11 +642,11 @@ const getTotalPrice = (basePrice) => {
       list = [...list].sort((a, b) => n(b) - n(a));
     }
     return list;
-  }, [destinations, query, selectedRegions, selectedPrice, selectedCats, sortBy]);
+  }, [destinations, query, selectedRegions, selectedPrice, selectedCats, sortBy, selectedLocations, parseSearchQuery, searchIndex]);
 
   useEffect(() => {
     setPage(1);
-  }, [query, selectedRegions, selectedPrice, selectedCats, sortBy]);
+  }, [query, selectedRegions, selectedPrice, selectedCats, sortBy, selectedLocations]);
 
   const totalPages = totalCount ? Math.max(1, Math.ceil(totalCount / pageSize)) : 999;
   useEffect(() => {
@@ -1251,12 +1427,12 @@ const getTotalPrice = (basePrice) => {
                   Search Destinations {openGroups.search ? '▾' : '▸'}
                 </button>
                 {openGroups.search && (
-                  <label className="bp2-label" style={{ display: 'block' }}>
+                  <label className="bp2-label" style={{ display: 'block', marginBottom: 6 }}>
                     <span style={{ display: 'block', marginBottom: 6 }}>Search Destinations</span>
                     <input
                       type="text"
                       className="bp2-input"
-                      placeholder="Search by name..."
+                      placeholder="Search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                     />
@@ -1276,16 +1452,50 @@ const getTotalPrice = (basePrice) => {
                 </button>
                 {openGroups.region && (
                   <div className="bp2-checklist">
-                    {regions.map((r) => (
-                      <label key={r} className="bp2-check">
-                        <input
-                          type="checkbox"
-                          checked={selectedRegions.has(r)}
-                          onChange={() => toggleSet(setSelectedRegions, r)}
-                        />
-                        <span>{r}</span>
-                      </label>
-                    ))}
+                    {regions.map((r) => {
+                      const locs = locationsByRegion[r] || [];
+                      const isOpen = openRegionLocations[r] || selectedRegions.has(r);
+                      const selectedSet = selectedLocations[r];
+
+                      return (
+                        <div key={r} style={{ marginBottom: 8 }}>
+                          <label className="bp2-check" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedRegions.has(r)}
+                              onChange={() => toggleSet(setSelectedRegions, r)}
+                            />
+                            <span style={{ flex: 1 }}>{r}</span>
+                            {locs.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => toggleRegionLocationsOpen(r)}
+                                aria-expanded={isOpen}
+                                title={isOpen ? 'Hide locations' : 'Show locations'}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                              >
+                                {isOpen ? '▾' : '▸'}
+                              </button>
+                            )}
+                          </label>
+
+                          {isOpen && locs.length > 0 && (
+                            <div className="bp2-subchecklist" style={{ paddingLeft: 26, display: 'grid', gap: 6, marginTop: 6 }}>
+                              {locs.map((loc) => (
+                                <label key={loc} className="bp2-check" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!(selectedSet && selectedSet.has(loc))}
+                                    onChange={() => toggleLocation(r, loc)}
+                                  />
+                                  <span>{loc}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1360,6 +1570,8 @@ const getTotalPrice = (basePrice) => {
                   setSelectedPrice(null);
                   setSelectedCats(new Set());
                   setSortBy('name');
+                  setSelectedLocations({});           // NEW
+                  setOpenRegionLocations({});         // NEW
                 }}
               >
                 Clear All Filters
@@ -1465,7 +1677,7 @@ const getTotalPrice = (basePrice) => {
                       </div>
                   </div>
 
-                  <div className="bp2-region-line">{d.region}</div>
+                  <div className="bp2-region-line">{d.location}</div>
                   <p className="description">{d.description}</p>
 
                   <div className="tag-container">
