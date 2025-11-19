@@ -649,6 +649,8 @@
   max-height: 92vh;
   position: relative;
   overflow: hidden;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 .bm-modal-hero {

@@ -1063,6 +1063,7 @@ const getImageForDestination = (name) => {
                     className="bm-modal-img"
                     style={{
                       width: '100%',
+                      height: '100%',
                       maxHeight: 300,
                       objectFit: 'cover',
                       borderTopLeftRadius: 10,
@@ -1411,24 +1412,24 @@ const getImageForDestination = (name) => {
       {/* NEW: Confirm Clear All modal (matches existing modal theme) */}
       {confirmClearOpen && ReactDOM.createPortal(
         <div className="bm-modal-backdrop" onClick={() => setConfirmClearOpen(false)}>
-           <div
-             className="bm-modal"
-             role="dialog"
-             aria-modal="true"
-             aria-labelledby="clear-all-title"
-             onClick={(e) => e.stopPropagation()}
-             style={{
-               maxWidth: 560,
-               background: '#ffffff' // removed glass effect
-             }}
-           >
-             <button className="bm-modal-close" onClick={() => setConfirmClearOpen(false)} aria-label="Close">✕</button>
-             <div
-               className="bm-modal-body"
-               // make it a vertical stack: title -> text -> actions
-               style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-             >
-               <h2
+          <div
+            className="bm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-all-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 560,
+              background: '#ffffff' // removed glass effect
+            }}
+          >
+            <button className="bm-modal-close" onClick={() => setConfirmClearOpen(false)} aria-label="Close">✕</button>
+            <div
+              className="bm-modal-body"
+              // make it a vertical stack: title -> text -> actions
+              style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+            >
+              <h2
                 id="clear-all-title"
                 className="bm-modal-title"
                 style={{ fontSize: '1.25rem', margin: '0 0 4px', lineHeight: 1.2 }}

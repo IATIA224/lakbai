@@ -44,6 +44,7 @@ function DestinationCard({
   id,
   name,
   region,
+  location, // <-- this is passed from parent
   rating,
   price,
   priceTier,
@@ -106,7 +107,7 @@ function DestinationCard({
             ⭐ {Number(rating || 0).toFixed(1)}
           </div>
         </div>
-        <div className="bp2-region-line">{region}</div>
+        <div className="bp2-region-line">{location}</div>
         <p className="description">{description}</p>
         <div className="tag-container">
           {tags.map((tag, index) => (
@@ -1469,6 +1470,7 @@ useEffect(() => {
                 id={d.id}
                 name={d.name}
                 region={d.region}
+                location={d.location}
                 rating={displayRating}
                 price={d.price}
                 priceTier={d.priceTier}
