@@ -19,14 +19,11 @@ import {
   where,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { unlockAchievement } from "./profile";
 import {
-  ShareItineraryModal, 
   useFriendsList,
   useSharedItineraries,
-  shareItinerary as shareItineraryWithFriends,
+  shareItineraryWithFriends,
   SharedItinerariesTab,
   deleteTripDestination,
   clearAllTripDestinations,
@@ -49,6 +46,12 @@ import {
   HotelSuggestion,
   AgencySuggestion 
 } from "./ItinerarySuggestion";
+import ItineraryCard from "./components/trip_components/ItineraryCard"; // ADD THIS LINE
+import ExportPDFModal from "./components/trip_components/ExportPDFModal";
+import { markAllCompleted } from "./components/trip_components/MarkCompleteButton";
+import { deleteAllItinerary } from "./components/trip_components/DeleteAllButton";
+import ShareItineraryModal from "./components/trip_components/ShareItineraryModal";
+import { exportItineraryToPDF } from "./components/trip_components/ExportPDFButton";
 
 // ==================== ADD TO TRIP HELPER (moved to top) ====================
 export async function addTripForCurrentUser(dest) {
@@ -78,25 +81,48 @@ export async function addTripForCurrentUser(dest) {
   const ref = doc(db, "itinerary", u.uid, "items", id);
   const now = serverTimestamp();
 
-  const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.budget ?? dest?.estimatedExpenditure);
+  const estimated = parseEstimatedFromPrice(
+    dest?.price ?? dest?.priceTier ?? dest?.budget ?? dest?.estimatedExpenditure
+  );
 
   const payload = {
+    id: dest?.id || "",
     name: dest?.name || "Untitled destination",
+    display_name: dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
     region: dest?.region || "",
     location: dest?.location || "",
-    display_name:
-      dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
-    categories: dest?.categories || dest?.tags || [],
+    description: dest?.description || "",
+    lat: dest?.lat || dest?.latitude || "",
+    lon: dest?.lon || dest?.longitude || "",
+    place_id: dest?.place_id || dest?.id || "",
+    rating: dest?.rating || 0,
+    price: dest?.price || "",
     priceTier: dest?.priceTier || null,
+    tags: Array.isArray(dest?.tags) ? dest.tags : [],
+    categories: Array.isArray(dest?.categories) ? dest.categories : [],
     bestTime: dest?.bestTime || "",
     image: dest?.image || "",
     status: dest?.status || "Upcoming",
     estimatedExpenditure: estimated,
+    packingSuggestions: dest?.packingSuggestions || dest?.packing || "",
+    packingCategory: dest?.packingCategory || null,
+    budget: dest?.budget || null,
+    breakdown: dest?.breakdown || [], // CAPTURE THIS FROM DETAILS
+    arrival: dest?.arrival || "",
+    departure: dest?.departure || "",
+    accomType: dest?.accomType || "",
+    accomName: dest?.accomName || "",
+    accomNotes: dest?.accomNotes || "",
+    activities: Array.isArray(dest?.activities) ? dest.activities : [],
+    transport: dest?.transport || "",
+    transportNotes: dest?.transportNotes || "",
+    notes: dest?.notes || "",
+    agency: dest?.agency || "",
     createdAt: now,
     updatedAt: now,
   };
 
-  console.log("[Itinerary] Saving trip with location:", payload.location); // DEBUG LOG
+  console.log("[Itinerary] Saving trip with all details:", payload);
 
   try {
     await setDoc(ref, payload, { merge: true });
@@ -1004,7 +1030,7 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEdi
   );
 }
 
-// ADD THIS - Mobile detection hook at the top level
+// ADD: Mobile detection hook at the top level
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   
@@ -1165,99 +1191,6 @@ function ItinerarySummaryModal({ item, onClose }) {
   return ReactDOM.createPortal(modalContent, document.body);
 }
 
-function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose }) {
-  const [isSelectingAll, setIsSelectingAll] = useState(false);
-
-  const handleSelectAllClick = () => {
-    setIsSelectingAll(!isSelectingAll);
-    onSelectAll();
-  };
-
-  const modalContent = (
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div className="itn-modal itn-modal-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="itn-modal-header">
-          <div className="itn-modal-title">Export to PDF</div>
-          <button className="itn-close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="itn-modal-body">
-          <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>
-              Select destinations to export ({selected.size} of {items.length} selected)
-            </p>
-            <button 
-              className="itn-btn ghost" 
-              onClick={handleSelectAllClick}
-              style={{ fontSize: "13px", padding: "6px 12px" }}
-            >
-              {selected.size === items.length && items.length > 0 ? "Deselect All" : "Select All"}
-            </button>
-          </div>
-
-          <div style={{ maxHeight: "400px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "8px" }}>
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className={`itn-export-item ${selected.has(item.id) ? "selected" : ""}`}
-                onClick={() => onToggle(item.id)}
-                style={{
-                  padding: "14px 16px",
-                  borderBottom: "1px solid #f1f5f9",
-                  cursor: "pointer",
-                  display: "flex",
-                  gap: "12px",
-                  alignItems: "flex-start",
-                  background: selected.has(item.id) ? "#f0f4ff" : "#fff",
-                  transition: "all 0.2s"
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(item.id)}
-                  onChange={() => onToggle(item.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ marginTop: "3px", cursor: "pointer" }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: "#1e293b" }}>{item.name}</div>
-                  <div style={{ fontSize: 13, color: "#64748b", marginTop: "4px" }}>{item.region}</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: "6px", lineHeight: 1.5 }}>
-                    {item.arrival && <>Arrival: {item.arrival} • </>}
-                    {item.departure && <>Departure: {item.departure} • </>}
-                    {item.status && <>Status: {item.status}</>}
-                    {item.estimatedExpenditure && <> • Budget: ₱{Number(item.estimatedExpenditure).toLocaleString()}</>}
-                    {item.location && <> • Location: {item.location}</>}
-                  </div>
-                </div>
-                <span 
-                  className={`itn-badge ${item.status.toLowerCase()}`}
-                  style={{ whiteSpace: "nowrap" }}
-                >
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="itn-modal-footer">
-          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
-          <button 
-            className="itn-btn primary" 
-            onClick={onExport}
-            disabled={selected.size === 0}
-          >
-            Export {selected.size > 0 ? `(${selected.size})` : ""}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  return ReactDOM.createPortal(modalContent, document.body);
-}
-
 // Custom confirmation dialog for remove
 function showCustomConfirm({ icon, title, items, body, confirmText = "Confirm", cancelText = "Cancel", danger = false }) {
   return new Promise((resolve) => {
@@ -1312,32 +1245,75 @@ export async function clearAllTripsForAllUsers() {
   await clearAllTripDestinations(u);
 }
 
+// UPDATE: Main Itinerary component
 export default function Itinerary() {
+  const [user, setUser] = useState(null); // moved up to be available to hooks
   const [items, setItems] = useState([]);
-  const [editing, setEditing] = useState(null);
-
-  // State variables
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareSelected, setShareSelected] = useState(new Set());
-  const [activeTab, setActiveTab] = useState("personal");
-  
-  // Search/Add state
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState([]);
-  const [selected, setSelected] = useState(null);
-  
-  // Trip adding state
-  const [addingTripId, setAddingTripId] = useState(null);
-  const [addedTripId, setAddedTripId] = useState(null);
-  
-  const [user, setUser] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [exportLoading, setExportLoading] = useState(false); // NEW
+  const [showCostEstimator, setShowCostEstimator] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false); // NEW
+  const [activeTab, setActiveTab] = useState("personal"); // NEW
+  const { sharedWithMe, loading: sharedLoading } = useSharedItineraries(auth.currentUser);
 
-  const friends = useFriendsList(user);
-  const { sharedWithMe } = useSharedItineraries(user);
+  // Export selection helpers
+  const toggleExportSelection = React.useCallback((id) => {
+    setExportSelected(prev => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }, [setExportSelected]);
+
+  const selectAllExport = React.useCallback(() => {
+    setExportSelected(prev => {
+      if (prev.size === items.length) return new Set();
+      return new Set(items.map(i => i.id));
+    });
+  }, [items]);
+
+  const handleExport = async () => {
+    const selectedItems = items.filter((i) => exportSelected.has(i.id));
+    
+    if (!selectedItems.length) {
+      alert("Select at least one destination to export.");
+      return;
+    }
+
+    // Ensure all items have complete data from ItineraryCard fields
+    const enrichedItems = selectedItems.map(item => ({
+      ...item,
+      accomType: item.accomType || "",
+      accomName: item.accomName || "",
+      accomNotes: item.accomNotes || "",
+      activities: Array.isArray(item.activities) ? item.activities : (item.activities ? String(item.activities).split(",").map(a => a.trim()) : []),
+      packingSuggestions: Array.isArray(item.packingSuggestions) ? item.packingSuggestions : (item.packingSuggestions ? String(item.packingSuggestions).split(",").map(p => p.trim()) : []),
+      notes: item.notes || "",
+      agency: item.agency || "",
+      transport: item.transport || "",
+      transportNotes: item.transportNotes || "",
+      arrival: item.arrival || "",
+      departure: item.departure || "",
+      estimatedExpenditure: item.estimatedExpenditure || item.price || 0,
+      status: item.status || "upcoming",
+    }));
+
+    try {
+      console.log("[Itinerary] Starting export for", enrichedItems.length);
+      setExportLoading(true);
+      await exportItineraryToPDF(enrichedItems);
+      console.log("[Itinerary] Export finished");
+      setShowExport(false);
+      setExportSelected(new Set());
+    } catch (err) {
+      console.error("[Itinerary] export failed:", err);
+      alert("Export failed. Check console.");
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u || null));
@@ -1355,13 +1331,12 @@ export default function Itinerary() {
 
     const cached = itineraryCache.get(user.uid);
     if (cached) {
-      console.log('✅ Using cached itinerary items');
       setItems(cached);
     }
 
     const colRef = collection(db, "itinerary", user.uid, "items");
     const q = fsQuery(colRef, orderBy("createdAt", "asc"));
-    
+
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -1371,1059 +1346,234 @@ export default function Itinerary() {
         setItems(list);
       },
       (error) => {
-        console.error('Itinerary listener error:', error);
         const cachedData = itineraryCache.get(user.uid);
         if (cachedData) {
           setItems(cachedData);
         }
       }
     );
-    
+
     return () => unsub();
   }, [user]);
 
-  const onSearch = async () => {
-    setSearching(true);
-    try {
-      const data = await searchPlace(query);
-      setResults(data.slice(0, 5));
-      setSelected(data[0] || null);
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  const openAddModal = () => {
-    if (!selected) return;
-    setEditing({
-      ...selected,
-      name: selected.display_name?.split(",")[0] || selected.name || "",
-      region: selected.display_name?.split(",").slice(1).join(",").trim() || selected.region || "",
-      location: selected.display_name || "",
-      status: "Upcoming",
-    });
-  };
-
-  // ==================== OPTIMIZED: Save with optimistic updates ====================
-  const saveItem = async (data) => {
-    if (!user) {
-      alert("Please sign in to save your itinerary.");
-      return;
-    }
-
-    if (!data.name) data.name = "Untitled destination";
-    
-    // Optimistic update
-    if (data.id) {
-      // Update existing item optimistically
-      setItems(prev => prev.map(item => 
-        item.id === data.id ? { ...item, ...data } : item
-      ));
-    } else {
-      // Add new item optimistically with temporary ID
-      const tempId = `temp_${Date.now()}`;
-      const tempItem = { ...data, id: tempId, createdAt: new Date() };
-      setItems(prev => [...prev, tempItem]);
-    }
-    
-    try {
-      if (data.id) {
-        const itemRef = doc(db, "itinerary", user.uid, "items", data.id);
-        await updateDoc(itemRef, { 
-          ...data, 
-          updatedAt: serverTimestamp() 
-        });
-        console.log("Updated existing itinerary item:", data.id);
-      } else {
-        const colRef = collection(db, "itinerary", user.uid, "items");
-        const newDocRef = await addDoc(colRef, { 
-          ...data, 
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp() 
-        });
-        
-        // Replace temp item with real ID
-        setItems(prev => prev.map(item => 
-          item.id?.startsWith('temp_') && item.name === data.name 
-            ? { ...item, id: newDocRef.id, createdAt: serverTimestamp() }
-            : item
-        ));
-        
-        await trackDestinationAdded(user.uid, {
-          id: newDocRef.id,
-          name: data.name,
-          region: data.region,
-          arrival: data.arrival,
-          departure: data.departure,
-        });
-        
-        await logActivity(`Added "${data.name}" to your trip itinerary`, "📍");
-        
-        const snap = await getDocs(colRef);
-        if (snap.size === 1) {
-          await unlockAchievement(1, "First Step");
-        }
-        
-        console.log("Created new itinerary item");
-      }
-    } catch (e) {
-      console.error("[Itinerary] saveItem write failed:", e);
-      // Rollback optimistic update on error
-      const cached = itineraryCache.get(user.uid);
-      if (cached) {
-        setItems(cached);
-      }
-      alert(`Failed to save itinerary item: ${e?.code || e?.message || e}`);
-    }
-  };
-
-  const toggleShareItem = (id) => {
-    setShareSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleShareItinerary = async (itemIds, friendIds) => {
-    if (!user) return;
-    try {
-      console.log("Starting share with:", { itemIds, friendIds });
-      
-      if (!itemIds.length) {
-        alert("Please select at least one destination to share");
-        return;
-      }
-      
-      if (!friendIds.length) {
-        alert("Please select at least one friend to share with");
-        return;
-      }
-      
-      const itemsToShare = items.filter(item => itemIds.includes(item.id));
-      
-      if (!itemsToShare.length) {
-        alert("Could not find the selected destinations");
-        return;
-      }
-      
-      await shareItineraryWithFriends(user, items, itemIds, friendIds);
-      
-      await logActivity(
-        `Shared itinerary with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''} (${itemIds.length} destination${itemIds.length > 1 ? 's' : ''})`,
-        "🔗"
-      );
-      
-      alert(`Itinerary shared with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''}!`);
-      setShowShareModal(false);
-      setShareSelected(new Set());
-    } catch (err) {
-      console.error("Share failed:", err);
-      alert(`Failed to share itinerary: ${err.message || "Unknown error"}`);
-    }
-  };
-
-  useEffect(() => {
-    const checkMiniPlannerAchievement = async () => {
-      if (!user) return;
-      
-      try {
-        const personalCount = items.length;
-        let sharedCount = 0;
-        
-        const sharedQuery = fsQuery(
-          collection(db, "sharedItineraries"),
-          where("sharedWith", "array-contains", user.uid)
-        );
-        const sharedSnap = await getDocs(sharedQuery);
-        
-        for (const docSnap of sharedSnap.docs) {
-          const itemsSnap = await getDocs(
-            collection(db, "sharedItineraries", docSnap.id, "items")
-          );
-          sharedCount += itemsSnap.size;
-        }
-        
-        const totalDestinations = personalCount + sharedCount;
-        
-        if (totalDestinations >= 3) {
-          await unlockAchievement(6, "Mini Planner");
-        }
-      } catch (error) {
-        console.error("Error checking Mini Planner achievement:", error);
-      }
-    };
-    
-    checkMiniPlannerAchievement();
-  }, [user, items]);
-
-  const openExport = () => {
-    setShowExport(true);
-    setExportSelected(new Set(items.map(i => i.id)));
-  };
-
-  const toggleExportItem = (id) => {
-    setExportSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAllExport = () => {
-    setExportSelected(prevSelected => {
-      if (prevSelected.size === items.length && items.length > 0) {
-        return new Set();
-      }
-      return new Set(items.map(i => i.id));
-    });
-  };
-
-  const handleExport = async () => {
-    const toExport = items.filter(it => exportSelected.has(it.id));
-    if (!toExport.length) {
-      alert("No items selected for export");
-      return;
-    }
-
-    try {
-      const doc = new jsPDF();
-      doc.setFontSize(20);
-      doc.setTextColor(99, 102, 241);
-      doc.text("My Travel Itinerary", 14, 20);
-      
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, 14, 28);
-      
-      let currentY = 36;
-      const pageHeight = doc.internal.pageSize.height;
-      const pageWidth = doc.internal.pageSize.width;
-      const margin = 14;
-      const maxWidth = pageWidth - (2 * margin);
-
-      toExport.forEach((item, itemIndex) => {
-        if (currentY > pageHeight - 40) {
-          doc.addPage();
-          currentY = 14;
-        }
-
-        doc.setFontSize(14);
-        doc.setTextColor(41, 128, 185);
-        doc.setFont(undefined, "bold");
-        doc.text(`${itemIndex + 1}. ${item.name || "Untitled"}`, margin, currentY);
-        currentY += 7;
-
-        if (item.region || item.location) {
-          doc.setFontSize(10);
-          doc.setTextColor(100, 116, 139);
-          doc.setFont(undefined, "normal");
-          
-          if (item.region) {
-            doc.text(`Region: ${item.region}`, margin + 5, currentY);
-            currentY += 5;
-          }
-          
-          if (item.location) {
-            doc.text(`Location: ${item.location}`, margin + 5, currentY);
-            currentY += 5;
-          }
-        }
-
-        currentY += 2;
-
-        const detailsData = [];
-
-        if (item.arrival || item.departure) {
-          detailsData.push([
-            "Dates",
-            `${item.arrival || "—"} to ${item.departure || "—"}`
-          ]);
-        }
-
-        if (item.arrival && item.departure) {
-          const days = Math.max(
-            1,
-            Math.ceil(
-              (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
-                (1000 * 60 * 60 * 24)
-            )
-          );
-          detailsData.push([
-            "Duration",
-            `${days} day${days !== 1 ? "s" : ""}`
-          ]);
-        }
-
-        detailsData.push([
-          "Status",
-          item.status || "Upcoming"
-        ]);
-
-        if (item.estimatedExpenditure) {
-          detailsData.push([
-            "Budget",
-            `₱${Number(item.estimatedExpenditure).toLocaleString()}`
-          ]);
-        }
-
-        if (item.transport) {
-          detailsData.push([
-            "Transport",
-            item.transport + (item.transportNotes ? ` (${item.transportNotes})` : "")
-          ]);
-        }
-
-        if (item.accomType || item.accomName) {
-          const accomInfo = [];
-          if (item.accomType) accomInfo.push(item.accomType);
-          if (item.accomName) accomInfo.push(item.accomName);
-          if (item.accomNotes) accomInfo.push(item.accomNotes);
-          
-          detailsData.push([
-            "Accommodation",
-            accomInfo.join(" | ")
-          ]);
-        }
-
-        if (item.agency) {
-          detailsData.push([
-            "Agency",
-            item.agency
-          ]);
-        }
-
-        if (item.activities && item.activities.length > 0) {
-          detailsData.push([
-            "Activities",
-            item.activities.join(", ")
-          ]);
-        }
-
-        if (item.notes) {
-          detailsData.push([
-            "Notes",
-            item.notes
-          ]);
-        }
-
-        if (detailsData.length > 0) {
-          autoTable(doc, {
-            startY: currentY,
-            head: [["Field", "Details"]],
-            body: detailsData,
-            theme: "grid",
-            headStyles: {
-              fillColor: [99, 102, 241],
-              textColor: [255, 255, 255],
-              fontStyle: "bold",
-              fontSize: 10,
-              halign: "left"
-            },
-            bodyStyles: {
-              fontSize: 9,
-              textColor: [50, 50, 50],
-              halign: "left",
-              cellPadding: 3
-            },
-            columnStyles: {
-              0: {
-                cellWidth: 40,
-                fontStyle: "bold",
-                textColor: [41, 128, 185]
-              },
-              1: {
-                cellWidth: maxWidth - 40
-              }
-            },
-            margin: margin
-          });
-
-          currentY = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 10 : currentY + 20;
-        }
-
-        currentY += 5;
-      });
-
-      if (toExport.length > 1) {
-        doc.addPage();
-        doc.setFontSize(16);
-        doc.setTextColor(99, 102, 241);
-        doc.setFont(undefined, "bold");
-        doc.text("Summary", 14, 20);
-
-        const summaryData = [];
-        
-        summaryData.push(["Total Destinations", toExport.length.toString()]);
-
-        const totalBudget = toExport.reduce((sum, item) => sum + (Number(item.estimatedExpenditure) || 0), 0);
-        if (totalBudget > 0) {
-          summaryData.push(["Total Estimated Budget", `₱${totalBudget.toLocaleString()}`]);
-        }
-
-        let totalDays = 0;
-        toExport.forEach(item => {
-          if (item.arrival && item.departure) {
-            const days = Math.max(
-              1,
-              Math.ceil(
-                (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
-                  (1000 * 60 * 60 * 24)
-              )
-            );
-            totalDays += days;
-          }
-        });
-        if (totalDays > 0) {
-          summaryData.push(["Total Trip Duration", `${totalDays} days`]);
-        }
-
-        const statusCounts = {
-          upcoming: toExport.filter(i => (i.status || "upcoming").toLowerCase() === "upcoming").length,
-          ongoing: toExport.filter(i => i.status?.toLowerCase() === "ongoing").length,
-          completed: toExport.filter(i => i.status?.toLowerCase() === "completed").length,
-        };
-
-        summaryData.push([
-          "Status Breakdown",
-          `Upcoming: ${statusCounts.upcoming} | Ongoing: ${statusCounts.ongoing} | Completed: ${statusCounts.completed}`
-        ]);
-
-        const accommodations = toExport
-          .filter(i => i.accomName || i.accomType)
-          .map(i => `${i.name}: ${i.accomType || ""} ${i.accomName || ""}`.trim());
-        if (accommodations.length > 0) {
-          summaryData.push([
-            "Accommodations Booked",
-            accommodations.join("\n")
-          ]);
-        }
-
-        const agencies = toExport
-          .filter(i => i.agency)
-          .map(i => `${i.name}: ${i.agency}`.trim());
-        if (agencies.length > 0) {
-          summaryData.push([
-            "Travel Agencies",
-            agencies.join("\n")
-          ]);
-        }
-
-        autoTable(doc, {
-          startY: 30,
-          head: [["Metric", "Details"]],
-          body: summaryData,
-          theme: "grid",
-          headStyles: {
-            fillColor: [99, 102, 241],
-            textColor: [255, 255, 255],
-            fontStyle: "bold",
-            fontSize: 11
-          },
-          bodyStyles: {
-            fontSize: 10,
-            textColor: [50, 50, 50],
-            cellPadding: 3
-          },
-          columnStyles: {
-            0: {
-              cellWidth: 50,
-              fontStyle: "bold",
-              textColor: [41, 128,185]
-            },
-            1: {
-              cellWidth: maxWidth - 50
-            }
-          },
-          margin: margin
-        });
-      }
-
-      doc.save("itinerary.pdf");
-      setShowExport(false);
-      setExportSelected(new Set());
-    } catch (error) {
-      console.error("PDF Export Error:", error);
-      alert(`Failed to export PDF: ${error.message || "Unknown error"}`);
-    }
-  };
-
-  // ==================== OPTIMIZED: Toggle status with custom confirmation ====================
-  const toggleStatus = async (id) => {
-    if (!user) return;
-    const current = items.find((i) => i.id === id);
-    if (!current) return;
-    
-    const statusFlow = {
-      'Upcoming': 'Ongoing',
-      'Ongoing': 'Completed',
-      'Completed': 'Upcoming'
-    };
-    
-    const nextStatus = statusFlow[current.status] || 'Upcoming';
-    
-    const statusEmojis = {
-      'Upcoming': '🔜',
-      'Ongoing': '⏳',
-      'Completed': '✅'
-    };
-    
-    // Use custom confirmation dialog
-    return new Promise((resolve) => {
-      const handleConfirm = async () => {
-        document.body.removeChild(backdrop);
-        
-        // Optimistic update
-        setItems(prev => prev.map(item => 
-          item.id === id ? { ...item, status: nextStatus } : item
-        ));
-        
-        try {
-          await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
-            status: nextStatus,
-            updatedAt: serverTimestamp(),
-          });
-
-          if (nextStatus === "Completed" && current.status !== "Completed") {
-            await trackDestinationCompleted(user.uid, {
-              id: current.id,
-              name: current.name,
-              region: current.region,
-              location: current.location,
-              arrival: current.arrival,
-              departure: current.departure,
-            });
-            
-            try {
-              await unlockAchievement(8, "Checklist Champ");
-            } catch (error) {
-              console.error("Error unlocking achievement:", error);
-            }
-          } else if (current.status === "Completed" && nextStatus !== "Completed") {
-            await trackDestinationUncompleted(user.uid, {
-              id: current.id,
-              name: current.name,
-              region: current.region,
-              location: current.location,
-            });
-          }
-          resolve(true);
-        } catch (e) {
-          console.error("Toggle status failed:", e);
-          setItems(prev => prev.map(item => 
-            item.id === id ? { ...item, status: current.status } : item
-          ));
-          alert("Failed to update status. Please try again.");
-          resolve(false);
-        }
-      };
-
-      const handleCancel = () => {
-        document.body.removeChild(backdrop);
-        resolve(false);
-      };
-
-      const backdrop = document.createElement('div');
-      backdrop.className = 'itn-confirm-backdrop';
-      backdrop.innerHTML = `
-        <div class="itn-confirm-dialog">
-          <div class="itn-confirm-header">
-            <div class="itn-confirm-icon">⚠️</div>
-            <h2 class="itn-confirm-title">Change Status?</h2>
-          </div>
-          <div class="itn-confirm-content">
-            <div class="itn-confirm-item">
-              <div class="itn-confirm-item-emoji">${statusEmojis[current.status]}</div>
-              <div class="itn-confirm-item-text">
-                <span class="itn-confirm-item-label">Current</span>
-                <span class="itn-confirm-item-value">${current.status}</span>
-              </div>
-            </div>
-            <div style="text-align: center; color: #cbd5e1; margin: 8px 0;">↓</div>
-            <div class="itn-confirm-item">
-              <div class="itn-confirm-item-emoji">${statusEmojis[nextStatus]}</div>
-              <div class="itn-confirm-item-text">
-                <span class="itn-confirm-item-label">Next</span>
-                <span class="itn-confirm-item-value">${nextStatus}</span>
-              </div>
-            </div>
-          </div>
-          <div class="itn-confirm-footer">
-            <button class="itn-confirm-btn cancel" id="confirm-cancel">Cancel</button>
-            <button class="itn-confirm-btn confirm" id="confirm-ok">Update</button>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(backdrop);
-      
-      document.getElementById('confirm-ok').addEventListener('click', handleConfirm);
-      document.getElementById('confirm-cancel').addEventListener('click', handleCancel);
-      backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop) handleCancel();
-      });
-    });
-  };
-
-  // ==================== OPTIMIZED: Remove with optimistic update ====================
-  const removeItem = async (id) => {
-    if (!user) return;
-    const itemToRemove = items.find((i) => i.id === id);
-
-    const confirmed = await showCustomConfirm({
-      icon: "🗑️",
-      title: "Remove Destination?",
-      items: `
-        <div class="itn-confirm-item">
-          <div class="itn-confirm-item-emoji">📍</div>
-          <div class="itn-confirm-item-text">
-            <span class="itn-confirm-item-label">Destination</span>
-            <span class="itn-confirm-item-value">${itemToRemove?.name || "Untitled"}</span>
-          </div>
-        </div>
-      `,
-      body: "This action cannot be undone.",
-      confirmText: "Remove",
-      cancelText: "Cancel",
-      danger: true
-    });
-
-    if (!confirmed) return;
-
-    // Optimistic update
-    setItems(prev => prev.filter(item => item.id !== id));
-
-    try {
-      await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
-
-      if (itemToRemove) {
-        await trackDestinationRemoved(
-          user.uid,
-          {
-            id: itemToRemove.id,
-            name: itemToRemove.name,
-            region: itemToRemove.region,
-          },
-          itemToRemove.status === "Completed"
-        );
-      }
-    } catch (e) {
-      console.error("Remove failed:", e);
-      // Rollback on error
-      if (itemToRemove) {
-        setItems(prev => [...prev, itemToRemove]);
-      }
-      alert("Failed to remove destination. Please try again.");
-    }
-  };
-
-  // ==================== OPTIMIZED: Batch operations ====================
-  const markAllComplete = async () => {
-    if (!user || !items.length) return;
-    
-    // Optimistic update
-    const previousItems = [...items];
-    setItems(prev => prev.map(item => ({ ...item, status: "Completed" })));
-    
-    try {
-      const promises = items.map(async (it) => {
-        await updateDoc(doc(db, "itinerary", user.uid, "items", it.id), {
-          status: "Completed",
-          updatedAt: serverTimestamp(),
-        });
-        
-        if (it.status !== "Completed") {
-          await trackDestinationCompleted(user.uid, {
-            id: it.id,
-            name: it.name,
-            region: it.region,
-            location: it.location, // ADD THIS LINE
-            arrival: it.arrival,
-            departure: it.departure,
-          });
-        }
-      });
-      
-      await Promise.all(promises);
-      console.log("[Itinerary] Marked all complete for", user.uid);
-      
-      try {
-        await unlockAchievement(8, "Checklist Champ");
-      } catch (error) {
-        console.error("Error unlocking Checklist Champ achievement:", error);
-      }
-    } catch (e) {
-      console.error("Mark All Complete failed:", e);
-      // Rollback on error
-      setItems(previousItems);
-      alert("Failed to mark all complete. Please try again.");
-    }
-  };
-
-  const clearAll = async () => {
-    if (!user || !items.length) return;
-    if (!window.confirm("Clear ALL destinations? This cannot be undone.")) return;
-    
-    // Optimistic update
-    const previousItems = [...items];
-    setItems([]);
-    itineraryCache.clear();
-    
-    try {
-      await Promise.all(
-        previousItems.map((it) => deleteDoc(doc(db, "itinerary", user.uid, "items", it.id)))
-      );
-      console.log("[Itinerary] Cleared all for", user.uid);
-    } catch (e) {
-      console.error("Clear All failed:", e);
-      // Rollback on error
-      setItems(previousItems);
-      itineraryCache.set(previousItems, user.uid);
-      alert("Failed to clear all. Please try again.");
-    }
-  };
-
-  const onAddToTrip = async (dest) => {
-    const u = auth.currentUser;
-    if (!u) { alert('Please sign in to add to My Trips.'); return; }
-    setAddingTripId(dest.id);
-    try {
-      // Prepare the destination object with all required fields INCLUDING LOCATION
-      const destinationData = {
-        id: dest.id,
-        name: dest.name || '',
-        display_name: dest.name || '', // Itinerary expects display_name
-        region: dest.region || dest.locationRegion || '',
-        location: dest.location || '', // ADD THIS - Include location
-        description: dest.description || '',
-        lat: dest.lat || dest.latitude,
-
-        lon: dest.lon || dest.longitude,
-        place_id: dest.place_id || dest.id,
-        rating: dest.rating || 0,
-        price: dest.price || '',
-        priceTier: dest.priceTier || null,
-        tags: Array.isArray(dest.tags) ? dest.tags : [],
-        categories: Array.isArray(dest.categories) ? dest.categories : [],
-        bestTime: dest.bestTime || dest.best_time || '',
-        image: dest.image || '',
-      };
-
-      await addTripForCurrentUser(destinationData);
-      
-      // Track destination added to itinerary
-      await trackDestinationAdded(u.uid, {
-        id: dest.id,
-        name: dest.name,
-        region: dest.region,
-        location: dest.location, // ALSO ADD HERE
-        latitude: dest.lat || dest.latitude,
-        longitude: dest.lon || dest.longitude,
-      });
-      
-      // Log activity for adding to trip
-      await logActivity(`Added "${dest.name}" to your trip itinerary`, "🗺️");
-      
-      setAddedTripId(dest.id);
-      setTimeout(() => setAddedTripId(null), 1200);
-
-      // parse estimated expenditure from price and save to users/{uid}/trips
-      const parseEstimatedFromPrice = (p) => {
-        if (p == null) return 0;
-        if (typeof p === "number") return p;
-        const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
-        const nums = s.match(/\d+/g);
-        if (!nums || nums.length === 0) return 0;
-        const numbers = nums.map(Number).filter(Number.isFinite);
-        const sum = numbers.reduce((a, b) => a + b, 0);
-        return Math.round(sum / numbers.length);
-      };
-      const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.estimatedExpenditure ?? dest?.budget);
-
-      try {
-        await setDoc(
-          doc(db, 'users', u.uid, 'trips', String(dest.id)),
-          {
-            destId: String(dest.id),
-            name: dest.name || '',
-            region: dest.region || dest.locationRegion || '',
-            location: dest.location || '', // ADD THIS - Save location to trips collection too
-            rating: dest.rating ?? null,
-            price: dest.price || '',
-            priceTier: dest.priceTier || null,
-            estimatedExpenditure: estimated,
-            tags: Array.isArray(dest.tags) ? dest.tags : [],
-            categories: Array.isArray(dest.categories) ? dest.categories : [],
-            bestTime: dest.bestTime || dest.best_time || '',
-            image: dest.image || '',
-            addedBy: u.uid,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      } catch (e) {
-        console.warn('users/{uid}/trips write skipped:', e.code || e.message);
-      }
-    } catch (e) {
-      console.error('Failed to add to My Trips:', e);
-      alert(`Failed to add to My Trips: ${e.message || 'Unknown error'}`);
-    } finally {
-      setAddingTripId(null);
-    }
-  };
-
   return (
-       <div className="itn-page">
-      {/* Animated background layers */}
-      <div className="itn-bg-dots" />
-      <div className="itn-bg-wave" />
-      <div className="itn-bg-circle c1" />
-      <div className="itn-bg-circle c2" />
-      <div className="itn-bg-circle c3" />
-      <div className="itn-bg-circle c4" />
-      <div className="itn-bg-shapes">
-        <div className="itn-bg-shape s1" />
-        <div className="itn-bg-shape s2" />
-        <div className="itn-bg-shape s3" />
-      </div>
-
+    <div className="itn-page">
       <div className="itn-hero">
         <div className="itn-hero-title">🗺️ My Travel Itineraries</div>
         <div className="itn-hero-sub">Plan, organize, and share your perfect journey</div>
-        <div className="itn-hero-actions">
-          <button 
-            className="itn-btn ghost"
-            onClick={() => setShowShareModal(true)} 
-            disabled={!items.length}
-            title={!items.length ? "No itineraries to share" : "Share with friends"}
-          >
-            
-             Share Itinerary
-         
-          </button>
-          <button 
-            className="itn-btn ghost"
-            onClick={openExport}
-            disabled={!items.length}
-            title={!items.length ? "No items to export" : "Export to PDF"}
-          >
-             Export PDF
-          </button>
-          <button 
-            className="itn-btn ghost"
-            onClick={markAllComplete}
-            disabled={!items.length}
-          >
-             Mark All Complete
-          </button>
-          <button 
-            className="itn-btn ghost"
-            onClick={clearAll}
-            disabled={!items.length}
-          >
-             Clear All
-          </button>
-        </div>
       </div>
-
       <div className="itn-container-full">
-        {/* Itinerary Section - Full Width */}
+        {/* ADD THIS - Action buttons bar */}
+        {items.length > 0 && (
+          <div className="itn-actions-bar">
+            <div className="itn-actions-bar-title">Quick Actions</div>
+            
+            <button 
+              className="itn-action-btn export"
+              onClick={() => setShowExport(true)} // open modal so user can select items
+              title="Export selected destinations to PDF"
+            >
+              <span className="itn-action-btn-icon">📄</span>
+              <span className="itn-action-btn-text">Export to PDF</span>
+            </button>
+
+            <button 
+              className="itn-action-btn route"
+              onClick={() => setShowCostEstimator(true)} // open cost estimator
+              title="Estimate commute routes and times"
+            >
+              <span className="itn-action-btn-icon">🚗</span>
+              <span className="itn-action-btn-text">Route Estimator</span>
+            </button>
+
+            <button 
+              className="itn-action-btn share"
+              onClick={() => {
+                console.log("Share button clicked, showShareModal:", true);
+                setShowShareModal(true);
+              }}
+              title="Share your itinerary with friends"
+            >
+              <span className="itn-action-btn-icon">👥</span>
+              <span className="itn-action-btn-text">Share Itinerary</span>
+            </button>
+
+            <button 
+              className="itn-action-btn complete"
+              onClick={() => markAllCompleted(items, user)}
+              title="Mark all destinations as completed"
+            >
+              <span className="itn-action-btn-icon">✅</span>
+              <span className="itn-action-btn-text">Mark All Complete</span>
+            </button>
+
+            <button 
+              className="itn-action-btn delete"
+              onClick={() => deleteAllItinerary(items, user)}
+              title="Delete all destinations permanently"
+            >
+              <span className="itn-action-btn-icon">🗑️</span>
+              <span className="itn-action-btn-text">Delete All</span>
+            </button>
+          </div>
+        )}
+
         <section className="itn-itinerary-full">
           <div className="itn-tabs">
-            <div 
-              className={`itn-tab ${activeTab === 'personal' ? 'active' : ''}`} 
+            <div
+              className={`itn-tab ${activeTab === 'personal' ? 'active' : ''}`}
               onClick={() => setActiveTab('personal')}
             >
               📋 My Itineraries
-              {items.length > 0 && <span style={{ marginLeft: 8, fontWeight: 800 }}>({items.length})</span>}
             </div>
-            <div 
+            <div
               className={`itn-tab ${activeTab === 'shared' ? 'active' : ''}`}
               onClick={() => setActiveTab('shared')}
             >
               👥 Shared With Me
-              {sharedWithMe.length > 0 && <span style={{ marginLeft: 8, fontWeight: 800 }}>({sharedWithMe.length})</span>}
             </div>
           </div>
-          
           <div className="itn-panel itn-panel-full-width">
-            {activeTab === 'personal' ? (
-              <>
-                {/* Filter Status */}
-                {items.length > 0 && (
+            {activeTab === 'personal' && (
+              items.length === 0 ? (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '400px',
+                  textAlign: 'center'
+                }}>
                   <div style={{
-                    display: 'flex',
-                    gap: 12,
-                    marginBottom: 20,
-                    padding: '16px 20px',
-                    background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
-                    borderRadius: '14px',
-                    border: '2px solid #e5e7eb',
-                    alignItems: 'center'
+                    fontSize: '80px',
+                    animation: 'float 3s ease-in-out infinite'
                   }}>
-                    <label style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap' }}>
-                      🔽 Filter by Status:
-                    </label>
-                    <select
-                      className="itn-input"
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      style={{
-                        fontSize: 14,
-                        padding: '10px 14px',
-                        background: '#fff',
-                        flex: 1,
-                        maxWidth: 300
-                      }}
-                    >
-                      <option value="all">All ({items.length})</option>
-                      <option value="upcoming">🔜 Upcoming ({items.filter(i => (i.status || 'upcoming').toLowerCase() === 'upcoming').length})</option>
-                      <option value="ongoing">⏳ Ongoing ({items.filter(i => i.status?.toLowerCase() === 'ongoing').length})</option>
-                      <option value="completed">✅ Completed ({items.filter(i => i.status?.toLowerCase() === 'completed').length})</option>
-                    </select>
+                    ✈️
                   </div>
-                )}
-
-                {/* Itinerary Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {!items.length ? (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '60px 20px',
-                      textAlign: 'center',
-                      background: 'linear-gradient(135deg, rgba(108, 99, 255, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%)',
-                      borderRadius: '20px',
-                      border: '2px dashed rgba(108, 99, 255, 0.3)',
-                      minHeight: '400px',
-                      gap: '24px'
-                    }}>
-                      <div style={{
-                        fontSize: '80px',
-                        animation: 'float 3s ease-in-out infinite'
-                      }}>
-                        ✈️
-                      </div>
-                      
-                      <div>
-                        <h3 style={{
-                          fontSize: '24px',
-                          fontWeight: '800',
-                          color: '#1e293b',
-                          margin: '0 0 12px 0'
-                        }}>
-                          Your Itinerary is Empty
-                        </h3>
-                        <p style={{
-                          fontSize: '15px',
-                          color: '#64748b',
-                          margin: '0 0 8px 0',
-                          lineHeight: '1.6'
-                        }}>
-                          Start building your perfect journey! Browse destinations and add them to your itinerary.
-                        </p>
-                        <p style={{
-                          fontSize: '13px',
-                          color: '#94a3b8',
-                          margin: 0
-                        }}>
-                          Once you add destinations, you'll be able to organize, plan, and share your trips.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => window.location.href = '/bookmark2'}
-                        style={{
-                          padding: '14px 32px',
-                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '12px',
-                          fontWeight: '700',
-                          fontSize: '15px',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s',
-                          boxShadow: '0 4px 12px rgba(99, 102,241, 0.3)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          margin: '0 auto'
-                        }}
-                        onMouseEnter={(e) => {
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.transform = 'translateY(0)';
-                          e.target.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)';
-                        }}
-                      >
-                        <span style={{ fontSize: '18px' }}>🗺️</span>
-                        Explore Destinations
-                      </button>
-                    </div>
-                  ) : (
-                    items
-                      .filter(item => filterStatus === 'all' || (item.status || 'upcoming').toLowerCase() === filterStatus.toLowerCase())
-                      .map((item, index) => (
-                        <DestinationCard
-                          key={item.id}
-                          item={item}
-                          index={index}
-                          onEdit={(it) => setEditing(it)}
-                          onRemove={removeItem}
-                          onToggleStatus={toggleStatus}
-                          setEditing={setEditing}
-                        />
-                      ))
-                  )}
+                  <h3 style={{
+                    fontSize: '24px',
+                    fontWeight: '800',
+                    color: '#1e293b',
+                    margin: '0 0 12px 0'
+                  }}>
+                    Your Itinerary is Empty
+                  </h3>
+                  <p style={{
+                    fontSize: '15px',
+                    color: '#64748b',
+                    margin: '0',
+                    lineHeight: '1.6'
+                  }}>
+                    No destinations added yet. Start planning your next adventure!
+                  </p>
                 </div>
-              </>
-            ) : (
-              <SharedItinerariesTab user={user} />
-            )
-          }
+              ) : (
+                <div className="itn-destination-list">
+                  {items.map((item, idx) => (
+                    <ItineraryCard 
+                      key={item.id} 
+                      item={item} 
+                      index={idx}
+                      onEdit={async (updatedItem) => {
+                        if (!user) return;
+                        try {
+                          const ref = doc(db, "itinerary", user.uid, "items", updatedItem.id);
+                          await updateDoc(ref, updatedItem);
+                        } catch (err) {
+                          console.error("[Itinerary] Failed to update item:", err);
+                        }
+                      }}
+                      onRemove={(itemId) => {
+                        deleteDoc(doc(db, "itinerary", user.uid, "items", itemId));
+                      }}
+                    />
+                  ))}
+                </div>
+              )
+            )}
+
+            {activeTab === 'shared' && (
+              <div className="itn-shared-list">
+                {sharedLoading ? (
+                  <div style={{textAlign:'center', padding:20}}>Loading shared itineraries…</div>
+                ) : sharedWithMe.length === 0 ? (
+                  <div style={{textAlign:'center', padding:20}}>No itineraries shared with you.</div>
+                ) : (
+                  sharedWithMe.map((shared) => (
+                    <div key={shared.id} className="shared-card">
+          <div className="shared-card-header">
+            <div>
+              <strong>{shared.name || `Shared by ${shared.sharedBy.name}`}</strong>
+              <div style={{fontSize:12, color:'#64748b', marginTop:3}}>
+                {shared.sharedBy?.name || "Traveler"} • {shared.items.length} destinations
+              </div>
+            </div>
+          </div>
+
+          <div className="itn-destination-list">
+            {shared.items.map((item, idx) => (
+              <ItineraryCard
+                key={item.id}
+                item={item}
+                index={idx}
+                isShared={true}              // ADD THIS
+                sharedId={shared.id}         // ADD THIS
+                // Update item in the shared collection instead of personal itinerary
+                onEdit={async (updatedItem) => {
+                  try {
+                    const sharedRef = doc(db, "sharedItineraries", shared.id, "items", updatedItem.id);
+                    await updateDoc(sharedRef, updatedItem);
+                  } catch (err) {
+                    console.error("[SharedItinerary] Failed to update item:", err);
+                  }
+                }}
+                // Delete item inside shared itinerary (anyone can remove if collaborative)
+                onRemove={async (itemId) => {
+                  try {
+                    await deleteDoc(doc(db, "sharedItineraries", shared.id, "items", itemId));
+                  } catch (err) {
+                    console.error("[SharedItinerary] Failed to delete shared item:", err);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ))
+    )}
+  </div>
+)}
           </div>
         </section>
       </div>
-      
-      {/* Modals remain the same */}
-      {editing && (
-        <EditDestinationModal
-          initial={editing}
-          onSave={saveItem}
-          onClose={() => setEditing(null)}
-        />
 
-      )}
-
+      {/* Modals */}
       {showExport && (
         <ExportPDFModal
           items={items}
           selected={exportSelected}
-          onToggle={toggleExportItem}
+          onToggle={toggleExportSelection}
           onSelectAll={selectAllExport}
           onExport={handleExport}
           onClose={() => setShowExport(false)}
+          exporting={exportLoading} // pass loading flag
         />
       )}
-
+      {showCostEstimator && (
+        <ItineraryCostEstimationModal onClose={() => setShowCostEstimator(false)} />
+      )}
       {showShareModal && (
-        <ShareItineraryModal
-          items={items}
-          friends={friends}
-          selected={shareSelected}
-          onToggleItem={toggleShareItem}
-          onShare={handleShareItinerary}
-          onClose={() => {
-            setShowShareModal(false);
-            setShareSelected(new Set());
-          }}
-        />
+        <ShareItineraryModal items={items} onClose={() => setShowShareModal(false)} />
       )}
+      { items.length === 0 && (
+  <button
+    className="itn-action-btn share"
+    onClick={() => setShowShareModal(true)}
+  >
+    Test Share (no items)
+  </button>
+)}
     </div>
   );
 }

@@ -1,0 +1,58 @@
+.share-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001; /* high so it overlays everything */
+}
+
+.share-modal {
+  width: 720px;
+  max-width: 94%;
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  z-index: 10002;
+}
+
+.share-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.share-modal-body {
+  margin-top: 12px;
+}
+
+.friend-list, .items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friend-row {
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+.friend-avatar {
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  object-fit:cover;
+}
+
+/* Buttons */
+.share-modal-footer {
+  display:flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}

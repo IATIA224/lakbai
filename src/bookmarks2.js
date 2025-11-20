@@ -1052,6 +1052,7 @@ const getTotalPrice = (basePrice) => {
         return;
       }
 
+      // Pass ALL destination data including packing suggestions and breakdown
       const destinationData = {
         id: dest.id,
         name: dest.name || '',
@@ -1069,6 +1070,21 @@ const getTotalPrice = (basePrice) => {
         categories: Array.isArray(dest.categories) ? dest.categories : [],
         bestTime: dest.bestTime || '',
         image: dest.image || '',
+        // ADD THESE - Include packing suggestions
+        packingSuggestions: dest.packingSuggestions || dest.packing || '',
+        packingCategory: dest.packingCategory || null,
+        // ADD THESE - Include price breakdown
+        budget: dest.budget || null,
+        breakdown: dest.breakdown || null,
+        // ADD THESE - Include all other details
+        activities: Array.isArray(dest.activities) ? dest.activities : [],
+        transport: dest.transport || '',
+        transportNotes: dest.transportNotes || '',
+        accomType: dest.accomType || '',
+        accomName: dest.accomName || '',
+        accomNotes: dest.accomNotes || '',
+        agency: dest.agency || '',
+        notes: dest.notes || '',
       };
 
       await addTripForCurrentUser(destinationData);

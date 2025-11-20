@@ -71,7 +71,8 @@ function DestinationCard({
               marginBottom: 6,
               background: "#e0e7ef"
             }}
-            onError={(e) => { e.currentTarget.src = "/placeholder.png"; }}
+            onError={e => { e.currentTarget.style.display = "./coconut-tree.png"; }}
+
           />
         ) : (
           <div
@@ -195,7 +196,7 @@ function TopRatedCarousel({ destinations, cloudImages, firebaseImages }) {
     getCloudImageForDestination(cloudImages, d.name) ||
     getFirebaseImageForDestination(firebaseImages, d.name) ||
     getImageForDestination(d.name) ||
-    "/placeholder.png";
+    "./coconut-tree.png";
 
   // Only show top 10
   const top10 = destinations.slice(0, 10);
@@ -248,7 +249,7 @@ function TopRatedCarousel({ destinations, cloudImages, firebaseImages }) {
                 marginBottom: 14,
                 background: "#e0e7ef",
               }}
-              onError={(e) => (e.target.src = "/placeholder.png")}
+              onError={(e) => (e.target.src = "./coconut-tree.png")}
             />
             <div style={{ fontWeight: 700, fontSize: 19, marginBottom: 2 }}>
               {d.name}
@@ -300,7 +301,7 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
     getCloudImageForDestination(cloudImages, d.name) ||
     getFirebaseImageForDestination(firebaseImages, d.name) ||
     getImageForDestination(d.name) ||
-    "/placeholder.png";
+    "./coconut-tree.png";
 
   const top10 = destinations.slice(0, 10);
 
@@ -390,7 +391,7 @@ function TopRatedHeroCarousel({ destinations, cloudImages, firebaseImages, onVie
             src={pickImage(d)}
             alt={d.name}
             className="top-rated-hero-img fade-in-image"
-            onError={(e) => (e.target.src = "/placeholder.png")}
+            onError={(e) => (e.target.src = "./coconut-tree.png")}
           />
           <div className="top-rated-hero-info">
             <div className="top-rated-hero-name">{d.name}</div>
@@ -520,7 +521,7 @@ function Dashboard({ setShowAIModal: parentSetShowAIModal }) {
     getCloudImageForDestination(cloudImages, name) ||
     getFirebaseImageForDestination(firebaseImages, name) ||
     getImageForDestination(name) ||
-    '/placeholder.png';
+    './coconut-tree.png';
 
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged((u) => {
@@ -965,6 +966,10 @@ useEffect(() => {
             categories: Array.isArray(dest.category) ? dest.category : [],
             bestTime: dest.bestTime || dest.best_time || '',
             image: dest.image || dest.imageUrl || getImageForDestination(dest.name) || '',
+            // ADD THESE - Capture packing suggestions and breakdown
+            packingSuggestions: dest.packingSuggestions || dest.packing || '',
+            breakdown: getBreakdown(dest.price || dest.budget),
+            budget: dest.budget || dest.price || '',
         };
 
         await addTripForCurrentUser(destinationData);
@@ -1118,7 +1123,6 @@ useEffect(() => {
                       borderRadius: "18px 18px 0 0",
                       background: "#e0e7ef"
                     }}
-                    onError={(e) => { e.currentTarget.src = "/placeholder.png"; }}
                   />
                 </div>
               </div>

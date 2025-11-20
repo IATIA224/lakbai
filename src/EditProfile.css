@@ -19,6 +19,7 @@
   margin: 32px auto;
   box-shadow: 0 8px 32px rgba(108,99,255,0.13);
   padding: 0;
+  overflow: hidden;            /* important for rounded footer */
  
   /* Apply Inter font to the whole modal */
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -26,6 +27,8 @@
   -moz-osx-font-smoothing: grayscale;
   z-index: 1000000 !important;
   max-height: 500px;
+  display: flex;
+  flex-direction: column;
 }
 
 .edit-profile-modal1 {
@@ -211,6 +214,16 @@
   position: relative;
 }
 
+.edit-profile-interest-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.9);
+  box-shadow: 0 1px 4px rgba(16,24,40,0.06);
+}
+
 .edit-profile-interest-icon {
   font-size: 1.6rem;
 }
@@ -249,8 +262,9 @@
 .edit-profile-modal {
   display: flex;               /* stack header, content, actions */
   flex-direction: column;
-  height: 100dvh;              /* fill viewport */
-  max-height: 100dvh;
+  /* changed: don't force full-viewport height — limit height so modal sizes to its content */
+  height: auto;
+  max-height: 90vh;
 }
 
 /* Make the middle content scroll and let actions sit at bottom */
@@ -258,62 +272,31 @@
 .edit-profile-modal .edit-profile-content {
   flex: 1 1 auto;
   overflow: auto;
+  align-items: flex-start; /* ensure content anchors at top */
+  min-height: 0; /* fixes flex overflow issues on some browsers */
 }
 
+/* tighten the interests column so it doesn't expand modal height too much */
+.edit-profile-interests-list {
+  max-height: 320px; /* reduce from 360 to avoid extra space */
+  overflow-y: auto;
+}
+
+/* keep the footer visible, but don't leave large space above it */
 .edit-profile-actions {
-  margin-top: auto;            /* push to bottom in flex column */
+  margin-top: 0;            /* remove auto-push */
   position: sticky;
-  bottom: 0;                  /* stick to bottom of viewport */
-  border-radius: 0;            /* flush with bottom edge */
-  border-top: 1px solid #eef2ff;
-  box-shadow: 0 -6px 18px rgba(108,99,255,0.08);
-  background: #fff;
-  z-index: 2;   
-  display: flex;                 /* arrange buttons in a row */
-  justify-content: flex-end;     /* keep them on the right */
-  align-items: center;
-  gap: 12px;                     /* space between buttons */
-  padding: 16px 20px;  
+  bottom: 0;
+  z-index: 3;
 }
 
-.edit-profile-cancel {
-  background: #f3f4f6;
-  color: #333;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 28px;
-  font-size: 1.08rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
+/* adjust modal max size for wider screens */
+.edit-profile-modal {
+  max-width: 880px;
+  width: min(880px, 96vw);
+  margin: 24px auto;
 }
 
-.edit-profile-cancel:hover {
-  background: #e5e7eb;
-}
-
-.edit-profile-save {
-  background: #6c63ff;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 28px;
-  font-size: 1.08rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  position: relative;
-}
-
-.edit-profile-save:hover {
-  background: #4f46e5;
-}
-
-@media (min-width: 769px) {
-  .edit-profile-actions {
-    padding: 16px 16px 20px 16px;
-  }
-}
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
   .edit-profile-modal {
@@ -739,3 +722,92 @@
     flex: 1 !important;
   }
 }
+
+/* Modal: keep both top and bottom corners rounded and clip overflow */
+.edit-profile-modal {
+  border-radius: 22px;
+  overflow: hidden;            /* important for rounded footer */
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header: only round the top corners (keeps gradient look) */
+.edit-profile-header {
+  border-radius: 22px 22px 0 0;
+}
+
+/* Footer: round the bottom corners so modal shape stays consistent */
+.edit-profile-actions {
+  border-radius: 0 0 22px 22px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 28px;
+  background: linear-gradient(180deg, rgba(255,255,255,0), rgba(245,247,250,0.92));
+  border-top: 1px solid rgba(224, 231, 255, 0.08);
+}
+
+/* Save / Cancel button styles on right */
+.edit-profile-save {
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(99,102,241,0.16);
+  cursor: pointer;
+}
+
+.edit-profile-cancel {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #e6e8f0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* Interests: translucent background color, small dot and rounded cards */
+.edit-profile-interest {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  min-height: 48px;
+  transition: transform .12s ease, border-color .15s ease;
+}
+
+/* provide gentle lift on hover */
+.edit-profile-interest:hover { transform: translateY(-2px); }
+
+/* colored dot */
+.edit-profile-interest-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.9);
+}
+
+/* if an interest has a provided color, ensure the translucent card doesn't look flat */
+.edit-profile-interest[data-colored="true"] {
+  background-clip: padding-box;
+}
+
+/* make sure the footer doesn't clip content on mobile and the rounded corners remain visible */
+@media (max-width: 768px) {
+  .edit-profile-actions { padding: 12px 18px; }
+  .edit-profile-save, .edit-profile-cancel { width: 48%; }
+}
+
+/* increase contrast for the dot on light backgrounds */
+.edit-profile-interest[data-colored="true"] .edit-profile-interest-dot {
+  border: 2px solid rgba(255,255,255,0.85);
+}
+
+/* ensure sticky footer doesn't overflow the rounded corners */
+.edit-profile-actions { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
