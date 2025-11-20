@@ -13,7 +13,7 @@ import { addTripForCurrentUser } from './Itinerary';
 import { trackDestinationAdded } from './itinerary_Stats';
 import destImages from './dest-images.json';
 import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
-import { breakdown } from './rules';
+import { category, breakdown } from './rules';
 import { logActivity } from './utils/activityLogger';
 // Add this extra import to load the new background styles just for Bookmarks
 import './bookmark.css';
@@ -446,13 +446,20 @@ function Bookmark() {
     if (!u) { alert('Please sign in to add to My Trips.'); return; }
     setAddingTripId(dest.id);
     try {
-      // Prepare the destination object with all required fields INCLUDING LOCATION
+      // Get packing suggestions from category lookup
+      const packingSuggestions = getPackingSuggestionsFromCategory(
+        Array.isArray(dest.categories) ? dest.categories : 
+        Array.isArray(dest.tags) ? dest.tags : 
+        []
+      );
+
+      // Prepare the destination object with ALL fields INCLUDING packing suggestions
       const destinationData = {
         id: dest.id,
         name: dest.name || '',
-        display_name: dest.name || '', // Itinerary expects display_name
+        display_name: dest.name || '',
         region: dest.region || dest.locationRegion || '',
-        location: dest.location || '', // ADD THIS - Include location
+        location: dest.location || '',
         description: dest.description || '',
         lat: dest.lat || dest.latitude,
         lon: dest.lon || dest.longitude,
@@ -464,9 +471,22 @@ function Bookmark() {
         categories: Array.isArray(dest.categories) ? dest.categories : [],
         bestTime: dest.bestTime || dest.best_time || '',
         image: dest.image || '',
+        // ADD THESE LINES FOR PACKING SUGGESTIONS:
+        packingSuggestions: packingSuggestions.length > 0 ? packingSuggestions : (dest.packingSuggestions || dest.packing || ''),
+        packingCategory: Array.isArray(dest.categories) ? dest.categories[0] : null,
+        // ADD BREAKDOWN:
+        breakdown: getBreakdown(dest.price) || [],
+        activities: Array.isArray(dest.activities) ? dest.activities : [],
+        transport: dest.transport || '',
+        transportNotes: dest.transportNotes || '',
+        accomType: dest.accomType || '',
+        accomName: dest.accomName || '',
+        accomNotes: dest.accomNotes || '',
+        agency: dest.agency || '',
+        notes: dest.notes || '',
       };
 
-      console.log("[Bookmark] Adding to trip with location:", destinationData.location); // DEBUG
+      console.log("[Bookmark] Adding to trip with packing suggestions:", destinationData.packingSuggestions);
 
       await addTripForCurrentUser(destinationData);
       
@@ -475,7 +495,7 @@ function Bookmark() {
         id: dest.id,
         name: dest.name,
         region: dest.region || dest.locationRegion,
-        location: dest.location, // ADD THIS
+        location: dest.location,
         latitude: dest.lat || dest.latitude,
         longitude: dest.lon || dest.longitude,
       });
@@ -506,7 +526,7 @@ function Bookmark() {
             destId: String(dest.id),
             name: dest.name || '',
             region: dest.region || dest.locationRegion || '',
-            location: dest.location || '', // ADD THIS - Save location to trips collection
+            location: dest.location || '',
             rating: dest.rating ?? null,
             price: dest.price || '',
             priceTier: dest.priceTier || null,
@@ -515,13 +535,16 @@ function Bookmark() {
             categories: Array.isArray(dest.categories) ? dest.categories : [],
             bestTime: dest.bestTime || dest.best_time || '',
             image: dest.image || '',
+            // ADD THESE FOR trips COLLECTION:
+            packingSuggestions: destinationData.packingSuggestions,
+            breakdown: destinationData.breakdown,
             addedBy: u.uid,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           },
           { merge: true }
         );
-        console.log("[Bookmark] Saved to trips with location:", dest.location); // DEBUG
+        console.log("[Bookmark] Saved to trips with packing suggestions");
       } catch (e) {
         console.warn('users/{uid}/trips write skipped:', e.code || e.message);
       }
@@ -1300,7 +1323,7 @@ const getImageForDestination = (name) => {
                         }
                       }
 
-                      const { category: packingCategory } = require('./rules');
+                      const { category, breakdown } = require('./rules');
                       let cats =
                         Array.isArray(selected.category)
                           ? selected.category
@@ -1316,13 +1339,13 @@ const getImageForDestination = (name) => {
                       for (let c of cats) {
                         if (!c) continue;
                         const key = c.trim().toLowerCase();
-                        if (packingCategory[key]) {
-                          found = packingCategory[key];
+                        if (category[key]) {
+                          found = category[key];
                           break;
                         }
                         const singular = key.endsWith("s") ? key.slice(0, -1) : key;
-                        if (packingCategory[singular]) {
-                          found = packingCategory[singular];
+                        if (category[singular]) {
+                          found = category[singular];
                           break;
                         }
                       }
@@ -1825,4 +1848,28 @@ function ReviewsList({ destId, currentUser }) {
     </div>
   );
   
+}
+
+function getPackingSuggestionsFromCategory(categories) {
+  if (!categories || categories.length === 0) return [];
+  
+  const cat = categories[0];
+  if (!cat) return [];
+  
+  const catLower = String(cat).toLowerCase().trim();
+  
+  // Try exact match first
+  if (category[catLower]) return category[catLower];
+  
+  // Try singular form (remove trailing 's')
+  const singular = catLower.endsWith('s') ? catLower.slice(0, -1) : catLower;
+  if (category[singular]) return category[singular];
+  
+  // Try without spaces/special chars
+  const normalized = catLower.replace(/[^a-z0-9]/g, '');
+  const matchedKey = Object.keys(category).find(key => 
+    key.replace(/[^a-z0-9]/g, '') === normalized
+  );
+  
+  return matchedKey ? category[matchedKey] : [];
 }
