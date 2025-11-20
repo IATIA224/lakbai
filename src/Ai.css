@@ -333,7 +333,6 @@
   flex: 1 1 auto;
   overflow-y: auto;
   padding-bottom: 0; /* was 910px; extend container down to the input */
-  min-height: 520px;
 }
 
 .ai-input-container {

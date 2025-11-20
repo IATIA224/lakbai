@@ -891,7 +891,7 @@ export default function ChatbaseAI({ onClose }) {
             ref={chatRef} 
             className="ai-chat-container" 
             aria-live="polite" 
-            style={{ maxHeight: '340px', overflowY: 'auto' }}
+            style={{ maxHeight: '520px', overflowY: 'auto' }}
             onScroll={handleScroll}
           >
             {messages.length === 0 ? (
