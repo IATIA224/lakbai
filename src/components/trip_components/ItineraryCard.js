@@ -40,7 +40,7 @@ export default function ItineraryCard({
   const [packingSelected, setPackingSelected] = useState([]);
 
 
-  // Add custom packing item state
+  // Add local state for editing Activities and Notes
   const [customPackingItem, setCustomPackingItem] = useState("");
   const [isAddingPackingItem, setIsAddingPackingItem] = useState(false);
 
@@ -74,8 +74,8 @@ export default function ItineraryCard({
 
   const deleteRef = useRef(null);
 
-
-  if (!item) return null;
+  // NOTE: don't early-return here — hooks below must run in every render.
+  // if (!item) return null;
 
 
   // Firebase save handler
@@ -125,15 +125,15 @@ export default function ItineraryCard({
 
 
   const breakdownItems =
-    item.breakdown && Array.isArray(item.breakdown) && item.breakdown.length > 0
+    item?.breakdown && Array.isArray(item.breakdown) && item.breakdown.length > 0
       ? item.breakdown
-      : getBreakdownFromRules(item.estimatedExpenditure || item.price || item.budget);
+      : getBreakdownFromRules(item?.estimatedExpenditure || item?.price || item?.budget);
 
 
-  const getPackingFromCategory = () => {
-    if (item.packingSuggestions) return item.packingSuggestions;
-    if (!item.categories || item.categories.length === 0) return [];
-    const cat = item.categories[0];
+  const getPackingFromCategory = (it = item) => {
+    if (it?.packingSuggestions) return it.packingSuggestions;
+    if (!it?.categories || it.categories.length === 0) return [];
+    const cat = it.categories[0];
     if (!cat) return [];
     const catLower = String(cat).toLowerCase().trim();
     if (category[catLower]) return category[catLower];
@@ -148,7 +148,7 @@ export default function ItineraryCard({
 
 
   const packingSuggestions = useMemo(() => {
-    const val = getPackingFromCategory();
+    const val = getPackingFromCategory(item);
     return Array.isArray(val)
       ? val
       : String(val).split("\n").map((s) => s.trim()).filter(Boolean);
@@ -191,7 +191,7 @@ export default function ItineraryCard({
     });
   };
 
-  const priceBadge = item.estimatedExpenditure || item.price;
+  const priceBadge = item?.estimatedExpenditure || item?.price;
 
 
   // activities: normalize to array and compute showToggle
@@ -556,7 +556,7 @@ export default function ItineraryCard({
   };
 
 
-  // Add status toggle state
+  // Add status toggle state (moved up so hooks aren't conditional)
   const [itemStatus, setItemStatus] = useState("");
 
 
@@ -565,7 +565,7 @@ export default function ItineraryCard({
     if (!onEdit) return;
 
     const statusOptions = ["upcoming", "ongoing", "completed"];
-    const currentIndex = statusOptions.indexOf((item.status || "upcoming").toLowerCase());
+    const currentIndex = statusOptions.indexOf((item?.status || "upcoming").toLowerCase());
     const nextIndex = (currentIndex + 1) % statusOptions.length;
     const nextStatus = statusOptions[nextIndex];
 
@@ -597,6 +597,8 @@ export default function ItineraryCard({
   };
 
 
+  // -- final guard before rendering - after all hooks are established --
+  if (!item) return null;
   return (
     <>
       {/* Compact row */}
