@@ -62,7 +62,7 @@ export default function ShareItineraryModal({ items = [], onClose = () => {} }) 
     console.log("Friend list updated", friendList);
   }, [friendList]);
 
-  return (
+  return ReactDOM.createPortal(
     <div className="confirmation-overlay" onClick={onClose}>
       <div
         className="confirmation-modal confirmation-modal--wide"
@@ -131,8 +131,7 @@ export default function ShareItineraryModal({ items = [], onClose = () => {} }) 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
-
-  return ReactDOM.createPortal(body, document.body);
 }
