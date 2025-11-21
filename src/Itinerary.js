@@ -17,6 +17,7 @@ import {
   getDocs,
   setDoc,
   where,
+  getDoc,  // ADD THIS if not already present
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { unlockAchievement } from "./profile";
@@ -85,49 +86,45 @@ export async function addTripForCurrentUser(dest) {
     dest?.price ?? dest?.priceTier ?? dest?.budget ?? dest?.estimatedExpenditure
   );
 
-  // keep payload minimal — no AI import/state fields
   const payload = {
-     id,
-     name: dest?.name || "Untitled",
-     display_name: dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
-     region: dest?.region || "",
-     location: dest?.location || "",
-     description: dest?.description || "",
-     lat: dest?.lat || dest?.latitude || "",
-     lon: dest?.lon || dest?.longitude || "",
-     place_id: dest?.place_id || dest?.id || "",
-     rating: dest?.rating || 0,
-     price: dest?.price || "",
-     priceTier: dest?.priceTier || null,
-     tags: Array.isArray(dest?.tags) ? dest.tags : [],
-     categories: Array.isArray(dest?.categories) ? dest.categories : [],
-     bestTime: dest?.bestTime || "",
-     image: dest?.image || "",
-     status: dest?.status || "Upcoming",
-     estimatedExpenditure: estimated,
-     packingSuggestions: dest?.packingSuggestions || dest?.packing || "",
-     packingCategory: dest?.packingCategory || null,
-     budget: dest?.budget || null,
-     breakdown: dest?.breakdown || [], // CAPTURE THIS FROM DETAILS
-     arrival: dest?.arrival || "",
-     departure: dest?.departure || "",
-     accomType: dest?.accomType || "",
-     accomName: dest?.accomName || "",
-     accomNotes: dest?.accomNotes || "",
-     activities: Array.isArray(dest?.activities) ? dest.activities : [],
-     transport: dest?.transport || "",
-     transportNotes: dest?.transportNotes || "",
-     notes: dest?.notes || "",
-     agency: dest?.agency || "",
-     createdAt: now,
-     updatedAt: now,
-   };
-
-  console.log("[Itinerary] Saving trip with all details:", payload);
+    id,
+    name: dest?.name || "Untitled",
+    display_name: dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
+    region: dest?.region || "",
+    location: dest?.location || "",
+    description: dest?.description || "",
+    lat: dest?.lat || dest?.latitude || "",
+    lon: dest?.lon || dest?.longitude || "",
+    place_id: dest?.place_id || dest?.id || "",
+    rating: dest?.rating || 0,
+    price: dest?.price || "",
+    priceTier: dest?.priceTier || null,
+    tags: Array.isArray(dest?.tags) ? dest.tags : [],
+    categories: Array.isArray(dest?.categories) ? dest.categories : [],
+    bestTime: dest?.bestTime || "",
+    image: dest?.image || "",
+    status: dest?.status || "Upcoming",
+    estimatedExpenditure: estimated,
+    packingSuggestions: dest?.packingSuggestions || dest?.packing || "",
+    packingCategory: dest?.packingCategory || null,
+    budget: dest?.budget || null,
+    breakdown: Array.isArray(dest?.breakdown) ? dest.breakdown : [], // ENSURE THIS
+    arrival: dest?.arrival || "",
+    departure: dest?.departure || "",
+    accomType: dest?.accomType || "",
+    accomName: dest?.accomName || "",
+    accomNotes: dest?.accomNotes || "",
+    activities: Array.isArray(dest?.activities) ? dest.activities : [],
+    transport: dest?.transport || "",
+    transportNotes: dest?.transportNotes || "",
+    notes: dest?.notes || "",
+    agency: dest?.agency || "",
+    createdAt: now,
+    updatedAt: now,
+  };
 
   try {
     await setDoc(ref, payload, { merge: true });
-    console.log("[Itinerary] Added trip:", payload);
     return id;
   } catch (err) {
     console.error("[Itinerary] Failed to add trip:", err);
@@ -1555,8 +1552,22 @@ export default function Itinerary() {
                 // Update item in the shared collection instead of personal itinerary
                 onEdit={async (updatedItem) => {
                   try {
+                    // Ensure breakdown is included
+                    const itemToUpdate = {
+                      ...updatedItem,
+                      breakdown: Array.isArray(updatedItem.breakdown) ? updatedItem.breakdown : [],
+                      accomType: updatedItem.accomType || "",
+                      accomName: updatedItem.accomName || "",
+                      accomNotes: updatedItem.accomNotes || "",
+                      activities: Array.isArray(updatedItem.activities) ? updatedItem.activities : [],
+                      transport: updatedItem.transport || "",
+                      transportNotes: updatedItem.transportNotes || "",
+                      notes: updatedItem.notes || "",
+                      agency: updatedItem.agency || "",
+                    };
+                    
                     const sharedRef = doc(db, "sharedItineraries", shared.id, "items", updatedItem.id);
-                    await updateDoc(sharedRef, updatedItem);
+                    await updateDoc(sharedRef, itemToUpdate);
                   } catch (err) {
                     console.error("[SharedItinerary] Failed to update item:", err);
                   }
