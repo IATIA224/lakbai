@@ -447,11 +447,25 @@ function Bookmark() {
     setAddingTripId(dest.id);
     try {
       // Get packing suggestions from category lookup
-      const packingSuggestions = getPackingSuggestionsFromCategory(
+      const suggestionsFromCategory = getPackingSuggestionsFromCategory(
         Array.isArray(dest.categories) ? dest.categories : 
         Array.isArray(dest.tags) ? dest.tags : 
         []
       );
+
+      console.log("[Bookmark] Category:", Array.isArray(dest.categories) ? dest.categories : dest.tags);
+      console.log("[Bookmark] Suggestions from category:", suggestionsFromCategory);
+
+      // Use existing packing suggestions if available, otherwise use generated ones
+      const finalPackingSuggestions = (
+        Array.isArray(dest.packingSuggestions) && dest.packingSuggestions.length > 0
+          ? dest.packingSuggestions
+          : suggestionsFromCategory && suggestionsFromCategory.length > 0
+          ? suggestionsFromCategory
+          : []
+      );
+
+      console.log("[Bookmark] Final packing suggestions:", finalPackingSuggestions);
 
       // Prepare the destination object with ALL fields INCLUDING packing suggestions
       const destinationData = {
@@ -471,8 +485,8 @@ function Bookmark() {
         categories: Array.isArray(dest.categories) ? dest.categories : [],
         bestTime: dest.bestTime || dest.best_time || '',
         image: dest.image || '',
-        // ADD THESE LINES FOR PACKING SUGGESTIONS:
-        packingSuggestions: packingSuggestions.length > 0 ? packingSuggestions : (dest.packingSuggestions || dest.packing || ''),
+        // IMPORTANT: Set as array of strings
+        packingSuggestions: finalPackingSuggestions,
         packingCategory: Array.isArray(dest.categories) ? dest.categories[0] : null,
         // ADD BREAKDOWN:
         breakdown: getBreakdown(dest.price) || [],
@@ -486,7 +500,7 @@ function Bookmark() {
         notes: dest.notes || '',
       };
 
-      console.log("[Bookmark] Adding to trip with packing suggestions:", destinationData.packingSuggestions);
+      console.log("[Bookmark] Final destinationData being saved:", destinationData);
 
       await addTripForCurrentUser(destinationData);
       
@@ -535,8 +549,8 @@ function Bookmark() {
             categories: Array.isArray(dest.categories) ? dest.categories : [],
             bestTime: dest.bestTime || dest.best_time || '',
             image: dest.image || '',
-            // ADD THESE FOR trips COLLECTION:
-            packingSuggestions: destinationData.packingSuggestions,
+            // IMPORTANT: Include packing suggestions as array
+            packingSuggestions: finalPackingSuggestions,
             breakdown: destinationData.breakdown,
             addedBy: u.uid,
             createdAt: serverTimestamp(),
@@ -544,7 +558,7 @@ function Bookmark() {
           },
           { merge: true }
         );
-        console.log("[Bookmark] Saved to trips with packing suggestions");
+        console.log("[Bookmark] Saved to trips with packing suggestions:", finalPackingSuggestions);
       } catch (e) {
         console.warn('users/{uid}/trips write skipped:', e.code || e.message);
       }
@@ -1853,17 +1867,27 @@ function ReviewsList({ destId, currentUser }) {
 function getPackingSuggestionsFromCategory(categories) {
   if (!categories || categories.length === 0) return [];
   
-  const cat = categories[0];
+  const { category } = require('./rules');
+  
+  // Try first category
+  const cat = Array.isArray(categories) ? categories[0] : categories;
   if (!cat) return [];
   
   const catLower = String(cat).toLowerCase().trim();
   
   // Try exact match first
-  if (category[catLower]) return category[catLower];
+  if (category[catLower]) {
+    const result = category[catLower];
+    return Array.isArray(result) ? result : [];
+  }
   
   // Try singular form (remove trailing 's')
   const singular = catLower.endsWith('s') ? catLower.slice(0, -1) : catLower;
-  if (category[singular]) return category[singular];
+  if (category[singular]) {
+
+    const result = category[singular];
+    return Array.isArray(result) ? result : [];
+  }
   
   // Try without spaces/special chars
   const normalized = catLower.replace(/[^a-z0-9]/g, '');
@@ -1871,5 +1895,10 @@ function getPackingSuggestionsFromCategory(categories) {
     key.replace(/[^a-z0-9]/g, '') === normalized
   );
   
-  return matchedKey ? category[matchedKey] : [];
+  if (matchedKey) {
+    const result = category[matchedKey];
+    return Array.isArray(result) ? result : [];
+  }
+  
+  return [];
 }

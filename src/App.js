@@ -8,7 +8,7 @@ import Bookmark from './bookmark';
 import Bookmarks2 from './bookmarks2';
 import Community from './community';
 import Profile from './profile';
-import ChatbaseAI, { ChatbaseAIModal } from './Ai';
+import ChatbaseAI from './Ai';
 import './App.css';
 import { UserProvider } from "./UserContext";
 import AchievementToast from "./AchievementToast";
@@ -115,7 +115,7 @@ function AppInner() {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       </Routes>
 
-      {showAIModal && <ChatbaseAIModal onClose={() => setShowAIModal(false)} />}
+      {showAIModal && <ChatbaseAI onClose={() => setShowAIModal(false)} />}
       <AchievementToast />
       <ToastContainer />
     </UserProvider>

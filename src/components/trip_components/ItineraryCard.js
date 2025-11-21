@@ -71,7 +71,8 @@ export default function ItineraryCard({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setError] = useState(null);
 
-
+  // AI UI removed for a fresh start
+  
   const deleteRef = useRef(null);
 
   // NOTE: don't early-return here — hooks below must run in every render.
@@ -1205,6 +1206,8 @@ export default function ItineraryCard({
                         </div>
                       )}
                     </section>
+
+                    {/* AI itinerary display removed (start fresh) */}
                   </div>
 
 
@@ -1526,6 +1529,8 @@ export default function ItineraryCard({
           </div>,
           document.body
         )}
+
+      {/* AI UI removed — starting fresh */}
     </>
   );
 }

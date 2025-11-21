@@ -85,42 +85,43 @@ export async function addTripForCurrentUser(dest) {
     dest?.price ?? dest?.priceTier ?? dest?.budget ?? dest?.estimatedExpenditure
   );
 
+  // keep payload minimal — no AI import/state fields
   const payload = {
-    id: dest?.id || "",
-    name: dest?.name || "Untitled destination",
-    display_name: dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
-    region: dest?.region || "",
-    location: dest?.location || "",
-    description: dest?.description || "",
-    lat: dest?.lat || dest?.latitude || "",
-    lon: dest?.lon || dest?.longitude || "",
-    place_id: dest?.place_id || dest?.id || "",
-    rating: dest?.rating || 0,
-    price: dest?.price || "",
-    priceTier: dest?.priceTier || null,
-    tags: Array.isArray(dest?.tags) ? dest.tags : [],
-    categories: Array.isArray(dest?.categories) ? dest.categories : [],
-    bestTime: dest?.bestTime || "",
-    image: dest?.image || "",
-    status: dest?.status || "Upcoming",
-    estimatedExpenditure: estimated,
-    packingSuggestions: dest?.packingSuggestions || dest?.packing || "",
-    packingCategory: dest?.packingCategory || null,
-    budget: dest?.budget || null,
-    breakdown: dest?.breakdown || [], // CAPTURE THIS FROM DETAILS
-    arrival: dest?.arrival || "",
-    departure: dest?.departure || "",
-    accomType: dest?.accomType || "",
-    accomName: dest?.accomName || "",
-    accomNotes: dest?.accomNotes || "",
-    activities: Array.isArray(dest?.activities) ? dest.activities : [],
-    transport: dest?.transport || "",
-    transportNotes: dest?.transportNotes || "",
-    notes: dest?.notes || "",
-    agency: dest?.agency || "",
-    createdAt: now,
-    updatedAt: now,
-  };
+     id,
+     name: dest?.name || "Untitled",
+     display_name: dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
+     region: dest?.region || "",
+     location: dest?.location || "",
+     description: dest?.description || "",
+     lat: dest?.lat || dest?.latitude || "",
+     lon: dest?.lon || dest?.longitude || "",
+     place_id: dest?.place_id || dest?.id || "",
+     rating: dest?.rating || 0,
+     price: dest?.price || "",
+     priceTier: dest?.priceTier || null,
+     tags: Array.isArray(dest?.tags) ? dest.tags : [],
+     categories: Array.isArray(dest?.categories) ? dest.categories : [],
+     bestTime: dest?.bestTime || "",
+     image: dest?.image || "",
+     status: dest?.status || "Upcoming",
+     estimatedExpenditure: estimated,
+     packingSuggestions: dest?.packingSuggestions || dest?.packing || "",
+     packingCategory: dest?.packingCategory || null,
+     budget: dest?.budget || null,
+     breakdown: dest?.breakdown || [], // CAPTURE THIS FROM DETAILS
+     arrival: dest?.arrival || "",
+     departure: dest?.departure || "",
+     accomType: dest?.accomType || "",
+     accomName: dest?.accomName || "",
+     accomNotes: dest?.accomNotes || "",
+     activities: Array.isArray(dest?.activities) ? dest.activities : [],
+     transport: dest?.transport || "",
+     transportNotes: dest?.transportNotes || "",
+     notes: dest?.notes || "",
+     agency: dest?.agency || "",
+     createdAt: now,
+     updatedAt: now,
+   };
 
   console.log("[Itinerary] Saving trip with all details:", payload);
 
@@ -1231,6 +1232,14 @@ function showCustomConfirm({ icon, title, items, body, confirmText = "Confirm", 
 }
 
 // ==================== EXPORT FUNCTIONS ====================
+export async function removeTripForCurrentUser(itemId) {
+  const u = auth.currentUser;
+  if (!u) return;
+  
+  const ref = doc(db, "itinerary", u.uid, "items", itemId);
+  await deleteDoc(ref);
+}
+
 export async function removeTripForAllUsers(itemId) {
   const u = auth.currentUser;
   if (!u) throw new Error("AUTH_REQUIRED");
@@ -1247,14 +1256,14 @@ export async function clearAllTripsForAllUsers() {
 
 // UPDATE: Main Itinerary component
 export default function Itinerary() {
-  const [user, setUser] = useState(null); // moved up to be available to hooks
+  const [user, setUser] = useState(null);
   const [items, setItems] = useState([]);
   const [showExport, setShowExport] = useState(false);
   const [exportSelected, setExportSelected] = useState(new Set());
-  const [exportLoading, setExportLoading] = useState(false); // NEW
+  const [exportLoading, setExportLoading] = useState(false);
   const [showCostEstimator, setShowCostEstimator] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false); // NEW
-  const [activeTab, setActiveTab] = useState("personal"); // NEW
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("personal");
   const { sharedWithMe, loading: sharedLoading } = useSharedItineraries(auth.currentUser);
 
   // Export selection helpers
@@ -1268,21 +1277,37 @@ export default function Itinerary() {
   }, [setExportSelected]);
 
   const selectAllExport = React.useCallback(() => {
+    // Get items from active tab
+    let tabItems = [];
+    if (activeTab === 'personal') {
+      tabItems = items;
+    } else if (activeTab === 'shared') {
+      tabItems = sharedWithMe.flatMap(s => s.items);
+    }
+    
     setExportSelected(prev => {
-      if (prev.size === items.length) return new Set();
-      return new Set(items.map(i => i.id));
+      if (prev.size === tabItems.length) return new Set();
+      return new Set(tabItems.map(i => i.id));
     });
-  }, [items]);
+  }, [items, sharedWithMe, activeTab]);
 
   const handleExport = async () => {
-    const selectedItems = items.filter((i) => exportSelected.has(i.id));
+    // Get items from active tab
+    let allTabItems = [];
+    if (activeTab === 'personal') {
+      allTabItems = items;
+    } else if (activeTab === 'shared') {
+      allTabItems = sharedWithMe.flatMap(s => s.items);
+    }
+
+    const selectedItems = allTabItems.filter((i) => exportSelected.has(i.id));
     
     if (!selectedItems.length) {
       alert("Select at least one destination to export.");
       return;
     }
 
-    // Ensure all items have complete data from ItineraryCard fields
+    // Ensure all items have complete data
     const enrichedItems = selectedItems.map(item => ({
       ...item,
       accomType: item.accomType || "",
@@ -1373,7 +1398,7 @@ export default function Itinerary() {
               onClick={() => setShowExport(true)} // open modal so user can select items
               title="Export selected destinations to PDF"
             >
-              <span className="itn-action-btn-icon">📄</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Export to PDF</span>
             </button>
 
@@ -1382,8 +1407,8 @@ export default function Itinerary() {
               onClick={() => setShowCostEstimator(true)} // open cost estimator
               title="Estimate commute routes and times"
             >
-              <span className="itn-action-btn-icon">🚗</span>
-              <span className="itn-action-btn-text">Route Estimator</span>
+              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-text">Commute Route</span>
             </button>
 
             <button 
@@ -1394,25 +1419,33 @@ export default function Itinerary() {
               }}
               title="Share your itinerary with friends"
             >
-              <span className="itn-action-btn-icon">👥</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Share Itinerary</span>
             </button>
 
             <button 
               className="itn-action-btn complete"
-              onClick={() => markAllCompleted(items, user)}
+              onClick={() => markAllCompleted(
+                activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items),
+                user,
+                activeTab === 'shared' ? sharedWithMe : null
+              )}
               title="Mark all destinations as completed"
             >
-              <span className="itn-action-btn-icon">✅</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Mark All Complete</span>
             </button>
 
             <button 
               className="itn-action-btn delete"
-              onClick={() => deleteAllItinerary(items, user)}
+              onClick={() => deleteAllItinerary(
+                activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items),
+                user,
+                activeTab === 'shared' ? sharedWithMe : null
+              )}
               title="Delete all destinations permanently"
             >
-              <span className="itn-action-btn-icon">🗑️</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Delete All</span>
             </button>
           </div>
@@ -1551,13 +1584,13 @@ export default function Itinerary() {
       {/* Modals */}
       {showExport && (
         <ExportPDFModal
-          items={items}
+          items={activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items)}
           selected={exportSelected}
           onToggle={toggleExportSelection}
           onSelectAll={selectAllExport}
           onExport={handleExport}
           onClose={() => setShowExport(false)}
-          exporting={exportLoading} // pass loading flag
+          exporting={exportLoading}
         />
       )}
       {showCostEstimator && (
@@ -1566,14 +1599,6 @@ export default function Itinerary() {
       {showShareModal && (
         <ShareItineraryModal items={items} onClose={() => setShowShareModal(false)} />
       )}
-      { items.length === 0 && (
-  <button
-    className="itn-action-btn share"
-    onClick={() => setShowShareModal(true)}
-  >
-    Test Share (no items)
-  </button>
-)}
     </div>
   );
 }

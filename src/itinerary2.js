@@ -81,7 +81,18 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
     const timestamp = serverTimestamp();
     const sharedWithAll = Array.from(new Set([...friendIds, user.uid]));
 
-    // Create shared itinerary document
+    // Create shared itinerary document with edit permissions
+    // add name/photo for friends so UI can show editors
+    const friendProfiles = {};
+    await Promise.all(friendIds.map(async (fid) => {
+      try {
+        const s = await getDoc(doc(db, "users", fid));
+        if (s.exists()) friendProfiles[fid] = s.data();
+      } catch (e) {
+        friendProfiles[fid] = null;
+      }
+    }));
+
     await setDoc(sharedDocRef, {
       sharedBy: user.uid,
       sharedWith: sharedWithAll,
@@ -94,6 +105,27 @@ export async function shareItinerary(user, items, itemIds, friendIds) {
         uid: user.uid,
         name: user.displayName || user.email || 'Unknown',
         photoURL: user.photoURL || null
+      },
+      editPermissions: {
+        [user.uid]: {
+          role: "owner",
+          canEdit: true,
+          name: user.displayName || user.email || 'Owner',
+          photoURL: user.photoURL || null,
+          grantedAt: timestamp
+        },
+        ...Object.fromEntries(
+          friendIds.map(friendId => [
+            friendId,
+            {
+              role: "member",
+              canEdit: true,
+              name: friendProfiles[friendId]?.displayName || friendProfiles[friendId]?.name || null,
+              photoURL: friendProfiles[friendId]?.photoURL || null,
+              grantedAt: timestamp
+            }
+          ])
+        )
       }
     });
 
@@ -189,42 +221,26 @@ export function useSharedItineraries(user) {
     const qy = query(sharedRef, where("sharedWith", "array-contains", user.uid));
 
     const itemUnsubs = new Map();
+    let pendingUpdates = new Map();
 
     const unSubParent = onSnapshot(
       qy,
-      (snap) => {
+      async (snap) => {
         const currentIds = new Set(snap.docs.map(d => d.id));
         
-        // Clean up listeners for deleted shared itineraries
         for (const [id, fn] of itemUnsubs.entries()) {
           if (!currentIds.has(id)) {
             try { fn(); } catch {}
             itemUnsubs.delete(id);
+            pendingUpdates.delete(id);
           }
         }
 
-        const bases = snap.docs.map((d) => {
-          const data = d.data() || {};
-          return {
-            id: d.id,
-            sharedBy: {
-              id: data.sharedBy,
-              name: data.owner?.name || "Traveler",
-              profilePicture: data.owner?.photoURL || "/user.png",
-            },
-            sharedAt: data.sharedAt?.toDate?.() || new Date(),
-            lastUpdated: data.lastUpdated?.toDate?.() || data.sharedAt?.toDate?.() || new Date(),
-            collaborative: !!data.collaborative,
-            sharedWith: data.sharedWith || [],
-            items: []
-          };
-        });
-
-        // Attach/refresh item listeners
         for (const d of snap.docs) {
           if (itemUnsubs.has(d.id)) continue;
           
           const itemsRef = collection(db, "sharedItineraries", d.id, "items");
+          
           const itemsUnsub = onSnapshot(
             itemsRef,
             (itemsSnap) => {
@@ -232,54 +248,59 @@ export function useSharedItineraries(user) {
                 .map(x => ({ ...x.data(), id: x.id }))
                 .sort((a, b) => (a.arrival || "").localeCompare(b.arrival || ""));
 
-              // If no items remain, remove the shared itinerary from the list
-              if (sortedItems.length === 0) {
-                setSharedWithMe(prev => prev.filter(s => s.id !== d.id));
-                return;
-              }
+              const data = d.data() || {};
+              
+              // Get edit permissions for current user
+              const editPermsMap = data.editPermissions || {};
+              const editPermForUser = editPermsMap[user.uid] || {};
+              const canEdit = (data.sharedBy === user.uid) || (editPermForUser.canEdit === true);
+
+              const editors = Object.entries(editPermsMap).map(([uid, perm]) => ({
+                uid,
+                name: perm.name || (uid === data.sharedBy ? data.owner?.name : "Unknown"),
+                photoURL: perm.photoURL || (uid === data.sharedBy ? data.owner?.photoURL : "/user.png"),
+                role: perm.role || (uid === data.sharedBy ? "owner" : "member"),
+                canEdit: perm.canEdit === true
+              }));
+
+              pendingUpdates.set(d.id, {
+                id: d.id,
+                sharedBy: {
+                  id: data.sharedBy,
+                  name: data.owner?.name || "Traveler",
+                  profilePicture: data.owner?.photoURL || "/user.png",
+                },
+                sharedAt: data.sharedAt?.toDate?.() || new Date(),
+                lastUpdated: data.lastUpdated?.toDate?.() || data.sharedAt?.toDate?.() || new Date(),
+                collaborative: !!data.collaborative,
+                sharedWith: data.sharedWith || [],
+                items: sortedItems,
+                itemCount: sortedItems.length,
+                // ADD THIS: Permission info
+                canEdit,
+                userRole: editPermForUser.role || (data.sharedBy === user.uid ? "owner" : "member"),
+                editors
+              });
 
               setSharedWithMe(prev => {
-                const arr = prev.slice();
-                const idx = arr.findIndex(s => s.id === d.id);
-                if (idx >= 0) {
-                  arr[idx] = { ...arr[idx], items: sortedItems, lastUpdated: new Date() };
-                } else {
-                  arr.push({
-                    id: d.id,
-                    sharedBy: { id: "", name: "Traveler", profilePicture: "/user.png" },
-                    sharedAt: new Date(),
-                    lastUpdated: new Date(),
-                    collaborative: true,
-                    sharedWith: [],
-                    items: sortedItems
-                  });
+                const updated = [];
+                for (const [id, itinerary] of pendingUpdates) {
+                  if (itinerary.items.length > 0) {
+                    updated.push(itinerary);
+                  }
                 }
-                return arr;
+                return updated;
               });
             },
             (itemsErr) => {
               console.error(`Items listener error for shared itinerary ${d.id}:`, itemsErr);
-              // If items collection doesn't exist or we can't access it, remove from list
+              pendingUpdates.delete(d.id);
               setSharedWithMe(prev => prev.filter(s => s.id !== d.id));
             }
           );
           
           itemUnsubs.set(d.id, itemsUnsub);
         }
-
-        // Merge bases with previous items
-        setSharedWithMe(prev => {
-          const merged = bases.map(b => {
-            const existing = prev.find(p => p.id === b.id);
-            return { ...b, items: existing?.items || [] };
-          });
-          merged.sort((a, b) => {
-            const ta = a.lastUpdated instanceof Date ? a.lastUpdated.getTime() : new Date(a.lastUpdated).getTime();
-            const tb = b.lastUpdated instanceof Date ? b.lastUpdated.getTime() : new Date(b.lastUpdated).getTime();
-            return tb - ta;
-          });
-          return merged;
-        });
 
         setLoading(false);
       },
@@ -296,6 +317,7 @@ export function useSharedItineraries(user) {
         try { fn(); } catch {}
       }
       itemUnsubs.clear();
+      pendingUpdates.clear();
     };
   }, [user]);
 
@@ -435,16 +457,6 @@ async function checkMiniPlannerAchievement(user) {
   }
 }
 
-export async function deleteTripDestination(user, itemId) {
-  if (!user) throw new Error("AUTH_REQUIRED");
-  try {
-    await deleteDoc(doc(db, "itinerary", user.uid, "items", itemId));
-  } catch (err) {
-    console.error("Error deleting trip destination:", err);
-    throw err;
-  }
-}
-
 export async function clearAllTripDestinations(user) {
   if (!user) throw new Error("AUTH_REQUIRED");
   try {
@@ -455,6 +467,19 @@ export async function clearAllTripDestinations(user) {
     await batch.commit();
   } catch (err) {
     console.error("Error clearing trip destinations:", err);
+    throw err;
+  }
+}
+
+// ADD: Missing export function
+export async function deleteTripDestination(user, itemId) {
+  if (!user) throw new Error("AUTH_REQUIRED");
+  try {
+    const ref = doc(db, "itinerary", user.uid, "items", itemId);
+    await deleteDoc(ref);
+    console.log("[itinerary2] Deleted trip destination:", itemId);
+  } catch (err) {
+    console.error("Error deleting trip destination:", err);
     throw err;
   }
 }

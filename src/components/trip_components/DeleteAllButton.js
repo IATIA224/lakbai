@@ -1,40 +1,142 @@
-import { writeBatch, doc } from "firebase/firestore";
+import React from "react";
+import ReactDOM from "react-dom";
+import { deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
+import "./ConfirmationModal.css";
 
-/**
- * Delete all itinerary items for user using batched deletes.
- * Uses the `items` array passed from Itinerary instead of refetching the collection.
- */
-export async function deleteAllItinerary(items, user) {
-  if (!user) return;
-  if (!Array.isArray(items) || items.length === 0) {
-    alert("No destinations to delete.");
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `⚠️ Delete all ${items.length} destination(s)? This action cannot be undone!`
+function ConfirmationModal({ title, message, onConfirm, onCancel, confirmText = "OK", cancelText = "Cancel", isDanger = false }) {
+  return ReactDOM.createPortal(
+    <div className="confirmation-overlay">
+      <div className="confirmation-modal">
+        <div className="confirmation-header">
+          <h2 className="confirmation-title">{title}</h2>
+        </div>
+        
+        <div className="confirmation-body">
+          <p className="confirmation-message">{message}</p>
+        </div>
+        
+        <div className="confirmation-footer">
+          <button 
+            className="confirmation-btn cancel" 
+            onClick={onCancel}
+          >
+            {cancelText}
+          </button>
+          <button 
+            className={`confirmation-btn confirm ${isDanger ? 'danger' : 'primary'}`}
+            onClick={onConfirm}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
-  if (!confirmed) return;
+}
 
-  try {
-    // Firestore batched writes have a limit (500). Split into chunks.
-    const CHUNK_SIZE = 450;
-    let index = 0;
+export async function deleteAllItinerary(items, user, sharedItineraries = null) {
+  if (!user || !items.length) return;
 
-    while (index < items.length) {
-      const batch = writeBatch(db);
-      const chunk = items.slice(index, index + CHUNK_SIZE);
-      chunk.forEach((item) =>
-        batch.delete(doc(db, "itinerary", user.uid, "items", item.id))
-      );
-      await batch.commit();
-      index += CHUNK_SIZE;
-    }
+  return new Promise((resolve) => {
+    const modalRoot = document.createElement("div");
+    document.body.appendChild(modalRoot);
 
-    alert("🗑️ All destinations have been deleted");
-  } catch (err) {
-    console.error("Failed to delete all:", err);
-    alert("Failed to delete destinations");
-  }
+    const handleConfirm = async () => {
+      try {
+        const batch = writeBatch(db);
+        
+        if (!sharedItineraries) {
+          items.forEach(item => {
+            const ref = doc(db, "itinerary", user.uid, "items", item.id);
+            batch.delete(ref);
+          });
+        } else {
+          sharedItineraries.forEach(shared => {
+            shared.items.forEach(item => {
+              const ref = doc(db, "sharedItineraries", shared.id, "items", item.id);
+              batch.delete(ref);
+            });
+          });
+        }
+        
+        await batch.commit();
+        ReactDOM.unmountComponentAtNode(modalRoot);
+        modalRoot.remove();
+        showSuccessModal(`🗑️ Deleted ${items.length} destination(s) permanently!`);
+        resolve(true);
+      } catch (error) {
+        console.error("Error deleting destinations:", error);
+        ReactDOM.unmountComponentAtNode(modalRoot);
+        modalRoot.remove();
+        showErrorModal("Failed to delete destinations.");
+        resolve(false);
+      }
+    };
+
+    const handleCancel = () => {
+      ReactDOM.unmountComponentAtNode(modalRoot);
+      modalRoot.remove();
+      resolve(false);
+    };
+
+    ReactDOM.render(
+      <ConfirmationModal
+        title="⚠️ Delete All Destinations"
+        message={`Are you sure you want to delete all ${items.length} destination(s)? This action cannot be undone.`}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        confirmText="Delete All"
+        cancelText="Cancel"
+        isDanger={true}
+      />,
+      modalRoot
+    );
+  });
+}
+
+function showSuccessModal(message) {
+  const div = document.createElement("div");
+  document.body.appendChild(div);
+  
+  const handleClose = () => {
+    ReactDOM.unmountComponentAtNode(div);
+    div.remove();
+  };
+
+  ReactDOM.render(
+    <ConfirmationModal
+      title="✅ Success"
+      message={message}
+      onConfirm={handleClose}
+      onCancel={handleClose}
+      confirmText="OK"
+    />,
+    div
+  );
+
+  setTimeout(handleClose, 3000);
+}
+
+function showErrorModal(message) {
+  const div = document.createElement("div");
+  document.body.appendChild(div);
+  
+  const handleClose = () => {
+    ReactDOM.unmountComponentAtNode(div);
+    div.remove();
+  };
+
+  ReactDOM.render(
+    <ConfirmationModal
+      title="❌ Error"
+      message={message}
+      onConfirm={handleClose}
+      onCancel={handleClose}
+      confirmText="OK"
+      isDanger={true}
+    />,
+    div
+  );
 }
