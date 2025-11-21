@@ -778,3 +778,8 @@
     border-radius: 12px;
   }
 }
+
+.ai-itinerary-inline-container {
+  margin: 20px 0;
+  animation: slideInUp 0.4s ease-out;
+}

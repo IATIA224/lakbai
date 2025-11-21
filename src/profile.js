@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import ReactDOM from "react-dom";
 // fix: use react-leaflet, not "react-g"
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -448,8 +449,259 @@ const Profile = () => {
   };
 
   // Photo interactions
-  const handlePhotoClick = (photo) => setSelectedPhoto(photo);
+  const handlePhotoClick = (photo) => {
+    // If user clicked from the "All Photos" modal, close it so the viewer sits on top of the viewport
+    setShowAllPhotos(false);
+
+    // open centered viewer
+    setSelectedPhoto(photo);
+
+    // ensure top of page so viewer shows centered
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {}
+  };
+  // central scroll lock for any open overlay/modal (viewer, all-photos, edit, share)
+  useEffect(() => {
+    const anyModalOpen = !!selectedPhoto || showAllPhotos || showEditProfile || showShareCode;
+    try {
+      document.body.style.overflow = anyModalOpen ? "hidden" : "";
+    } catch {}
+    return () => {
+      try {
+        document.body.style.overflow = "";
+      } catch {}
+    };
+  }, [selectedPhoto, showAllPhotos, showEditProfile, showShareCode]);
   const closePhotoView = () => setSelectedPhoto(null);
+  // close viewer on Escape
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") setSelectedPhoto(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Render selected photo into document.body via portal to avoid stacking/transform issues
+  const SelectedPhotoPortal = ({ photo, onClose }) => {
+    if (!photo) return null;
+    return ReactDOM.createPortal(
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.65)",
+          display: "flex",
+          alignItems: "flex-start",   // push down so header remains visible
+          justifyContent: "center",
+          zIndex: 20000,
+          paddingTop: "88px",         // leave header space
+          paddingLeft: 20,
+          paddingRight: 20,
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "relative",
+            width: "min(900px, 92vw)",               // smaller width
+            maxHeight: "calc(100vh - 160px)",       // leave room above and below
+            borderRadius: 12,
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#0b0b0b",
+            padding: 12,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
+          }}
+        >
+           <img
+             src={transformCloudinary(photo.url, { w: 1600, h: 1600 })}
+             alt="Expanded"
+             style={{
+               width: "auto",
+               height: "auto",
+               maxWidth: "100%",
+               maxHeight: "calc(100vh - 200px)",   // ensure it fits the smaller modal
+               display: "block",
+               objectFit: "contain",
+               imageOrientation: "from-image",
+             }}
+           />
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              background: "rgba(255,255,255,0.9)",
+              border: "none",
+              borderRadius: "50%",
+              width: 34,
+              height: 34,
+              cursor: "pointer",
+              fontSize: 18,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1,
+            }}
+            aria-label="Close"
+            title="Close"
+          >
+            ×
+          </button>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  // All Photos modal via portal so it's centered on the viewport (not inside a transformed parent)
+  const AllPhotosPortal = ({ open, photosList = [], onClose, onPhotoClick, onDelete }) => {
+    if (!open) return null;
+    return ReactDOM.createPortal(
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0, 0, 0, 0.85)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 15000,
+          padding: 24,
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "relative",
+            width: "min(1200px, 94vw)",
+            height: "min(84vh, 900px)",
+            background: "white",
+            borderRadius: 16,
+            padding: 24,
+            overflowY: "auto",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <h2 style={{ margin: 0 }}>All Photos</h2>
+            <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer" }}>×</button>
+          </div>
+
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+            gap: 16,
+            alignItems: "start",
+          }}>
+            {photosList.map((photo) => (
+              <div
+                key={photo.id}
+                onClick={() => onPhotoClick(photo)}
+                style={{ position: "relative", width: "100%", paddingTop: "100%", borderRadius: 14, overflow: "hidden", cursor: "pointer" }}
+              >
+                <img
+                  src={transformCloudinary(photo.url, { w: 600, h: 600 })}
+                  alt="Gallery"
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", imageOrientation: "from-image" }}
+                />
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(photo.id); }}
+                  style={{ position: "absolute", top: 6, right: 6, width: 26, height: 26, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer" }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  // Share Code modal rendered in a portal so it centers on the viewport (not inside transformed container)
+  const ShareCodePortal = ({ open, shareCode, onClose, onCopy, onGenerate }) => {
+    if (!open) return null;
+    return ReactDOM.createPortal(
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0, 0, 0, 0.55)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 14000,
+          padding: 20,
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "min(700px, 96vw)",
+            maxHeight: "84vh",
+            overflow: "auto",
+            borderRadius: 20,
+            background: "linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+            padding: 22,
+            boxSizing: "border-box",
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ fontSize: 24 }}>🔗</div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>Share Your Profile</div>
+                <div style={{ fontSize: 13, color: "#6b7280" }}>Invite friends to connect with you</div>
+              </div>
+            </div>
+            <button onClick={onClose} aria-label="Close" title="Close" style={{ border: "none", background: "transparent", fontSize: 24, cursor: "pointer" }}>×</button>
+          </div>
+
+          {/* Body */}
+          <div style={{ paddingTop: 8 }}>
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#a855f7", textTransform: "uppercase", marginBottom: 8 }}>Your Share Code</div>
+              <div style={{ background: "linear-gradient(135deg,#f8f9ff 0%,#fff 100%)", border: "2px solid rgba(168,85,247,0.15)", padding: 16, borderRadius: 12, textAlign: "center", fontFamily: "monospace", fontSize: 28, color: "#6c63ff" }}>
+                {shareCode || "--------"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, flexDirection: "column" }}>
+              <button onClick={onCopy} style={{ padding: "12px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#a855f7 0%, #7c3aed 100%)", color: "white", fontWeight: 700, cursor: "pointer" }}>
+                📋 Copy Code
+              </button>
+              <button onClick={onGenerate} style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(168,85,247,0.15)", background: "transparent", color: "#6c63ff", fontWeight: 700, cursor: "pointer" }}>
+                🔄 Generate New Code
+              </button>
+            </div>
+
+            <div style={{ marginTop: 16, fontSize: 12, color: "#64748b", background: "rgba(168,85,247,0.04)", padding: 10, borderRadius: 8 }}>
+              💡 Friends can add you via Community → Friends → Enter Code
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
 
   // Activities
   const addActivity = async (text, icon = "🔵") => {
@@ -1392,7 +1644,7 @@ const Profile = () => {
                   }}
                 >
                   <div style={{ fontSize: 40, marginBottom: 8 }}>📸</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>
+                  <div style={{ fontSize: 13, fontWeight: "600", lineHeight: 1.2 }}>
                     Upload Photo
                   </div>
                 </div>
@@ -1731,7 +1983,7 @@ const Profile = () => {
                   color: "#999",
                   padding: "60px 40px",
                   borderRadius: "16px",
-                  background: "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)",
+                                   background: "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)",
                   border: "2px dashed rgba(102, 126, 234, 0.2)",
                 }}
               >
@@ -1805,6 +2057,7 @@ const Profile = () => {
                   e.currentTarget.style.background = "rgba(168, 85, 247, 0.1)";
                   e.currentTarget.style.color = "#a855f7";
                 }}
+             
               >
                 ×
               </button>
@@ -1826,422 +2079,24 @@ const Profile = () => {
         {/* Info / Delete Modal */}
         {showInfoDelete && <InfoDelete onClose={() => setShowInfoDelete(false)} />}
 
-        {/* Selected Photo Viewer */}
-        {selectedPhoto && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(0, 0, 0, 0.9)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10000,
-            }}
-            onClick={closePhotoView}
-          >
-            <div
-              style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={transformCloudinary(selectedPhoto.url, { w: 1600, h: 1600 })}
-                alt="Expanded"
-                style={{
-                  maxWidth: "90vw",
-                  maxHeight: "90vh",
-                  objectFit: "contain",
-                  imageOrientation: "from-image",
-                }}
-              />
-              <button
-                onClick={closePhotoView}
-                style={{
-                  position: "absolute",
-                  top: "10px",
-                  right: "10px",
-                  background: "rgba(255, 255, 255, 0.8)",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: "32px",
-                  height: "32px",
-                  cursor: "pointer",
-                  fontSize: "20px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* All Photos Modal */}
-        {showAllPhotos && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(0, 0, 0, 0.9)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10001,
-            }}
-            onClick={() => setShowAllPhotos(false)}
-          >
-            <div
-              style={{
-                position: "relative",
-                width: "90%",
-                height: "90%",
-                background: "white",
-                borderRadius: "16px",
-                padding: "24px",
-                overflowY: "auto",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "24px",
-                }}
-              >
-                <h2 style={{ margin: 0 }}>{LABELS.ALL_PHOTOS}</h2>
-                <button
-                  onClick={() => setShowAllPhotos(false)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    fontSize: "24px",
-                    cursor: "pointer",
-                    padding: 0,
-                    width: "32px",
-                    height: "32px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                  gap: "16px",
-                }}
-              >
-                {photos
-                  .slice()
-                  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                  .map((photo) => (
-                    <div
-                      key={photo.id}
-                      style={{
-                        position: "relative",
-                        width: "100%",
-                        paddingTop: "100%",
-                        borderRadius: "14px",
-                        overflow: "hidden",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => {
-                        setSelectedPhoto(photo);
-                        setShowAllPhotos(false);
-                      }}
-                    >
-                      <img
-                        src={transformCloudinary(photo.url, { w: 600, h: 600 })}
-                        alt="Gallery"
-                        style={{
-
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          imageOrientation: "from-image",
-                        }}
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeletePhoto(photo.id);
-                        }}
-                        style={{
-                          position: "absolute",
-                          top: "4px",
-                          right: "4px",
-                          background: "rgba(255, 255, 255, 0.8)",
-                          border: "none",
-                          borderRadius: "50%",
-                          width: 24,
-                          height: 24,
-                          cursor: "pointer",
-                          fontSize: 14,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Share Code Popup */}
-        {showShareCode && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0, 0, 0, 0.5)",
-              backdropFilter: "blur(2px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10000,
-              animation: "fadeIn 0.3s ease",
-            }}
-            onClick={() => setShowShareCode(false)}
-          >
-            <div
-              style={{
-                position: "relative",
-                background: "linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)",
-                borderRadius: "24px",
-                maxWidth: "500px",
-                width: "90%",
-                maxHeight: "85vh",
-                overflow: "auto",
-                boxShadow: "0  20px 60px rgba(168, 85, 247, 0.3)",
-                animation: "slideUp 0.3s ease",
-                border: "1px solid rgba(168, 85, 247, 0.2)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header - Sticky */}
-              <div
-                style={{
-                  background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
-                  padding: "32px 24px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 10,
-                  overflow: "hidden",
-                }}
-              >
-                <div style={{ position: "relative", zIndex: 1 }}>
-                  <div style={{ fontSize: "28px", fontWeight: "700", color: "white", marginBottom: "4px", display: "flex", alignItems: "center", gap: "12px" }}>
-                    🔗 Share Your Profile
-                  </div>
-                  <div style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>
-                    Invite friends to connect with you
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowShareCode(false)}
-                  style={{
-                    position: "relative",
-                    zIndex: 2,
-                    width: "36px",
-                    height: "36px",
-                    border: "none",
-                    borderRadius: "50%",
-                    background: "rgba(255, 255, 255, 0.2)",
-                    color: "white",
-                    fontSize: "24px",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.3)";
-                    e.currentTarget.style.transform = "scale(1.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
-                    e.currentTarget.style.transform = "scale(1)";
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-
-              {/* Body */}
-              <div style={{ padding: "32px 24px" }}>
-                {/* Info Box */}
-                <div
-                  style={{
-                    background: "linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
-                    border: "1px solid rgba(168, 85, 247, 0.2)",
-                    borderRadius: "16px",
-                    padding: "16px",
-                    marginBottom: "24px",
-                    display: "flex",
-                    gap: "12px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <span style={{ fontSize: "20px", flexShrink: 0 }}>ℹ️</span>
-                  <div style={{ fontSize: "13px", color: "#475569", lineHeight: "1.5" }}>
-                    Share this code with friends. They can use it to add you as a friend in the Community section.
-                  </div>
-                </div>
-
-                {/* Share Code Display */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div style={{ fontSize: "12px", fontWeight: "700", color: "#a855f7", textTransform: "uppercase", marginBottom: "8px", letterSpacing: "0.5px" }}>
-                    Your Share Code
-                  </div>
-                  <div
-                    style={{
-                      background: "linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%)",
-                      border: "2px solid rgba(168, 85, 247, 0.2)",
-                      borderRadius: "12px",
-                      padding: "20px",
-                      textAlign: "center",
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        right: 0,
-                        width: "100px",
-                        height: "100px",
-                        background: "radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%)",
-                        borderRadius: "50%",
-                        transform: "translate(30%, -30%)",
-                        pointerEvents: "none",
-                      }}
-                    />
-                    <div
-                      style={{
-                        fontSize: "32px",
-                        fontWeight: "700",
-                        fontFamily: "monospace",
-                        color: "#a855f7",
-                        letterSpacing: "3px",
-                        position: "relative",
-                        zIndex: 1,
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {shareCode || "--------"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div style={{ display: "flex", gap: "12px", flexDirection: "column" }}>
-                  <button
-                    onClick={copyShareCode}
-                    style={{
-                      width: "100%",
-                      padding: "14px 20px",
-                      border: "none",
-                      borderRadius: "12px",
-                      background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
-                      color: "white",
-                      fontSize: "14px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      transition: "all 0.3s ease",
-                      boxShadow: "0 4px 12px rgba(168, 85, 247, 0.3)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                      e.currentTarget.style.boxShadow = "0 6px 16px rgba(168, 85, 247, 0.4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 4px 12px rgba(168, 85, 247, 0.3)";
-                    }}
-                  >
-                    📋 Copy Code
-                  </button>
-                  <button
-                    onClick={handleShareProfile}
-                    style={{
-                      width: "100%",
-                      padding: "14px 20px",
-                      border: "2px solid rgba(168, 85, 247, 0.3)",
-                      borderRadius: "12px",
-                      background: "transparent",
-                      color: "#a855f7",
-                      fontSize: "14px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      transition: "all 0.3s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(168, 85, 247, 0.08)";
-                      e.currentTarget.style.borderColor = "#a855f7";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.borderColor = "rgba(168, 85, 247, 0.3)";
-                    }}
-                  >
-                    🔄 Generate New Code
-                  </button>
-                </div>
-
-                {/* Footer Hint */}
-                <div
-                  style={{
-                    marginTop: "20px",
-                    padding: "12px",
-                    background: "rgba(168, 85, 247, 0.05)",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    color: "#64748b",
-                    textAlign: "center",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  💡 Friends can add you via <strong>Community → Friends → Enter Code</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Selected Photo Viewer (rendered via portal to avoid stacking context issues) */}
+        <SelectedPhotoPortal photo={selectedPhoto} onClose={closePhotoView} />
+        {/* All Photos Modal (portal) */}
+        <AllPhotosPortal
+          open={showAllPhotos}
+          photosList={photos}
+          onClose={() => setShowAllPhotos(false)}
+          onPhotoClick={(p) => handlePhotoClick(p)}
+          onDelete={(id) => handleDeletePhoto(id)}
+        />
+        {/* Share Code Portal (centers on the viewport) */}
+        <ShareCodePortal
+          open={showShareCode}
+          shareCode={shareCode}
+          onClose={() => setShowShareCode(false)}
+          onCopy={copyShareCode}
+          onGenerate={handleShareProfile}
+        />
       </div>
     </>
   );

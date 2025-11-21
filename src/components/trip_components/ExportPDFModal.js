@@ -1,24 +1,27 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 
-export default function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose, exporting = false }) {
+export default function ExportPDFModal({ items = [], selected = new Set(), onToggle, onSelectAll, onExport, onClose, exporting }) {
   const isAllSelected = items.length > 0 && selected.size === items.length;
 
-  return ReactDOM.createPortal(
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div className="itn-modal itn-modal-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="itn-modal-header itn-gradient">
-          <div className="itn-modal-title">📄 Export to PDF</div>
-          <button className="itn-close" onClick={onClose}>×</button>
+  return (
+    <div className="confirmation-overlay" onClick={onClose}>
+      <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="confirmation-header">
+          <div className="confirmation-title">Export destinations to PDF</div>
         </div>
 
-        <div className="itn-modal-body">
+        <div className="confirmation-body">
+          <div style={{ marginBottom: 12, color: "#64748b" }}>
+            Select destinations to include in the PDF. Use Select All to quickly choose all items.
+          </div>
+
           <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ color: "#64748b", fontWeight: 600 }}>
               {selected.size} of {items.length} selected
             </div>
-            <button 
-              className="itn-btn ghost" 
+            <button
+              className="itn-btn ghost"
               onClick={() => onSelectAll()}
               style={{ fontSize: "13px", padding: "6px 12px" }}
             >
@@ -59,8 +62,8 @@ export default function ExportPDFModal({ items, selected, onToggle, onSelectAll,
                     {item.estimatedExpenditure && <span> • Budget: ₱{Number(item.estimatedExpenditure).toLocaleString()}</span>}
                   </div>
                 </div>
-                <span 
-                  className={`itn-badge ${item.status?.toLowerCase() || ''}`} 
+                <span
+                  className={`itn-badge ${item.status?.toLowerCase() || ""}`}
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {item.status}
@@ -70,28 +73,13 @@ export default function ExportPDFModal({ items, selected, onToggle, onSelectAll,
           </div>
         </div>
 
-        <div className="itn-modal-footer">
-          <button 
-            className="itn-btn ghost" 
-            onClick={onClose} 
-            disabled={exporting}
-          >
-            Cancel
-          </button>
-          <button
-            className="itn-btn primary"
-            onClick={() => {
-              console.log("[ExportPDFModal] Export clicked. Selected:", Array.from(selected));
-              onExport();
-            }}
-            disabled={selected.size === 0 || exporting}
-            aria-busy={exporting}
-          >
-            {exporting ? "Exporting..." : `Export ${selected.size > 0 ? `(${selected.size})` : ""}`}
+        <div className="confirmation-footer">
+          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
+          <button className="itn-btn primary" onClick={onExport} disabled={exporting}>
+            {exporting ? "Exporting…" : "Export to PDF"}
           </button>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
