@@ -62,15 +62,20 @@ export default function ShareItineraryModal({ items = [], onClose = () => {} }) 
     console.log("Friend list updated", friendList);
   }, [friendList]);
 
-  const body = (
-    <div className="share-modal-backdrop" onClick={onClose}>
-      <div className="share-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="share-modal-header">
-          <h3>Share Itinerary</h3>
-          <button className="btn-close" onClick={onClose}>✕</button>
+  return (
+    <div className="confirmation-overlay" onClick={onClose}>
+      <div
+        className="confirmation-modal confirmation-modal--wide"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Share itinerary"
+      >
+        <div className="confirmation-header">
+          <div className="confirmation-title">Share Itinerary</div>
         </div>
 
-        <div className="share-modal-body">
+        <div className="confirmation-body">
           <section className="share-section">
             <h4>Choose Friends</h4>
             {friendList.length === 0 ? (
@@ -85,8 +90,10 @@ export default function ShareItineraryModal({ items = [], onClose = () => {} }) 
                       onChange={() => toggleFriend(f.id)}
                     />
                     <img src={f.profilePicture || "/user.png"} alt={f.name} className="friend-avatar" />
-                    <span className="friend-name">{f.name}</span>
-                    <span className="friend-email">{f.email}</span>
+                    <div className="friend-info">
+                      <div className="friend-name">{f.name}</div>
+                      <div className="friend-email">{f.email || f.handle}</div>
+                    </div>
                   </label>
                 ))}
               </div>
@@ -117,7 +124,7 @@ export default function ShareItineraryModal({ items = [], onClose = () => {} }) 
           </section>
         </div>
 
-        <div className="share-modal-footer">
+        <div className="confirmation-footer">
           <button className="btn ghost" onClick={onClose} disabled={loading}>Cancel</button>
           <button className="btn primary" onClick={handleShare} disabled={!canShare || loading}>
             {loading ? "Sharing…" : "Share"}
