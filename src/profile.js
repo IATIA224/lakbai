@@ -908,15 +908,21 @@ const Profile = () => {
       }
 
       try {
-        const statsData = await getUserCompletionStats(userId);
-        if (statsData && statsData.destinations) {
-          const destinationsArray = Object.entries(statsData.destinations).map(([id, data]) => ({
+        // Try to get from Stats collection first
+        const statsRef = doc(db, "Stats", `completed_${userId}`);
+        const statsSnap = await getDoc(statsRef);
+        
+        if (statsSnap.exists()) {
+          const data = statsSnap.data();
+          const destinations = data.destinations || {};
+          
+          const destinationsArray = Object.entries(destinations).map(([id, dest]) => ({
             id,
-            name: data.name || 'Unknown',
-            region: data.region || '',
-            completedAt: data.completedAt,
-            latitude: data.latitude,
-            longitude: data.longitude,
+            name: dest.name || 'Unknown',
+            region: dest.region || '',
+            completedAt: dest.completedAt,
+            latitude: dest.latitude,
+            longitude: dest.longitude,
           }));
 
           const withCoordinates = destinationsArray.filter(
@@ -925,13 +931,11 @@ const Profile = () => {
 
           setCompletedDestinations(withCoordinates);
 
-          // Sync count to Firestore; UI will update via onSnapshot (like other stats)
+          // Update stats count
           const count = destinationsArray.length;
-          try {
-            await updateDoc(doc(db, "users", userId), { "stats.placesVisited": count });
-          } catch (e) {
-            console.warn("Failed to sync placesVisited to Firestore:", e);
-          }
+          await updateDoc(doc(db, "users", userId), { 
+            "stats.placesVisited": count 
+          }).catch(e => console.warn("Failed to sync placesVisited:", e));
 
           // Auto-center map
           if (withCoordinates.length > 0) {
@@ -941,13 +945,11 @@ const Profile = () => {
             setMapZoom(7);
           }
         } else {
-          // Keep previous stats value; don't force 0 here
           setCompletedDestinations([]);
         }
       } catch (error) {
         console.error('Error fetching completed destinations:', error);
         setCompletedDestinations([]);
-        // Keep previous stats value on error
       }
     };
 

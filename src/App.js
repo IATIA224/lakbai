@@ -22,6 +22,9 @@ import { ToastContainer } from 'react-toastify';
 import { getAuth, signOut, signInWithEmailAndPassword } from "firebase/auth";
 import JeepneyRouteMap from "./itineraryjeeproute";
 import ItineraryCostEstimationModal from "./itineraryCostEstimation";
+import EditProfile from './EditProfile'; // <-- Import your EditProfile component
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "./firebase"; // adjust path if needed
 
 // FIXED: Better authentication check
 function isAuthenticated() {
@@ -37,13 +40,34 @@ function isAuthenticated() {
 
 function AppInner() {
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({});
   const location = useLocation();
-  
+
   useEffect(() => {
-    const handler = () => setShowAIModal(true);
-    window.addEventListener('lakbai:open-ai', handler);
-    return () => window.removeEventListener('lakbai:open-ai', handler);
-  }, []);
+    async function checkShowEditProfile() {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (location.pathname === "/dashboard" && user) {
+        try {
+          const snap = await getDoc(doc(db, "users", user.uid));
+          const data = snap.exists() ? snap.data() : {};
+          const interests = Array.isArray(data?.interests) ? data.interests : [];
+          if (!interests.length) {
+            setEditProfileData(data);
+            setShowEditProfile(true);
+          } else {
+            setShowEditProfile(false);
+          }
+        } catch (e) {
+          setShowEditProfile(false);
+        }
+      } else {
+        setShowEditProfile(false);
+      }
+    }
+    checkShowEditProfile();
+  }, [location.pathname]);
 
   function MainLayout() {
     const loc = useLocation();
@@ -93,7 +117,7 @@ function AppInner() {
             path="/community"
             element={isAuthenticated() ? <Community /> : <Navigate to="/login" replace />}
           />
-          <Route
+            <Route
             path="/profile"
             element={isAuthenticated() ? <Profile /> : <Navigate to="/login" replace />}
           />
@@ -116,6 +140,15 @@ function AppInner() {
       </Routes>
 
       {showAIModal && <ChatbaseAI onClose={() => setShowAIModal(false)} />}
+
+      {/* Show EditProfile modal for new users */}
+      {showEditProfile && (
+        <EditProfile
+          initialData={editProfileData}
+          onClose={() => setShowEditProfile(false)}
+        />
+      )}
+
       <AchievementToast />
       <ToastContainer />
     </UserProvider>
