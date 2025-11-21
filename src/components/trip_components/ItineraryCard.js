@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { breakdown, category } from "../../rules";
 import { HotelSuggestion, AgencySuggestion } from "../../ItinerarySuggestion";
 import { db, auth } from "../../firebase"; // ADD THIS IMPORT
-import { doc, updateDoc } from "firebase/firestore"; // ADD THIS IMPORT
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"; // ADD THIS IMPORT
 import "./ItineraryCard.css";
 
 
@@ -579,6 +579,49 @@ export default function ItineraryCard({
     if (success) {
       onEdit(updated);
       setItemStatus(nextStatus);
+
+      // ADD THIS: Track completion in Firebase
+      if (nextStatus === "completed") {
+        await trackDestinationCompletion(item);
+      }
+    }
+  };
+
+
+  // ADD THIS NEW FUNCTION after toggleStatus
+  const trackDestinationCompletion = async (destination) => {
+    if (!auth.currentUser || !destination) return;
+
+    try {
+      const userId = auth.currentUser.uid;
+      const statsRef = doc(db, "Stats", `completed_${userId}`);
+      
+      // Get current stats
+      const statsSnap = await getDoc(statsRef);
+      const currentData = statsSnap.exists() ? statsSnap.data() : {};
+      
+      // Add or update this destination in the completed list
+      const destinationId = destination.id || destination.place_id || destination.name;
+      
+      await setDoc(statsRef, {
+        userId,
+        destinations: {
+          ...currentData.destinations,
+          [destinationId]: {
+            id: destinationId,
+            name: destination.name || "Unknown",
+            region: destination.region || "",
+            completedAt: serverTimestamp(),
+            latitude: destination.lat || destination.latitude || null,
+            longitude: destination.lon || destination.longitude || null,
+          }
+        },
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+
+      console.log("[Itinerary] Tracked completion for:", destination.name);
+    } catch (err) {
+      console.error("[Itinerary] Failed to track completion:", err);
     }
   };
 
