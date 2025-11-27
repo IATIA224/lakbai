@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import { breakdown, category } from "../../rules";
 import { HotelSuggestion, AgencySuggestion } from "../../ItinerarySuggestion";
 import { db, auth } from "../../firebase"; // ADD THIS IMPORT
-import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"; // ADD THIS IMPORT
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp, deleteField } from "firebase/firestore"; // ADDED deleteField
 import "./ItineraryCard.css";
 
 
@@ -293,16 +293,54 @@ export default function ItineraryCard({
   const saveDates = async () => {
     if (!onEdit) return;
 
+    // Build a clean update object: avoid passing undefined to updateDoc.
+    const updates = { id: item.id };
 
-    const updated = {
-      ...item,
-      dateFrom: dateFrom || undefined,
-      dateUntil: dateUntil || undefined,
-    };
+    // Add dateFrom / dateUntil only if present; otherwise mark field for deletion.
+    if (dateFrom && String(dateFrom).trim() !== "") {
+      updates.dateFrom = dateFrom;
+    } else {
+      updates.dateFrom = deleteField();
+    }
 
+    if (dateUntil && String(dateUntil).trim() !== "") {
+      updates.dateUntil = dateUntil;
+    } else {
+      updates.dateUntil = deleteField();
+    }
 
-    await saveToFirebase(updated);
-    onEdit(updated);
+    const success = await saveToFirebase(updates);
+    if (success) {
+      // Merge to full local item object so UI receives current state
+      onEdit({ ...item, ...(
+        updates.dateFrom === deleteField() ? { dateFrom: undefined } : { dateFrom: updates.dateFrom }
+      ), ...(
+        updates.dateUntil === deleteField() ? { dateUntil: undefined } : { dateUntil: updates.dateUntil }
+      ) });
+
+      // Notify server to schedule/cancel reminder (POST to /itinerary-notify)
+      try {
+        const serverUrl = process.env.REACT_APP_API_URL || "";
+        if (serverUrl !== undefined) {
+          await fetch(`${serverUrl}/api/email/itinerary-notify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: auth.currentUser?.uid,
+              userEmail: auth.currentUser?.email,
+              userName: auth.currentUser?.displayName,
+              itineraryId: item.id,
+              name: item.name,
+              arrival: dateFrom || "",
+              region: item.region,
+              infoUrl: window.location.href,
+            }),
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to notify server for itinerary date update:", e);
+      }
+    }
   };
 
 

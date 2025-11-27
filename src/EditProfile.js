@@ -6,10 +6,6 @@ import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
 
-const API_BASE_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://lakbai-xxo0.onrender.com" // <- update to the exact backend URL
-    : "";
 
 const interestsList = [
   { icon: "🏄‍♂️", label: "Surfer", color: "rgba(99,102,241,0.12)" },
@@ -174,11 +170,13 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       await updateDoc(doc(db, "users", user.uid), updateData);
 
       // Send updated interests to the email API
-      const payload = {
+      await axios.post("/api/send-interests-email", {
         interests: finalInterests, // or the current interests array
-      };
-      const token = await user.getIdToken();
-      await axios.post(`${API_BASE_URL}/api/send-interests-email`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        }
+      });
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
@@ -235,7 +233,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       setInterests(interestsList.map(i => ({ ...i, status: null })));
 
       // --- SEND EMAIL NOTIFICATION ---
-      await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
+      await axios.post("/api/send-interests-email", {
         interests: [], // all cleared
       }, {
         headers: {
