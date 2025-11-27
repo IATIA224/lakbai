@@ -4,26 +4,42 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-app.use(cors({ origin: true }));
+
+// Use FRONTEND_URL env var to restrict CORS (or use '*' while debugging)
+const FRONTEND_URL = process.env.FRONTEND_URL || '*';
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Request logger
 app.use((req, res, next) => {
-  console.log('[REQ]', { method: req.method, url: req.originalUrl, origin: req.headers.origin });
+  console.log('[REQ]', { method: req.method, url: req.originalUrl, origin: req.headers.origin, host: req.headers.host });
   next();
 });
 
-// Mount Cloudinary routes
+// Mount routes BEFORE listen
 app.use('/api', require('./cloudinaryRoutes'));
+app.use('/api', require('./emailRoutes'));
 
-// Mount email routes (ensure this file exists)
-const emailRoutes = require('./emailRoutes');
-app.use('/api', emailRoutes);
-
-// Simple health/root routes (also good for Render health checks)
+// Simple health/root routes (good for Render health checks)
 app.get('/_health', (req, res) => res.json({ ok: true }));
 app.get('/', (req, res) => res.status(200).json({ status: 'API is running', version: '1.0' }));
+
+// Debug route to list available routes (handy if you cannot use shell)
+app.get('/api/_routes', (req, res) => {
+  try {
+    const routes = [];
+    app._router.stack.forEach(layer => {
+      if (layer.route) {
+        const methods = Object.keys(layer.route.methods).join(',').toUpperCase();
+        routes.push({ path: layer.route.path, methods });
+      }
+    });
+    res.json({ ok: true, routes });
+  } catch (err) {
+    res.json({ ok: false, routes: [], error: String(err) });
+  }
+});
 
 // log defined routes to help debug
 setTimeout(() => {
@@ -47,13 +63,4 @@ app.use((req, res) => {
 const PORT = Number(process.env.PORT || 3002);
 app.listen(PORT, () => {
   console.log(`Admin API listening on http://localhost:${PORT}`);
-});
-
-const FRONTEND_URL = process.env.FRONTEND_URL || true;
-app.use(cors({ origin: FRONTEND_URL, credentials: true }));
-
-// Simple request logger to help debug incoming requests
-app.use((req, res, next) => {
-  console.log('[REQ]', { method: req.method, url: req.originalUrl, origin: req.headers.origin, host: req.headers.host });
-  next();
 });

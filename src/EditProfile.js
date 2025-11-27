@@ -6,7 +6,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
 
-const API_BASE = process.env.REACT_APP_API_URL || ""; // add this near imports or top of component
+const API_BASE = process.env.REACT_APP_API_URL || ""; // top of file or near imports
 
 const interestsList = [
   { icon: "🏄‍♂️", label: "Surfer", color: "rgba(99,102,241,0.12)" },
@@ -172,11 +172,14 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
 
       // Send updated interests to the email API
       await axios.post(`${API_BASE}/api/send-interests-email`, {
-        interests: finalInterests, // or the current interests array
+        interests: finalInterests,
+        name,
       }, {
         headers: {
-          Authorization: `Bearer ${await user.getIdToken()}`,
-        }
+          // only send header if you have a token
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+        },
       });
 
       if (onProfileUpdate) onProfileUpdate();
