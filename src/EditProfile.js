@@ -34,6 +34,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   const [photo, setPhoto] = useState(null);
   const [photoFile, setPhotoFile] = useState(null); // <-- store file
   const [name, setName] = useState(initialData.name || "");
+  const [randomPlaceholder] = useState(() => `User${Math.floor(10000 + Math.random() * 90000)}`);
   const [bio, setBio] = useState(initialData.bio || "");
   // if initialData.interests is an empty array, fall back to default interestsList
   const [interests, setInterests] = useState(
@@ -168,6 +169,15 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
+      // Send updated interests to the email API
+      await axios.post("/api/send-interests-email", {
+        interests: finalInterests, // or the current interests array
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        }
+      });
+
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
     } catch (err) {
@@ -209,6 +219,36 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // Handler to clear all interests (likes/dislikes and active)
+  const handleClearAllInterests = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user logged in");
+      await updateDoc(doc(db, "users", user.uid), {
+        interests: [],
+        dislikes: [],
+      });
+      setActiveInterests(new Set());
+      setInterests(interestsList.map(i => ({ ...i, status: null })));
+
+      // --- SEND EMAIL NOTIFICATION ---
+      await axios.post("/api/send-interests-email", {
+        interests: [], // all cleared
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        }
+      });
+      // --- END EMAIL NOTIFICATION ---
+
+      alert("All preferences cleared!");
+      if (onProfileUpdate) onProfileUpdate();
+    } catch (err) {
+      console.error("Clear interests error:", err);
+      alert("Failed to clear preferences: " + err.message);
+    }
+  };
 
   const modal = (
     <div className="edit-profile-backdrop" onClick={() => onClose?.()}>
@@ -252,24 +292,20 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
                     }}
                   />
                 ) : (
-                  <div
+                  <img
+                    src="/prof.png"
+                    alt="Default avatar"
+                    className="edit-profile-avatar-img"
                     style={{
                       width: 96,
                       height: 96,
                       borderRadius: "50%",
-                      background: "#a084ee",
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "2.5rem",
-                      fontWeight: "700",
+                      objectFit: "cover",
+                      background: "#f3f4f6",
                       border: "3px solid #e5e7eb",
                       cursor: "pointer"
                     }}
-                  >
-                    {(initialData.name || "U").charAt(0).toUpperCase()}
-                  </div>
+                  />
                 )}
                 <input
                   data-testid="photo-input"
@@ -290,7 +326,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 maxLength={40}
-                placeholder="John Doe"
+                placeholder={randomPlaceholder}
               />
             </label>
             <label className="edit-profile-label">
@@ -315,6 +351,25 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
               <div className="edit-profile-interests-sub">
                 Click each interest to like (green) or dislike (red)
               </div>
+              <button
+                type="button"
+                style={{
+                  marginTop: 10,
+                  marginBottom: 8,
+                  background: "#f3f4f6",
+                  color: "#6c63ff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  padding: "6px 14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontSize: "0.98rem",
+                  float: "right"
+                }}
+                onClick={handleClearAllInterests}
+              >
+                Clear All Preferences
+              </button>
             </div>
             <div className="edit-profile-interests-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', overflowX: 'hidden' }}>
               {interests.map((interest, idx) => {

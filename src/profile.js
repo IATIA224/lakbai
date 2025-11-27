@@ -143,6 +143,7 @@ const Profile = () => {
           ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, {
               year: "numeric",
               month: "long",
+              day: "numeric",
             })
           : (data.joined || ""); // fallback to existing
 
@@ -157,6 +158,7 @@ const Profile = () => {
           : (Array.isArray(data.likes) ? data.likes : (prev?.interests || [])),
         likes: Array.isArray(data.likes) ? data.likes : prev?.likes || [],
         dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev?.dislikes || [],
+        joined, // <-- add this line
       }));
 
       setShareCode(data.shareCode || "");
@@ -658,7 +660,7 @@ const Profile = () => {
             overflow: "auto",
             borderRadius: 20,
             background: "linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+            boxShadow: "0 20px 60px rgba(168, 85, 247, 0.35)",
             padding: 22,
             boxSizing: "border-box",
           }}
@@ -1127,24 +1129,21 @@ const Profile = () => {
                 }}
               />
             ) : (
-              <div
+              <img
+                src="/prof.png"
+                alt="Default avatar"
                 style={{
                   width: 96,
                   height: 96,
                   borderRadius: "50%",
-                  background: "#a084ee",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "2.5rem",
-                  fontWeight: "700",
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  background: "#f3f4f6",
                   border: "4px solid #fff",
-                  boxShadow: "0 2px 12px rgba(108,99,255,0.13)",
+                  boxShadow: "0 2px 12px rgba(108,99,255,0.13)", // Match the CSS
+                  display: "block",
                 }}
-              >
-                {(profile?.name || "U").charAt(0).toUpperCase()}
-              </div>
+              />
             )}
           </div>
           <div className="profile-info">
@@ -1279,7 +1278,7 @@ const Profile = () => {
             </div>
             <div className="profile-meta">
               <span>🌟 Explorer</span>
-              <span>• 🎂 Joined {profile?.joined || ""}</span>   {/* null-safe */}
+              <span>• 🎂 Joined:  {profile?.joined || ""}</span>   {/* null-safe */}
             </div>
             <div className="profile-badges">
               {( (profile?.interests && profile.interests.length > 0 ? profile.interests : (profile?.likes || [])) ).map((interest) => (
@@ -1854,7 +1853,7 @@ const Profile = () => {
               <div>
                 <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#6c63ff", marginBottom: "16px" }}>
                   Your Friends ({friends.length})
-                </h3>
+                               </h3>
                 <div
                   style={{
                     display: "grid",
@@ -2065,7 +2064,10 @@ const Profile = () => {
               </button>
               <EditProfile
                 onClose={() => setShowEditProfile(false)}
-                onProfileUpdate={() => unlockAchievement(5, "Profile Pioneer")}
+                onProfileUpdate={() => {
+                  unlockAchievement(5, "Profile Pioneer");
+                  if (userId) fetchProfile(userId); // <-- ADD THIS LINE
+                }}
                 initialData={{
                   name: profile?.name || "",
                   bio: profile?.bio || "",
@@ -2127,7 +2129,6 @@ export async function logActivity(text, icon = "🔵") {
   try {
     const user = auth.currentUser;
     if (!user) return;
-
     await addDoc(collection(db, "activities"), {
       userId: user.uid,
       text,

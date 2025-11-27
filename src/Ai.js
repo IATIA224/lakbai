@@ -7,8 +7,44 @@ import { emitAchievement } from './achievementsBus';
 
 const MODEL_API_BASE = (typeof window !== 'undefined' && window.LAKBAI_MODEL_API_BASE) || 'https://chuxia-sys-gemma-tuned.hf.space';
 
-
 let _csvCache = null;
+
+// Mobile detection: toggles CSS class .ai-mobile on documentElement for CSS adjustments
+function initAiMobileAdaptation() {
+  if (typeof window === 'undefined') return;
+
+  const mobileQuery = window.matchMedia('(max-width: 768px)');
+
+  function update() {
+    const isMobile = mobileQuery.matches;
+    document.documentElement.classList.toggle('ai-mobile', isMobile);
+    // Optionally also toggle class on ai-container/ai-card if there's a known root element
+    const container = document.querySelector('.ai-container');
+    if (container) {
+      container.classList.toggle('ai-mobile', isMobile);
+    }
+  }
+
+  // Initial set
+  update();
+
+  // Listen for changes
+  mobileQuery.addEventListener ? mobileQuery.addEventListener('change', update) : mobileQuery.addListener(update);
+
+  // Cleanup is optional but included for good practice if this init is called multiple times
+  return () => {
+    mobileQuery.removeEventListener ? mobileQuery.removeEventListener('change', update) : mobileQuery.removeListener(update);
+  };
+}
+
+// Call once on AI initialization
+try {
+  // if the module initializes at runtime, run adaptation
+  initAiMobileAdaptation();
+} catch (e) {
+  // silent fallback if environment doesn't support matchMedia (server side)
+  console.warn('Ai mobile adaptation init failed:', e?.message || e);
+}
 
 const PHILIPPINE_PLACES = [
   "philippines", "palawan", "cebu", "bohol", "baguio", "manila", "ilocos",

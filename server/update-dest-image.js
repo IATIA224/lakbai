@@ -63,4 +63,25 @@ app.post("/api/delete-dest-image", (req, res) => {
     res.json({ success: true });
 });
 
-app.listen(4001, () => console.log("Update dest-image API running on port 4001"));
+const PORT = Number(process.env.UPDATE_IMAGE_PORT || 4001);
+
+function startServer(port = PORT) {
+  const server = app.listen(port, () => {
+    console.log(`update-dest-image listening on port ${port}`);
+  });
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} already in use. Change UPDATE_IMAGE_PORT or free the port.`);
+    } else {
+      console.error('Server error:', err && (err.stack || err.message));
+    }
+  });
+  return server;
+}
+
+module.exports = { app, startServer };
+
+// If run directly from node update-dest-image.js, start the server.
+if (require.main === module) {
+  startServer();
+}
