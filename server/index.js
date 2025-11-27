@@ -28,16 +28,24 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Debug echo route (avoid returning complex req objects)
 app.post('/api/echo', (req, res) => {
   try {
     console.log('[echo] headers:', req.headers);
     console.log('[echo] body:', req.body);
     return res.json({ ok: true, body: req.body });
   } catch (err) {
-    console.error('[echo] unexpected error:', err.stack || err);
+    console.error('[echo] error', err.stack || err);
     return res.status(500).json({ error: 'Server error' });
   }
+});
+
+// JSON parse handler (returns JSON instead of HTML)
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.parse.failed') {
+    console.error('[index] JSON parse error:', err.message);
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+  next(err);
 });
 
 // health + quick test route

@@ -19,6 +19,14 @@ console.log('[mailer] SMTP settings', {
   SMTP_USER: !!process.env.SMTP_USER,
 });
 
+console.log('[mailer] env:', {
+  SMTP_HOST: !!process.env.SMTP_HOST,
+  SMTP_PORT: !!process.env.SMTP_PORT,
+  SMTP_USER: !!process.env.SMTP_USER,
+  EMAIL_TO: !!process.env.EMAIL_TO,
+  EMAIL_FROM: !!process.env.EMAIL_FROM
+});
+
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: parseInt(SMTP_PORT || '587', 10),

@@ -11,14 +11,16 @@ router.post('/send-interests-email', async (req, res) => {
     const userEmail = req.body.userEmail ?? req.body.email;
 
     if (!interests || !Array.isArray(interests)) {
-      console.warn('[emailRoutes] missing/invalid interests:', interests);
+      console.warn('[emailRoutes] missing/invalid interests:', JSON.stringify(interests));
       return res.status(400).json({ error: 'Missing or invalid "interests" array' });
     }
 
+    // optional: if auth middleware is used, include Authorization in tests
     const info = await sendInterestsEmail({ interests, userEmail });
+    console.log('[emailRoutes] mail send info:', info);
     return res.json({ ok: true, info });
   } catch (err) {
-    console.error('[emailRoutes] error sending email:', err.stack || err.message || err);
+    console.error('[emailRoutes] error:', err.stack || err);
     return res.status(500).json({ error: 'Internal server error', message: err.message });
   }
 });
