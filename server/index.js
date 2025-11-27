@@ -8,6 +8,12 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request logger
+app.use((req, res, next) => {
+  console.log('[REQ]', { method: req.method, url: req.originalUrl, origin: req.headers.origin });
+  next();
+});
+
 // Mount Cloudinary routes
 app.use('/api', require('./cloudinaryRoutes'));
 
@@ -15,49 +21,35 @@ app.use('/api', require('./cloudinaryRoutes'));
 const emailRoutes = require('./emailRoutes');
 app.use('/api', emailRoutes);
 
-// Quick health check
+// Simple health/root routes (also good for Render health checks)
 app.get('/_health', (req, res) => res.json({ ok: true }));
+app.get('/', (req, res) => res.status(200).json({ status: 'API is running', version: '1.0' }));
 
-// Add this route to handle GET requests to the root path
-app.get('/', (req, res) => {
-  res.status(200).json({ status: 'API is running', version: '1.0' });
-});
-
-// Configure Cloudinary with your credentials
-const cloudinary = require('cloudinary').v2;
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-app.post('/api/cloudinary/delete', async (req, res) => {
-  const { publicId } = req.body;
-  if (!publicId) return res.status(400).json({ error: 'Missing publicId' });
+// log defined routes to help debug
+setTimeout(() => {
   try {
-    await cloudinary.uploader.destroy(publicId, { invalidate: true });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('cloudinary delete error', err && err.message);
-    res.status(500).json({ error: 'Failed to delete image' });
+    app._router.stack.forEach(layer => {
+      if (layer.route) {
+        const methods = Object.keys(layer.route.methods).join(',').toUpperCase();
+        console.log(`[ROUTE] ${methods} ${layer.route.path}`);
+      }
+    });
+  } catch (e) {
+    console.log('[ROUTE] could not enumerate');
   }
+}, 1000);
+
+// Catch-all 404
+app.use((req, res) => {
+  res.status(404).json({ ok: false, message: 'Not Found', path: req.originalUrl });
 });
-
-const updateDestImage = require('./update-dest-image');
-
-// Option A — mount the update-dest-image app under a path so you keep a single server
-// e.g. all routes defined in update-dest-image will serve under /update-dest-image
-app.use('/update-dest-image', updateDestImage.app);
-
-// Option B — if you want update-dest-image to run as a separate server, start it on a different port
-// updateDestImage.startServer(Number(process.env.UPDATE_IMAGE_PORT || 4002));
 
 const PORT = Number(process.env.PORT || 3002);
 app.listen(PORT, () => {
   console.log(`Admin API listening on http://localhost:${PORT}`);
 });
 
-const FRONTEND_URL = process.env.FRONTEND_URL || true; // set on Render to your front-end URL
+const FRONTEND_URL = process.env.FRONTEND_URL || true;
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
 // Simple request logger to help debug incoming requests
