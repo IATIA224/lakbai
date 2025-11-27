@@ -1,46 +1,42 @@
 const nodemailer = require('nodemailer');
-require('dotenv').config();
 
-const masked = (s = '') => (s.length > 4 ? `${s.slice(0, 2)}...${s.slice(-2)}` : s);
+const {
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_USER,
+  SMTP_PASS,
+  EMAIL_FROM,
+  EMAIL_TO
+} = process.env;
 
-console.log('Mailer config:', {
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: process.env.EMAIL_SECURE,
-  user: masked(process.env.EMAIL_USER),
-  pass: process.env.EMAIL_PASS ? '***' : '(none)',
-});
+if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+  console.warn('[mailer] Missing SMTP env vars: SMTP_HOST/SMTP_USER/SMTP_PASS may be undefined');
+}
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT || 587),
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+  host: SMTP_HOST,
+  port: parseInt(SMTP_PORT || '587', 10),
+  secure: SMTP_PORT == 465, // true for 465, false for 587
+  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
 });
 
-transporter.verify()
-  .then(() => console.log('Mailer: SMTP ready'))
-  .catch(err => console.error('Mailer verify error (startup):', err && (err.message || err)));
-
-async function sendMail({ to, subject, text, html, from }) {
+async function sendInterestsEmail({ interests, userEmail }) {
+  const to = EMAIL_TO || userEmail || SMTP_USER;
+  const from = EMAIL_FROM || SMTP_USER;
+  const html = `<p>User ${userEmail || 'unknown'} updated interests: ${JSON.stringify(interests)}</p>`;
   try {
-    const mailOptions = {
-      from: from || process.env.EMAIL_FROM,
+    const info = await transporter.sendMail({
+      from,
       to,
-      subject,
-      text,
+      subject: 'Interests updated',
       html,
-    };
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Mailer: sent', info.messageId);
+    });
+    console.log('[mailer] Sent:', info.messageId, 'to', to);
     return info;
   } catch (err) {
-    console.error('Mailer send error:', err && (err.stack || err.message || err));
+    console.error('[mailer] sendMail error:', err);
     throw err;
   }
 }
 
-module.exports = { sendMail };
+module.exports = { sendInterestsEmail };

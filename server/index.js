@@ -25,8 +25,14 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+app.post('/api/echo', (req, res) => {
+  console.log('[echo] headers:', req.headers);
+  console.log('[echo] body:', req.body);
+  res.json({ ok: true, headers: req.headers, body: req.body });
+});
 
 // health + quick test route
 app.get('/health', (req, res) => res.json({ ok: true, pid: process.pid, started: new Date().toISOString() }));
@@ -35,6 +41,12 @@ app.get('/api/ping', (req, res) => res.json({ pong: true }));
 // mount routes
 app.use('/api', require('./cloudinaryRoutes'));
 app.use('/api', require('./emailRoutes'));
+
+// Global error handler (logs stack)
+app.use((err, req, res, next) => {
+  console.error('[global-error] ', err);
+  res.status(500).json({ error: 'Server error' });
+});
 
 // log routes for debugging
 setTimeout(() => {
