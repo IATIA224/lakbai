@@ -237,7 +237,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       setInterests(interestsList.map(i => ({ ...i, status: null })));
 
       // --- SEND EMAIL NOTIFICATION ---
-      await axios.post("/api/send-interests-email", {
+      await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
         interests: [], // all cleared
       }, {
         headers: {

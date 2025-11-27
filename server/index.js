@@ -4,10 +4,18 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+
+// Allow the deployed frontend origin and the Authorization header — handle preflight
 app.use(cors({
-  origin: 'https://lakbai.onrender.com', // your frontend URL
-  credentials: true
+  origin: 'https://lakbai.onrender.com',
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization']
 }));
+
+// Respond to preflight for all routes
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
