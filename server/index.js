@@ -23,6 +23,7 @@ app.use('/api', require('./emailRoutes'));
 
 // Simple health/root routes (good for Render health checks)
 app.get('/_health', (req, res) => res.json({ ok: true }));
+app.get('/healthz', (req, res) => res.json({ ok: true }));
 app.get('/', (req, res) => res.status(200).json({ status: 'API is running', version: '1.0' }));
 
 // Debug route to list available routes (handy if you cannot use shell)
