@@ -10,36 +10,49 @@ console.log('[MAILER] env check', {
   MAIL_TO: !!process.env.MAIL_TO,
 });
 
-// Use SendGrid API if key provided (recommended)
-if (process.env.SENDGRID_API_KEY) {
-  const sgMail = require('@sendgrid/mail');
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  module.exports.sendInterestsEmail = async ({ interests, name, meta }) => {
-    const text = `Interests: ${JSON.stringify(interests)}\nName: ${name}\nMeta: ${JSON.stringify(meta)}`;
-    const msg = {
-      to: process.env.MAIL_TO,
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-      subject: 'Interests updated',
-      text,
-    };
-    try {
-      console.log('[MAILER] Using SendGrid:', { to: msg.to, from: msg.from });
-      const resp = await sgMail.send(msg);
-      console.log('[MAILER] sendgrid resp status:', resp?.[0]?.statusCode);
-      return resp;
-    } catch (err) {
-      console.error('[MAILER] SendGrid error', err);
-      throw err;
-    }
-  };
-} else {
-  // require SMTP envs and fail early if missing
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.error('[MAILER] SMTP is not configured, please set env vars or use SendGrid');
-    throw new Error('SMTP credentials missing. Use SENDGRID_API_KEY or SMTP_ envs');
-  }
+// Setup send function without throwing at module load
+let sendInterestsEmail;
+let transporter;
+let usingSendgrid = false;
 
-  const transport = nodemailer.createTransport({
+if (process.env.SENDGRID_API_KEY) {
+  try {
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    usingSendgrid = true;
+
+    sendInterestsEmail = async ({ interests, name, meta = {} }) => {
+      if (!process.env.MAIL_TO || !process.env.MAIL_FROM) {
+        console.warn('[MAILER] SENDGRID required MAIL_TO/MAIL_FROM env vars missing');
+        throw new Error('Mailer not configured: missing MAIL_TO or MAIL_FROM');
+      }
+      const text = `Interests: ${JSON.stringify(interests)}\nName: ${name}\nMeta: ${JSON.stringify(meta)}`;
+      const msg = {
+        to: process.env.MAIL_TO,
+        from: process.env.MAIL_FROM,
+        subject: 'Interests updated',
+        text,
+      };
+      try {
+        const resp = await sgMail.send(msg);
+        console.log('[MAILER] SendGrid send success', resp?.[0]?.statusCode);
+        return resp;
+      } catch (err) {
+        console.error('[MAILER] SendGrid error', err?.message || err);
+        throw err;
+      }
+    };
+
+    console.log('[MAILER] configured to use SendGrid');
+  } catch (err) {
+    console.error('[MAILER] SendGrid module not installed or init failed', err?.message || err);
+    // keep trying SMTP fallback below
+  }
+}
+
+// SMTP fallback (only if configured)
+if (!usingSendgrid && process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: (process.env.SMTP_SECURE || 'false') === 'true',
@@ -49,14 +62,18 @@ if (process.env.SENDGRID_API_KEY) {
     },
   });
 
-  // verify transporter at startup
-  transport.verify().then(() => {
+  // Optional verify to show connection problems, but catch errors to not crash
+  transporter.verify().then(() => {
     console.log('[MAILER] SMTP transporter verified');
   }).catch(err => {
-    console.error('[MAILER] verify error (startup):', err && (err.message || err));
+    console.warn('[MAILER] SMTP verify warning (non-fatal):', err?.message || err);
   });
 
-  module.exports.sendInterestsEmail = async ({ interests, name, meta = {} }) => {
+  sendInterestsEmail = async ({ interests, name, meta = {} }) => {
+    if (!process.env.MAIL_TO || !process.env.MAIL_FROM) {
+      console.warn('[MAILER] SMTP required MAIL_TO/MAIL_FROM env vars missing');
+      throw new Error('Mailer not configured: missing MAIL_TO or MAIL_FROM');
+    }
     const mail = {
       from: process.env.MAIL_FROM || process.env.SMTP_USER,
       to: process.env.MAIL_TO,
@@ -64,12 +81,25 @@ if (process.env.SENDGRID_API_KEY) {
       text: `Interests: ${JSON.stringify(interests)}\nMeta: ${JSON.stringify(meta)}`,
     };
     try {
-      const info = await transport.sendMail(mail);
+      const info = await transporter.sendMail(mail);
       console.log('[MAILER] nodemailer success', info.messageId || info);
       return info;
     } catch (err) {
-      console.error('[MAILER] sendMail error:', err);
+      console.error('[MAILER] sendMail error:', err?.message || err);
       throw err;
     }
   };
 }
+
+// If neither SendGrid nor SMTP initialized, create a failing function (non-fatal at require)
+if (!sendInterestsEmail) {
+  console.warn('[MAILER] No send method configured (SENDGRID_API_KEY or SMTP_* envs). Mail sends will fail until configured.');
+  sendInterestsEmail = async () => {
+    throw new Error('Mailer not configured. Set SENDGRID_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS');
+  };
+}
+
+// Export the function
+module.exports = {
+  sendInterestsEmail,
+};
