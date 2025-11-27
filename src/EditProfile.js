@@ -6,6 +6,10 @@ import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
 
+const API_BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://your-backend.onrender.com"
+    : "";
 
 const interestsList = [
   { icon: "🏄‍♂️", label: "Surfer", color: "rgba(99,102,241,0.12)" },
@@ -171,7 +175,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
 
       // Send updated interests to the email API, with error handling
       try {
-        await axios.post("/api/send-interests-email", {
+        await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
           interests: finalInterests, // or the current interests array
         }, {
           headers: {
@@ -239,7 +243,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
 
       // --- SEND EMAIL NOTIFICATION ---
       try {
-        await axios.post("/api/send-interests-email", {
+        await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
           interests: [], // all cleared
         }, {
           headers: {
