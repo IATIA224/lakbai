@@ -1,20 +1,21 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+const morgan = require('morgan');
 
 const app = express();
 
-// Allow the deployed frontend origin and the Authorization header — handle preflight
+app.use(morgan('tiny'));
+
+// CORS + preflight
 app.use(cors({
   origin: 'https://lakbai.onrender.com',
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization']
 }));
+app.options('*', cors());
 
-// explicit preflight handler and fallback header middleware:
-app.options('*', cors()); // allow preflight
+// fallback headers and options handler
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', 'https://lakbai.onrender.com');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -27,45 +28,25 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Mount Cloudinary routes
-app.use('/api', require('./cloudinaryRoutes'));
+// health + quick test route
+app.get('/health', (req, res) => res.json({ ok: true, pid: process.pid, started: new Date().toISOString() }));
+app.get('/api/ping', (req, res) => res.json({ pong: true }));
 
-// Mount email routes
+// mount routes
+app.use('/api', require('./cloudinaryRoutes'));
 app.use('/api', require('./emailRoutes'));
 
-// Quick health check
-app.get('/_health', (req, res) => res.json({ ok: true }));
-
-// Configure Cloudinary with your credentials
-const cloudinary = require('cloudinary').v2;
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-app.post('/api/cloudinary/delete', async (req, res) => {
-  const { publicId } = req.body;
-  if (!publicId) return res.status(400).json({ error: 'Missing publicId' });
-  try {
-    await cloudinary.uploader.destroy(publicId, { invalidate: true });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('cloudinary delete error', err && err.message);
-    res.status(500).json({ error: 'Failed to delete image' });
+// log routes for debugging
+setTimeout(() => {
+  if (app._router && app._router.stack) {
+    console.log('Registered routes:');
+    app._router.stack.forEach((r) => {
+      if (r.route && r.route.path) {
+        console.log(Object.keys(r.route.methods).map(m => m.toUpperCase()).join(',') + ' ' + r.route.path);
+      }
+    });
   }
-});
+}, 1000);
 
-const updateDestImage = require('./update-dest-image');
-
-// Option A — mount the update-dest-image app under a path so you keep a single server
-// e.g. all routes defined in update-dest-image will serve under /update-dest-image
-app.use('/update-dest-image', updateDestImage.app);
-
-// Option B — if you want update-dest-image to run as a separate server, start it on a different port
-// updateDestImage.startServer(Number(process.env.UPDATE_IMAGE_PORT || 4002));
-
-const PORT = Number(process.env.PORT || 3002);
-app.listen(PORT, () => {
-  console.log(`Admin API listening on http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => console.log(`Server started on port ${PORT}`));

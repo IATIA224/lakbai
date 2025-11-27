@@ -8,7 +8,7 @@ import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'fir
 
 const API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://lakbai_.onrender.com" // your backend Render URL
+    ? "https://lakbai-xxo0.onrender.com" // <- update to the exact backend URL
     : "";
 
 const interestsList = [
@@ -174,13 +174,11 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       await updateDoc(doc(db, "users", user.uid), updateData);
 
       // Send updated interests to the email API
-      await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
+      const payload = {
         interests: finalInterests, // or the current interests array
-      }, {
-        headers: {
-          Authorization: `Bearer ${await user.getIdToken()}`,
-        }
-      });
+      };
+      const token = await user.getIdToken();
+      await axios.post(`${API_BASE_URL}/api/send-interests-email`, payload, { headers: { Authorization: `Bearer ${token}` } });
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
