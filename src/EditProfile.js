@@ -6,10 +6,6 @@ import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
 
-const API_BASE_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://your-backend.onrender.com"
-    : "";
 
 const interestsList = [
   { icon: "🏄‍♂️", label: "Surfer", color: "rgba(99,102,241,0.12)" },
@@ -173,18 +169,14 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
-      // Send updated interests to the email API, with error handling
-      try {
-        const idToken = await user.getIdToken();
-        await axios.post(
-          `${API_BASE_URL}/api/send-interests-email`,
-          { interests: finalInterests, /* other data if needed */ },
-          { headers: { Authorization: `Bearer ${idToken}` } }
-        );
-      } catch (emailErr) {
-        console.error("Failed to send interests email:", emailErr);
-        alert("Profile updated, but failed to send email notification: " + (emailErr?.response?.data?.error || emailErr.message));
-      }
+      // Send updated interests to the email API
+      await axios.post("/api/send-interests-email", {
+        interests: finalInterests, // or the current interests array
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        }
+      });
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
@@ -241,18 +233,13 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       setInterests(interestsList.map(i => ({ ...i, status: null })));
 
       // --- SEND EMAIL NOTIFICATION ---
-      try {
-        await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
-          interests: [], // all cleared
-        }, {
-          headers: {
-            Authorization: `Bearer ${await user.getIdToken()}`,
-          }
-        });
-      } catch (emailErr) {
-        console.error("Failed to send interests email (clear):", emailErr);
-        alert("Preferences cleared, but failed to send email notification: " + (emailErr?.response?.data?.error || emailErr.message));
-      }
+      await axios.post("/api/send-interests-email", {
+        interests: [], // all cleared
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        }
+      });
       // --- END EMAIL NOTIFICATION ---
 
       alert("All preferences cleared!");
