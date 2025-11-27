@@ -13,8 +13,16 @@ app.use(cors({
   allowedHeaders: ['Content-Type','Authorization']
 }));
 
-// Respond to preflight for all routes
-app.options('*', cors());
+// explicit preflight handler and fallback header middleware:
+app.options('*', cors()); // allow preflight
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://lakbai.onrender.com');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -22,9 +30,8 @@ app.use(express.urlencoded({ extended: true }));
 // Mount Cloudinary routes
 app.use('/api', require('./cloudinaryRoutes'));
 
-// Mount email routes (ensure this file exists)
-const emailRoutes = require('./emailRoutes');
-app.use('/api', emailRoutes);
+// Mount email routes
+app.use('/api', require('./emailRoutes'));
 
 // Quick health check
 app.get('/_health', (req, res) => res.json({ ok: true }));
