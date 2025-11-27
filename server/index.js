@@ -27,40 +27,17 @@ app.use((req, res, next) => {
 
 app.use(express.json({
   limit: '1mb',
-  verify: (req, res, buf) => {
-    req.rawBody = buf && buf.toString('utf8');
-    console.log('[raw body] length:', req.rawBody?.length, 'value:', req.rawBody);
-  }
+  verify: (req, res, buf) => { req.rawBody = buf && buf.toString('utf8'); }
 }));
-app.use(express.urlencoded({ extended: true }));
 
-app.post('/api/echo', (req, res) => {
-  try {
-    console.log('[echo] headers:', req.headers);
-    console.log('[echo] body:', req.body);
-    return res.json({ ok: true, body: req.body });
-  } catch (err) {
-    console.error('[echo] error', err.stack || err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// JSON parse handler (returns JSON instead of HTML)
+// convert JSON parse errors to JSON responses
 app.use((err, req, res, next) => {
   if (err && err.type === 'entity.parse.failed') {
-    console.error('[index] JSON parse error:', err.message);
+    console.error('[index] JSON parse failed', err.message, 'raw:', req.rawBody?.slice(0, 400));
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
   next(err);
 });
-
-// health + quick test route
-app.get('/health', (req, res) => res.json({ ok: true, pid: process.pid, started: new Date().toISOString() }));
-app.get('/api/ping', (req, res) => res.json({ pong: true }));
-
-// mount routes
-app.use('/api', require('./cloudinaryRoutes'));
-app.use('/api', require('./emailRoutes'));
 
 // Global error handler: log stack & return JSON
 app.use((err, req, res, next) => {

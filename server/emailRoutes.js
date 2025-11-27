@@ -3,25 +3,22 @@ const router = express.Router();
 const { sendInterestsEmail } = require('./mailer');
 
 router.post('/send-interests-email', async (req, res) => {
+  console.log('[emailRoutes] incoming headers:', req.headers);
+  console.log('[emailRoutes] incoming body:', req.body);
   try {
-    console.log('[emailRoutes] headers:', req.headers);
-    console.log('[emailRoutes] body:', req.body);
-
-    const interests = req.body.interests ?? req.body?.data?.interests;
-    const userEmail = req.body.userEmail ?? req.body.email;
+    const interests = req.body?.interests ?? req.body?.data?.interests;
+    const userEmail = req.body?.userEmail ?? req.body?.email;
 
     if (!interests || !Array.isArray(interests)) {
-      console.warn('[emailRoutes] missing/invalid interests:', JSON.stringify(interests));
+      console.warn('[emailRoutes] Validation failed — interests:', interests);
       return res.status(400).json({ error: 'Missing or invalid "interests" array' });
     }
 
-    // optional: if auth middleware is used, include Authorization in tests
     const info = await sendInterestsEmail({ interests, userEmail });
-    console.log('[emailRoutes] mail send info:', info);
     return res.json({ ok: true, info });
   } catch (err) {
-    console.error('[emailRoutes] error:', err.stack || err);
-    return res.status(500).json({ error: 'Internal server error', message: err.message });
+    console.error('[emailRoutes] handler error:', err && (err.stack || err.message));
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

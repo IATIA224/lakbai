@@ -9,47 +9,52 @@ const {
   EMAIL_TO
 } = process.env;
 
-if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-  console.warn('[mailer] Missing SMTP env vars: SMTP_HOST/SMTP_USER/SMTP_PASS may be undefined');
+const MAIL_DISABLED = !SMTP_HOST || !SMTP_USER || !SMTP_PASS;
+
+console.log('[mailer] SMTP envs:', {
+  SMTP_HOST: !!SMTP_HOST, SMTP_PORT: !!SMTP_PORT, SMTP_USER: !!SMTP_USER,
+  EMAIL_FROM: !!EMAIL_FROM, EMAIL_TO: !!EMAIL_TO, MAIL_DISABLED
+});
+
+// create transporter if possible
+let transporter;
+if (!MAIL_DISABLED) {
+  transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT || 587),
+    secure: Number(SMTP_PORT || 587) === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+
+  transporter.verify()
+    .then(() => console.log('[mailer] SMTP connection succeeded'))
+    .catch(err => console.error('[mailer] SMTP verify error', err && (err.stack || err.message || err)));
+} else {
+  console.warn('[mailer] Mailer disabled: missing SMTP credentials');
 }
 
-console.log('[mailer] SMTP settings', {
-  SMTP_HOST: !!process.env.SMTP_HOST,
-  SMTP_PORT: !!process.env.SMTP_PORT,
-  SMTP_USER: !!process.env.SMTP_USER,
-});
+// send function
+async function sendInterestsEmail({ interests = [], userEmail }) {
+  if (MAIL_DISABLED) {
+    const msg = '[mailer] disabled — email not sent';
+    console.warn(msg, { interests, userEmail });
+    // for debug return info or throw to show error in logs
+    return { debug: true, message: 'Mailer disabled' };
+  }
 
-console.log('[mailer] env:', {
-  SMTP_HOST: !!process.env.SMTP_HOST,
-  SMTP_PORT: !!process.env.SMTP_PORT,
-  SMTP_USER: !!process.env.SMTP_USER,
-  EMAIL_TO: !!process.env.EMAIL_TO,
-  EMAIL_FROM: !!process.env.EMAIL_FROM
-});
+  const to = userEmail || process.env.EMAIL_TO || SMTP_USER;
+  const from = process.env.EMAIL_FROM || SMTP_USER;
 
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: parseInt(SMTP_PORT || '587', 10),
-  secure: SMTP_PORT == 465, // true for 465, false for 587
-  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
-});
-
-async function sendInterestsEmail({ interests, userEmail }) {
-  const to = EMAIL_TO || userEmail || SMTP_USER;
-  const from = EMAIL_FROM || SMTP_USER;
   const html = `<p>User ${userEmail || 'unknown'} updated interests: ${JSON.stringify(interests)}</p>`;
+  const mailOptions = { from, to, subject: 'Interests updated', html };
+
   try {
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject: 'Interests updated',
-      html,
-    });
-    console.log('[mailer] Sent:', info.messageId, 'to', to);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[mailer] sent', info.messageId);
     return info;
   } catch (err) {
-    console.error('[mailer] sendMail error:', err);
-    throw err;
+    console.error('[mailer] send error', err && (err.stack || err.message || err));
+    throw err; // let route handler handle and log
   }
 }
 
