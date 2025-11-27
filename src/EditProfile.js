@@ -169,14 +169,19 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
-      // Send updated interests to the email API
-      await axios.post("/api/send-interests-email", {
-        interests: finalInterests, // or the current interests array
-      }, {
-        headers: {
-          Authorization: `Bearer ${await user.getIdToken()}`,
-        }
-      });
+      // Send updated interests to the email API, with error handling
+      try {
+        await axios.post("/api/send-interests-email", {
+          interests: finalInterests, // or the current interests array
+        }, {
+          headers: {
+            Authorization: `Bearer ${await user.getIdToken()}`,
+          }
+        });
+      } catch (emailErr) {
+        console.error("Failed to send interests email:", emailErr);
+        alert("Profile updated, but failed to send email notification: " + (emailErr?.response?.data?.error || emailErr.message));
+      }
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
@@ -233,13 +238,18 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       setInterests(interestsList.map(i => ({ ...i, status: null })));
 
       // --- SEND EMAIL NOTIFICATION ---
-      await axios.post("/api/send-interests-email", {
-        interests: [], // all cleared
-      }, {
-        headers: {
-          Authorization: `Bearer ${await user.getIdToken()}`,
-        }
-      });
+      try {
+        await axios.post("/api/send-interests-email", {
+          interests: [], // all cleared
+        }, {
+          headers: {
+            Authorization: `Bearer ${await user.getIdToken()}`,
+          }
+        });
+      } catch (emailErr) {
+        console.error("Failed to send interests email (clear):", emailErr);
+        alert("Preferences cleared, but failed to send email notification: " + (emailErr?.response?.data?.error || emailErr.message));
+      }
       // --- END EMAIL NOTIFICATION ---
 
       alert("All preferences cleared!");
