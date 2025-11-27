@@ -59,7 +59,6 @@ router.post('/send-interests-email', async (req, res) => {
       html: `
         <div style="max-width:480px;margin:0 auto;padding:24px 18px;background:#f8f9ff;border-radius:12px;font-family:'Inter',Arial,sans-serif;color:#3d246c;">
           <div style="text-align:center;margin-bottom:18px;">
-            <img src="https://cdn-icons-png.flaticon.com/512/415/415497.png" alt="LakbAI Logo" style="width:56px;height:56px;border-radius:12px;border:2px solid #a084ee;background:#fff;margin-bottom:8px;">
             <h2 style="margin:0;font-size:1.5rem;color:#6c63ff;">LakbAI</h2>
           </div>
           <p style="font-size:1.08rem;margin-bottom:12px;">Hi <b>${decoded.name || 'traveler'}</b>,</p>
