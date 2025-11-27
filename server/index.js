@@ -28,10 +28,16 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Debug echo route (avoid returning complex req objects)
 app.post('/api/echo', (req, res) => {
-  console.log('[echo] headers:', req.headers);
-  console.log('[echo] body:', req.body);
-  res.json({ ok: true, headers: req.headers, body: req.body });
+  try {
+    console.log('[echo] headers:', req.headers);
+    console.log('[echo] body:', req.body);
+    return res.json({ ok: true, body: req.body });
+  } catch (err) {
+    console.error('[echo] unexpected error:', err.stack || err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // health + quick test route
@@ -42,10 +48,11 @@ app.get('/api/ping', (req, res) => res.json({ pong: true }));
 app.use('/api', require('./cloudinaryRoutes'));
 app.use('/api', require('./emailRoutes'));
 
-// Global error handler (logs stack)
+// Global error handler: log stack & return JSON
 app.use((err, req, res, next) => {
-  console.error('[global-error] ', err);
-  res.status(500).json({ error: 'Server error' });
+  console.error('[global error]', err && (err.stack || err.message || err));
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.message || 'Server error' });
 });
 
 // log routes for debugging

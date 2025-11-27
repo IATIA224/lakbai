@@ -13,6 +13,12 @@ if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
   console.warn('[mailer] Missing SMTP env vars: SMTP_HOST/SMTP_USER/SMTP_PASS may be undefined');
 }
 
+console.log('[mailer] SMTP settings', {
+  SMTP_HOST: !!process.env.SMTP_HOST,
+  SMTP_PORT: !!process.env.SMTP_PORT,
+  SMTP_USER: !!process.env.SMTP_USER,
+});
+
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: parseInt(SMTP_PORT || '587', 10),
