@@ -56,3 +56,12 @@ const PORT = Number(process.env.PORT || 3002);
 app.listen(PORT, () => {
   console.log(`Admin API listening on http://localhost:${PORT}`);
 });
+
+const FRONTEND_URL = process.env.FRONTEND_URL || true; // set on Render to your front-end URL
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+
+// Simple request logger to help debug incoming requests
+app.use((req, res, next) => {
+  console.log('[REQ]', { method: req.method, url: req.originalUrl, origin: req.headers.origin, host: req.headers.host });
+  next();
+});
