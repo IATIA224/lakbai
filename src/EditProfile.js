@@ -170,6 +170,9 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
+      // Get ID token for Authorization header
+      const token = user ? await user.getIdToken() : null;
+
       // Send updated interests to the email API
       await axios.post(`${API_BASE}/api/send-interests-email`, {
         interests: finalInterests,
