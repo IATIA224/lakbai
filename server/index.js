@@ -25,7 +25,13 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf && buf.toString('utf8');
+    console.log('[raw body] length:', req.rawBody?.length, 'value:', req.rawBody);
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 app.post('/api/echo', (req, res) => {
