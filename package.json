@@ -27,6 +27,7 @@
     "leaflet-defaulticon-compatibility": "^0.1.2",
     "leaflet-routing-machine": "^3.2.12",
     "mapbox-gl": "^3.14.0",
+    "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.11",
     "papaparse": "^5.5.3",
