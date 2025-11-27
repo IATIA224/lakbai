@@ -175,13 +175,12 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
 
       // Send updated interests to the email API, with error handling
       try {
-        await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
-          interests: finalInterests, // or the current interests array
-        }, {
-          headers: {
-            Authorization: `Bearer ${await user.getIdToken()}`,
-          }
-        });
+        const idToken = await user.getIdToken();
+        await axios.post(
+          `${API_BASE_URL}/api/send-interests-email`,
+          { interests: finalInterests, /* other data if needed */ },
+          { headers: { Authorization: `Bearer ${idToken}` } }
+        );
       } catch (emailErr) {
         console.error("Failed to send interests email:", emailErr);
         alert("Profile updated, but failed to send email notification: " + (emailErr?.response?.data?.error || emailErr.message));
