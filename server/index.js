@@ -1,23 +1,18 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-
 const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Mount Cloudinary routes
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://lakbai.onrender.com"; // frontend Render URL
+
+app.use(express.json());
+app.use(cors({ origin: FRONTEND_URL })); // or origin: true for all (not for prod)
+
+// mount your API routes
+app.use('/api', require('./emailRoutes'));
 app.use('/api', require('./cloudinaryRoutes'));
 
-// Mount email routes (ensure emailRoutes.js exports an Express Router)
-app.use('/api', require('./emailRoutes'));
-
-// Health check for quick testing on Render
+// health route
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`Admin API listening on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
