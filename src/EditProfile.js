@@ -5,6 +5,7 @@ import "./EditProfile.css";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
+import { toast } from 'react-toastify'; // or your notification library
 
 
 const interestsList = [
@@ -247,6 +248,35 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     } catch (err) {
       console.error("Clear interests error:", err);
       alert("Failed to clear preferences: " + err.message);
+    }
+  };
+
+  // New handler for saving interests only
+  const handleSaveInterests = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user logged in");
+
+      const token = await user.getIdToken();
+
+      const response = await axios.post(
+        'https://lakbai-xxo0.onrender.com/api/send-interests-email',
+        { interests: Array.from(activeInterests) },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('✅ Email sent! Check your inbox.', { autoClose: 3000 });
+      } else {
+        toast.error('❌ Failed to send email', { autoClose: 3000 });
+      }
+    } catch (error) {
+      toast.error(`❌ Error: ${error.response?.data?.details || error.message}`, { autoClose: 5000 });
+      console.error('Full error:', error);
     }
   };
 
