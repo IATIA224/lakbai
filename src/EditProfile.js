@@ -115,78 +115,46 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     setSaving(true);
     try {
       const user = auth.currentUser;
-      if (!user) throw new Error("No user logged in");
+      if (!user) throw new Error("Not logged in");
 
-      // Likes and dislikes from the UI
-      const likes = interests.filter(i => i.status === "like").map(i => i.label);
-      const dislikes = interests.filter(i => i.status === "dislike").map(i => i.label);
+      // Get ID token for auth
+      const idToken = await user.getIdToken();
 
-      // FINAL interests to store
-      const finalInterests = Array.from(new Set([
-        ...Array.from(activeInterests),
-        ...likes
-      ]));
-
-      const updateData = {};
-
-      // Only add fields that have actual values and have changed
-      if (name && name.trim() !== (initialData.name || "")) {
-        updateData.travelerName = name.trim();
-      }
-      if (bio !== (initialData.bio || "")) {
-        updateData.bio = bio;
-      }
-
-      // profile picture
+      // Upload photo if changed
+      let photoUrl = initialData.profilePicture;
       if (photoFile) {
-        updateData.profilePicture = await uploadToCloudinary(photoFile);
+        photoUrl = await uploadToCloudinary(photoFile);
       }
 
-      // interests
-      const initialInterests = Array.isArray(initialData.interests) ? initialData.interests : [];
-      if (JSON.stringify(finalInterests.sort()) !== JSON.stringify(initialInterests.sort())) {
-        updateData.interests = finalInterests;
-      }
+      // Get active interests (only "like" status)
+      const savedInterests = interests
+        .filter(i => i.status === "like")
+        .map(i => i.label);
 
-      // dislikes
-      if (JSON.stringify(dislikes.sort()) !== JSON.stringify((initialData.dislikes || []).sort())) {
-        updateData.dislikes = dislikes;
-      }
-
-      // Filter out any undefined values (safety check)
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key] === undefined) {
-          delete updateData[key];
-        }
+      // Update Firestore
+      await updateDoc(doc(db, "users", user.uid), {
+        name: name || randomPlaceholder,
+        bio,
+        profilePicture: photoUrl,
+        interests: savedInterests,
+        updatedAt: new Date(),
       });
 
-      if (Object.keys(updateData).length === 0) {
-        if (onClose) onClose();
-        setSaving(false);
-        return;
-      }
+      // Send interests email
+      await fetch('/api/send-interests-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ interests: savedInterests }),
+      });
 
-      // Use updateDoc to only update specified fields
-      await updateDoc(doc(db, "users", user.uid), updateData);
-
-      // Send updated interests to the email API
-      try {
-        await axios.post("/api/send-interests-email", {
-          interests: finalInterests,
-        }, {
-          headers: {
-            Authorization: `Bearer ${await user.getIdToken()}`,
-          }
-        });
-      } catch (emailErr) {
-        console.warn('Email notification failed (non-blocking):', emailErr.message);
-      }
-
-      if (onProfileUpdate) onProfileUpdate();
-      if (onClose) onClose();
+      onProfileUpdate?.({ name, bio, profilePicture: photoUrl, interests: savedInterests });
+      onClose?.();
     } catch (err) {
-      console.error("Save profile error:", err);
-      alert("Failed to save profile: " + err.message);
+      console.error('Save error:', err);
+      alert('Failed to save profile');
     }
     setSaving(false);
   };

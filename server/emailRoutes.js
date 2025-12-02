@@ -7,13 +7,8 @@ const { sendMail } = require('./mailer');
 // Init Firebase admin (if available)
 try {
   if (!admin.apps.length) {
-    let serviceAccount;
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    } else {
-      serviceAccount = require('./serviceAccountKey.json');
-    }
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    const sa = require(path.join(__dirname, '..', 'serviceAccountKey.json'));
+    admin.initializeApp({ credential: admin.credential.cert(sa) });
     console.log('Firebase admin initialized');
   }
 } catch (e) {
@@ -53,7 +48,6 @@ router.post('/send-interests-email', async (req, res) => {
   try {
     const idToken = getIdTokenFromHeader(req);
     if (!idToken) return res.status(401).json({ error: "Missing token" });
-    
     const decoded = await admin.auth().verifyIdToken(idToken);
     const interests = req.body.interests || [];
     if (!decoded.email) return res.status(400).json({ error: "No email" });
@@ -86,15 +80,8 @@ router.post('/send-interests-email', async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('/send-interests-email error:', {
-      message: err?.message,
-      code: err?.code,
-      stack: err?.stack
-    });
-    res.status(500).json({ 
-      error: 'Failed to send email',
-      details: process.env.NODE_ENV === 'production' ? undefined : err?.message
-    });
+    console.error('/send-interests-email error:', err && (err.stack || err.message || err));
+    res.status(500).json({ error: 'Failed to send', message: err?.message });
   }
 });
 
