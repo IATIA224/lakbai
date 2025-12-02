@@ -6,6 +6,7 @@
     "@emailjs/browser": "^4.4.1",
     "@gradio/client": "^2.0.0-dev.0",
     "@mapbox/polyline": "^1.2.1",
+    "@sendgrid/mail": "^8.1.6",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/user-event": "^13.5.0",
     "@turf/turf": "^7.2.0",
