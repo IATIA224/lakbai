@@ -6,7 +6,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const sendEmail = async (to, subject, html) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Lakbai <lakbaiitineraries@gmail.com>', // Now this will work!
+      from: 'Lakbai <lakbai@resend.dev>', // Changed to Resend's free domain
+      replyTo: 'lakbaiitineraries@gmail.com', // Users can still reply to your Gmail
       to: [to],
       subject: subject,
       html: html,
