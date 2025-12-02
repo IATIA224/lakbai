@@ -1,22 +1,26 @@
-const sgMail = require('@sendgrid/mail');
+const { Resend } = require('resend');
 require('dotenv').config();
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async (to, subject, html) => {
-  const msg = {
-    to,
-    from: process.env.EMAIL_FROM || 'LakbAI <lakbaiitineraries@gmail.com>',
-    subject,
-    html,
-  };
-
   try {
-    await sgMail.send(msg);
-    console.log('✅ Email sent to:', to);
+    const { data, error } = await resend.emails.send({
+      from: 'Lakbai <onboarding@resend.dev>', // Resend's test domain (works immediately)
+      to: [to],
+      subject: subject,
+      html: html,
+    });
+
+    if (error) {
+      console.error('❌ Resend Error:', error);
+      throw error;
+    }
+
+    console.log('✅ Email sent successfully:', data);
     return { success: true };
   } catch (error) {
-    console.error('❌ SendGrid Error:', error.response?.body || error.message);
+    console.error('❌ Email sending failed:', error);
     throw error;
   }
 };
