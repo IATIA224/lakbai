@@ -891,11 +891,18 @@ const Profile = () => {
   // Add real-time listener for ratings (similar to dashboard.js)
   useEffect(() => {
     if (!userId) return;
-    const ratingsCol = collection(db, "users", userId, "ratings");
-    const unsubscribe = onSnapshot(ratingsCol, (snap) => {
-      setStats((prev) => ({
+    const userRef = doc(db, "users", userId);
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (!docSnap.exists()) {
+        setStats(prev => ({ ...prev, reviewsWritten: 0 }));
+        return;
+      }
+      const achievements = docSnap.data().achievements || {};
+      const completedCount = Object.values(achievements).filter(v => v === true).length;
+      
+      setStats(prev => ({
         ...prev,
-        reviewsWritten: snap.size,
+        reviewsWritten: completedCount
       }));
     });
     return () => unsubscribe();
@@ -1367,7 +1374,7 @@ const Profile = () => {
             </div>
             <div className="profile-stat">
               <span>{stats.reviewsWritten}</span>
-              <div>Reviews Written</div>
+              <div>Achievements</div>
             </div>
             <div className="profile-stat">
               <span>{stats.friends}</span>

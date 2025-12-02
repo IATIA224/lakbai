@@ -83,15 +83,15 @@ export default function ShareItineraryModal({ items = [], onClose = () => {} }) 
             ) : (
               <div className="friend-list">
                 {friendList.map(f => (
-                  <label key={f.id} className="friend-row">
+                  <label key={f.id} className="share-label">
                     <input
                       type="checkbox"
                       checked={selectedFriendIds.has(f.id)}
                       onChange={() => toggleFriend(f.id)}
                     />
-                    <img src={f.profilePicture || "/user.png"} alt={f.name} className="friend-avatar" />
+                    <img src={f.profilePicture || "/user.png"} alt={f.travelerName || f.name} className="friend-avatar" />
                     <div className="friend-info">
-                      <div className="friend-name">{f.name}</div>
+                      <div className="friend-name">{f.travelerName || f.name || "User"}</div>
                       <div className="friend-email">{f.email || f.handle}</div>
                     </div>
                   </label>

@@ -104,6 +104,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fff;
+  animation: friend-fade-in 0.8s ease-out forwards;
 }
 .friend-avatar {
   width: 44px; height: 44px;
@@ -120,6 +121,26 @@
   font-size: 1rem;
   color: #64748b;
   padding: 12px;
+}
+
+/* Stagger effect: each card fades in with a delay */
+.friend-card:nth-child(1) { animation-delay: 0ms; }
+.friend-card:nth-child(2) { animation-delay: 120ms; }
+.friend-card:nth-child(3) { animation-delay: 240ms; }
+.friend-card:nth-child(4) { animation-delay: 360ms; }
+.friend-card:nth-child(5) { animation-delay: 480ms; }
+.friend-card:nth-child(6) { animation-delay: 600ms; }
+.friend-card:nth-child(n+7) { animation-delay: 720ms; }
+
+@keyframes friend-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Buttons */
