@@ -7,8 +7,13 @@ const { sendMail } = require('./mailer');
 // Init Firebase admin (if available)
 try {
   if (!admin.apps.length) {
-    const sa = require(path.join(__dirname, '..', 'serviceAccountKey.json'));
-    admin.initializeApp({ credential: admin.credential.cert(sa) });
+    let serviceAccount;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } else {
+      serviceAccount = require('./serviceAccountKey.json');
+    }
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     console.log('Firebase admin initialized');
   }
 } catch (e) {
