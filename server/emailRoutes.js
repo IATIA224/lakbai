@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { sendEmail } = require('./mailer'); // Changed from transporter
+const { sendEmail } = require('./mailer');
 const admin = require('firebase-admin');
 
 // Init Firebase admin (if available)
@@ -58,13 +58,13 @@ router.post('/send-interests-email', async (req, res) => {
     const html = `
       <h2>Your Travel Preferences Have Been Updated</h2>
       <p>Hello!</p>
-      <p>Your interests have been updated to:</p>
+      <p>Your travel interests have been updated to:</p>
       <ul>
         ${interests.map(i => `<li>${i}</li>`).join('')}
       </ul>
+      <p>Start planning your next adventure with LakbAI!</p>
     `;
 
-    // Use the new sendEmail function
     await sendEmail(userEmail, 'LakbAI - Preferences Updated', html);
 
     res.status(200).json({ message: 'Email sent successfully' });
