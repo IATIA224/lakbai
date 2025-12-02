@@ -1,29 +1,37 @@
 const sgMail = require('@sendgrid/mail');
-require('dotenv').config();
 
-const apiKey = process.env.SENDGRID_API_KEY;
-if (!apiKey) {
-  console.warn('Warning: SENDGRID_API_KEY not set in environment variables');
-}
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-sgMail.setApiKey(apiKey);
-
-async function sendMail({ to, subject, text, html, from }) {
+const sendInterestsEmail = async (userEmail, interests) => {
   try {
-    const msg = {
-      to,
-      from: from || process.env.EMAIL_FROM || 'noreply@lakbai.com',
-      subject,
-      text,
-      html,
-    };
-    const info = await sgMail.send(msg);
-    console.log('SendGrid: email sent', info[0].statusCode);
-    return info;
-  } catch (err) {
-    console.error('SendGrid send error:', err?.message || err);
-    throw err;
-  }
-}
+    const interestsList = interests.length > 0 
+      ? interests.map(i => `• ${i}`).join('\n')
+      : '(No interests selected)';
 
-module.exports = { sendMail };
+    const msg = {
+      to: userEmail,
+      from: process.env.EMAIL_FROM || 'lakbaiitineraries@gmail.com',
+      subject: 'Your Travel Interests Updated - LakbAI',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #6c63ff;">Your Travel Preferences Updated!</h2>
+          <p>Hi there,</p>
+          <p>Your travel interests have been successfully updated. Here's what you're interested in:</p>
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <pre style="white-space: pre-wrap; color: #1f2937;">${interestsList}</pre>
+          </div>
+          <p>We'll use these preferences to personalize your travel recommendations and itineraries.</p>
+          <p>Happy travels!<br><strong>LakbAI Team</strong></p>
+        </div>
+      `,
+    };
+
+    await sgMail.send(msg);
+    console.log('Interests email sent successfully to:', userEmail);
+  } catch (error) {
+    console.error('SendGrid email error:', error);
+    throw error;
+  }
+};
+
+module.exports = { sendInterestsEmail };
