@@ -4,8 +4,9 @@ import ReactDOM from "react-dom";
 export default function ExportPDFModal({ items = [], selected = new Set(), onToggle, onSelectAll, onExport, onClose, exporting }) {
   const isAllSelected = items.length > 0 && selected.size === items.length;
 
-  return (
-    <div className="confirmation-overlay" onClick={onClose}>
+  // Use ReactDOM.createPortal to move this modal outside of any parent containers
+  return ReactDOM.createPortal(
+    <div className="confirmation-overlay" onClick={onClose} style={{ zIndex: 100005 }}>
       <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
         <div className="confirmation-header">
           <div className="confirmation-title">Export destinations to PDF</div>
@@ -80,6 +81,7 @@ export default function ExportPDFModal({ items = [], selected = new Set(), onTog
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

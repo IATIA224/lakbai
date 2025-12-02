@@ -2393,7 +2393,7 @@ body.itn-modal-open { overflow: hidden; }
   outline: none;
   border-color: #10b981;
   background: white;
-  box-shadow: 0 0 0 0 4px rgba(16, 185, 129, 0.12), 0 4px 12px rgba(16, 185, 129, 0.08);
+  box-shadow: 0 0 0 0 0 4px rgba(16, 185, 129, 0.12), 0 4px 12px rgba(16, 185, 129, 0.08);
 }
 
 .itn-breakdown-row-amount {
@@ -3034,6 +3034,106 @@ body.itn-modal-open { overflow: hidden; }
 
   .itn-section {
     margin-bottom: 8px;
+  }
+}
+/* Desktop defaults */
+.itn-actions-desktop {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.itn-actions-mobile {
+  display: none;
+  position: relative;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .itn-actions-desktop {
+    display: none;
+  }
+  
+  .itn-actions-mobile {
+    display: block;
+  }
+  
+  /* Fix for name visibility: ensure it takes available space */
+  .itn-row-left {
+    flex: 1;
+    min-width: 0; /* Critical for text-overflow to work in flex child */
+    margin-right: 8px;
+  }
+  
+  .itn-row-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    font-size: 0.95rem;
+  }
+  
+  /* Burger button styling */
+  .itn-burger-btn {
+    padding: 0;
+    font-size: 24px;
+    line-height: 1;
+    height: 36px;
+    width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #64748b;
+  }
+
+  /* Dropdown menu styling */
+  .itn-mobile-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border: 1px solid #f1f5f9;
+    width: 220px;
+    z-index: 100;
+    overflow: hidden;
+    padding: 6px;
+    animation: fadeIn 0.1s ease-out;
+  }
+
+  .itn-mobile-menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  
+  .itn-mobile-menu-item:hover {
+    background: #f8fafc;
+  }
+
+  .itn-mobile-menu-item.danger {
+    color: #ef4444;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 4px;
+  }
+  
+  .itn-mobile-menu-item.danger:hover {
+    background: #fef2f2;
   }
 }
 

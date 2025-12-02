@@ -830,7 +830,8 @@
 
   .ai-card {
     width: 100%;
-    min-height: 90vh;
+    min-height: 0;
+    height: 80%;
   }
 
   .ai-header {

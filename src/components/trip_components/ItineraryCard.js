@@ -14,13 +14,17 @@ export default function ItineraryCard({
   onRemove,
   onShowPriceBadge,
   onHidePriceBadge,
-  isShared = false,        // ADD THIS
-  sharedId = null,         // ADD THIS
+  isShared = false,
+  sharedId = null,
 }) {
   // Modal + UX state
   const [isOpen, setIsOpen] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // NEW: Mobile menu state
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const mobileMenuRef = useRef(null);
 
   // New: Breakdown editing state
   const [isEditingBreakdown, setIsEditingBreakdown] = useState(false);
@@ -556,6 +560,17 @@ export default function ItineraryCard({
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
+  // NEW: Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+        setShowMobileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
 
   // Handle hotel selection from suggestions
   const handleSelectHotel = (hotelRow) => {
@@ -691,43 +706,110 @@ export default function ItineraryCard({
             {item.name}
           </span>
         </div>
-        <div className="itn-row-actions">
-          {/* Add status toggle button */}
-          {onEdit && (
-            <button
-              className="itn-btn"
-              onClick={toggleStatus}
-              style={{
-                ...getStatusBadgeStyle(item.status),
-                fontSize: "12px",
-                fontWeight: 700,
-                textTransform: "capitalize",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              title="Click to change status"
-            >
-              {item.status || "upcoming"}
+        
+        {/* Modified Actions Area with Mobile Burger */}
+        <div className="itn-row-actions" ref={mobileMenuRef}>
+          
+          {/* Desktop Actions (Hidden on Mobile) */}
+          <div className="itn-actions-desktop">
+            {onEdit && (
+              <button
+                className="itn-btn"
+                onClick={toggleStatus}
+                style={{
+                  ...getStatusBadgeStyle(item.status),
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  textTransform: "capitalize",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                title="Click to change status"
+              >
+                {item.status || "upcoming"}
+              </button>
+            )}
+
+            <button className="itn-btn primary" onClick={handleOpen}>
+              View details
             </button>
-          )}
 
-          <button className="itn-btn primary" onClick={handleOpen}>
-            View details
-          </button>
+            {onRemove && (
+              <button
+                className="itn-btn danger sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm(true);
+                }}
+                title="Remove"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
 
-
-          {onRemove && (
-            <button
-              className="itn-btn danger sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteConfirm(true);
+          {/* Mobile Actions (Burger Menu) */}
+          <div className="itn-actions-mobile">
+            <button 
+              className="itn-btn ghost itn-burger-btn" 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setShowMobileMenu(!showMobileMenu); 
               }}
-              title="Remove"
             >
-              🗑️
+              ⋮
             </button>
-          )}
+            
+            {showMobileMenu && (
+              <div className="itn-mobile-dropdown">
+                {onEdit && (
+                  <button
+                    className="itn-mobile-menu-item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleStatus();
+                      setShowMobileMenu(false);
+                    }}
+                  >
+                    <span style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      marginRight: '8px',
+                      background: getStatusBadgeStyle(item.status).color
+                    }}></span>
+                   Change Status ({item.status || "upcoming"})
+                  </button>
+                )}
+
+                <button 
+                  className="itn-mobile-menu-item" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpen();
+                    setShowMobileMenu(false);
+                  }}
+                >
+                   View Details
+                </button>
+
+                {onRemove && (
+                  <button
+                    className="itn-mobile-menu-item danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(true);
+                      setShowMobileMenu(false);
+                    }}
+                  >
+                     Remove
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 

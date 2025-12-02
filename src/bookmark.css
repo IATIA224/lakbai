@@ -162,5 +162,5 @@
 .bm-modal-backdrop,
 .bm-loading-backdrop,
 .bm-toast {
-  z-index: 1000;
+  z-index: 100005 !important; /* Increased from 1000 to be above header (2000) */
 }

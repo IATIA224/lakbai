@@ -5,7 +5,6 @@ import "./EditProfile.css";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from './firebase'; // ensure available
 import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
-import { toast } from 'react-toastify'; // or your notification library
 
 
 const interestsList = [
@@ -51,6 +50,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     return new Set(labels);
   });
   const [saving, setSaving] = useState(false);
+  const [showClearSuccess, setShowClearSuccess] = useState(false); // Add state for popup
 
   // Toggle status: null -> like -> dislike -> null
   // UPDATED: if the clicked interest is already active (has border), remove it from Firestore
@@ -170,32 +170,20 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
-      // 🔥 SEND EMAIL NOTIFICATION 🔥
-      try {
-        const token = await user.getIdToken();
-        const response = await axios.post(
-          "/api/send-interests-email",
-          { interests: finalInterests },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            }
-          }
-        );
-        
-        if (response.data.success) {
-          toast.success('✅ Profile saved & email sent!', { autoClose: 3000 });
+      // Send updated interests to the email API
+      await axios.post("/api/send-interests-email", {
+        interests: finalInterests, // or the current interests array
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
         }
-      } catch (emailErr) {
-        console.error('Email sending error:', emailErr);
-        toast.warning('Profile saved, but email failed to send', { autoClose: 3000 });
-      }
+      });
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
     } catch (err) {
       console.error("Save profile error:", err);
-      toast.error("Failed to save profile: " + err.message, { autoClose: 3000 });
+      alert("Failed to save profile: " + err.message);
     }
     setSaving(false);
   };
@@ -255,7 +243,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       });
       // --- END EMAIL NOTIFICATION ---
 
-      alert("All preferences cleared!");
+      setShowClearSuccess(true); // Show custom popup instead of alert
       if (onProfileUpdate) onProfileUpdate();
     } catch (err) {
       console.error("Clear interests error:", err);
@@ -263,195 +251,180 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
     }
   };
 
-  // New handler for saving interests only
-  const handleSaveInterests = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("No user logged in");
-
-      const token = await user.getIdToken();
-
-      const response = await axios.post(
-        'https://lakbai-xxo0.onrender.com/api/send-interests-email',
-        { interests: Array.from(activeInterests) },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data.success) {
-        toast.success('✅ Email sent! Check your inbox.', { autoClose: 3000 });
-      } else {
-        toast.error('❌ Failed to send email', { autoClose: 3000 });
-      }
-    } catch (error) {
-      toast.error(`❌ Error: ${error.response?.data?.details || error.message}`, { autoClose: 5000 });
-      console.error('Full error:', error);
-    }
-  };
-
   const modal = (
-    <div className="edit-profile-backdrop" onClick={() => onClose?.()}>
-      <div className="edit-profile-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="edit-profile-header">
-          <span>Edit Travel Profile</span>
-          <div className="edit-profile-sub">Customize your adventure identity</div>
-        </div>
-        <div className="edit-profile-content">
-          <div className="edit-profile-left">
-            <div className="edit-profile-avatar">
-              <label htmlFor="profile-photo-upload" className="edit-profile-avatar-label">
-                {photo ? (
-                  <img 
-                    src={photo} 
-                    alt="Profile" 
-                    className="edit-profile-avatar-img"
-                    style={{
-                      width: 96,
-                      height: 96,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      background: "#f3f4f6",
-                      border: "3px solid #e5e7eb",
-                      cursor: "pointer"
-                    }}
+    <>
+      <div className="edit-profile-backdrop" onClick={() => onClose?.()}>
+        <div className="edit-profile-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="edit-profile-header">
+            <span>Edit Travel Profile</span>
+            <div className="edit-profile-sub">Customize your adventure identity</div>
+          </div>
+          <div className="edit-profile-content">
+            <div className="edit-profile-left">
+              <div className="edit-profile-avatar">
+                <label htmlFor="profile-photo-upload" className="edit-profile-avatar-label">
+                  {photo ? (
+                    <img 
+                      src={photo} 
+                      alt="Profile" 
+                      className="edit-profile-avatar-img"
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        background: "#f3f4f6",
+                        border: "3px solid #e5e7eb",
+                        cursor: "pointer"
+                      }}
+                    />
+                  ) : initialData.profilePicture && initialData.profilePicture !== "/user.png" ? (
+                    <img
+                      src={initialData.profilePicture}
+                      alt="Profile"
+                      className="edit-profile-avatar-img"
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        background: "#f3f4f6",
+                        border: "3px solid #e5e7eb",
+                        cursor: "pointer"
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src="/prof.png"
+                      alt="Default avatar"
+                      className="edit-profile-avatar-img"
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        background: "#f3f4f6",
+                        border: "3px solid #e5e7eb",
+                        cursor: "pointer"
+                      }}
+                    />
+                  )}
+                  <input
+                    data-testid="photo-input"
+                    id="profile-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handlePhotoChange}
                   />
-                ) : initialData.profilePicture && initialData.profilePicture !== "/user.png" ? (
-                  <img
-                    src={initialData.profilePicture}
-                    alt="Profile"
-                    className="edit-profile-avatar-img"
-                    style={{
-                      width: 96,
-                      height: 96,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      background: "#f3f4f6",
-                      border: "3px solid #e5e7eb",
-                      cursor: "pointer"
-                    }}
-                  />
-                ) : (
-                  <img
-                    src="/prof.png"
-                    alt="Default avatar"
-                    className="edit-profile-avatar-img"
-                    style={{
-                      width: 96,
-                      height: 96,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      background: "#f3f4f6",
-                      border: "3px solid #e5e7eb",
-                      cursor: "pointer"
-                    }}
-                  />
-                )}
+                </label>
+                <div className="edit-profile-avatar-change">Click to change photo</div>
+              </div>
+              <label className="edit-profile-label">
+                Traveler Name
                 <input
-                  data-testid="photo-input"
-                  id="profile-photo-upload"
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={handlePhotoChange}
+                  type="text"
+                  className="edit-profile-input"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  maxLength={40}
+                  placeholder={randomPlaceholder}
                 />
               </label>
-              <div className="edit-profile-avatar-change">Click to change photo</div>
+              <label className="edit-profile-label">
+                Travel Bio
+                <textarea
+                  className="edit-profile-textarea"
+                  value={bio}
+                  onChange={e => setBio(e.target.value.slice(0, MAX_BIO))}
+                  maxLength={MAX_BIO}
+                  rows={4}
+                  placeholder="Share something about your travel style..."
+                />
+                <div className="edit-profile-bio-count">
+                  {bio.length}/{MAX_BIO} characters
+                </div>
+              </label>
             </div>
-            <label className="edit-profile-label">
-              Traveler Name
-              <input
-                type="text"
-                className="edit-profile-input"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                maxLength={40}
-                placeholder={randomPlaceholder}
-              />
-            </label>
-            <label className="edit-profile-label">
-              Travel Bio
-              <textarea
-                className="edit-profile-textarea"
-                value={bio}
-                onChange={e => setBio(e.target.value.slice(0, MAX_BIO))}
-                maxLength={MAX_BIO}
-                rows={4}
-                placeholder="Share something about your travel style..."
-              />
-              <div className="edit-profile-bio-count">
-                {bio.length}/{MAX_BIO} characters
+            <div className="edit-profile-right">
+              <div style={{ height: 12 }} /> {/* spacing between left and right */}
+              <div className="edit-profile-interests-title">
+                Travel Interests
+                <div className="edit-profile-interests-sub">
+                  Click each interest to like (green) or dislike (red)
+                </div>
+                <button
+                  type="button"
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 8,
+                    background: "#f3f4f6",
+                    color: "#6c63ff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: "6px 14px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: "0.98rem",
+                    float: "right"
+                  }}
+                  onClick={handleClearAllInterests}
+                >
+                  Clear All Preferences
+                </button>
               </div>
-            </label>
-          </div>
-          <div className="edit-profile-right">
-            <div style={{ height: 12 }} /> {/* spacing between left and right */}
-            <div className="edit-profile-interests-title">
-              Travel Interests
-              <div className="edit-profile-interests-sub">
-                Click each interest to like (green) or dislike (red)
-              </div>
-              <button
-                type="button"
-                style={{
-                  marginTop: 10,
-                  marginBottom: 8,
-                  background: "#f3f4f6",
-                  color: "#6c63ff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 8,
-                  padding: "6px 14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: "0.98rem",
-                  float: "right"
-                }}
-                onClick={handleClearAllInterests}
-              >
-                Clear All Preferences
-              </button>
-            </div>
-            <div className="edit-profile-interests-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', overflowX: 'hidden' }}>
-              {interests.map((interest, idx) => {
-                const active = interest.status === "like" || interest.status === "dislike";
-                const background =
-                  interest.status === "like"
-                    ? "#d1fae5"
-                    : interest.status === "dislike"
-                    ? "#fee2e2"
-                    : interest.color || "rgba(243,246,249,0.8)";
+              <div className="edit-profile-interests-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', overflowX: 'hidden' }}>
+                {interests.map((interest, idx) => {
+                  const active = interest.status === "like" || interest.status === "dislike";
+                  const background =
+                    interest.status === "like"
+                      ? "#d1fae5"
+                      : interest.status === "dislike"
+                      ? "#fee2e2"
+                      : interest.color || "rgba(243,246,249,0.8)";
 
-                return (
-                  <div
-                    key={interest.label}
-                    className="edit-profile-interest"
-                    data-colored={Boolean(interest.color)}
-                    onClick={() => handleInterestClick(idx)}
-                    style={{
-                      background,
-                      border: active ? "2px solid #6c63ff" : "1px solid rgba(16,24,40,0.04)",
-                      boxShadow: active ? "0 6px 18px rgba(99,102,241,0.12)" : undefined,
-                    }}
-                  >
-                    <span className="edit-profile-interest-dot" style={{ background: interest.color || "rgba(0,0,0,0.06)" }} />
-                    <span className="edit-profile-interest-icon">{interest.icon}</span>
-                    <span className="edit-profile-interest-label">{interest.label}</span>
-                  </div>
-                );
-              })}
+                  return (
+                    <div
+                      key={interest.label}
+                      className="edit-profile-interest"
+                      data-colored={Boolean(interest.color)}
+                      onClick={() => handleInterestClick(idx)}
+                      style={{
+                        background,
+                        border: active ? "2px solid #6c63ff" : "1px solid rgba(16,24,40,0.04)",
+                        boxShadow: active ? "0 6px 18px rgba(99,102,241,0.12)" : undefined,
+                      }}
+                    >
+                      <span className="edit-profile-interest-dot" style={{ background: interest.color || "rgba(0,0,0,0.06)" }} />
+                      <span className="edit-profile-interest-icon">{interest.icon}</span>
+                      <span className="edit-profile-interest-label">{interest.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="edit-profile-actions">
-          <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Profile"}
-          </button>
-          <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
+          <div className="edit-profile-actions">
+            <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save Profile"}
+            </button>
+            <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Success Popup for Clearing Preferences */}
+      {showClearSuccess && (
+        <div className="clear-success-backdrop" onClick={() => setShowClearSuccess(false)}>
+          <div className="clear-success-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="clear-success-icon">✨</div>
+            <h3>Preferences Cleared!</h3>
+            <p>All your travel interests and dislikes have been reset successfully.</p>
+            <button onClick={() => setShowClearSuccess(false)}>OK</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 
   return ReactDOM.createPortal(modal, document.body);
