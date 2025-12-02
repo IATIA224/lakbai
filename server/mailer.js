@@ -3,7 +3,6 @@ const sgTransport = require('nodemailer-sendgrid-transport');
 
 console.log('=== MAILER DEBUG ===');
 console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
-console.log('SENDGRID_API_KEY length:', process.env.SENDGRID_API_KEY?.length || 0);
 console.log('===================');
 
 const transporter = nodemailer.createTransport(
@@ -17,7 +16,7 @@ const transporter = nodemailer.createTransport(
 
 transporter.verify((err, success) => {
   if (err) {
-    console.error('❌ Mailer verify error (startup):', err.message);
+    console.error('❌ Mailer verify error:', err.message);
   } else {
     console.log('✅ Mailer: SendGrid ready');
   }
