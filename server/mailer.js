@@ -23,7 +23,10 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify()
   .then(() => console.log('Mailer: SMTP ready'))
-  .catch(err => console.error('Mailer verify error (startup):', err && (err.message || err)));
+  .catch(err => {
+    console.error('Mailer verify error (startup):', err && (err.message || err));
+    console.warn('⚠️  Email service unavailable. Check EMAIL_* environment variables.');
+  });
 
 async function sendMail({ to, subject, text, html, from }) {
   try {

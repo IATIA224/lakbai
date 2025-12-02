@@ -48,6 +48,7 @@ router.post('/send-interests-email', async (req, res) => {
   try {
     const idToken = getIdTokenFromHeader(req);
     if (!idToken) return res.status(401).json({ error: "Missing token" });
+    
     const decoded = await admin.auth().verifyIdToken(idToken);
     const interests = req.body.interests || [];
     if (!decoded.email) return res.status(400).json({ error: "No email" });
@@ -80,8 +81,15 @@ router.post('/send-interests-email', async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('/send-interests-email error:', err && (err.stack || err.message || err));
-    res.status(500).json({ error: 'Failed to send', message: err?.message });
+    console.error('/send-interests-email error:', {
+      message: err?.message,
+      code: err?.code,
+      stack: err?.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to send email',
+      details: process.env.NODE_ENV === 'production' ? undefined : err?.message
+    });
   }
 });
 
