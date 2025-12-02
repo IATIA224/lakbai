@@ -180,7 +180,6 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
         });
       } catch (emailErr) {
         console.warn('Email notification failed (non-blocking):', emailErr.message);
-        // Don't throw - still save profile even if email fails
       }
 
       if (onProfileUpdate) onProfileUpdate();
