@@ -8,6 +8,11 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ADD THIS: Root route to show server is running
+app.get('/', (req, res) => {
+  res.send('LakbAI Server is running!');
+});
+
 // Mount Cloudinary routes
 app.use('/api', require('./cloudinaryRoutes'));
 
