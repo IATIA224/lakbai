@@ -8,16 +8,20 @@ const admin = require('firebase-admin');
 
 let serviceAccount;
 
-// Try to load from secret file first (Render), then from local file (localhost)
+// Try multiple paths for Firebase credentials
 try {
+  // First try Render secret file
   serviceAccount = require('/etc/secrets/firebase-service-account.json');
-  console.log('✅ Using Render secret file');
+  console.log('✅ Using Render secret file from /etc/secrets/');
 } catch (err) {
   try {
-    serviceAccount = require('./firebase-service-account.json');
-    console.log('✅ Using local firebase file');
+    // Then try local file
+    serviceAccount = require(path.join(__dirname, 'firebase-service-account.json'));
+    console.log('✅ Using local firebase-service-account.json');
   } catch (err2) {
-    console.error('❌ Firebase credentials not found');
+    console.error('❌ Firebase file not found in either location');
+    console.error('Tried: /etc/secrets/firebase-service-account.json');
+    console.error('Tried:', path.join(__dirname, 'firebase-service-account.json'));
     process.exit(1);
   }
 }
