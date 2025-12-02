@@ -170,20 +170,32 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
-      // Send updated interests to the email API
-      await axios.post("/api/send-interests-email", {
-        interests: finalInterests, // or the current interests array
-      }, {
-        headers: {
-          Authorization: `Bearer ${await user.getIdToken()}`,
+      // 🔥 SEND EMAIL NOTIFICATION 🔥
+      try {
+        const token = await user.getIdToken();
+        const response = await axios.post(
+          "/api/send-interests-email",
+          { interests: finalInterests },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            }
+          }
+        );
+        
+        if (response.data.success) {
+          toast.success('✅ Profile saved & email sent!', { autoClose: 3000 });
         }
-      });
+      } catch (emailErr) {
+        console.error('Email sending error:', emailErr);
+        toast.warning('Profile saved, but email failed to send', { autoClose: 3000 });
+      }
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
     } catch (err) {
       console.error("Save profile error:", err);
-      alert("Failed to save profile: " + err.message);
+      toast.error("Failed to save profile: " + err.message, { autoClose: 3000 });
     }
     setSaving(false);
   };
