@@ -1,7 +1,23 @@
 const express = require('express');
+const admin = require('firebase-admin'); // Make sure this is required
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+// --- ADD THIS BLOCK ---
+try {
+  // 1. Try to load from Render's secret file location
+  const serviceAccount = require('/etc/secrets/firebase-service-account.json');
+  
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log("✅ Firebase Admin Initialized successfully");
+} catch (error) {
+  console.error("⚠️ Firebase initialization failed. Check if 'firebase-service-account.json' is added to Render Secret Files.");
+  console.error(error.message);
+}
+// --- END ADD BLOCK ---
 
 const app = express();
 app.use(cors({ origin: true }));
