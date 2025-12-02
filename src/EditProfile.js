@@ -170,13 +170,18 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       await updateDoc(doc(db, "users", user.uid), updateData);
 
       // Send updated interests to the email API
-      await axios.post("/api/send-interests-email", {
-        interests: finalInterests, // or the current interests array
-      }, {
-        headers: {
-          Authorization: `Bearer ${await user.getIdToken()}`,
-        }
-      });
+      try {
+        await axios.post("/api/send-interests-email", {
+          interests: finalInterests,
+        }, {
+          headers: {
+            Authorization: `Bearer ${await user.getIdToken()}`,
+          }
+        });
+      } catch (emailErr) {
+        console.warn('Email notification failed (non-blocking):', emailErr.message);
+        // Don't throw - still save profile even if email fails
+      }
 
       if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
