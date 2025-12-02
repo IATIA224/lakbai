@@ -65,6 +65,7 @@ router.post('/send-interests-email', async (req, res) => {
       <p>Start planning your next adventure with LakbAI!</p>
     `;
 
+    // Now sends to the actual user's email!
     await sendEmail(userEmail, 'LakbAI - Preferences Updated', html);
 
     res.status(200).json({ message: 'Email sent successfully' });
