@@ -3,6 +3,15 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+// Initialize Firebase Admin
+const admin = require('firebase-admin');
+const serviceAccount = require('./firebase-service-account.json'); // You need this file
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: process.env.FIREBASE_DATABASE_URL,
+});
+
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
@@ -11,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 // Mount Cloudinary routes
 app.use('/api', require('./cloudinaryRoutes'));
 
-// Mount email routes (ensure this file exists)
+// Mount email routes
 const emailRoutes = require('./emailRoutes');
 app.use('/api', emailRoutes);
 
