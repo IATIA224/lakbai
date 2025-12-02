@@ -28,11 +28,6 @@ const interestsList = [
   { icon: "🧳", label: "Solo Wanderer", color: "rgba(168,85,247,0.06)" }
 ];
 
-// ADD THIS: Point to your Render Backend URL
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://lakbai-xxo0.onrender.com' 
-  : '';
-
 const MAX_BIO = 300;
 
 const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
@@ -175,8 +170,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       await updateDoc(doc(db, "users", user.uid), updateData);
 
       // Send updated interests to the email API
-      // CHANGED: Use API_BASE_URL
-      await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
+      await axios.post("/api/send-interests-email", {
         interests: finalInterests, // or the current interests array
       }, {
         headers: {
@@ -239,8 +233,7 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       setInterests(interestsList.map(i => ({ ...i, status: null })));
 
       // --- SEND EMAIL NOTIFICATION ---
-      // CHANGED: Use API_BASE_URL
-      await axios.post(`${API_BASE_URL}/api/send-interests-email`, {
+      await axios.post("/api/send-interests-email", {
         interests: [], // all cleared
       }, {
         headers: {
