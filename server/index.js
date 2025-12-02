@@ -5,7 +5,22 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // Initialize Firebase Admin
 const admin = require('firebase-admin');
-const serviceAccount = require('./firebase-service-account.json'); // You need this file
+
+let serviceAccount;
+
+// Try to load from secret file first (Render), then from local file (localhost)
+try {
+  serviceAccount = require('/etc/secrets/firebase-service-account.json');
+  console.log('✅ Using Render secret file');
+} catch (err) {
+  try {
+    serviceAccount = require('./firebase-service-account.json');
+    console.log('✅ Using local firebase file');
+  } catch (err2) {
+    console.error('❌ Firebase credentials not found');
+    process.exit(1);
+  }
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
