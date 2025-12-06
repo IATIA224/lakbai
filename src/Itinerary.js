@@ -53,6 +53,8 @@ import { markAllCompleted } from "./components/trip_components/MarkCompleteButto
 import { deleteAllItinerary } from "./components/trip_components/DeleteAllButton";
 import ShareItineraryModal from "./components/trip_components/ShareItineraryModal";
 import { exportItineraryToPDF } from "./components/trip_components/ExportPDFButton";
+import GroupItineraryModal, { useGroupedItineraries } from "./components/trip_components/GroupItineraryModal";
+import GroupedItineraryView from "./components/trip_components/GroupedItineraryView";
 
 // ==================== ADD TO TRIP HELPER (moved to top) ====================
 export async function addTripForCurrentUser(dest) {
@@ -1262,6 +1264,12 @@ export default function Itinerary() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [activeTab, setActiveTab] = useState("personal");
   const { sharedWithMe, loading: sharedLoading } = useSharedItineraries(auth.currentUser);
+  
+  // ADD THESE NEW STATE VARIABLES
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [viewMode, setViewMode] = useState("list"); // "list" or "grouped"
+  const { groups, loading: groupsLoading } = useGroupedItineraries(user?.uid);
 
   // Export selection helpers
   const toggleExportSelection = React.useCallback((id) => {
@@ -1274,7 +1282,6 @@ export default function Itinerary() {
   }, [setExportSelected]);
 
   const selectAllExport = React.useCallback(() => {
-    // Get items from active tab
     let tabItems = [];
     if (activeTab === 'personal') {
       tabItems = items;
@@ -1289,7 +1296,6 @@ export default function Itinerary() {
   }, [items, sharedWithMe, activeTab]);
 
   const handleExport = async () => {
-    // Get items from active tab
     let allTabItems = [];
     if (activeTab === 'personal') {
       allTabItems = items;
@@ -1304,7 +1310,6 @@ export default function Itinerary() {
       return;
     }
 
-    // Ensure all items have complete data
     const enrichedItems = selectedItems.map(item => ({
       ...item,
       accomType: item.accomType || "",
@@ -1378,6 +1383,15 @@ export default function Itinerary() {
     return () => unsub();
   }, [user]);
 
+  // Get ungrouped items (items not in any group)
+  const getUngroupedItems = () => {
+    const groupedIds = new Set();
+    groups.forEach(g => {
+      Object.keys(g.assignments || {}).forEach(id => groupedIds.add(id));
+    });
+    return items.filter(item => !groupedIds.has(item.id));
+  };
+
   return (
     <div className="itn-page">
       <div className="itn-hero">
@@ -1390,21 +1404,44 @@ export default function Itinerary() {
           <div className="itn-actions-bar">
             <div className="itn-actions-bar-title">Quick Actions</div>
             
+            {/* ADD THIS - Group Itinerary Button */}
+            <button 
+              className="itn-action-btn group"
+              onClick={() => {
+                setEditingGroup(null);
+                setShowGroupModal(true);
+              }}
+              title="Create a multi-day trip group"
+            >
+              <span className="itn-action-btn-icon">📅</span>
+              <span className="itn-action-btn-text">Group Itinerary</span>
+            </button>
+
+            {/* ADD THIS - View Toggle */}
+            <button 
+              className={`itn-action-btn view-toggle ${viewMode === 'grouped' ? 'active' : ''}`}
+              onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
+              title="Toggle between list and grouped view"
+            >
+              <span className="itn-action-btn-icon">{viewMode === 'list' ? '📋' : '🗓️'}</span>
+              <span className="itn-action-btn-text">{viewMode === 'list' ? 'List View' : 'Trip View'}</span>
+            </button>
+            
             <button 
               className="itn-action-btn export"
-              onClick={() => setShowExport(true)} // open modal so user can select items
+              onClick={() => setShowExport(true)}
               title="Export selected destinations to PDF"
             >
-              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-icon">📄</span>
               <span className="itn-action-btn-text">Export to PDF</span>
             </button>
 
             <button 
               className="itn-action-btn route"
-              onClick={() => setShowCostEstimator(true)} // open cost estimator
+              onClick={() => setShowCostEstimator(true)}
               title="Estimate commute routes and times"
             >
-              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-icon">🚗</span>
               <span className="itn-action-btn-text">Commute Route</span>
             </button>
 
@@ -1416,7 +1453,7 @@ export default function Itinerary() {
               }}
               title="Share your itinerary with friends"
             >
-              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-icon">👥</span>
               <span className="itn-action-btn-text">Share Itinerary</span>
             </button>
 
@@ -1429,7 +1466,7 @@ export default function Itinerary() {
               )}
               title="Mark all destinations as completed"
             >
-              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-icon">✅</span>
               <span className="itn-action-btn-text">Mark All Complete</span>
             </button>
 
@@ -1442,7 +1479,7 @@ export default function Itinerary() {
               )}
               title="Delete all destinations permanently"
             >
-              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-icon">🗑️</span>
               <span className="itn-action-btn-text">Delete All</span>
             </button>
           </div>
@@ -1497,6 +1534,79 @@ export default function Itinerary() {
                   }}>
                     No destinations added yet. Start planning your next adventure!
                   </p>
+                </div>
+              ) : viewMode === 'grouped' ? (
+                // GROUPED VIEW
+                <div className="itn-grouped-view">
+                  {/* Show grouped trips */}
+                  {groups.length > 0 && (
+                    <div className="itn-grouped-section">
+                      <h3 className="itn-grouped-section-title">
+                        🗓️ My Trip Groups ({groups.length})
+                      </h3>
+                      {groups.map(group => (
+                        <GroupedItineraryView
+                          key={group.id}
+                          group={group}
+                          items={items}
+                          onEditGroup={(g) => {
+                            setEditingGroup(g);
+                            setShowGroupModal(true);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Show ungrouped items */}
+                  {getUngroupedItems().length > 0 && (
+                    <div className="itn-ungrouped-section">
+                      <h3 className="itn-grouped-section-title">
+                        📍 Ungrouped Destinations ({getUngroupedItems().length})
+                      </h3>
+                      <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '16px' }}>
+                        These destinations are not part of any trip group. 
+                        <button 
+                          onClick={() => {
+                            setEditingGroup(null);
+                            setShowGroupModal(true);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#6366f1',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            marginLeft: '4px'
+                          }}
+                        >
+                          Create a trip group
+                        </button>
+                      </p>
+                      <div className="itn-destination-list">
+                        {getUngroupedItems().map((item, idx) => (
+                          <ItineraryCard 
+                            key={item.id} 
+                            item={item} 
+                            index={idx}
+                            onEdit={async (updatedItem) => {
+                              if (!user) return;
+                              try {
+                                const ref = doc(db, "itinerary", user.uid, "items", updatedItem.id);
+                                await updateDoc(ref, updatedItem);
+                              } catch (err) {
+                                console.error("[Itinerary] Failed to update item:", err);
+                              }
+                            }}
+                            onRemove={(itemId) => {
+                              deleteDoc(doc(db, "itinerary", user.uid, "items", itemId));
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="itn-destination-list">
@@ -1609,6 +1719,44 @@ export default function Itinerary() {
       )}
       {showShareModal && (
         <ShareItineraryModal items={items} onClose={() => setShowShareModal(false)} />
+      )}
+      {showGroupModal && (
+        <GroupItineraryModal
+          open={showGroupModal}
+          onClose={() => {
+            setShowGroupModal(false);
+            setEditingGroup(null);
+          }}
+          onSave={async (groupData) => {
+            try {
+              // Save or update group
+              if (editingGroup) {
+                // Update existing group
+                const groupRef = doc(db, "itinerary", user.uid, "groups", editingGroup.id);
+                await updateDoc(groupRef, {
+                  name: groupData.name,
+                  destinationIds: groupData.destinations,
+                  updatedAt: serverTimestamp(),
+                });
+              } else {
+                // Create new group
+                await addDoc(collection(db, "itinerary", user.uid, "groups"), {
+                  name: groupData.name,
+                  destinationIds: groupData.destinations,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                });
+              }
+              
+              setShowGroupModal(false);
+              setEditingGroup(null);
+            } catch (err) {
+              console.error("[Itinerary] Failed to save group:", err);
+            }
+          }}
+          group={editingGroup}
+          allDestinations={items || []}  // Pass your items array here
+        />
       )}
     </div>
   );
