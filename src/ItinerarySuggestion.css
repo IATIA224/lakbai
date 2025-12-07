@@ -1,0 +1,166 @@
+.suggestion-view-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: suggestionFadeIn 0.3s ease-out;
+  }
+  
+  .suggestion-view-close {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    transition: all 0.2s;
+  }
+  
+  .suggestion-view-close:hover {
+    transform: scale(1.1) rotate(90deg);
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+  @keyframes suggestionFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .suggestion-view-container {
+    display: grid;
+    grid-template-columns: 3fr 4fr 3fr;
+    gap: 24px;
+    width: 100%;
+    height: 90vh; /* ADDED: Set a max height relative to the viewport */
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  
+  .suggestion-view-left,
+  .suggestion-view-right {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Keep this to let child elements control scrolling */
+    border: 1px solid #e5e7eb;
+    animation: suggestionSlideUp 0.4s ease-out 0.1s both;
+    height: 100%;        /* Ensure parent fills grid cell */
+    max-height: 100%;    /* Prevent overflow */
+  }
+  
+  .suggestion-view-right {
+    animation-delay: 0.15s;
+  }
+  
+  .suggestion-view-center {
+    animation: suggestionSlideUp 0.4s ease-out;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    overflow: hidden; /* ADD THIS */
+  }
+  
+  .suggestion-view-center .itn-modal-body {
+    flex: 1;
+    overflow-y: auto; /* ADD THIS */
+    min-height: 0;    /* ADD THIS for flexbox overflow fix */
+    background: #f8fafc;
+  }
+  
+  @keyframes suggestionSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .suggestion-form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100%;    /* Prevent overflow */
+    min-height: 0; /* ADD THIS for flexbox overflow fix */
+  }
+  
+  .suggestion-form h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    padding: 20px 24px;
+    margin: 0;
+    background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+  }
+  
+  .suggestion-form .hotels-body,
+  .suggestion-form .agency-body {
+    flex: 1;
+    overflow-y: auto; /* ADDED: Make the list scrollable */
+    padding: 8px;
+    min-height: 0; /* ADD THIS for flexbox overflow fix */
+    max-height: 100%;    /* Prevent overflow */
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 1200px) {
+    /* On smaller screens, stack the columns */
+    .suggestion-view-container {
+      grid-template-columns: 1fr 1fr;
+      height: 80vh;
+    }
+    .suggestion-view-left {
+      display: none; /* Hide one suggestion on smaller screens */
+    }
+  }
+  
+  @media (max-width: 800px) {
+    .suggestion-view-container {
+      grid-template-columns: 1fr;
+      height: 90vh;
+    }
+    .suggestion-view-right {
+      display: none; /* Hide both suggestions on mobile */
+    }
+  }
+  
+  .itinerary-add-btn {
+    background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%);
+    color: #fff;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 28px;
+    font-size: 1rem;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.08);
+    transition: background 0.2s, transform 0.2s;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+    min-width: 180px;
+    box-sizing: border-box;
+    display: block;
+    margin: 12px 0 0 0;
+  }
+  
+  .itinerary-add-btn:hover {
+    background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+    transform: scale(1.05);
+  }

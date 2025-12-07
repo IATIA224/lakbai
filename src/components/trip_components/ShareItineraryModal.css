@@ -1,0 +1,138 @@
+.share-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001; /* high so it overlays everything */
+}
+
+.share-modal {
+  width: 720px;
+  max-width: 94%;
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  z-index: 10002;
+}
+
+.share-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.share-modal-body {
+  margin-top: 12px;
+}
+
+.friend-list, .items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friend-row {
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+.friend-avatar {
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  object-fit:cover;
+}
+
+/* Buttons */
+.share-modal-footer {
+  display:flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Ensure any close chips or X icons are removed for this modal */
+.confirmation-close,
+.itn-close,
+.share-close {
+  display: none !important;
+}
+
+/* Make header flush and keep gradient */
+.confirmation-header {
+  background: linear-gradient(90deg, #6d28d9 0%, #6366f1 100%);
+  color: #fff;
+  padding: 20px 20px;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  margin: 0;
+}
+
+/* wider modal for share view so profiles have space */
+.confirmation-modal--wide {
+  max-width: 900px; /* increase base width for long lists / profile area */
+  width: 86%;
+}
+
+/* make friend label layout more generous */
+.share-label {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: #0f172a;
+}
+
+/* bigger, clearer avatar */
+.friend-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(15, 23, 42, 0.06);
+}
+
+/* allow the name/email column to grow and wrap content */
+.friend-info {
+  flex: 1 1 auto; /* grow to fill remaining space */
+  min-width: 0; /* allow contents to wrap rather than overflow */
+  display: flex;
+  flex-direction: column;
+}
+
+/* ensure names wrap and are not truncated */
+.friend-name {
+  font-weight: 700;
+  color: #0f172a;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* lighter email text */
+.friend-email {
+  color: #94a3b8;
+  font-size: 13px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* smallest screens: reduce avatar slightly and keep layout */
+@media (max-width: 520px) {
+  .friend-avatar {
+    width: 40px;
+    height: 40px;
+  }
+  .confirmation-modal--wide {
+    width: 98%;
+    max-width: 760px;
+  }
+}

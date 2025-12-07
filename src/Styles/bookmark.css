@@ -110,7 +110,7 @@
 .bm-card-title { font-size: 1.22rem; margin: 0; color: #0f172a; }
 .bm-card-rating { color: #0f172a; font-weight: 600; }
 .bm-region-link { display: block; color: #2563eb; margin: 2px 0 8px; font-size: .92rem; text-align: left; }
-.bm-card-desc { margin: 8px 0 12px; color: #334155; }
+.bm-card-desc { margin: 8px 0 12px; color: #334155; text-align: left !important;}
 
 .bm-info-box {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
@@ -637,47 +637,73 @@
   backdrop-filter: blur(2px);
   display: grid; place-items: center; z-index: 60;
 }
+
 .bm-modal {
-  width: min(880px, 92vw);
+  width: min(890px, 92vw);
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 10px 40px rgba(108,99,255,0.22); /* More noticeable shadow */
+  display: flex;
+  flex-direction: column;
+  height: 900px;
+  max-height: 92vh;
+  position: relative;
   overflow: hidden;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.bm-modal-hero {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 200px;
+}
+
+.bm-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  max-height: calc(100% - 300px);
+  /* Ensure content starts below the hero */
+  background: #fff;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 24px;
+  padding: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Responsive: stack modal body on mobile */
+.bm-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(255,255,255,0.85);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.bm-modal-close:hover {
+  background: #f3f4f6;
+}
+/* Make sure .bm-modal is position:relative */
+.bm-modal {
   position: relative;
 }
-
-@media (max-width: 768px) {
-  .bm-modal {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-    box-shadow: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 1000;
-    overflow-y: auto; /* Ensure contents are scrollable */
-    padding: 20px; /* Add padding for content */
-  }
-
-  .bm-modal-body {
-    display: block; /* Stack content vertically */
-    padding: 20px; /* Adjust padding for smaller screens */
-  }
-
-  .bm-modal-title, .bm-modal-region, .bm-modal-desc {
-    text-align: center; /* Center-align text for better readability */
-  }
-}
-.bm-modal-close {
-  position: absolute; top: 14px; right: 14px;
-  width: 36px; height: 36px; border-radius: 999px; border: none;
-  background: #eef2ff; color: #0f172a; cursor: pointer;
-  box-shadow: 0 6px 16px rgba(2,6,23,.2);
-}
+/* ...existing code... */
 
 /* Hero art identical style */
-.bm-modal-hero { height: 300px; position: relative; overflow: hidden; }
+
 .bm-modal-sky { position: absolute; inset: 0;
   background: linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%); }
 .bm-modal-wave { position: absolute; left:0; right:0; bottom:0; height: 70px;
@@ -695,7 +721,7 @@
 }
 
 /* Layout */
-.bm-modal-body { display: grid; grid-template-columns: 1fr 300px; gap: 24px; padding: 40px; }
+
 .bm-modal-title { font-size: 28px; margin: 6px 0 2px; color:#0f172a; text-align: left; justify-content: left;}
 .bm-modal-region { 
   text-align: left; 
@@ -741,6 +767,8 @@
 .bm-info-key { color:#334155; font-weight:600;}
 .bm-info-val { color:#0f172a;}
 .chip-green { background:#dcfce7; color:#065f46; border-radius:999px; padding:6px 10px; font-weight:600; }
+.badge.blue { background: #e8f0fe; color: #1e40af; width: auto; text-align: center; height: auto; border-radius: 10px;}
+
 
 /* Modal actions */
 .bm-modal-actions { display:flex; gap:12px; margin-top: 14px; }
@@ -806,7 +834,7 @@
 
   .bm-card-title { font-size: 1.1rem; }
   .bm-region-link { font-size: 0.9rem; }
-  .bm-card-desc { margin: 6px 0 10px; }
+  .bm-card-desc { margin: 6px 0 10px; text-align: left !important; }
 
   .bm-info-box {
     grid-template-columns: 1fr;   /* stack info pills */
@@ -828,7 +856,6 @@
 @media (max-width: 768px) {
   .App { 
     padding: 16px 8px; 
-    background: linear-gradient(180deg, #eaf0ff 0%, #eef4ff 60%, #f6f8ff 100%);
   }
 
   .bookmark-section {
@@ -855,6 +882,7 @@
   .bm-title-wrap {
     width: 100%;
     justify-content: flex-start;
+    padding: 12px 24px 0 24px;
   }
 
   .bm-title {
@@ -870,6 +898,7 @@
   /* Controls row */
   .bm-controls {
     width: 100%;
+    padding: 0 24px 0 24px;
     flex-direction: row;
     justify-content: space-between;
     gap: 10px;
@@ -880,6 +909,22 @@
     max-width: 200px;
     height: 44px;
     font-size: 14px;
+  }
+
+  .bm-modal {
+    height: 100vh;
+    max-height: 100vh;
+  }
+  .bm-modal-hero {
+    min-height: 190px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .bm-modal-body {
+    max-height: calc(100% - 300px);
+    padding: 24px 24px 24px 24px;
+    display: block;
   }
 
   .bm-clear-btn {
@@ -893,7 +938,7 @@
   .bm-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    margin: 16px 0 20px;
+    margin: 16px 24px 20px;
   }
 
   .bm-stat-card {
@@ -987,6 +1032,7 @@
     font-size: 0.9rem;
     line-height: 1.4;
     margin: 6px 0 10px;
+    text-align: left !important;
   }
 
   /* Info box - stack vertically */
@@ -1068,15 +1114,6 @@
     width: 40px;
     height: 40px;
     z-index: 10;
-  }
-
-  .bm-modal-hero {
-    height: 160px;
-  }
-
-  .bm-modal-body {
-    display: block;
-    padding: 20px 16px;
   }
 
   .bm-modal-title {
@@ -1208,6 +1245,7 @@
 
   .bm-title {
     font-size: 20px;
+    padding: 0 0 0 0;
   }
 
   .bm-subtitle {
@@ -1218,7 +1256,7 @@
   .bm-stats {
     grid-template-columns: 1fr;
     gap: 8px;
-    margin: 12px 0 16px;
+    margin: 12px 24px 16px;
   }
 
   .bm-stat-card {
@@ -1264,6 +1302,7 @@
 
   .bm-card-desc {
     font-size: 0.85rem;
+    text-align: left !important;
   }
 
   .bm-actions {
@@ -1280,6 +1319,14 @@
   /* Controls */
   .bm-controls {
     gap: 6px;
+  }
+  
+  .bm-modal-hero {
+    height: 190px;
+  }
+
+  .bookmarks-grid {
+    padding: 12px;
   }
 
   .bm-sort {
@@ -1448,5 +1495,31 @@
 @media (min-width: 770px) {
   .bm-remove-text {
     display: inline !important;
+  }
+}
+
+@media (min-width: 945px) {
+  .bm-info-panel-inline { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .bm-info-panel-inline { display: block; margin-top: 8px; }
+  /* Hide the sidebar info panel on mobile to avoid duplication */
+  .bm-modal-aside { display: none !important; }
+}
+@media (max-width: 945px) {
+  .bm-info-panel-inline { display: block; margin-top: 8px; }
+  /* Hide the sidebar info panel on mobile to avoid duplication */
+  .bm-modal-aside { display: none !important; }
+  .bm-modal-body {
+    grid: none;
+  }
+}
+
+@media (max-width: 870px) {
+  .bm-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 16px 10px 20px;
   }
 }

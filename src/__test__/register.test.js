@@ -1,218 +1,395 @@
-import React from "react";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import "@testing-library/jest-dom";
-import { MemoryRouter } from "react-router-dom";
-import Register from "../register";
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { BrowserRouter } from 'react-router-dom';
+import Register from '../register';
+import * as firebaseAuth from 'firebase/auth';
+import * as firebaseDb from 'firebase/firestore';
+import emailjs from '@emailjs/browser';
 
-// Router: mock navigate but keep the rest real
-const mockNavigate = jest.fn();
-jest.mock("react-router-dom", () => {
-  const actual = jest.requireActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
-});
-
-// Mock modules imported by Register
-jest.mock("../header_2", () => () => <div data-testid="header2" />);
-jest.mock("../privacy_policy", () => () => (
-  <div data-testid="privacy" style={{ display: "none" }} />
+// Mock dependencies
+jest.mock('firebase/auth');
+jest.mock('firebase/firestore');
+jest.mock('@emailjs/browser');
+jest.mock('../privacy_policy', () => () => <div>Privacy Policy</div>);
+jest.mock('../terms', () => () => <div>Terms of Service</div>);
+jest.mock('../header_2', () => () => <div>Header</div>);
+jest.mock('../EditProfile-new-acc', () => ({ onClose }) => (
+  <div data-testid="edit-profile-modal">Edit Profile</div>
 ));
-jest.mock("../firebase", () => ({ auth: {}, db: {} }));
 
-// Mock EmailJS
-const mockEmailjsSend = jest.fn().mockResolvedValue({});
-jest.mock("@emailjs/browser", () => ({
-  send: (...args) => mockEmailjsSend(...args),
-}));
-
-// Mock Firebase Auth APIs used in register.js
-const mockCreateUser = jest.fn();
-const mockSendVerification = jest.fn().mockResolvedValue();
-const mockFetchMethods = jest.fn();
-
-jest.mock("firebase/auth", () => ({
-  createUserWithEmailAndPassword: (...args) => mockCreateUser(...args),
-  sendEmailVerification: (...args) => mockSendVerification(...args),
-  fetchSignInMethodsForEmail: (...args) => mockFetchMethods(...args),
-}));
-
-// Mock Firestore APIs used in register.js
-const mockDoc = jest.fn((db, col, id) => ({ __ref: `${col}/${id}` }));
-const mockSetDoc = jest.fn(async () => Promise.resolve());
-jest.mock("firebase/firestore", () => ({
-  doc: (...args) => mockDoc(...args),
-  setDoc: (...args) => mockSetDoc(...args),
-}));
-
-// Helpers
-const fillForm = () => {
-  fireEvent.change(screen.getByLabelText(/First Name/i), {
-    target: { value: "Juan" },
-  });
-  fireEvent.change(screen.getByLabelText(/Last Name/i), {
-    target: { value: "Dela Cruz" },
-  });
-  fireEvent.change(screen.getByLabelText(/Email Address/i), {
-    target: { value: "user@example.com" },
-  });
-  fireEvent.change(screen.getByLabelText(/^Password$/i), {
-    target: { value: "Str0ng!Pwd" },
-  });
-  fireEvent.change(screen.getByLabelText(/Confirm Password/i), {
-    target: { value: "Str0ng!Pwd" },
-  });
-  fireEvent.click(screen.getByRole("checkbox")); // Terms
+const renderRegister = () => {
+  return render(
+    <BrowserRouter>
+      <Register />
+    </BrowserRouter>
+  );
 };
 
-const getOtpInputs = () =>
-  screen.getAllByRole("textbox").filter((input) =>
-    input.classList.contains("otp-input")
-  );
-
-beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
-  jest.spyOn(Date, "now").mockImplementation(() => 1000000000000);
-});
-
-afterEach(() => {
-  jest.useRealTimers();
-  jest.restoreAllMocks();
-});
-
-describe("Register", () => {
-  test("submit button is disabled until Terms are accepted", async () => {
-    render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Register />
-      </MemoryRouter>
-    );
-
-    const submit = screen.getByRole("button", {
-      name: /Create LakbAI Account/i,
-    });
-    expect(submit).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("checkbox"));
-    expect(submit).toBeEnabled();
-
-    expect(screen.queryByTestId("register-popup")).toBeNull();
+describe('Register Component', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    emailjs.send.mockResolvedValue({ status: 200 });
+    firebaseAuth.fetchSignInMethodsForEmail.mockResolvedValue([]);
   });
 
-  test("submitting valid details sends OTP and shows OTP step", async () => {
-    mockFetchMethods.mockResolvedValue([]);
-
-    render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Register />
-      </MemoryRouter>
-    );
-
-    fillForm();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Create LakbAI Account/i })
-    );
-
-    await waitFor(() => expect(mockEmailjsSend).toHaveBeenCalled());
-
-    expect(await screen.findByText(/Verify Your Email/i)).toBeInTheDocument();
-
-    const [, , params] = mockEmailjsSend.mock.calls[0];
-    expect(params.email).toBe("user@example.com");
-    expect(params.passcode).toHaveLength(6);
-
-    expect(getOtpInputs().length).toBe(6);
-  });
-
-  test("wrong OTP shows inline error", async () => {
-    mockFetchMethods.mockResolvedValue([]);
-
-    render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Register />
-      </MemoryRouter>
-    );
-
-    fillForm();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Create LakbAI Account/i })
-    );
-    await waitFor(() => expect(mockEmailjsSend).toHaveBeenCalled());
-    expect(await screen.findByText(/Verify Your Email/i)).toBeInTheDocument();
-
-    const inputs = getOtpInputs();
-    "000000".split("").forEach((c, i) =>
-      fireEvent.change(inputs[i], { target: { value: c } })
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Verify/i }));
-
-    const errorNode = await screen.findByText((content) =>
-      /incorrect|invalid|wrong|expired/i.test(content)
-    );
-    expect(errorNode).toBeInTheDocument();
-  });
-
-  test("correct OTP creates account, sends verification, and can navigate to login", async () => {
-    mockFetchMethods.mockResolvedValue([]);
-    const fakeUser = { uid: "u1", email: "user@example.com" };
-    mockCreateUser.mockResolvedValue({ user: fakeUser });
-    mockSetDoc.mockResolvedValue();
-
-    render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Register />
-      </MemoryRouter>
-    );
-
-    fillForm();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Create LakbAI Account/i })
-    );
-    await waitFor(() => expect(mockEmailjsSend).toHaveBeenCalled());
-    expect(await screen.findByText(/Verify Your Email/i)).toBeInTheDocument();
-
-    // ✅ act only needed for timers
-    act(() => {
-      jest.advanceTimersByTime(1000);
+  // ============ Form Validation Tests ============
+  describe('Form Validation', () => {
+    test('should render registration form initially', () => {
+      renderRegister();
+      expect(screen.getByPlaceholderText('Juan')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('your@email.com')).toBeInTheDocument();
     });
 
-    const [, , params] = mockEmailjsSend.mock.calls[0];
-    const code = params.passcode;
+    test('should show error if email is invalid', async () => {
+      renderRegister();
+      const agreedCheckbox = screen.getByRole('checkbox');
+      fireEvent.click(agreedCheckbox);
 
-    // Fill OTP inputs
-    const inputs = getOtpInputs();
-    code.split("").forEach((c, i) =>
-      fireEvent.change(inputs[i], { target: { value: c } })
-    );
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+      const lastNameInput = screen.getByPlaceholderText('Dela Cruz');
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
 
-    // Click verify
-    const verifyBtn = await screen.findByRole("button", { name: /verify/i });
-    fireEvent.click(verifyBtn);
+      await userEvent.type(firstNameInput, 'Juan');
+      await userEvent.type(lastNameInput, 'Dela Cruz');
+      await userEvent.type(emailInput, 'invalid-email');
+      await userEvent.type(passwordInput, 'Password123!');
+      await userEvent.type(confirmInput, 'Password123!');
 
-    // Wait for async calls
-    await waitFor(() => expect(mockCreateUser).toHaveBeenCalled());
-    await waitFor(() => expect(mockSetDoc).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(mockSendVerification).toHaveBeenCalledWith(fakeUser)
-    );
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
 
-    expect(
-      await screen.findByText(/Account created! Verification email sent/i)
-    ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText(/Please enter a valid email/i)).toBeInTheDocument();
+      });
+    });
 
-    const closeBtn = screen.queryByRole("button", { name: /go to login|close|ok|continue/i });
-  if (closeBtn) {
-    fireEvent.click(closeBtn);
-  }
+    test('should show error if password is less than 8 characters', async () => {
+      renderRegister();
+      const agreedCheckbox = screen.getByRole('checkbox');
+      fireEvent.click(agreedCheckbox);
 
-  await waitFor(() => {
-    expect(mockNavigate).toHaveBeenCalledTimes(closeBtn ? 1 : 0);
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+      const lastNameInput = screen.getByPlaceholderText('Dela Cruz');
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+
+      await userEvent.type(firstNameInput, 'Juan');
+      await userEvent.type(lastNameInput, 'Dela Cruz');
+      await userEvent.type(emailInput, 'test@example.com');
+      await userEvent.type(passwordInput, 'short');
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Password must be at least 8 characters long/i)).toBeInTheDocument();
+      });
+    });
+
+    test('should show error if passwords do not match', async () => {
+      renderRegister();
+      const agreedCheckbox = screen.getByRole('checkbox');
+      fireEvent.click(agreedCheckbox);
+
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+      const lastNameInput = screen.getByPlaceholderText('Dela Cruz');
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
+
+      await userEvent.type(firstNameInput, 'Juan');
+      await userEvent.type(lastNameInput, 'Dela Cruz');
+      await userEvent.type(emailInput, 'test@example.com');
+      await userEvent.type(passwordInput, 'Password123!');
+      await userEvent.type(confirmInput, 'DifferentPassword123!');
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Passwords do not match/i)).toBeInTheDocument();
+      });
+    });
+
+    test('should show error if first or last name is empty', async () => {
+      renderRegister();
+      const agreedCheckbox = screen.getByRole('checkbox');
+      fireEvent.click(agreedCheckbox);
+
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
+
+      await userEvent.type(emailInput, 'test@example.com');
+      await userEvent.type(passwordInput, 'Password123!');
+      await userEvent.type(confirmInput, 'Password123!');
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Please enter your first and last name/i)).toBeInTheDocument();
+      });
+    });
   });
 
-  if (closeBtn) {
-    fireEvent.click(closeBtn);
-  }
-  expect(mockNavigate).toHaveBeenCalledWith("/");
-});
+  // ============ Password Strength Tests ============
+  describe('Password Strength', () => {
+    test('should show weak password for short passwords', async () => {
+      renderRegister();
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      await userEvent.type(passwordInput, '12345');
 
+      await waitFor(() => {
+        expect(screen.getByText('Weak')).toBeInTheDocument();
+      });
+    });
+
+    test('should show medium password strength', async () => {
+      renderRegister();
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      await userEvent.type(passwordInput, 'Password123');
+
+      await waitFor(() => {
+        expect(screen.getByText('Medium')).toBeInTheDocument();
+      });
+    });
+
+    test('should show strong password strength', async () => {
+      renderRegister();
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      await userEvent.type(passwordInput, 'Password123!@#');
+
+      await waitFor(() => {
+        expect(screen.getByText('Strong')).toBeInTheDocument();
+      });
+    });
+  });
+
+  // ============ OTP Flow Tests ============
+  describe('OTP Flow', () => {
+    test('should send OTP and transition to OTP step', async () => {
+      renderRegister();
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+      const lastNameInput = screen.getByPlaceholderText('Dela Cruz');
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
+      const agreedCheckbox = screen.getByRole('checkbox');
+
+      await userEvent.type(firstNameInput, 'Juan');
+      await userEvent.type(lastNameInput, 'Dela Cruz');
+      await userEvent.type(emailInput, 'test@example.com');
+      await userEvent.type(passwordInput, 'Password123!');
+      await userEvent.type(confirmInput, 'Password123!');
+      fireEvent.click(agreedCheckbox);
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Verify Your Email/i)).toBeInTheDocument();
+        expect(emailjs.send).toHaveBeenCalled();
+      });
+    });
+
+    test('should handle OTP input correctly', async () => {
+      renderRegister();
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+      const lastNameInput = screen.getByPlaceholderText('Dela Cruz');
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
+      const agreedCheckbox = screen.getByRole('checkbox');
+
+      await userEvent.type(firstNameInput, 'Juan');
+      await userEvent.type(lastNameInput, 'Dela Cruz');
+      await userEvent.type(emailInput, 'test@example.com');
+      await userEvent.type(passwordInput, 'Password123!');
+      await userEvent.type(confirmInput, 'Password123!');
+      fireEvent.click(agreedCheckbox);
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Verify Your Email/i)).toBeInTheDocument();
+      });
+
+      const otpInputs = screen.getAllByPlaceholderText('●');
+      expect(otpInputs.length).toBe(6);
+    });
+
+    test('should show error if OTP is incomplete', async () => {
+      renderRegister();
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+      const lastNameInput = screen.getByPlaceholderText('Dela Cruz');
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
+      const agreedCheckbox = screen.getByRole('checkbox');
+
+      await userEvent.type(firstNameInput, 'Juan');
+      await userEvent.type(lastNameInput, 'Dela Cruz');
+      await userEvent.type(emailInput, 'test@example.com');
+      await userEvent.type(passwordInput, 'Password123!');
+      await userEvent.type(confirmInput, 'Password123!');
+      fireEvent.click(agreedCheckbox);
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Verify Your Email/i)).toBeInTheDocument();
+      });
+
+      const verifyBtn = screen.getByRole('button', { name: /Verify & Create Account/i });
+      fireEvent.click(verifyBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Enter all 6 digits/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  // ============ Modal Tests ============
+  describe('Modal Handling', () => {
+    test('should open Terms of Service modal', async () => {
+      renderRegister();
+      // Use getByRole to target the link specifically
+      const termsLink = screen.getByRole('link', { name: /Terms of Service/i });
+      fireEvent.click(termsLink);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Terms of Service').length).toBeGreaterThan(0);
+      });
+    });
+
+    test('should open Privacy Policy modal', async () => {
+      renderRegister();
+      // Use getByRole to target the link specifically
+      const privacyLink = screen.getByRole('link', { name: /Privacy Policy/i });
+      fireEvent.click(privacyLink);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Privacy Policy').length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  // ============ Password Visibility Tests ============
+  describe('Password Visibility Toggle', () => {
+    test('should toggle password visibility', async () => {
+      renderRegister();
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      expect(passwordInput).toHaveAttribute('type', 'password');
+
+      // Find the eye icon button for the password field (first one)
+      const eyeButtons = screen.getAllByRole('button', { name: /Show password/i });
+      fireEvent.click(eyeButtons[0]);
+
+      await waitFor(() => {
+        expect(passwordInput).toHaveAttribute('type', 'text');
+      });
+
+      // Toggle back
+      fireEvent.click(eyeButtons[0]);
+      expect(passwordInput).toHaveAttribute('type', 'password');
+    });
+
+    test('should toggle confirm password visibility', async () => {
+      renderRegister();
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
+      expect(confirmInput).toHaveAttribute('type', 'password');
+
+      const eyeButtons = screen.getAllByRole('button', { name: /Show password/i });
+      fireEvent.click(eyeButtons[1]);
+
+      await waitFor(() => {
+        expect(confirmInput).toHaveAttribute('type', 'text');
+      });
+    });
+  });
+
+  // ============ Input Constraints Tests ============
+  describe('Input Constraints', () => {
+    test('should enforce max length on name inputs', async () => {
+      renderRegister();
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+
+      await userEvent.type(firstNameInput, 'a'.repeat(50));
+
+      expect(firstNameInput.value.length).toBeLessThanOrEqual(30);
+    });
+
+    test('should enforce max length on email input', async () => {
+      renderRegister();
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+
+      await userEvent.type(emailInput, 'a'.repeat(60) + '@test.com');
+
+      expect(emailInput.value.length).toBeLessThanOrEqual(50);
+    });
+
+    test('should enforce max length on password input', async () => {
+      renderRegister();
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+
+      await userEvent.type(passwordInput, 'a'.repeat(50));
+
+      expect(passwordInput.value.length).toBeLessThanOrEqual(30);
+    });
+  });
+
+  // ============ Email Already Registered Tests ============
+  describe('Email Already Registered', () => {
+    test('should show error if email already exists', async () => {
+      firebaseAuth.fetchSignInMethodsForEmail.mockResolvedValue(['password']);
+
+      renderRegister();
+      const firstNameInput = screen.getByPlaceholderText('Juan');
+      const lastNameInput = screen.getByPlaceholderText('Dela Cruz');
+      const emailInput = screen.getByPlaceholderText('your@email.com');
+      const passwordInput = screen.getByPlaceholderText('Create a strong password');
+      const confirmInput = screen.getByPlaceholderText('Confirm your password');
+      const agreedCheckbox = screen.getByRole('checkbox');
+
+      await userEvent.type(firstNameInput, 'Juan');
+      await userEvent.type(lastNameInput, 'Dela Cruz');
+      await userEvent.type(emailInput, 'existing@example.com');
+      await userEvent.type(passwordInput, 'Password123!');
+      await userEvent.type(confirmInput, 'Password123!');
+      fireEvent.click(agreedCheckbox);
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/This email is already registered/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  // ============ Submit Button State Tests ============
+  describe('Submit Button State', () => {
+    test('should disable submit button when terms not agreed', () => {
+      renderRegister();
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      expect(submitBtn).toBeDisabled();
+    });
+
+    test('should enable submit button when terms are agreed', async () => {
+      renderRegister();
+      const agreedCheckbox = screen.getByRole('checkbox');
+      fireEvent.click(agreedCheckbox);
+
+      const submitBtn = screen.getByRole('button', { name: /Create LakbAI Account/i });
+      await waitFor(() => {
+        expect(submitBtn).not.toBeDisabled();
+      });
+    });
+  });
 });

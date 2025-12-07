@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import './Ai.css';
 import './Styles/ai-modal.css';
+import './Styles/ai-modal.css';
 import { db, auth } from './firebase';
 import { collection, doc, setDoc, serverTimestamp, updateDoc, getDocs, query, orderBy, onSnapshot, addDoc, getDoc } from 'firebase/firestore';
 import { addTripForCurrentUser } from './Itinerary';
@@ -265,6 +266,7 @@ export default function ChatbaseAI({ onClose }) {
   const [modalConfirmation, setModalConfirmation] = useState('');
   const chatRef = useRef(null);
   const shouldScrollRef = useRef(true);
+  const shouldScrollRef = useRef(true);
 
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
@@ -283,6 +285,7 @@ export default function ChatbaseAI({ onClose }) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages]);
+  }, [messages]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -291,9 +294,18 @@ export default function ChatbaseAI({ onClose }) {
     const chatsRef = collection(db, 'users', user.uid, 'aiChats');
     const q = query(chatsRef, orderBy('updatedAt', 'desc'));
 
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setChatHistory(chats);
+
+      if (!currentChatId) {
+        if (chats.length === 0) {
+          createNewChat();
+        } else {
+          loadChat(chats[0].id);
+        }
 
       if (!currentChatId) {
         if (chats.length === 0) {
@@ -305,6 +317,7 @@ export default function ChatbaseAI({ onClose }) {
     });
 
     return () => unsubscribe();
+  }, [currentChatId]);
   }, [currentChatId]);
 
   useEffect(() => {
@@ -325,6 +338,11 @@ export default function ChatbaseAI({ onClose }) {
   }, [messages, currentChatId]);
 
   const createNewChat = async () => {
+    // ADD THIS - Cancel any ongoing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
     const user = auth.currentUser;
     if (!user) return;
 
@@ -704,10 +722,13 @@ export default function ChatbaseAI({ onClose }) {
     } catch (e) {
       console.error(`Model send failed`, e);
       return `Error: ${e?.message || e}`;
+      console.error(`Model send failed`, e);
+      return `Error: ${e?.message || e}`;
     }
   }
 
   const handleSend = async () => {
+    const text = input.trim();
     const text = input.trim();
     if (!text) return;
 
@@ -770,6 +791,7 @@ export default function ChatbaseAI({ onClose }) {
     addMessage(text, 'user');
     setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
+    const reply = await sendToModelAPI(payload);
     const reply = await sendToModelAPI(payload);
     addMessage(reply, 'assistant');
     if (!reply.toLowerCase().startsWith('error:')) {
@@ -841,7 +863,9 @@ export default function ChatbaseAI({ onClose }) {
 
           <div className="ai-header">
             <div className="ai-header-content">
-              <div className="ai-header-icon">🤖</div>
+              <div className="ai-header-icon">
+                <img src="/coconut-tree.png" alt="LakbAI" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+              </div>
               <div>
                 <h2 className="ai-title">LakbAI Assistant</h2>
                 <p className="ai-subtitle">Ask anything about travel planning, destinations, or get personalized tips for your next adventure in the Philippines!</p>
@@ -861,7 +885,7 @@ export default function ChatbaseAI({ onClose }) {
             ref={chatRef} 
             className="ai-chat-container" 
             aria-live="polite" 
-            style={{ maxHeight: '340px', overflowY: 'auto' }}
+            style={{ maxHeight: '520px', overflowY: 'auto' }}
             onScroll={handleScroll}
           >
             {messages.length === 0 ? (
@@ -885,7 +909,7 @@ export default function ChatbaseAI({ onClose }) {
                       ? (profile?.profilePicture
                           ? <img src={profile.profilePicture} alt="User" style={{ width: 40, height: 40, borderRadius: '50%' }} />
                           : '👤')
-                      : '🤖'}
+                      : <img src="/coconut-tree.png" alt="LakbAI" style={{ width: 40, height: 40, objectFit: 'contain' }} />}
                   </div>
                   <div className="ai-message-content">
                     <div className="ai-message-role">
@@ -900,7 +924,9 @@ export default function ChatbaseAI({ onClose }) {
             )}
             {loading && (
               <div className="ai-message ai-message-assistant">
-                <div className="ai-message-avatar">🤖</div>
+                <div className="ai-message-avatar">
+                  <img src="/coconut-tree.png" alt="LakbAI" style={{ width: 40, height: 40, objectFit: 'contain' }} />
+                </div>
                 <div className="ai-message-content">
                   <div className="ai-message-role">LakbAI</div>
                   <div className="ai-typing">
@@ -915,7 +941,6 @@ export default function ChatbaseAI({ onClose }) {
 
           <div className="ai-input-container">
             <div className="ai-input-wrapper">
-              <button className="ai-input-icon" title="Attach file">📎</button>
               <textarea 
                 value={input} 
                 onChange={e => setInput(e.target.value)} 
@@ -930,7 +955,7 @@ export default function ChatbaseAI({ onClose }) {
                 className="ai-send-btn"
                 title="Send message"
               >
-                {loading ? '⏳' : '🚀'}
+                {loading ? '⏳' : '➤'}
               </button>
             </div>
           </div>
@@ -948,5 +973,4 @@ export default function ChatbaseAI({ onClose }) {
   );
 }
 
-export { ChatbaseAI, ChatModal };
-export { ChatModal as ChatbaseAIModal };
+export { ChatbaseAI };
