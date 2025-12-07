@@ -164,3 +164,39 @@
 .bm-toast {
   z-index: 1000;
 }
+
+/* ============================================
+   RESPONSIVE DESIGN - MOBILE FIRST
+============================================ */
+@media (max-width: 768px) {
+  .bm-page {
+    padding: 12px 8px;
+  }
+
+  .bm-bg-circle {
+    opacity: 0.5;
+  }
+
+  .bm-bg-dots {
+    opacity: 0.3;
+  }
+
+  .bm-bg-wave {
+    height: 100px;
+    opacity: 0.05;
+  }
+}
+
+@media (max-width: 480px) {
+  .bm-page {
+    padding: 8px 4px;
+  }
+
+  .bm-bg-circle {
+    opacity: 0.3;
+  }
+
+  .bm-bg-shapes {
+    opacity: 0.02;
+  }
+}
