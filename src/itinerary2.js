@@ -243,14 +243,25 @@ export function useSharedItineraries(user) {
           
           const itemsUnsub = onSnapshot(
             itemsRef,
-            (itemsSnap) => {
+            async (itemsSnap) => {
               const sortedItems = itemsSnap.docs
                 .map(x => ({ ...x.data(), id: x.id }))
                 .sort((a, b) => (a.arrival || "").localeCompare(b.arrival || ""));
 
+              // FETCH GROUPS if it's a grouped itinerary
+              let groups = [];
+              if (d.data()?.isGroupedItinerary) {
+                const groupsRef = collection(db, "sharedItineraries", d.id, "groups");
+                try {
+                  const groupsSnap = await getDocs(groupsRef);
+                  groups = groupsSnap.docs.map(gd => ({ id: gd.id, ...gd.data() }));
+                } catch (err) {
+                  console.error(`Error fetching groups for shared itinerary ${d.id}:`, err);
+                }
+              }
+
               const data = d.data() || {};
               
-              // Get edit permissions for current user
               const editPermsMap = data.editPermissions || {};
               const editPermForUser = editPermsMap[user.uid] || {};
               const canEdit = (data.sharedBy === user.uid) || (editPermForUser.canEdit === true);
@@ -275,11 +286,13 @@ export function useSharedItineraries(user) {
                 collaborative: !!data.collaborative,
                 sharedWith: data.sharedWith || [],
                 items: sortedItems,
+                groups: groups,
+                isGroupedItinerary: data.isGroupedItinerary || false,
                 itemCount: sortedItems.length,
-                // ADD THIS: Permission info
                 canEdit,
                 userRole: editPermForUser.role || (data.sharedBy === user.uid ? "owner" : "member"),
-                editors
+                editors,
+                name: data.name
               });
 
               setSharedWithMe(prev => {

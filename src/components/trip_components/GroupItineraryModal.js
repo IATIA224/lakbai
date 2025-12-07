@@ -7,14 +7,14 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  onSnapshot,
-  orderBy,
-  query as fsQuery,
   serverTimestamp,
+  onSnapshot,
+  query,
+  orderBy,
 } from "firebase/firestore";
 import "./GroupItineraryModal.css";
 
-// Hook to get grouped itineraries
+// Hook to fetch grouped itineraries
 export function useGroupedItineraries(userId) {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,163 +27,158 @@ export function useGroupedItineraries(userId) {
     }
 
     const groupsRef = collection(db, "itinerary", userId, "groups");
-    const q = fsQuery(groupsRef, orderBy("createdAt", "desc"));
+    const q = query(groupsRef, orderBy("createdAt", "desc"));
 
-    const unsub = onSnapshot(
+    const unsubscribe = onSnapshot(
       q,
-      (snap) => {
-        const list = [];
-        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-        setGroups(list);
+      (snapshot) => {
+        const groupList = [];
+        snapshot.forEach((doc) => {
+          groupList.push({ id: doc.id, ...doc.data() });
+        });
+        setGroups(groupList);
         setLoading(false);
       },
-      (err) => {
-        console.error("[useGroupedItineraries] Error:", err);
-        setGroups([]);
+      (error) => {
+        console.error("[useGroupedItineraries] Error:", error);
         setLoading(false);
       }
     );
 
-    return () => unsub();
+    return () => unsubscribe();
   }, [userId]);
 
   return { groups, loading };
 }
 
-export default function GroupItineraryModal({ open, onClose, onSave, group, allDestinations = [] }) {
-  const [step, setStep] = useState(1);
-  const [name, setName] = useState(group?.name || "");
-  const [startDate, setStartDate] = useState(group?.startDate || "");
-  const [endDate, setEndDate] = useState(group?.endDate || "");
-  const [selectedDestinations, setSelectedDestinations] = useState(
-    group?.destinationIds || []
-  );
-  const [assignments, setAssignments] = useState(group?.assignments || {});
-  const [error, setError] = useState("");
+function GroupItineraryModal({ open, onClose, onSave, group, allDestinations }) {
+  const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedDestinations, setSelectedDestinations] = useState([]);
+  // FIX: assignments maps itemId -> dayIndex (0-based)
+  const [assignments, setAssignments] = useState({});
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  // Reset state when modal opens/closes or group changes
+  // Initialize form when editing
   useEffect(() => {
-    if (open) {
-      setStep(1);
-      setName(group?.name || "");
-      setStartDate(group?.startDate || "");
-      setEndDate(group?.endDate || "");
-      setSelectedDestinations(group?.destinationIds || []);
-      setAssignments(group?.assignments || {});
-      setError("");
-      setSaving(false);
+    if (group) {
+      setName(group.name || "");
+      setStartDate(group.startDate || "");
+      setEndDate(group.endDate || "");
+      setSelectedDestinations(Object.keys(group.assignments || {}));
+      setAssignments(group.assignments || {});
+    } else {
+      setName("");
+      setStartDate("");
+      setEndDate("");
+      setSelectedDestinations([]);
+      setAssignments({});
     }
-  }, [open, group]);
-
-  // Ensure allDestinations is always an array
-  const destinations = Array.isArray(allDestinations) ? allDestinations : [];
+  }, [group, open]);
 
   // Calculate number of days
   const getDayCount = () => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    return Math.max(1, diff);
+    const diffTime = Math.abs(end - start);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
   const dayCount = getDayCount();
 
-  // Generate day labels
-  const getDayLabels = () => {
-    if (!startDate || dayCount === 0) return [];
-    const labels = [];
-    const start = new Date(startDate);
-    for (let i = 0; i < dayCount; i++) {
-      const date = new Date(start);
-      date.setDate(date.getDate() + i);
-      labels.push({
-        day: i + 1,
-        date: date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
-        fullDate: date.toISOString().split("T")[0],
-      });
-    }
-    return labels;
+  // Get date for a specific day index
+  const getDateForDay = (dayIndex) => {
+    if (!startDate) return "";
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + dayIndex);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const dayLabels = getDayLabels();
-
-  // Get unassigned items
-  const getUnassignedItems = () => {
-    if (!Array.isArray(selectedDestinations)) return [];
-    return selectedDestinations.filter((id) => !assignments[id]);
-  };
-
-  const toggleDestination = (id) => {
-    setSelectedDestinations((prev) => {
-      const prevArray = Array.isArray(prev) ? prev : [];
-      return prevArray.includes(id) 
-        ? prevArray.filter((x) => x !== id) 
-        : [...prevArray, id];
+  // Toggle destination selection
+  const toggleDestination = (destId) => {
+    setSelectedDestinations(prev => {
+      if (prev.includes(destId)) {
+        // Remove from selections and assignments
+        const newAssignments = { ...assignments };
+        delete newAssignments[destId];
+        setAssignments(newAssignments);
+        return prev.filter(id => id !== destId);
+      } else {
+        return [...prev, destId];
+      }
     });
   };
 
-  const assignToDay = (destId, dayNum) => {
-    setAssignments((prev) => ({
+  // FIX: Assign destination to a day (dayIndex is 0-based)
+  const assignToDay = (destId, dayIndex) => {
+    console.log(`[GroupItineraryModal] Assigning ${destId} to day ${dayIndex}`);
+    setAssignments(prev => ({
       ...prev,
-      [destId]: dayNum,
+      [destId]: dayIndex // Store the 0-based index
     }));
   };
 
-  const handleNext = () => {
-    if (step === 1) {
-      if (!name.trim()) {
-        setError("Please enter a trip name");
-        return;
-      }
-      if (!startDate || !endDate) {
-        setError("Please select start and end dates");
-        return;
-      }
-      if (new Date(endDate) < new Date(startDate)) {
-        setError("End date must be after start date");
-        return;
-      }
-      setError("");
-      setStep(2);
-    } else if (step === 2) {
-      if (!selectedDestinations || selectedDestinations.length === 0) {
-        setError("Please select at least one destination");
-        return;
-      }
-      setError("");
-      setStep(3);
-    }
+  // Remove from day assignment
+  const removeFromDay = (destId) => {
+    setAssignments(prev => {
+      const newAssignments = { ...assignments };
+      delete newAssignments[destId];
+      return newAssignments;
+    });
   };
 
-  const handleBack = () => {
-    setError("");
-    setStep((s) => Math.max(1, s - 1));
+  // Get destinations assigned to a specific day
+  const getDestinationsForDay = (dayIndex) => {
+    return Object.entries(assignments)
+      .filter(([_, day]) => Number(day) === Number(dayIndex))
+      .map(([destId]) => allDestinations.find(d => d.id === destId))
+      .filter(Boolean);
   };
 
+  // Get unassigned selected destinations
+  const getUnassignedDestinations = () => {
+    return selectedDestinations
+      .filter(id => assignments[id] === undefined)
+      .map(id => allDestinations.find(d => d.id === id))
+      .filter(Boolean);
+  };
+
+  // Handle save
   const handleSave = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      setError("You must be logged in to save.");
+    if (!name.trim()) {
+      setError("Please enter a trip name");
+      return;
+    }
+    if (!startDate || !endDate) {
+      setError("Please select start and end dates");
+      return;
+    }
+    if (selectedDestinations.length === 0) {
+      setError("Please select at least one destination");
       return;
     }
 
     setSaving(true);
     setError("");
 
-    const groupData = {
-      name: name.trim(),
-      startDate,
-      endDate,
-      dayCount,
-      destinationIds: selectedDestinations || [],
-      assignments: assignments || {},
-      updatedAt: serverTimestamp(),
-    };
-
     try {
-      if (group?.id) {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Not authenticated");
+
+      const groupData = {
+        name: name.trim(),
+        startDate,
+        endDate,
+        assignments, // This stores itemId -> dayIndex (0-based)
+        updatedAt: serverTimestamp(),
+      };
+
+      console.log("[GroupItineraryModal] Saving group:", groupData);
+
+      if (group) {
         // Update existing group
         const groupRef = doc(db, "itinerary", user.uid, "groups", group.id);
         await updateDoc(groupRef, groupData);
@@ -194,33 +189,32 @@ export default function GroupItineraryModal({ open, onClose, onSave, group, allD
           createdAt: serverTimestamp(),
         });
       }
-      if (onSave) onSave();
+
       onClose();
     } catch (err) {
       console.error("[GroupItineraryModal] Save error:", err);
-      setError("Failed to save group: " + err.message);
+      setError("Failed to save group. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
+  // Handle delete group
   const handleDelete = async () => {
-    if (!group?.id) return;
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!group) return;
+    
+    const confirmed = window.confirm("Are you sure you want to delete this trip group? The destinations will not be deleted.");
+    if (!confirmed) return;
 
-    if (!window.confirm("Are you sure you want to delete this trip group?")) return;
-
-    setSaving(true);
     try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Not authenticated");
+
       await deleteDoc(doc(db, "itinerary", user.uid, "groups", group.id));
-      if (onSave) onSave();
       onClose();
     } catch (err) {
       console.error("[GroupItineraryModal] Delete error:", err);
-      setError("Failed to delete group: " + err.message);
-    } finally {
-      setSaving(false);
+      setError("Failed to delete group.");
     }
   };
 
@@ -230,184 +224,126 @@ export default function GroupItineraryModal({ open, onClose, onSave, group, allD
     <div className="group-modal-backdrop" onClick={onClose}>
       <div className="group-modal" onClick={(e) => e.stopPropagation()}>
         <div className="group-modal-header">
-          <h2>
-            {group ? "✏️ Edit Trip Group" : "📅 Create Trip Group"}
-          </h2>
+          <h2>{group ? "Edit Trip Group" : "Create Trip Group"}</h2>
           <button className="group-modal-close" onClick={onClose}>×</button>
         </div>
 
-        {/* Progress Steps */}
-        <div className="group-modal-steps">
-          <div className={`group-step ${step >= 1 ? "active" : ""} ${step > 1 ? "completed" : ""}`}>
-            <span className="step-number">1</span>
-            <span className="step-label">Trip Details</span>
-          </div>
-          <div className="step-connector" />
-          <div className={`group-step ${step >= 2 ? "active" : ""} ${step > 2 ? "completed" : ""}`}>
-            <span className="step-number">2</span>
-            <span className="step-label">Select Destinations</span>
-          </div>
-          <div className="step-connector" />
-          <div className={`group-step ${step >= 3 ? "active" : ""}`}>
-            <span className="step-number">3</span>
-            <span className="step-label">Assign Days</span>
-          </div>
-        </div>
-
         <div className="group-modal-body">
-          {error && <div className="group-error">{error}</div>}
+          {error && <div className="group-modal-error">{error}</div>}
 
-          {/* Step 1: Trip Details */}
-          {step === 1 && (
-            <div className="group-step-content">
-              <div className="group-field">
-                <label>Trip Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Summer Vacation 2024"
-                  autoFocus
-                />
-              </div>
-              <div className="group-field-row">
-                <div className="group-field">
-                  <label>Start Date</label>
+          {/* Trip Name */}
+          <div className="group-modal-field">
+            <label>Trip Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Summer Vacation 2025"
+            />
+          </div>
+
+          {/* Date Range */}
+          <div className="group-modal-dates">
+            <div className="group-modal-field">
+              <label>Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="group-modal-field">
+              <label>End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate}
+              />
+            </div>
+          </div>
+
+          {dayCount > 0 && (
+            <div className="group-modal-days-info">
+              📅 {dayCount} day{dayCount !== 1 ? 's' : ''} trip
+            </div>
+          )}
+
+          {/* Destination Selection */}
+          <div className="group-modal-section">
+            <h3>Select Destinations</h3>
+            <div className="group-modal-destinations">
+              {allDestinations.map((dest) => (
+                <label key={dest.id} className="group-destination-checkbox">
                   <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    type="checkbox"
+                    checked={selectedDestinations.includes(dest.id)}
+                    onChange={() => toggleDestination(dest.id)}
                   />
-                </div>
-                <div className="group-field">
-                  <label>End Date</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDate}
-                  />
-                </div>
+                  <span className="group-destination-name">{dest.name}</span>
+                  <span className="group-destination-region">{dest.region}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Day Assignment */}
+          {dayCount > 0 && selectedDestinations.length > 0 && (
+            <div className="group-modal-section">
+              <h3>Assign each destination to a specific day</h3>
+              
+              <div className="group-days-grid">
+                {Array.from({ length: dayCount }, (_, dayIndex) => (
+                  <div key={dayIndex} className="group-day-column">
+                    <div className="group-day-header">
+                      <strong>Day {dayIndex + 1}</strong>
+                      <span className="group-day-date">{getDateForDay(dayIndex)}</span>
+                    </div>
+                    <div className="group-day-destinations">
+                      {getDestinationsForDay(dayIndex).map((dest) => (
+                        <div key={dest.id} className="group-day-destination">
+                          <span>{dest.name}</span>
+                          <button 
+                            className="group-day-remove"
+                            onClick={() => removeFromDay(dest.id)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {dayCount > 0 && (
-                <div className="group-duration-preview">
-                  🗓️ {dayCount} day{dayCount !== 1 ? "s" : ""} trip
+
+              {/* Unassigned destinations */}
+              {getUnassignedDestinations().length > 0 && (
+                <div className="group-unassigned">
+                  <h4>Unassigned Destinations</h4>
+                  <p className="group-unassigned-hint">
+                    Click on a day column above to assign, or drag destinations
+                  </p>
+                  <div className="group-unassigned-list">
+                    {getUnassignedDestinations().map((dest) => (
+                      <div key={dest.id} className="group-unassigned-item">
+                        <span>{dest.name}</span>
+                        <div className="group-assign-buttons">
+                          {Array.from({ length: Math.min(dayCount, 7) }, (_, i) => (
+                            <button
+                              key={i}
+                              className="group-assign-btn"
+                              onClick={() => assignToDay(dest.id, i)}
+                              title={`Assign to Day ${i + 1}`}
+                            >
+                              D{i + 1}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Step 2: Select Destinations */}
-          {step === 2 && (
-            <div className="group-step-content">
-              <p className="group-instruction">
-                Select destinations to include in this trip ({selectedDestinations?.length || 0} selected)
-              </p>
-              <div className="group-destinations-list">
-                {destinations.length === 0 ? (
-                  <div className="group-empty">
-                    No destinations available. Add some destinations first!
-                  </div>
-                ) : (
-                  destinations.map((dest) => (
-                    <div
-                      key={dest.id}
-                      className={`group-destination-item ${
-                        selectedDestinations?.includes(dest.id) ? "selected" : ""
-                      }`}
-                      onClick={() => toggleDestination(dest.id)}
-                    >
-                      <div className="group-dest-checkbox">
-                        {selectedDestinations?.includes(dest.id) ? "✓" : ""}
-                      </div>
-                      <div className="group-dest-info">
-                        <div className="group-dest-name">{dest.name || "Untitled"}</div>
-                        <div className="group-dest-region">{dest.region || dest.location || ""}</div>
-                      </div>
-                      <div className={`group-dest-status ${(dest.status || "upcoming").toLowerCase()}`}>
-                        {dest.status || "Upcoming"}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Assign to Days */}
-          {step === 3 && (
-            <div className="group-step-content">
-              <p className="group-instruction">
-                Assign each destination to a specific day
-              </p>
-              
-              <div className="group-assignment-container">
-                {/* Day columns */}
-                <div className="group-days-grid">
-                  {dayLabels.map((dayInfo) => (
-                    <div key={dayInfo.day} className="group-day-column">
-                      <div className="group-day-header">
-                        <span className="day-number">Day {dayInfo.day}</span>
-                        <span className="day-date">{dayInfo.date}</span>
-                      </div>
-                      <div className="group-day-destinations">
-                        {(selectedDestinations || [])
-                          .filter((id) => assignments[id] === dayInfo.day)
-                          .map((id) => {
-                            const dest = destinations.find((d) => d.id === id);
-                            return dest ? (
-                              <div key={id} className="group-assigned-dest">
-                                <span>{dest.name}</span>
-                                <button
-                                  className="group-unassign-btn"
-                                  onClick={() => assignToDay(id, null)}
-                                  type="button"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ) : null;
-                          })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Unassigned destinations */}
-                <div className="group-unassigned-section">
-                  <h4>Unassigned Destinations</h4>
-                  <div className="group-unassigned-list">
-                    {getUnassignedItems().map((id) => {
-                      const dest = destinations.find((d) => d.id === id);
-                      return dest ? (
-                        <div key={id} className="group-unassigned-dest">
-                          <span>{dest.name}</span>
-                          <select
-                            value=""
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                assignToDay(id, parseInt(e.target.value));
-                              }
-                            }}
-                          >
-                            <option value="">Assign to day...</option>
-                            {dayLabels.map((d) => (
-                              <option key={d.day} value={d.day}>
-                                Day {d.day} - {d.date}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      ) : null;
-                    })}
-                    {getUnassignedItems().length === 0 && (
-                      <div className="group-all-assigned">
-                        ✅ All destinations assigned!
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -415,28 +351,28 @@ export default function GroupItineraryModal({ open, onClose, onSave, group, allD
         <div className="group-modal-footer">
           {group && (
             <button 
-              className="group-btn delete" 
+              className="group-modal-btn delete" 
               onClick={handleDelete}
               disabled={saving}
             >
               🗑️ Delete Group
             </button>
           )}
-          <div className="group-footer-actions">
-            {step > 1 && (
-              <button className="group-btn secondary" onClick={handleBack} disabled={saving}>
-                ← Back
-              </button>
-            )}
-            {step < 3 ? (
-              <button className="group-btn primary" onClick={handleNext} disabled={saving}>
-                Next →
-              </button>
-            ) : (
-              <button className="group-btn primary" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : (group ? "Update" : "Create")} Trip
-              </button>
-            )}
+          <div className="group-modal-footer-right">
+            <button 
+              className="group-modal-btn cancel" 
+              onClick={onClose}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button 
+              className="group-modal-btn save" 
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : (group ? "Update Trip" : "Create Trip")}
+            </button>
           </div>
         </div>
       </div>
@@ -445,3 +381,5 @@ export default function GroupItineraryModal({ open, onClose, onSave, group, allD
 
   return ReactDOM.createPortal(modalContent, document.body);
 }
+
+export default GroupItineraryModal;

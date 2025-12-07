@@ -747,3 +747,653 @@
     align-self: flex-start;
   }
 }
+
+.grouped-destination-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.grouped-destination-item:hover {
+  border-color: #6366f1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+  transform: translateY(-2px);
+}
+
+.grouped-destination-item:last-child {
+  margin-bottom: 0;
+}
+
+.grouped-destination-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.grouped-destination-view-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.grouped-destination-item:hover .grouped-destination-view-hint {
+  opacity: 1;
+  color: #6366f1;
+}
+
+.grouped-itinerary-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+/* Header */
+.grouped-itinerary-header {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.grouped-itinerary-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.grouped-itinerary-name {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.grouped-itinerary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  opacity: 0.95;
+}
+
+.grouped-itinerary-edit-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.grouped-itinerary-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Days Container */
+.grouped-itinerary-days-container {
+  padding: 16px;
+}
+
+/* Day Section */
+.grouped-day-section {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.grouped-day-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Day Header */
+.grouped-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+
+.grouped-day-header:hover {
+  background: #f1f5f9;
+}
+
+.grouped-day-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grouped-day-badge {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.grouped-day-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.grouped-day-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grouped-day-stops {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.grouped-day-budget {
+  font-size: 13px;
+  font-weight: 700;
+  color: #22c55e;
+}
+
+.grouped-day-toggle {
+  font-size: 12px;
+  color: #94a3b8;
+  transition: transform 0.2s;
+}
+
+.grouped-day-toggle.expanded {
+  transform: rotate(180deg);
+}
+
+/* Day Items */
+.grouped-day-items {
+  padding: 0 16px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.grouped-day-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px dashed #e5e7eb;
+}
+
+/* Destination Wrapper - contains time bar and card */
+.grouped-destination-wrapper {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.grouped-destination-wrapper:hover {
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+/* Time Display Bar */
+.grouped-destination-time-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.grouped-time-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grouped-time-icon {
+  font-size: 16px;
+}
+
+.grouped-time-display {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.grouped-time-placeholder {
+  font-size: 13px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.grouped-time-edit-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border: none;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.grouped-time-edit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+}
+
+/* Time Editor Bar */
+.grouped-destination-time-editor {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fff5f7 0%, #f0f9ff 100%);
+  border-bottom: 2px solid #6366f1;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.grouped-time-editor-fields {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 280px;
+}
+
+.grouped-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.grouped-time-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.grouped-time-field input[type="time"] {
+  padding: 8px 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.grouped-time-field input[type="time"]:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.grouped-time-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.grouped-time-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.grouped-time-btn.cancel {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.grouped-time-btn.cancel:hover {
+  background: #fecaca;
+}
+
+.grouped-time-btn.save {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+}
+
+.grouped-time-btn.save:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.grouped-time-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== CUSTOM ACTIVITY STYLES ===== */
+
+/* Custom Activity Item */
+.grouped-custom-activity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.grouped-custom-activity:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.15);
+}
+
+.grouped-activity-time-section {
+  min-width: 60px;
+  text-align: center;
+}
+
+.grouped-activity-time {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.grouped-activity-time-input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.grouped-activity-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.grouped-activity-icon {
+  font-size: 16px;
+}
+
+.grouped-activity-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.grouped-activity-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.grouped-activity-btn {
+  background: transparent;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.grouped-activity-btn:hover {
+  background: #f59e0b;
+  color: #fff;
+  border-color: #f59e0b;
+}
+
+.grouped-activity-btn.delete {
+  border-color: #fee2e2;
+}
+
+.grouped-activity-btn.delete:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Activity Form Bar */
+.grouped-activity-form-bar {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 100%);
+  border: 2px solid #6366f1;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.grouped-activity-form-fields {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-width: 300px;
+}
+
+.grouped-activity-form-title {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.grouped-activity-form-title:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.grouped-activity-form-time {
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #fff;
+  width: 130px;
+}
+
+.grouped-activity-form-time:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.grouped-activity-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.grouped-form-btn {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.grouped-form-btn.cancel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.grouped-form-btn.cancel:hover {
+  background: #f1f5f9;
+}
+
+.grouped-form-btn.add {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+}
+
+.grouped-form-btn.add:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+}
+
+/* Add Activity Button */
+.grouped-add-activity-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%);
+  border: 2px dashed #6366f1;
+  color: #6366f1;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.grouped-add-activity-btn:hover {
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+  border-color: #4f46e5;
+  color: #4338ca;
+}
+
+/* Ensure ItineraryCard row styles work within grouped view */
+.grouped-day-items .itn-row {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  margin-top: -1px;
+}
+
+.grouped-day-items .itn-row:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .grouped-itinerary-header {
+    padding: 16px;
+    flex-direction: column;
+  }
+
+  .grouped-itinerary-edit-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .grouped-itinerary-meta {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .grouped-day-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .grouped-day-summary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .grouped-day-items {
+    padding: 0 12px 12px 12px;
+    gap: 8px;
+  }
+
+  .grouped-destination-time-editor {
+    flex-direction: column;
+  }
+
+  .grouped-time-editor-fields {
+    width: 100%;
+    min-width: auto;
+    flex-direction: column;
+  }
+
+  .grouped-time-editor-actions {
+    width: 100%;
+  }
+
+  .grouped-time-btn {
+    flex: 1;
+  }
+
+  .grouped-destination-time-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .grouped-time-edit-btn {
+    align-self: flex-end;
+  }
+
+  .grouped-custom-activity {
+    flex-wrap: wrap;
+  }
+
+  .grouped-activity-content {
+    width: 100%;
+  }
+
+  .grouped-activity-form-fields {
+    width: 100%;
+    min-width: auto;
+    flex-direction: column;
+  }
+
+  .grouped-activity-form-time {
+    width: 100%;
+  }
+
+  .grouped-activity-form-actions {
+    width: 100%;
+  }
+
+  .grouped-form-btn {
+    flex: 1;
+  }
+}

@@ -55,6 +55,7 @@ import ShareItineraryModal from "./components/trip_components/ShareItineraryModa
 import { exportItineraryToPDF } from "./components/trip_components/ExportPDFButton";
 import GroupItineraryModal, { useGroupedItineraries } from "./components/trip_components/GroupItineraryModal";
 import GroupedItineraryView from "./components/trip_components/GroupedItineraryView";
+import SharedGroupedItineraryView from "./components/trip_components/SharedGroupedItineraryView";
 
 // ==================== ADD TO TRIP HELPER (moved to top) ====================
 export async function addTripForCurrentUser(dest) {
@@ -1297,10 +1298,20 @@ export default function Itinerary() {
 
   const handleExport = async () => {
     let allTabItems = [];
+    let exportGroups = [];
+    
     if (activeTab === 'personal') {
       allTabItems = items;
+      // Include groups if in grouped view mode
+      if (viewMode === 'grouped' && groups.length > 0) {
+        exportGroups = groups;
+      }
     } else if (activeTab === 'shared') {
       allTabItems = sharedWithMe.flatMap(s => s.items);
+      // Include groups from shared itineraries
+      exportGroups = sharedWithMe
+        .filter(s => s.isGroupedItinerary && s.groups)
+        .flatMap(s => s.groups);
     }
 
     const selectedItems = allTabItems.filter((i) => exportSelected.has(i.id));
@@ -1327,10 +1338,16 @@ export default function Itinerary() {
       status: item.status || "upcoming",
     }));
 
+    // Filter groups to only include those with selected items
+    const relevantGroups = exportGroups.filter(group => {
+      const groupItemIds = group.destinationIds || Object.keys(group.assignments || {});
+      return groupItemIds.some(id => exportSelected.has(id));
+    });
+
     try {
-      console.log("[Itinerary] Starting export for", enrichedItems.length);
+      console.log("[Itinerary] Starting export for", enrichedItems.length, "items with", relevantGroups.length, "groups");
       setExportLoading(true);
-      await exportItineraryToPDF(enrichedItems);
+      await exportItineraryToPDF(enrichedItems, relevantGroups);
       console.log("[Itinerary] Export finished");
       setShowExport(false);
       setExportSelected(new Set());
@@ -1640,64 +1657,88 @@ export default function Itinerary() {
                 ) : sharedWithMe.length === 0 ? (
                   <div style={{textAlign:'center', padding:20}}>No itineraries shared with you.</div>
                 ) : (
-                  sharedWithMe.map((shared) => (
-                    <div key={shared.id} className="shared-card">
-          <div className="shared-card-header">
-            <div>
-              <strong>{shared.name || `Shared by ${shared.sharedBy.name}`}</strong>
-              <div style={{fontSize:12, color:'#64748b', marginTop:3}}>
-                {shared.sharedBy?.name || "Traveler"} • {shared.items.length} destinations
-              </div>
-            </div>
-          </div>
-
-          <div className="itn-destination-list">
-            {shared.items.map((item, idx) => (
-              <ItineraryCard
-                key={item.id}
-                item={item}
-                index={idx}
-                isShared={true}              // ADD THIS
-                sharedId={shared.id}         // ADD THIS
-                // Update item in the shared collection instead of personal itinerary
-                onEdit={async (updatedItem) => {
-                  try {
-                    // Ensure breakdown is included
-                    const itemToUpdate = {
-                      ...updatedItem,
-                      breakdown: Array.isArray(updatedItem.breakdown) ? updatedItem.breakdown : [],
-                      accomType: updatedItem.accomType || "",
-                      accomName: updatedItem.accomName || "",
-                      accomNotes: updatedItem.accomNotes || "",
-                      activities: Array.isArray(updatedItem.activities) ? updatedItem.activities : [],
-                      transport: updatedItem.transport || "",
-                      transportNotes: updatedItem.transportNotes || "",
-                      notes: updatedItem.notes || "",
-                      agency: updatedItem.agency || "",
-                    };
+                  sharedWithMe.map((shared) => {
+                    // Check if this is a grouped itinerary
+                    const isGrouped = shared.isGroupedItinerary || false;
                     
-                    const sharedRef = doc(db, "sharedItineraries", shared.id, "items", updatedItem.id);
-                    await updateDoc(sharedRef, itemToUpdate);
-                  } catch (err) {
-                    console.error("[SharedItinerary] Failed to update item:", err);
-                  }
-                }}
-                // Delete item inside shared itinerary (anyone can remove if collaborative)
-                onRemove={async (itemId) => {
-                  try {
-                    await deleteDoc(doc(db, "sharedItineraries", shared.id, "items", itemId));
-                  } catch (err) {
-                    console.error("[SharedItinerary] Failed to delete shared item:", err);
-                  }
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      ))
-    )}
-  </div>
-)}
+                    if (isGrouped && shared.groups && shared.groups.length > 0) {
+                      // Render grouped itinerary
+                      return (
+                        <div key={shared.id}>
+                          {shared.groups.map(group => (
+                            <SharedGroupedItineraryView
+                              key={group.id}
+                              group={group}
+                              items={shared.items}
+                              sharedId={shared.id}
+                              canEdit={shared.canEdit}
+                              editors={shared.editors}
+                              onRefresh={() => {
+                                // Force refresh of shared itineraries
+                              }}
+                            />
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    // Render individual items (non-grouped)
+                    return (
+                      <div key={shared.id} className="shared-card">
+                        <div className="shared-card-header">
+                          <div>
+                            <strong>{shared.name || `Shared by ${shared.sharedBy.name}`}</strong>
+                            <div style={{fontSize:12, color:'#64748b', marginTop:3}}>
+                              {shared.sharedBy?.name || "Traveler"} • {shared.items.length} destinations
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="itn-destination-list">
+                          {shared.items.map((item, idx) => (
+                            <ItineraryCard
+                              key={item.id}
+                              item={item}
+                              index={idx}
+                              isShared={true}
+                              sharedId={shared.id}
+                              onEdit={async (updatedItem) => {
+                                try {
+                                  const itemToUpdate = {
+                                    ...updatedItem,
+                                    breakdown: Array.isArray(updatedItem.breakdown) ? updatedItem.breakdown : [],
+                                    accomType: updatedItem.accomType || "",
+                                    accomName: updatedItem.accomName || "",
+                                    accomNotes: updatedItem.accomNotes || "",
+                                    activities: Array.isArray(updatedItem.activities) ? updatedItem.activities : [],
+                                    transport: updatedItem.transport || "",
+                                    transportNotes: updatedItem.transportNotes || "",
+                                    notes: updatedItem.notes || "",
+                                    agency: updatedItem.agency || "",
+                                  };
+                                  
+                                  const sharedRef = doc(db, "sharedItineraries", shared.id, "items", updatedItem.id);
+                                  await updateDoc(sharedRef, itemToUpdate);
+                                } catch (err) {
+                                  console.error("[SharedItinerary] Failed to update item:", err);
+                                }
+                              }}
+                              onRemove={async (itemId) => {
+                                try {
+                                  await deleteDoc(doc(db, "sharedItineraries", shared.id, "items", itemId));
+                                } catch (err) {
+                                  console.error("[SharedItinerary] Failed to delete shared item:", err);
+                                }
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -1706,19 +1747,25 @@ export default function Itinerary() {
       {showExport && (
         <ExportPDFModal
           items={activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items)}
+          groups={activeTab === 'personal' ? groups : sharedWithMe.filter(s => s.isGroupedItinerary).flatMap(s => s.groups || [])}
           selected={exportSelected}
           onToggle={toggleExportSelection}
           onSelectAll={selectAllExport}
           onExport={handleExport}
           onClose={() => setShowExport(false)}
           exporting={exportLoading}
+          viewMode={viewMode}
         />
       )}
       {showCostEstimator && (
         <ItineraryCostEstimationModal onClose={() => setShowCostEstimator(false)} />
       )}
       {showShareModal && (
-        <ShareItineraryModal items={items} onClose={() => setShowShareModal(false)} />
+        <ShareItineraryModal 
+          items={items} 
+          groups={viewMode === 'grouped' ? groups : []}
+          onClose={() => setShowShareModal(false)} 
+        />
       )}
       {showGroupModal && (
         <GroupItineraryModal
