@@ -10,10 +10,12 @@ import {
   FacebookAuthProvider,
   sendPasswordResetEmail,
   signInWithRedirect,
+  signOut
 } from "firebase/auth";
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { useUser } from './UserContext';
+import { action_types } from './rules';
 
 // CHANGED: Updated icon path
 const ERROR_ICON = "/warning.png";
@@ -131,15 +133,9 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [accountModal, setAccountModal] = useState({ type: null, message: '', until: null });
   const navigate = useNavigate();
   const { setUser } = useUser();
-
-  // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
-
-  // REMOVE the entire redirect result useEffect block:
-  // useEffect(() => { ... getRedirectResult ... }, [navigate]);
-
-  // ADD simple mount effect to end loading sooner:
 
   // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
 
@@ -155,14 +151,77 @@ const Login = () => {
     navigate("/register");
   };
 
+  // Helper: after login, set a flag if interests missing
+  async function ensureSetupFlag(uid) {
+    try {
+      const snap = await getDoc(doc(db, "users", uid));
+      const data = snap.exists() ? snap.data() : {};
+      const interests = Array.isArray(data?.interests) ? data.interests : [];
+      if (!interests.length) {
+        localStorage.setItem("SHOW_PROFILE_SETUP", "1");
+      } else {
+        localStorage.removeItem("SHOW_PROFILE_SETUP");
+      }
+    } catch (e) {
+      // Non-fatal
+      console.warn("ensureSetupFlag failed:", e);
+    }
+  }
+
+  function formatUntil(until) {
+    if (!until) return '';
+    const d = until.toDate ? until.toDate() : (until instanceof Date ? until : new Date(until));
+    return d.toLocaleString();
+  }
+
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await saveUserToFirestore(userCredential.user);
 
+      // Moderation check
+      const uRef = doc(db, "users", userCredential.user.uid);
+      const uSnap = await getDoc(uRef);
+      const moderation = uSnap.exists() ? uSnap.data().moderation || {} : {};
+      const status = moderation.status;
+      const suspensionEnds = moderation.suspensionEnds;
+      const lastAction = moderation.lastAction || {};
+      const lastReason = lastAction.reason || '';
+
+      const reasonKey = lastReason.trim().replace(/[\/\s]+/g,'_');
+
+      if (status === 'banned') {
+        const banMsg = (action_types?.Ban_Account && action_types.Ban_Account[0]) ||
+          "Your account has been banned due to repeated guideline violations.";
+        setAccountModal({ type: 'banned', message: banMsg, until: null });
+        await signOut(auth);
+        return;
+      }
+
+      if (status === 'suspended') {
+        const template = action_types?.Suspend_Account?.[reasonKey]?.[0];
+        const baseMsg = template || "Your account is suspended for violating our community guidelines.";
+        const endsMs = suspensionEnds?.toMillis?.() ?? (suspensionEnds ? Date.parse(suspensionEnds) : 0);
+        if (endsMs && Date.now() < endsMs) {
+          setAccountModal({
+            type: 'suspended',
+            message: `${baseMsg} Suspension ends on ${formatUntil(suspensionEnds)}.`,
+            until: suspensionEnds
+          });
+          await signOut(auth);
+          return;
+        } else {
+          try { await updateDoc(uRef, { 'moderation.status': null }); } catch {}
+        }
+      }
+
       // Reset login attempts on successful login
       resetLoginAttempts(email);
+
+      // FIXED: Set token for email login (same as Google)
+      const token = await userCredential.user.getIdToken();
+      localStorage.setItem('token', token);
 
       // --- Ensure auditLogs collection exists (create a dummy doc if empty) ---
       const auditLogsSnap = await getDocs(query(collection(db, "auditLogs"), limit(1)));
@@ -201,11 +260,17 @@ const Login = () => {
         location: "",
         session: sessionId,
         target: "user_session",
-        clientTime: Date.now(), // optional
+        clientTime: Date.now(),
       });
+
+      // Check if interests exist; mark flag if not
+      await ensureSetupFlag(userCredential.user.uid);
 
       if (rememberMe) localStorage.setItem("rememberedEmail", email);
       else localStorage.removeItem("rememberedEmail");
+
+      // FIXED: Set user context (same as Google)
+      if (setUser) setUser({ uid: userCredential.user.uid, email: userCredential.user.email });
 
       navigate("/dashboard");
     } catch (err) {
@@ -267,17 +332,21 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
-    if (isSigningIn) return; // prevent duplicate popups
+    if (isSigningIn) return;
     setIsSigningIn(true);
     const provider = new GoogleAuthProvider();
     provider.addScope("profile");
     provider.addScope("email");
     provider.setCustomParameters({ prompt: "select_account" });
-    provider.addScope("profile");
-    provider.addScope("email");
-    provider.setCustomParameters({ prompt: "select_account" });
+    
     try {
+      // FIXED: Use signInWithPopup with error handling
       const result = await signInWithPopup(auth, provider);
+      
+      if (!result || !result.user) {
+        throw new Error("No user returned from Google login");
+      }
+      
       await saveUserToFirestore(result.user);
 
       // --- Add audit log for Google login ---
@@ -304,34 +373,87 @@ const Login = () => {
         target: "user_session",
       });
 
-      // New code block start
+      // Mark flag if interests are missing
+      await ensureSetupFlag(result.user.uid);
+
       const user = result.user;
       const token = await user.getIdToken();
       localStorage.setItem('token', token);
 
-      // update your context/state so ProtectedRoute sees the user
-      if (setUser) setUser({ uid: user.uid, email: user.email });
+      // Moderation check
+      const uRef2 = doc(db, "users", result.user.uid);
+      const uSnap2 = await getDoc(uRef2);
+      const moderation2 = uSnap2.exists() ? uSnap2.data().moderation || {} : {};
+      const status2 = moderation2.status;
+      const suspensionEnds2 = moderation2.suspensionEnds;
+      const lastAction2 = moderation2.lastAction || {};
+      const lastReason2 = lastAction2.reason || '';
+      const reasonKey2 = lastReason2.trim().replace(/[\/\s]+/g,'_');
 
-      // finally navigate to protected page
+      if (status2 === 'banned') {
+        const banMsg2 = (action_types?.Ban_Account && action_types.Ban_Account[0]) ||
+          "Your account has been banned due to repeated guideline violations.";
+        setAccountModal({
+          type: 'banned',
+          message: banMsg2,
+          until: null
+        });
+        await signOut(auth);
+        return;
+      }
+      if (status2 === 'suspended') {
+        const template2 = action_types?.Suspend_Account?.[reasonKey2]?.[0];
+        const baseMsg2 = template2 || "Your account is suspended for violating our community guidelines.";
+        const endsMs2 = suspensionEnds2?.toMillis?.() ?? (suspensionEnds2 ? Date.parse(suspensionEnds2) : 0);
+        if (endsMs2 && Date.now() < endsMs2) {
+          setAccountModal({
+            type: 'suspended',
+            message: `${baseMsg2} Suspension ends on ${formatUntil(suspensionEnds2)}.`,
+            until: suspensionEnds2
+          });
+          await signOut(auth);
+          return;
+        }
+      }
+
+      // FIXED: Set user context
+      if (setUser) setUser({ uid: result.user.uid, email: result.user.email });
+
+      // Navigate with replace to clear history
       navigate('/dashboard', { replace: true });
-      // New code block end
+      
     } catch (err) {
       console.error("Google login error:", err);
-      // common popup-related errors
-      if (err.code === "auth/cancelled-popup-request" || err.code === "auth/popup-closed-by-user") {
-        console.warn("Google sign-in popup canceled/closed", err);
-      } else if (err.code === "auth/operation-not-supported-in-this-environment") {
-        // environment blocks popups (e.g., in an iframe) - fallback to redirect
+      
+      // FIXED: Handle specific errors better
+      if (err.code === "auth/popup-closed-by-user") {
+        console.warn("User closed the Google sign-in popup");
+        // Don't show error - user intentionally closed it
+        return;
+      } 
+      else if (err.code === "auth/cancelled-popup-request") {
+        console.warn("Google sign-in popup was cancelled");
+        return;
+      }
+      else if (err.code === "auth/operation-not-supported-in-this-environment") {
+        console.warn("Popups blocked in this environment, trying redirect...");
         try {
           await signInWithRedirect(auth, provider);
         } catch (redirectErr) {
-          console.error("Redirect fallback failed", redirectErr);
+          console.error("Redirect also failed:", redirectErr);
+          setPopup({ 
+            show: true, 
+            type: "error", 
+            message: "Could not open Google sign-in. Please check your browser settings." 
+          });
         }
-      } else {
-        const msg = mapAuthError(err.code);
+        return;
+      }
+      else {
+        // Generic error
+        const msg = mapAuthError(err.code) || "Google sign-in failed. Please try again.";
         setPopup({ show: true, type: "error", message: msg });
       }
-      // If popup was closed/cancelled by user, do nothing
     } finally {
       setIsSigningIn(false);
     }
@@ -339,18 +461,25 @@ const Login = () => {
   };
 
   const handleFacebookLogin = async () => {
+    setIsSigningIn(true);
+    const provider = new FacebookAuthProvider();  // MOVE THIS LINE HERE - declare at top
+    
     try {
-      const provider = new FacebookAuthProvider();
       provider.addScope("email");
       provider.addScope("public_profile");
       provider.setCustomParameters({ display: "popup" });
-      provider.addScope("email");
-      provider.addScope("public_profile");
-      provider.setCustomParameters({ display: "popup" });
+      
       const result = await signInWithPopup(auth, provider);
+      
+      if (!result || !result.user) {
+        throw new Error("No user returned from Facebook login");
+      }
+      
       await saveUserToFirestore(result.user);
 
-      // --- Add audit log for Facebook login ---
+      const token = await result.user.getIdToken();
+      localStorage.setItem('token', token);
+
       const deviceInfo = getDeviceInfo();
       const sessionId = generateSessionId();
       await addDoc(collection(db, "auditLogs"), {
@@ -374,17 +503,44 @@ const Login = () => {
         target: "user_session",
       });
 
+      await ensureSetupFlag(result.user.uid);
+
+      if (setUser) setUser({ uid: result.user.uid, email: result.user.email });
+
       navigate("/dashboard");
     } catch (err) {
       console.error("Facebook login error:", err);
-      if (
-        err.code !== "auth/popup-closed-by-user" &&
-        err.code !== "auth/cancelled-popup-request"
-      ) {
-        const msg = mapAuthError(err.code);
-        setPopup({ show: true, type: "error", message: msg });
+      
+      if (err.code === "auth/popup-closed-by-user") {
+        console.warn("User closed the Facebook sign-in popup");
+        setIsSigningIn(false);
+        return;
       }
-      // If popup was closed/cancelled by user, do nothing
+      else if (err.code === "auth/cancelled-popup-request") {
+        console.warn("Facebook sign-in popup was cancelled");
+        setIsSigningIn(false);
+        return;
+      }
+      else if (err.code === "auth/operation-not-supported-in-this-environment") {
+        console.warn("Popups blocked in this environment, trying redirect...");
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectErr) {
+          console.error("Redirect also failed:", redirectErr);
+          setPopup({ 
+            show: true, 
+            type: "error", 
+            message: "Could not open Facebook sign-in. Please check your browser settings." 
+          });
+        }
+        setIsSigningIn(false);
+        return;
+      }
+      else {
+        const msg = mapAuthError(err.code) || "Facebook sign-in failed. Please try again.";
+        setPopup({ show: true, type: "error", message: msg });
+        setIsSigningIn(false);
+      }
     }
   };
 
@@ -636,6 +792,29 @@ const Login = () => {
               className="login-btn" 
               onClick={handleClosePopup} 
               style={{ width: "100%" }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      {accountModal.type && (
+        <div className="login-popup-overlay" style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100
+        }}>
+          <div className="login-popup" style={{
+            background: "#fff", padding: 32, borderRadius: 16,
+            maxWidth: 420, width: "90%", boxShadow: "0 10px 30px rgba(0,0,0,0.25)"
+          }}>
+            <h3 style={{ marginTop: 0, color: accountModal.type === 'banned' ? '#b91c1c' : '#b45309' }}>
+              {accountModal.type === 'banned' ? 'Account Banned' : 'Account Suspended'}
+            </h3>
+            <p style={{ fontSize: 14, lineHeight: 1.5 }}>{accountModal.message}</p>
+            <button
+              className="login-btn"
+              style={{ width: '100%' }}
+              onClick={() => setAccountModal({ type: null, message: '', until: null })}
             >
               Close
             </button>

@@ -12,7 +12,7 @@
   left: 0;
   right: 0;
   height: var(--header-height);
-  z-index: 999 !important;
+  z-index: 99990 !important; /* ensure lower than the modal overlay */
   background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
   box-shadow: 0 6px 20px rgba(0,0,0,0.12);
   border-top: none !important;
@@ -30,13 +30,6 @@
 }
 
 /* Prevent content from being hidden under fixed header */
-body > #root,
-main,
-.app,
-.page,
-.page-content {
-  padding-top: var(--header-height) !important;
-}
 
 /* Remove any accidental top borders that could show as a line */
 .sticky-header, .header2-sticky, .login-bg {
@@ -86,11 +79,40 @@ main,
 }
 
 .logo-text {
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 1000;
   letter-spacing: 0.5px;
-  margin-right: 8px;
+  margin-right: 4px;
   color: #fff;
+  display: inline-block;
+}
+
+/* place subtitle BESIDE the main logo text and keep it tight */
+.logo-brand {
+  display: flex;
+  flex-direction: row;
+  align-items: center; /* vertically center title + subtitle */
+  gap: 1px; /* small gap to stick close */
+  line-height: 1;
+}
+.logo-subtitle {
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 600;
+  opacity: 0.95;
+  margin: 0 0 0 4px; /* remove any top offset so it sits aligned */
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+/* mobile tweak: slightly smaller subtitle */
+@media (max-width: 600px) {
+  .logo-subtitle { font-size: 0.72rem; }
+}
+
+@media (max-width: 400px) {
+  .logo-subtitle { display: none; }
+  .logo-icon { display: none;}
 }
 
 .header-nav {
@@ -261,6 +283,53 @@ main,
     padding: 4px 4vw 6px 4vw;
   }
   
+  .header-nav::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .header-nav a,
+  .header-nav span {
+    font-size: 12px !important;
+    padding: 5px 8px !important;
+    border-radius: 6px;
+    white-space: nowrap;
+    background: none;
+    color: #fff !important;
+    font-weight: 600;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  
+  .header-nav .active {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff !important;
+  }
+  
+  .header-nav a:hover,
+  .header-nav span:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 1164px) {
+  .header-nav {
+    display: flex;
+    flex-direction: row;
+    gap: 10px !important;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    justify-content: center;
+    width: 100%;
+    scrollbar-width: none;
+    order: 3;
+    padding: 8px 6vw 12px 6vw; 
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+    padding: 4px 4vw 6px 4vw;
+  }
   .header-nav::-webkit-scrollbar {
     display: none;
   }
