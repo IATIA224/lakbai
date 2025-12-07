@@ -548,8 +548,168 @@ html, body {
 }
 
 /* Mobile responsive - hide circles */
+@media (max-width: 768px) {
+  .register-bg {
+    padding: 16px 8px;
+  }
+
+  .register-container {
+    padding: 32px 24px 24px;
+    max-width: 95vw;
+    margin-top: 40px;
+  }
+
+  .register-title {
+    font-size: 1.6rem;
+  }
+
+  .register-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .register-form {
+    gap: 14px;
+  }
+
+  .register-input,
+  .register-select {
+    font-size: 1rem;
+    padding: 11px 12px;
+  }
+
+  .register-btn {
+    font-size: 1rem;
+    padding: 11px 0;
+  }
+
+  .register-popup {
+    max-width: 90vw;
+    min-width: 280px;
+    padding: 24px 20px;
+  }
+}
+
 @media (max-width: 600px) {
   .register-bg-circle {
     display: none;
+  }
+
+  .register-bg {
+    padding: 12px 6px;
+  }
+
+  .register-container {
+    padding: 28px 20px 20px;
+    max-width: 100vw;
+    margin-top: 30px;
+    border-radius: 16px;
+  }
+
+  .register-logo {
+    width: 42px;
+    margin-bottom: 10px;
+  }
+
+  .register-title {
+    font-size: 1.4rem;
+  }
+
+  .register-subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+
+  .register-form {
+    gap: 12px;
+  }
+
+  .register-label {
+    font-size: 0.95rem;
+  }
+
+  .register-input,
+  .register-select {
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+
+  .register-btn {
+    font-size: 0.95rem;
+    padding: 10px 0;
+  }
+
+  .register-checkbox {
+    font-size: 0.9rem;
+  }
+
+  .register-signin {
+    font-size: 0.9rem;
+  }
+
+  .register-popup {
+    max-width: 95vw;
+    min-width: 260px;
+    padding: 22px 18px;
+    border-radius: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .register-bg {
+    padding: 8px 4px;
+  }
+
+  .register-container {
+    padding: 24px 16px 18px;
+    margin-top: 20px;
+    border-radius: 12px;
+  }
+
+  .register-logo {
+    width: 38px;
+    margin-bottom: 8px;
+  }
+
+  .register-title {
+    font-size: 1.3rem;
+  }
+
+  .register-subtitle {
+    font-size: 0.85rem;
+    margin-bottom: 18px;
+  }
+
+  .register-form {
+    gap: 10px;
+  }
+
+  .register-label {
+    font-size: 0.9rem;
+  }
+
+  .register-input,
+  .register-select {
+    font-size: 16px;
+    padding: 9px 10px;
+    border-radius: 8px;
+  }
+
+  .register-btn {
+    font-size: 0.9rem;
+    padding: 10px 0;
+    border-radius: 8px;
+  }
+
+  .register-checkbox {
+    font-size: 0.85rem;
+  }
+
+  .register-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+
+  .register-signin {
+    font-size: 0.85rem;
   }
 }

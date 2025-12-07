@@ -266,7 +266,7 @@ export default function ChatbaseAI({ onClose }) {
   const [modalConfirmation, setModalConfirmation] = useState('');
   const chatRef = useRef(null);
   const shouldScrollRef = useRef(true);
-  const shouldScrollRef = useRef(true);
+  const abortControllerRef = useRef(null);
 
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
@@ -285,7 +285,6 @@ export default function ChatbaseAI({ onClose }) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages]);
-  }, [messages]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -297,15 +296,7 @@ export default function ChatbaseAI({ onClose }) {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setChatHistory(chats);
-
-      if (!currentChatId) {
-        if (chats.length === 0) {
-          createNewChat();
-        } else {
-          loadChat(chats[0].id);
-        }
 
       if (!currentChatId) {
         if (chats.length === 0) {
@@ -317,7 +308,6 @@ export default function ChatbaseAI({ onClose }) {
     });
 
     return () => unsubscribe();
-  }, [currentChatId]);
   }, [currentChatId]);
 
   useEffect(() => {
@@ -722,13 +712,10 @@ export default function ChatbaseAI({ onClose }) {
     } catch (e) {
       console.error(`Model send failed`, e);
       return `Error: ${e?.message || e}`;
-      console.error(`Model send failed`, e);
-      return `Error: ${e?.message || e}`;
     }
   }
 
   const handleSend = async () => {
-    const text = input.trim();
     const text = input.trim();
     if (!text) return;
 
@@ -791,7 +778,6 @@ export default function ChatbaseAI({ onClose }) {
     addMessage(text, 'user');
     setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
-    const reply = await sendToModelAPI(payload);
     const reply = await sendToModelAPI(payload);
     addMessage(reply, 'assistant');
     if (!reply.toLowerCase().startsWith('error:')) {
