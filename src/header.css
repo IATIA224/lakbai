@@ -1,8 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* compounded factor: previous 1.1025 * 1.05 = 1.157625 (≈ +5% more) */
-  --header-height: calc(72px * 1.157625); /* ≈ 83.35px */
+  --header-height: 5.2rem; /* ~83px using rem for scalability */
+  --header-padding-x: clamp(1rem, 4vw, 2rem);
+  --header-padding-y: 1.125rem;
 }
 
 /* Force header to top and above everything */
@@ -12,10 +13,18 @@
   left: 0;
   right: 0;
   height: var(--header-height);
-  z-index: 99990 !important; /* ensure lower than the modal overlay */
+  z-index: 99990 !important;
   background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  box-shadow: 0 0.375rem 1.25rem rgba(0,0,0,0.12);
   border-top: none !important;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--header-padding-y) var(--header-padding-x);
+  color: #fff;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 /* Ensure other header variant also stays on top */
@@ -29,108 +38,73 @@
   border-top: none !important;
 }
 
-/* Prevent content from being hidden under fixed header */
-
-/* Remove any accidental top borders that could show as a line */
+/* Remove any accidental top borders */
 .sticky-header, .header2-sticky, .login-bg {
   border-top: none !important;
   outline: none !important;
 }
 
-/* Slightly smaller header on narrow screens */
-@media (max-width: 600px) {
-  /* mobile compounded factor as well */
-  :root { --header-height: calc(64px * 1.157625); } /* ≈ 74.08px */
-  .sticky-header, .header2-sticky { height: var(--header-height); }
-  body > #root,
-  main,
-  .app,
-  .page,
-  .page-content { padding-top: var(--header-height) !important; }
-}
-
-/* --- General improvements for all screens --- */
-.sticky-header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 32px;
-  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
-  color: #fff;
-  min-height: 64px;
-  box-sizing: border-box;
-  width: 100%;
-  z-index: 100;
-  position: sticky;
-  top: 0;
-}
-
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 1rem;
+  flex-shrink: 0;
 }
 
 .logo-icon {
-  width: 36px;
-  height: 36px;
-  margin-right: 6px;
+  width: clamp(1.75rem, 4vw, 2.25rem);
+  height: clamp(1.75rem, 4vw, 2.25rem);
+  margin-right: 0.375rem;
+  flex-shrink: 0;
 }
 
 .logo-text {
-  font-size: 1.5rem;
-  font-weight: 1000;
-  letter-spacing: 0.5px;
-  margin-right: 4px;
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: 0.03em;
   color: #fff;
   display: inline-block;
-}
-
-/* place subtitle BESIDE the main logo text and keep it tight */
-.logo-brand {
-  display: flex;
-  flex-direction: row;
-  align-items: center; /* vertically center title + subtitle */
-  gap: 1px; /* small gap to stick close */
-  line-height: 1;
-}
-.logo-subtitle {
-  color: #fff;
-  font-size: 0.6rem;
-  font-weight: 600;
-  opacity: 0.95;
-  margin: 0 0 0 4px; /* remove any top offset so it sits aligned */
-  letter-spacing: 0.2px;
   white-space: nowrap;
 }
 
-/* mobile tweak: slightly smaller subtitle */
-@media (max-width: 600px) {
-  .logo-subtitle { font-size: 0.72rem; }
+/* Logo brand container */
+.logo-brand {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 1;
 }
 
-@media (max-width: 400px) {
-  .logo-subtitle { display: none; }
-  .logo-icon { display: none;}
+.logo-subtitle {
+  color: #fff;
+  font-size: clamp(0.55rem, 1.5vw, 0.7rem);
+  font-weight: 600;
+  opacity: 0.95;
+  margin-left: 0.25rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .header-nav {
   display: flex;
-  gap: 14px;
+  gap: 0.875rem;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .header-nav a,
 .header-nav span {
-  font-size: 1rem;
+  font-size: clamp(0.875rem, 2vw, 1rem);
   color: #fff;
   text-decoration: none;
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.625rem;
   transition: background 0.15s, color 0.15s;
   font-weight: 600;
   background: none;
+  white-space: nowrap;
 }
 
 .header-nav a:hover,
@@ -148,139 +122,150 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 1rem;
+  flex-shrink: 0;
 }
 
 .ai-assistant-btn {
   background: #fff;
   color: #6c63ff;
   border: none;
-  padding: 9px 18px;
-  border-radius: 10px;
+  padding: 0.5625rem 1.125rem;
+  border-radius: 0.625rem;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: clamp(0.875rem, 2vw, 1rem);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.2s;
+  white-space: nowrap;
 }
 
 .ai-assistant-btn:hover {
   background: #ede9fe;
   color: #4f46e5;
+  transform: translateY(-1px);
 }
 
 .user-icon {
-  width: 38px; /* reverted to original for desktop */
-  height: 38px; /* reverted to original for desktop */
+  width: clamp(2rem, 5vw, 2.375rem);
+  height: clamp(2rem, 5vw, 2.375rem);
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid #ede9fe;
+  flex-shrink: 0;
 }
 
-/* --- Responsive header for mobile --- */
-@media (max-width: 600px) {
-  .sticky-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 4vw !important;
-    min-height: unset;
-    gap: 8px;
-    box-sizing: border-box;
-    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
-    position: relative;
+/* Tablet breakpoint */
+@media (min-width: 601px) and (max-width: 1024px) {
+  :root {
+    --header-height: 4.625rem;
   }
   
-  /* Logo and title on the left */
-  .header-left {
+  .header-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: flex;
     flex-direction: row;
-    align-items: center;
-    justify-content: flex-start !important;
-    gap: 8px !important;
-    margin-bottom: 0;
-    order: 1;
+    gap: 0.625rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+    padding: 0.5rem max(1rem, 4vw);
+  }
+  
+  .header-nav a,
+  .header-nav span {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.625rem;
+    color: #fff !important;
+  }
+  
+  .header-nav .active {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff !important;
+  }
+  
+  .header-nav a:hover,
+  .header-nav span:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff !important;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 600px) {
+  :root {
+    --header-height: 4rem;
+  }
+  
+  .sticky-header {
+    padding: 0.5rem max(0.75rem, 4vw);
+    min-height: auto;
+    gap: 0.5rem;
+  }
+  
+  .header-left {
+    gap: 0.5rem;
     flex: 1;
+    min-width: 0;
   }
   
   .logo-icon {
-    width: 26px !important;
-    height: 26px !important;
-    margin-right: 2px !important;
+    width: 1.625rem;
+    height: 1.625rem;
+    margin-right: 0.125rem;
   }
   
   .logo-text {
-    font-size: 1.1rem !important;
-    margin-right: 0 !important;
+    font-size: 1.1rem;
     font-weight: 800;
-    color: #fff !important;
-    text-shadow: none;
   }
   
-  /* AI Assistant + User on the right */
+  .logo-subtitle {
+    font-size: 0.72rem;
+  }
+  
   .header-right {
-    flex-direction: row;
-    justify-content: flex-end !important;
-    align-items: center;
-    margin-top: 0 !important;
-    gap: 8px !important;
-    order: 2;
+    gap: 0.5rem;
     flex-shrink: 0;
   }
   
   .ai-assistant-btn {
-    padding: 4px 8px !important;
-    font-size: 0.8rem !important;
-    border-radius: 6px !important;
-    min-width: 0;
-    height: 26px !important;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 0.375rem;
+    height: 1.625rem;
     line-height: 1.1;
-    gap: 3px !important;
-    box-shadow: none;
     background: rgba(255, 255, 255, 0.9) !important;
     color: #6c63ff !important;
-    white-space: nowrap;
-    transform: none;
-  }
-  
-  .ai-assistant-btn:hover {
-    background: rgba(255, 255, 255, 1) !important;
-    color: #4f46e5 !important;
-    transform: none;
   }
   
   .ai-assistant-btn .dot {
-    width: 5px !important;
-    height: 5px !important;
+    width: 0.3125rem;
+    height: 0.3125rem;
   }
   
   .user-icon {
-    width: 49px !important; /* increased size only on mobile */
-    height: 49px !important; /* increased size only on mobile */
-    margin-left: 0;
-    transform: none;
+    width: 2.5rem;
+    height: 2.5rem;
   }
   
-  .user-icon:hover {
-    transform: none;
-  }
-  
-  /* Navigation row - below everything, scrollable */
   .header-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     display: flex;
     flex-direction: row;
-    gap: 4px !important;
+    gap: 0.25rem;
     flex-wrap: nowrap;
     overflow-x: auto;
     justify-content: flex-start;
-
-    width: 100%;
-    scrollbar-width: none;
-    order: 3;
-    padding-bottom: 2px;
-    position: absolute;
-    top: 100%;
-    left: 0;
     background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
-    padding: 4px 4vw 6px 4vw;
+    padding: 0.25rem max(0.75rem, 4vw) 0.375rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
   
   .header-nav::-webkit-scrollbar {
@@ -289,14 +274,10 @@
   
   .header-nav a,
   .header-nav span {
-    font-size: 12px !important;
-    padding: 5px 8px !important;
-    border-radius: 6px;
-    white-space: nowrap;
-    background: none;
+    font-size: 0.75rem;
+    padding: 0.3125rem 0.5rem;
+    border-radius: 0.375rem;
     color: #fff !important;
-    font-weight: 600;
-    margin: 0;
     flex-shrink: 0;
   }
   
@@ -304,62 +285,20 @@
     background: rgba(255, 255, 255, 0.2);
     color: #fff !important;
   }
-  
-  .header-nav a:hover,
-  .header-nav span:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #fff !important;
-  }
 }
 
-@media (min-width: 600px) and (max-width: 1164px) {
-  .header-nav {
-    display: flex;
-    flex-direction: row;
-    gap: 10px !important;
-    flex-wrap: wrap;
-    overflow-x: visible;
-    justify-content: center;
-    width: 100%;
-    scrollbar-width: none;
-    order: 3;
-    padding: 8px 6vw 12px 6vw; 
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
-    padding: 4px 4vw 6px 4vw;
-  }
-  .header-nav::-webkit-scrollbar {
+/* Very small screens */
+@media (max-width: 400px) {
+  .logo-subtitle {
     display: none;
   }
   
-  .header-nav a,
-  .header-nav span {
-    font-size: 12px !important;
-    padding: 5px 8px !important;
-    border-radius: 6px;
-    white-space: nowrap;
-    background: none;
-    color: #fff !important;
-    font-weight: 600;
-    margin: 0;
-    flex-shrink: 0;
-  }
-  
-  .header-nav .active {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff !important;
-  }
-  
-  .header-nav a:hover,
-  .header-nav span:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #fff !important;
+  .logo-icon {
+    display: none;
   }
 }
 
-/* Prevent horizontal scroll on mobile */
+/* Prevent horizontal scroll */
 body, html {
   overflow-x: hidden;
 }

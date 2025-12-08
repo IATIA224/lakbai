@@ -14,7 +14,7 @@ const Header2 = () => {
     </div>
     <div className="header2-right">
       <span className="header2-signin" onClick={() => navigate('/register')} style={{ cursor: 'pointer' }}>Sign In</span>
-      <button className="header2-getstarted" onClick={() => navigate('/')}>Get Started</button>
+      <button className="header2-getstarted" onClick={() => navigate('/login')}>Get Started</button>
     </div>
   </header>
   );

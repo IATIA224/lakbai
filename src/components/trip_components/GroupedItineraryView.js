@@ -277,27 +277,12 @@ function GroupedItineraryView({ group, items, onEditGroup, onDeleteGroup, onRefr
             </span>
           </div>
         </div>
-        <div className="grouped-itinerary-actions">
+        <div className="group-actions">
           <button 
-            className="grouped-itinerary-edit-btn"
+            className="btn edit-trip"
             onClick={() => onEditGroup && onEditGroup(group)}
           >
             ✏️ Edit Trip
-          </button>
-          <button
-            className="itn-group-action-btn export"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Get all item IDs from this group
-              const groupItemIds = group.destinationIds || Object.keys(group.assignments || {});
-              // Trigger export with these items pre-selected
-              if (onExportGroup) {
-                onExportGroup(group, groupItemIds);
-              }
-            }}
-            title="Export this trip to PDF"
-          >
-            📄 Export
           </button>
         </div>
       </div>
