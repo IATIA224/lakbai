@@ -3,7 +3,11 @@ import ReactDOM from "react-dom";
 import { breakdown, category } from "../../rules";
 import { HotelSuggestion, AgencySuggestion } from "../../ItinerarySuggestion";
 import { db, auth } from "../../firebase"; // ADD THIS IMPORT
+<<<<<<< HEAD
 import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"; // ADD THIS IMPORT
+=======
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp, deleteField } from "firebase/firestore"; // ADDED deleteField
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 import "./ItineraryCard.css";
 
 
@@ -14,13 +18,25 @@ export default function ItineraryCard({
   onRemove,
   onShowPriceBadge,
   onHidePriceBadge,
+<<<<<<< HEAD
   isShared = false,        // ADD THIS
   sharedId = null,         // ADD THIS
+=======
+  isShared = false,
+  sharedId = null,
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }) {
   // Modal + UX state
   const [isOpen, setIsOpen] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+<<<<<<< HEAD
+=======
+  
+  // NEW: Mobile menu state
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const mobileMenuRef = useRef(null);
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 
   // New: Breakdown editing state
   const [isEditingBreakdown, setIsEditingBreakdown] = useState(false);
@@ -293,6 +309,7 @@ export default function ItineraryCard({
   const saveDates = async () => {
     if (!onEdit) return;
 
+<<<<<<< HEAD
 
     const updated = {
       ...item,
@@ -303,6 +320,56 @@ export default function ItineraryCard({
 
     await saveToFirebase(updated);
     onEdit(updated);
+=======
+    // Build a clean update object: avoid passing undefined to updateDoc.
+    const updates = { id: item.id };
+
+    // Add dateFrom / dateUntil only if present; otherwise mark field for deletion.
+    if (dateFrom && String(dateFrom).trim() !== "") {
+      updates.dateFrom = dateFrom;
+    } else {
+      updates.dateFrom = deleteField();
+    }
+
+    if (dateUntil && String(dateUntil).trim() !== "") {
+      updates.dateUntil = dateUntil;
+    } else {
+      updates.dateUntil = deleteField();
+    }
+
+    const success = await saveToFirebase(updates);
+    if (success) {
+      // Merge to full local item object so UI receives current state
+      onEdit({ ...item, ...(
+        updates.dateFrom === deleteField() ? { dateFrom: undefined } : { dateFrom: updates.dateFrom }
+      ), ...(
+        updates.dateUntil === deleteField() ? { dateUntil: undefined } : { dateUntil: updates.dateUntil }
+      ) });
+
+      // Notify server to schedule/cancel reminder (POST to /itinerary-notify)
+      try {
+        const serverUrl = process.env.REACT_APP_API_URL || "";
+        if (serverUrl !== undefined) {
+          await fetch(`${serverUrl}/api/email/itinerary-notify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: auth.currentUser?.uid,
+              userEmail: auth.currentUser?.email,
+              userName: auth.currentUser?.displayName,
+              itineraryId: item.id,
+              name: item.name,
+              arrival: dateFrom || "",
+              region: item.region,
+              infoUrl: window.location.href,
+            }),
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to notify server for itinerary date update:", e);
+      }
+    }
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   };
 
 
@@ -518,6 +585,20 @@ export default function ItineraryCard({
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
+<<<<<<< HEAD
+=======
+  // NEW: Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+        setShowMobileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 
   // Handle hotel selection from suggestions
   const handleSelectHotel = (hotelRow) => {
@@ -653,6 +734,7 @@ export default function ItineraryCard({
             {item.name}
           </span>
         </div>
+<<<<<<< HEAD
         <div className="itn-row-actions">
           {/* Add status toggle button */}
           {onEdit && (
@@ -690,6 +772,112 @@ export default function ItineraryCard({
               🗑️
             </button>
           )}
+=======
+        
+        {/* Modified Actions Area with Mobile Burger */}
+        <div className="itn-row-actions" ref={mobileMenuRef}>
+          
+          {/* Desktop Actions (Hidden on Mobile) */}
+          <div className="itn-actions-desktop">
+            {onEdit && (
+              <button
+                className="itn-btn"
+                onClick={toggleStatus}
+                style={{
+                  ...getStatusBadgeStyle(item.status),
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  textTransform: "capitalize",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                title="Click to change status"
+              >
+                {item.status || "upcoming"}
+              </button>
+            )}
+
+            <button className="itn-btn primary" onClick={handleOpen}>
+              View details
+            </button>
+
+            {onRemove && (
+              <button
+                className="itn-btn danger sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm(true);
+                }}
+                title="Remove"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Actions (Burger Menu) */}
+          <div className="itn-actions-mobile">
+            <button 
+              className="itn-btn ghost itn-burger-btn" 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setShowMobileMenu(!showMobileMenu); 
+              }}
+            >
+              ⋮
+            </button>
+            
+            {showMobileMenu && (
+              <div className="itn-mobile-dropdown">
+                {onEdit && (
+                  <button
+                    className="itn-mobile-menu-item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleStatus();
+                      setShowMobileMenu(false);
+                    }}
+                  >
+                    <span style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      marginRight: '8px',
+                      background: getStatusBadgeStyle(item.status).color
+                    }}></span>
+                   Change Status ({item.status || "upcoming"})
+                  </button>
+                )}
+
+                <button 
+                  className="itn-mobile-menu-item" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpen();
+                    setShowMobileMenu(false);
+                  }}
+                >
+                   View Details
+                </button>
+
+                {onRemove && (
+                  <button
+                    className="itn-mobile-menu-item danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(true);
+                      setShowMobileMenu(false);
+                    }}
+                  >
+                     Remove
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
         </div>
       </div>
 

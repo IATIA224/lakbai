@@ -1026,6 +1026,7 @@ html, body, #root {
   }
 
   .profile-header {
+<<<<<<< HEAD
     flex-direction: column;
     text-align: center;
     padding: 16px 12px;
@@ -1037,10 +1038,26 @@ html, body, #root {
   .profile-avatar {
     display: flex;
     justify-content: center;
+=======
+    padding: 12px 6px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    margin-top: 8px;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.10);
+  }
+
+  .profile-avatar {
+    margin: 0 auto 6px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   }
 
   .profile-avatar img,
   .profile-avatar div {
+<<<<<<< HEAD
     width: 80px !important;
     height: 80px !important;
     font-size: 2rem !important;
@@ -1446,3 +1463,85 @@ html, body, #root {
     background: rgba(168, 85, 247, 0.15);
   }
 }
+=======
+    width: 68px !important;
+    height: 68px !important;
+    border-radius: 50%;
+    border: 2px solid #e0e7ff;
+    background: #f3f4f6;
+    object-fit: cover;
+  }
+
+  .profile-title-row {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .profile-title-row h2 {
+    font-size: 18px;
+    margin-bottom: 0;
+    margin-top: 0;
+    line-height: 1.1;
+  }
+
+  .profile-meta {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+
+  .profile-badges {
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+    justify-content: center;
+  }
+
+  .profile-interest {
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 14px;
+    margin-bottom: 2px;
+    margin-right: 2px;
+    min-width: 0;
+    max-width: 100%;
+    word-break: break-word;
+  }
+
+  .profile-bio {
+    font-size: 12px;
+    margin-top: 6px;
+    margin-bottom: 0;
+    line-height: 1.4;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  /* Make badges/interests wrap to new lines */
+  .profile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  /* Make sure the settings button is easy to tap */
+  .profile-header button {
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    min-height: 32px;
+    margin: 0 auto 6px auto;
+    display: block;
+  }
+
+  /* Reduce card padding for compact look */
+  .profile-card {
+    padding: 10px 6px;
+    border-radius: 10px;
+  }
+}
+/* --- END IMPROVED MOBILE PROFILE UI --- */
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1

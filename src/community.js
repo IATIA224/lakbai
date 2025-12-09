@@ -144,6 +144,7 @@ function ShareTripModal({ onClose, onCreate }) {
   };
 
   return ReactDOM.createPortal(
+<<<<<<< HEAD
     <div className="community-modal-backdrop" onClick={onClose}>
       <div className="community-modal share-trip-modal" onClick={(e) => e.stopPropagation()}>
         <div className="share-modal-header">
@@ -151,6 +152,22 @@ function ShareTripModal({ onClose, onCreate }) {
           <p style={{ margin: "8px 0 0", opacity: 0.95, fontSize: "0.95rem" }}>
             Share your amazing journey with the community
           </p>
+=======
+    <div className="community-modal-backdrop share-modal-backdrop" onClick={onClose}>
+      <div className="community-modal share-trip-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="share-modal-header">
+          <div className="share-modal-header-content">
+            <h3>🧳 Share Your Travel Experience</h3>
+            <p>Share your amazing journey with the community</p>
+          </div>
+          <button 
+            className="share-modal-close-btn" 
+            onClick={onClose}
+            aria-label="Close modal"
+          >
+            ×
+          </button>
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
         </div>
 
         <div className="modal-form">
@@ -319,7 +336,11 @@ function ShareTripModal({ onClose, onCreate }) {
             )}
           </label>
 
+<<<<<<< HEAD
           {/* wtions */}
+=======
+          {/* Actions */}
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
           <div className="modal-actions">
             <button className="btn-secondary" onClick={onClose} disabled={uploading}>
               Cancel

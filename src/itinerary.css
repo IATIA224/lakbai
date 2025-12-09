@@ -952,3 +952,54 @@
   opacity: 0.8;
 }
 
+<<<<<<< HEAD
+=======
+/* Group and View Toggle Button Styles */
+.itn-action-btn.group {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #fff;
+}
+
+.itn-action-btn.group:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+.itn-action-btn.view-toggle {
+  background: #f1f5f9;
+  color: #475569;
+  border: 2px solid #e2e8f0;
+}
+
+.itn-action-btn.view-toggle:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.itn-action-btn.view-toggle.active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Grouped View Sections */
+.itn-grouped-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.itn-grouped-section,
+.itn-ungrouped-section {
+  animation: fadeIn 0.3s ease;
+}
+
+.itn-grouped-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1

@@ -101,6 +101,7 @@ const StickyHeader = () => {
 					))}
 				</nav>
 				<div className="header-right">
+<<<<<<< HEAD
 					<button
 						className="ai-assistant-btn"
 						onClick={() => setShowAIPopup(true)}
@@ -115,6 +116,46 @@ const StickyHeader = () => {
 						style={{ cursor: "pointer" }}
 					/>
 				</div>
+=======
+                    <button
+                        className="ai-assistant-btn"
+                        onClick={() => setShowAIPopup(true)}
+                    >
+                        <span className="dot"></span> AI Assistant
+                    </button>
+                    {isLoggedIn ? (
+							<img
+								src={profilePic}
+								alt="User"
+								className="user-icon"
+								onClick={() => navigate("/profile")}
+								style={{ cursor: "pointer" }}
+							/>
+                    ) : (
+                        <button
+                            className="sign-in-btn"
+                            onClick={() => setShowLoginPrompt(true)}
+                            style={{
+                                marginLeft: 12,
+                                background: "#fff",
+                                color: "#1976d2",
+                                borderRadius: "10px",
+								border: 0,
+                                padding: "7px 20px",
+                                fontWeight: 600,
+                                fontSize: 16,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+								height: "38px",
+                            }}
+                        >
+                            Sign in
+                        </button>
+                    )}
+                </div>
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 			</header>
 			{/* AI Chatbot Popup */}
 			{showAIPopup && (

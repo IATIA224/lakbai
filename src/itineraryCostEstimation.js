@@ -135,7 +135,11 @@ class PriorityQueue {
 
 function findCommutePath(from, to, geojson) {
   const WALKING_SPEED = 5; // km/h
+<<<<<<< HEAD
   const MAX_WALKING_DISTANCE = 1; // km
+=======
+  const MAX_WALKING_DISTANCE = 1.5; // km
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   const TRANSFER_PENALTY = 0.1; // Add a penalty for transfers (in hours)
   const NODE_INTERVAL = 5; // Create a node for every 5th point
 

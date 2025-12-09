@@ -1,8 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
+<<<<<<< HEAD
   /* compounded factor: previous 1.1025 * 1.05 = 1.157625 (≈ +5% more) */
   --header-height: calc(72px * 1.157625); /* ≈ 83.35px */
+=======
+  --header-height: 5.2rem; /* ~83px using rem for scalability */
+  --header-padding-x: clamp(1rem, 4vw, 2rem);
+  --header-padding-y: 1.125rem;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 /* Force header to top and above everything */
@@ -12,6 +18,7 @@
   left: 0;
   right: 0;
   height: var(--header-height);
+<<<<<<< HEAD
   z-index: 99990 !important; /* ensure lower than the modal overlay */
   background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
   box-shadow: 0 6px 20px rgba(0,0,0,0.12);
@@ -51,10 +58,17 @@
 
 /* --- General improvements for all screens --- */
 .sticky-header {
+=======
+  z-index: 99990 !important;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
+  box-shadow: 0 0.375rem 1.25rem rgba(0,0,0,0.12);
+  border-top: none !important;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+<<<<<<< HEAD
   padding: 18px 32px;
   background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
   color: #fff;
@@ -64,11 +78,35 @@
   z-index: 100;
   position: sticky;
   top: 0;
+=======
+  padding: var(--header-padding-y) var(--header-padding-x);
+  color: #fff;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Ensure other header variant also stays on top */
+.header2-sticky {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99998 !important;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%) !important;
+  border-top: none !important;
+}
+
+/* Remove any accidental top borders */
+.sticky-header, .header2-sticky, .login-bg {
+  border-top: none !important;
+  outline: none !important;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .header-left {
   display: flex;
   align-items: center;
+<<<<<<< HEAD
   gap: 16px;
 }
 
@@ -113,16 +151,62 @@
 @media (max-width: 400px) {
   .logo-subtitle { display: none; }
   .logo-icon { display: none;}
+=======
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: clamp(1.75rem, 4vw, 2.25rem);
+  height: clamp(1.75rem, 4vw, 2.25rem);
+  margin-right: 0.375rem;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #fff;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Logo brand container */
+.logo-brand {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 1;
+}
+
+.logo-subtitle {
+  color: #fff;
+  font-size: clamp(0.55rem, 1.5vw, 0.7rem);
+  font-weight: 600;
+  opacity: 0.95;
+  margin-left: 0.25rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .header-nav {
   display: flex;
+<<<<<<< HEAD
   gap: 14px;
+=======
+  gap: 0.875rem;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .header-nav a,
 .header-nav span {
+<<<<<<< HEAD
   font-size: 1rem;
   color: #fff;
   text-decoration: none;
@@ -131,6 +215,17 @@
   transition: background 0.15s, color 0.15s;
   font-weight: 600;
   background: none;
+=======
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  color: #fff;
+  text-decoration: none;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.625rem;
+  transition: background 0.15s, color 0.15s;
+  font-weight: 600;
+  background: none;
+  white-space: nowrap;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .header-nav a:hover,
@@ -148,24 +243,40 @@
 .header-right {
   display: flex;
   align-items: center;
+<<<<<<< HEAD
   gap: 16px;
+=======
+  gap: 1rem;
+  flex-shrink: 0;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .ai-assistant-btn {
   background: #fff;
   color: #6c63ff;
   border: none;
+<<<<<<< HEAD
   padding: 9px 18px;
   border-radius: 10px;
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+=======
+  padding: 0.5625rem 1.125rem;
+  border-radius: 0.625rem;
+  font-weight: 700;
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.2s;
+  white-space: nowrap;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .ai-assistant-btn:hover {
   background: #ede9fe;
   color: #4f46e5;
+<<<<<<< HEAD
 }
 
 .user-icon {
@@ -223,10 +334,99 @@
     margin-top: 0 !important;
     gap: 8px !important;
     order: 2;
+=======
+  transform: translateY(-1px);
+}
+
+.user-icon {
+  width: clamp(2rem, 5vw, 2.375rem);
+  height: clamp(2rem, 5vw, 2.375rem);
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ede9fe;
+  flex-shrink: 0;
+}
+
+/* Tablet breakpoint */
+@media (min-width: 601px) and (max-width: 1024px) {
+  :root {
+    --header-height: 4.625rem;
+  }
+  
+  .header-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 0.625rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+    padding: 0.5rem max(1rem, 4vw);
+  }
+  
+  .header-nav a,
+  .header-nav span {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.625rem;
+    color: #fff !important;
+  }
+  
+  .header-nav .active {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff !important;
+  }
+  
+  .header-nav a:hover,
+  .header-nav span:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff !important;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 600px) {
+  :root {
+    --header-height: 4rem;
+  }
+  
+  .sticky-header {
+    padding: 0.5rem max(0.75rem, 4vw);
+    min-height: auto;
+    gap: 0.5rem;
+  }
+  
+  .header-left {
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .logo-icon {
+    width: 1.625rem;
+    height: 1.625rem;
+    margin-right: 0.125rem;
+  }
+  
+  .logo-text {
+    font-size: 1.1rem;
+    font-weight: 800;
+  }
+  
+  .logo-subtitle {
+    font-size: 0.72rem;
+  }
+  
+  .header-right {
+    gap: 0.5rem;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
     flex-shrink: 0;
   }
   
   .ai-assistant-btn {
+<<<<<<< HEAD
     padding: 4px 8px !important;
     font-size: 0.8rem !important;
     border-radius: 6px !important;
@@ -281,6 +481,42 @@
     left: 0;
     background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
     padding: 4px 4vw 6px 4vw;
+=======
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 0.375rem;
+    height: 1.625rem;
+    line-height: 1.1;
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: #6c63ff !important;
+  }
+  
+  .ai-assistant-btn .dot {
+    width: 0.3125rem;
+    height: 0.3125rem;
+  }
+  
+  .user-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  
+  .header-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+    padding: 0.25rem max(0.75rem, 4vw) 0.375rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   }
   
   .header-nav::-webkit-scrollbar {
@@ -289,6 +525,7 @@
   
   .header-nav a,
   .header-nav span {
+<<<<<<< HEAD
     font-size: 12px !important;
     padding: 5px 8px !important;
     border-radius: 6px;
@@ -297,6 +534,12 @@
     color: #fff !important;
     font-weight: 600;
     margin: 0;
+=======
+    font-size: 0.75rem;
+    padding: 0.3125rem 0.5rem;
+    border-radius: 0.375rem;
+    color: #fff !important;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
     flex-shrink: 0;
   }
   
@@ -304,6 +547,7 @@
     background: rgba(255, 255, 255, 0.2);
     color: #fff !important;
   }
+<<<<<<< HEAD
   
   .header-nav a:hover,
   .header-nav span:hover {
@@ -360,6 +604,22 @@
 }
 
 /* Prevent horizontal scroll on mobile */
+=======
+}
+
+/* Very small screens */
+@media (max-width: 400px) {
+  .logo-subtitle {
+    display: none;
+  }
+  
+  .logo-icon {
+    display: none;
+  }
+}
+
+/* Prevent horizontal scroll */
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 body, html {
   overflow-x: hidden;
 }
