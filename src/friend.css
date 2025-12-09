@@ -167,3 +167,103 @@
 .friend-btn-primary:disabled { opacity: .6; cursor: not-allowed; }
 .friend-btn-success { background: #10b981; color: #fff; }
 .friend-btn-danger { background: #ef4444; color: #fff; }
+
+/* ============================================
+   RESPONSIVE DESIGN - MOBILE FIRST
+============================================ */
+@media (max-width: 768px) {
+  .friend-modal {
+    width: 95vw;
+    max-width: 95vw;
+  }
+
+  .friend-modal-header {
+    padding: 12px 16px;
+  }
+
+  .friend-modal-title {
+    font-size: 1.1rem;
+  }
+
+  .friend-section {
+    padding: 14px 16px;
+  }
+
+  .friend-title {
+    font-size: 1.1rem;
+  }
+
+  .friend-input {
+    font-size: 0.95rem;
+    padding: 9px 10px;
+  }
+
+  .friend-btn {
+    font-size: 0.95rem;
+    padding: 7px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .friend-modal {
+    width: 98vw;
+    max-width: 98vw;
+    border-radius: 12px;
+  }
+
+  .friend-modal-header {
+    padding: 10px 14px;
+  }
+
+  .friend-modal-title {
+    font-size: 1rem;
+  }
+
+  .friend-close {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+
+  .friend-section {
+    padding: 12px 14px;
+  }
+
+  .friend-title {
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  .friend-input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+
+  .friend-hint {
+    font-size: 0.85rem;
+  }
+
+  .friend-btn {
+    font-size: 0.9rem;
+    padding: 7px 12px;
+    min-height: 38px;
+  }
+
+  .friend-actions {
+    flex-wrap: wrap;
+  }
+
+  .friend-input-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .friend-input {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .friend-btn {
+    width: 100%;
+  }
+}

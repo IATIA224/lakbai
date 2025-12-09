@@ -17,8 +17,6 @@ import { trackDestinationAdded } from './itinerary_Stats';
 import DashboardBanner from './components/DashboardBanner';
 import DashboardStats from './components/DashboardStats';
 import { breakdown } from './rules';
-import Carousel from 'react-multi-carousel';
-import 'react-multi-carousel/lib/styles.css';
 import ChatbaseAI from './Ai';
 
 // Helper to get image URL by destination name
@@ -208,18 +206,17 @@ function TopRatedCarousel({ destinations, cloudImages, firebaseImages }) {
       <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>
         Top Rated Destinations
       </h2>
-      <Carousel
-        arrows
-        autoPlaySpeed={4000}
-        infinite
-        responsive={{
-          desktop: { breakpoint: { max: 3000, min: 1024 }, items: 3 },
-          tablet: { breakpoint: { max: 1024, min: 464 }, items: 2 },
-          mobile: { breakpoint: { max: 464, min: 0 }, items: 1 },
+      <div
+        style={{
+          display: "flex",
+          gap: "16px",
+          overflowX: "auto",
+          overflowY: "hidden",
+          padding: "8px 0",
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "thin",
         }}
-        itemClass="carousel-item-padding-40-px"
-        showDots={false}
-        swipeable
       >
         {top10.map((d) => (
           <div
@@ -231,11 +228,13 @@ function TopRatedCarousel({ destinations, cloudImages, firebaseImages }) {
               boxShadow: "0 4px 16px rgba(60,60,120,0.10)",
               padding: 20,
               margin: 12,
-              minWidth: 260,
+              minWidth: 280,
               maxWidth: 340,
+              flexShrink: 0,
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
+              scrollSnapAlign: "start",
             }}
           >
             <img
@@ -286,7 +285,7 @@ function TopRatedCarousel({ destinations, cloudImages, firebaseImages }) {
             </div>
           </div>
         ))}
-      </Carousel>
+      </div>
     </div>
   );
 }

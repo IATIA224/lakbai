@@ -164,7 +164,115 @@
 .bm-toast {
 <<<<<<< HEAD
   z-index: 1000;
+<<<<<<< HEAD
 =======
   z-index: 100005 !important; /* Increased from 1000 to be above header (2000) */
 >>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
+=======
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - MOBILE FIRST
+============================================ */
+
+/* Tablet landscape */
+@media (max-width: 1024px) {
+  .bm-page {
+    padding: 16px 12px;
+  }
+
+  .bm-bg-circle {
+    opacity: 0.7;
+  }
+}
+
+/* Tablet and mobile landscape */
+@media (max-width: 768px) {
+  .bm-page {
+    padding: 12px 10px;
+  }
+
+  .bm-bg-circle {
+    opacity: 0.5;
+  }
+
+  .bm-bg-dots {
+    opacity: 0.4;
+  }
+
+  .bm-bg-wave {
+    height: 120px;
+    opacity: 0.06;
+  }
+
+  .bm-bg-shapes {
+    opacity: 0.03;
+  }
+
+  /* Ensure better touch targets for mobile */
+  button, 
+  .btn,
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 600px) {
+  .bm-page {
+    padding: 10px 8px;
+  }
+
+  .bm-bg-circle {
+    opacity: 0.4;
+  }
+
+  .bm-bg-dots {
+    opacity: 0.25;
+  }
+
+  .bm-bg-wave {
+    height: 100px;
+    opacity: 0.05;
+  }
+}
+
+/* Very small devices */
+@media (max-width: 480px) {
+  .bm-page {
+    padding: 8px 6px;
+  }
+
+  .bm-bg-circle {
+    opacity: 0.3;
+  }
+
+  .bm-bg-shapes {
+    opacity: 0.02;
+  }
+
+  .bm-bg-dots {
+    opacity: 0.2;
+  }
+
+  .bm-bg-wave {
+    height: 80px;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 360px) {
+  .bm-page {
+    padding: 6px 4px;
+  }
+
+  .bm-bg-circle {
+    opacity: 0.25;
+  }
+
+  .bm-bg-shapes {
+    opacity: 0.01;
+  }
+>>>>>>> 70446bda02700a17a6eeaf7d92a1cb24acb29f9b
 }
