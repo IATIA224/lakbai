@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import './Ai.css';
 import './Styles/ai-modal.css';
-import './Styles/ai-modal.css';
 import { db, auth } from './firebase';
 import { collection, doc, setDoc, serverTimestamp, updateDoc, getDocs, query, orderBy, onSnapshot, addDoc, getDoc } from 'firebase/firestore';
-import { addTripForCurrentUser } from './Itinerary';
 import { emitAchievement } from './achievementsBus';
 
 const MODEL_API_BASE = (typeof window !== 'undefined' && window.LAKBAI_MODEL_API_BASE) || 'https://chuxia-sys-gemma-tuned.hf.space';
@@ -228,50 +226,38 @@ async function fetchUserProfile(uid) {
   return null;
 }
 
-function ChatModal({ open, onClose, content, onAddToItinerary, confirmation }) {
-  if (!open) return null;
-  return (
-     <div className="ai-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
-       <div className="ai-modal-content" onClick={(e) => e.stopPropagation()}>
-        {confirmation ? (
-          <div className="ai-modal-confirmation">
-            ✅ {confirmation}
-          </div>
-        ) : null}
-         <button onClick={onClose} className="ai-modal-close" aria-label="Close">×</button>
-         <div className="ai-modal-header">
-           <span className="ai-modal-icon">✨</span>
-           <h3>LakbAI Response</h3>
-         </div>
-        <div className="ai-modal-body">
-          {content}
-        </div>
-        <div className="ai-modal-footer">
-          <button className="ai-btn ai-btn-outline" onClick={onAddToItinerary}>
-            📋 Add to Itinerary
-          </button>
-          <button className="ai-btn ai-btn-primary" onClick={onClose}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
+// Add this function after the fetchUserProfile function
+async function saveResponseToFirebase(uid, userMessage, aiResponse) {
+  if (!uid) return;
+  try {
+    const responsesRef = collection(db, "users", uid, "savedResponses");
+    await addDoc(responsesRef, {
+      userMessage,
+      aiResponse,
+      savedAt: serverTimestamp(),
+      type: /day\s+\d+/i.test(aiResponse) ? 'itinerary' : 'general'
+    });
+    return true;
+  } catch (e) {
+    console.error("Failed to save response:", e);
+    return false;
+  }
 }
 
 export default function ChatbaseAI({ onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalContent, setModalContent] = useState('');
-  const [modalConfirmation, setModalConfirmation] = useState('');
   const chatRef = useRef(null);
   const shouldScrollRef = useRef(true);
-  const abortControllerRef = useRef(null);
 
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [profile, setProfile] = useState(null);
+
+  // Add this near the top of the component, after the state declarations
+  const abortControllerRef = useRef(null);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -292,7 +278,6 @@ export default function ChatbaseAI({ onClose }) {
 
     const chatsRef = collection(db, 'users', user.uid, 'aiChats');
     const q = query(chatsRef, orderBy('updatedAt', 'desc'));
-
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const chats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -345,12 +330,10 @@ export default function ChatbaseAI({ onClose }) {
         updatedAt: serverTimestamp()
       });
       
-  setCurrentChatId(newChatRef.id);
-  setMessages([]);
-  // Reset client-side out-of-scope limits for the new chat
-  try { resetLimits(); } catch (e) { /* ignore */ }
-  setModalContent('');
-  setModalConfirmation('');
+      setCurrentChatId(newChatRef.id);
+      setMessages([]);
+      setLoading(false); // ADD THIS - Stop the loading state
+      resetLimits();
     } catch (e) {
       console.error('Create new chat failed:', e);
     }
@@ -560,6 +543,10 @@ export default function ChatbaseAI({ onClose }) {
   async function sendToModelAPI(messagesPayload) {
     let usedEndpoint = null;
     try {
+      // Create new abort controller for this request
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
       const latest = messagesPayload[messagesPayload.length - 1]?.content || '';
       const lower = String(latest).toLowerCase();
       console.debug('Processing input:', latest);
@@ -658,8 +645,9 @@ export default function ChatbaseAI({ onClose }) {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },
+            signal: signal, // ADD THIS LINE
             body: JSON.stringify({
-              prompt: userMessage  // Send just the user's question, not the full prompt
+              prompt: userMessage
             })
           });
           
@@ -677,6 +665,12 @@ export default function ChatbaseAI({ onClose }) {
           break; // Success, exit retry loop
           
         } catch (err) {
+          // Check if error is from abort
+          if (err.name === 'AbortError') {
+            console.log('Request was cancelled');
+            setLoading(false);
+            return 'Request cancelled.';
+          }
           console.error(`❌ Attempt ${attempt} failed:`, err?.message || err);
           lastError = err;
           
@@ -719,8 +713,6 @@ export default function ChatbaseAI({ onClose }) {
     const text = input.trim();
     if (!text) return;
 
-    // Quick client-side limits & scope checks before sending to model
-    // If blocked globally, return immediate block message
     if (_limitState.blocked) {
       addMessage(text, 'user');
       addMessage('You have exceeded the allowed number of out-of-scope requests. Please start a new chat to continue.', 'assistant');
@@ -728,7 +720,6 @@ export default function ChatbaseAI({ onClose }) {
       return;
     }
 
-    // Forbidden keywords
     if (matchesAnyGlobal(text, FORBIDDEN_KEYWORDS)) {
       const res = checkAndIncrementLimit('forbidden');
       addMessage(text, 'user');
@@ -737,12 +728,11 @@ export default function ChatbaseAI({ onClose }) {
       return;
     }
 
-    // Non-travel topics (unless travel intent or mentions PH)
     const travelIntent = /\b(plan|create|generate|make|itinerary|trip|vacation|days|nights|budget|travel|visit)\b/i.test(text);
     const mentionsPhil = matchesAnyGlobal(text, PHILIPPINE_PLACES);
     const mentionsTravelCategory = matchesAnyGlobal(text, TRAVEL_CATEGORIES);
     const lower = text.toLowerCase();
-    // Only block clear non-travel topics without any travel context
+    
     if (matchesAnyGlobal(text, NON_TRAVEL_TOPICS) && 
         !travelIntent && 
         !mentionsPhil && 
@@ -759,7 +749,6 @@ export default function ChatbaseAI({ onClose }) {
       return;
     }
 
-    // Only block if specifically about foreign travel
     const mentionsForeign = matchesAnyGlobal(text, FOREIGN_PLACES);
     if (mentionsForeign && !mentionsPhil && 
         (travelIntent || lower.includes('travel') || lower.includes('trip'))) {
@@ -774,48 +763,18 @@ export default function ChatbaseAI({ onClose }) {
     // Passed quick checks; proceed to call model
   // A valid input should reset previous infractions so one refusal doesn't block valid follow-ups
   try { resetLimits(); } catch (e) { /* ignore */ }
-  setInput('');
+  
+    setInput('');
     addMessage(text, 'user');
     setLoading(true);
     const payload = [...messages.map(m => ({ role: m.role, content: m.text })), { role: 'user', content: text }];
     const reply = await sendToModelAPI(payload);
     addMessage(reply, 'assistant');
-    if (!reply.toLowerCase().startsWith('error:')) {
-      setModalContent(reply);
-      setModalOpen(true);
-    }
     setLoading(false);
   };
 
-  const handleAddToItinerary = async () => {
-    const user = auth.currentUser; 
-    if (!user) { 
-      alert('Please sign in to add to your itinerary'); 
-      return; 
-    }
-      try {
-      const dest = {
-        name: `AI Plan - ${new Date().toLocaleDateString()}`,
-        region: '',
-        location: '',
-      };
-      const id = await addTripForCurrentUser(dest);
-      const itemRef = doc(db, 'itinerary', user.uid, 'items', id);
-      await updateDoc(itemRef, { notes: modalContent, updatedAt: serverTimestamp() });
-      // Use the app's toast/notification system for consistent UI
-      try { emitAchievement('Added to your itinerary. Open My Trips to edit details.'); } catch (e) { console.log('emitAchievement failed', e); }
-      // Show confirmation in the AI modal too
-      try { setModalConfirmation('Added to your itinerary. Open My Trips to edit details.'); setTimeout(() => setModalConfirmation(''), 4000); } catch (e) {}
-    } catch (e) {
-      console.error('Add to itinerary failed', e);
-      try { emitAchievement('Failed to add to itinerary. Please try again.'); } catch (err) { console.log('emitAchievement failed', err); }
-      try { setModalConfirmation('Failed to add to itinerary. Please try again.'); setTimeout(() => setModalConfirmation(''), 4000); } catch (e) {}
-    }
-  };
-
-  useEffect(() => {
-    window.dispatchEvent(new Event('lakbai:open-ai'));
-  }, []);
+  // ADD-TO-ITINERARY feature removed — starting fresh
+  // If you need this later, re-add parsing + Firestore save/import here.
 
   return (
     <>
@@ -947,14 +906,6 @@ export default function ChatbaseAI({ onClose }) {
           </div>
         </div>
       </div>
-
-      <ChatModal 
-        open={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        content={modalContent} 
-        onAddToItinerary={handleAddToItinerary}
-        confirmation={modalConfirmation}
-      />
     </>
   );
 }

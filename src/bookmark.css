@@ -163,6 +163,7 @@
 .bm-loading-backdrop,
 .bm-toast {
   z-index: 1000;
+<<<<<<< HEAD
 }
 
 /* ============================================
@@ -268,4 +269,9 @@
   .bm-bg-shapes {
     opacity: 0.01;
   }
+=======
+=======
+  z-index: 100005 !important; /* Increased from 1000 to be above header (2000) */
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
+>>>>>>> parent of 61775ba (Merge branch 'kenn' of https://github.com/IATIA224/lakbai into soriano)
 }

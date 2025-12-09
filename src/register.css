@@ -548,51 +548,11 @@ html, body {
 }
 
 /* Mobile responsive - hide circles */
-@media (max-width: 768px) {
-  .register-bg {
-    padding: 16px 8px;
-  }
-
-  .register-container {
-    padding: 32px 24px 24px;
-    max-width: 95vw;
-    margin-top: 40px;
-  }
-
-  .register-title {
-    font-size: 1.6rem;
-  }
-
-  .register-subtitle {
-    font-size: 0.95rem;
-  }
-
-  .register-form {
-    gap: 14px;
-  }
-
-  .register-input,
-  .register-select {
-    font-size: 1rem;
-    padding: 11px 12px;
-  }
-
-  .register-btn {
-    font-size: 1rem;
-    padding: 11px 0;
-  }
-
-  .register-popup {
-    max-width: 90vw;
-    min-width: 280px;
-    padding: 24px 20px;
-  }
-}
-
 @media (max-width: 600px) {
   .register-bg-circle {
     display: none;
   }
+<<<<<<< HEAD
 
   .register-bg {
     padding: 12px 6px;
@@ -712,4 +672,107 @@ html, body {
   .register-signin {
     font-size: 0.85rem;
   }
+=======
+=======
+  border-radius: clamp(0.75rem, 2vw, 1.125rem);
+  box-shadow: var(--shadow-strong);
+  padding: clamp(1.25rem, 4vw, 1.75rem) clamp(1rem, 4vw, 1.5rem);
+  text-align: center;
+  width: 100%;
+  max-width: min(32.5rem, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: fadeInPopup 0.3s ease-out;
+}
+
+@keyframes fadeInPopup {
+  from { opacity: 0; transform: scale(0.95) translateY(-0.625rem); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Tablet */
+@media (min-width: 601px) and (max-width: 900px) {
+  .register-container {
+    max-width: min(28rem, 88vw);
+  }
+  
+  .register-row,
+  .register-row--password {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .register-bg {
+    overflow-y: hidden;
+    overflow-x: hidden;
+    padding: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    padding-top: clamp(4rem, 15vh, 6rem);
+  }
+  
+  .register-container {
+    max-width: 100%;
+    margin: 0;
+    padding: clamp(1rem, 4vw, 1.5rem);
+    border-radius: 0.75rem;
+  }
+  
+  .register-row,
+  .register-row--password {
+    grid-template-columns: 1fr;
+  }
+  
+  .register-bg-circle {
+    display: none;
+  }
+  
+  .register-bg-wave {
+    display: none;
+  }
+  
+  .register-bg-dots {
+    display: none;
+  }
+}
+
+/* Very small screens / short viewports */
+@media (max-width: 360px) {
+  .register-container {
+    padding: 0.875rem 0.5rem;
+  }
+}
+
+@media (max-height: 700px) {
+  .register-bg {
+    align-items: flex-start;
+    padding-top: clamp(4rem, 10vh, 6rem);
+  }
+  
+  .register-container {
+    margin-top: 0;
+  }
+}
+
+/* Landscape mode - add extra spacing */
+@media (max-height: 600px) and (orientation: landscape) {
+  .register-bg {
+    padding-top: calc(var(--header2-height) + 0.5rem);
+    align-items: flex-start;
+    padding-bottom: 1rem;
+  }
+
+  .register-container {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+}
+
+/* Utility spacing */
+.register-form .register-label + .register-label {
+  margin-top: 0.125rem;
+>>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
+>>>>>>> parent of 61775ba (Merge branch 'kenn' of https://github.com/IATIA224/lakbai into soriano)
 }
