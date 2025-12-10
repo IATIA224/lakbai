@@ -381,12 +381,14 @@ export default function ChatbaseAI({ onClose }) {
 
     try {
       const chatRef = doc(db, 'users', user.uid, 'aiChats', chatId);
-      const snapshot = await getDocs(collection(db, 'users', user.uid, 'aiChats'));
-      const chatDoc = snapshot.docs.find(d => d.id === chatId);
+      const chatDoc = await getDoc(chatRef);
       
-      if (chatDoc) {
+      if (chatDoc.exists()) {
         setCurrentChatId(chatId);
         setMessages(chatDoc.data().messages || []);
+        console.log('Chat loaded successfully:', chatId);
+      } else {
+        console.warn('Chat document not found:', chatId);
       }
     } catch (e) {
       console.error('Load chat failed:', e);

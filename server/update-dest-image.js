@@ -63,9 +63,6 @@ app.post("/api/delete-dest-image", (req, res) => {
     res.json({ success: true });
 });
 
-<<<<<<< HEAD
-app.listen(4001, () => console.log("Update dest-image API running on port 4001"));
-=======
 const PORT = Number(process.env.UPDATE_IMAGE_PORT || 4001);
 
 function startServer(port = PORT) {
@@ -88,4 +85,3 @@ module.exports = { app, startServer };
 if (require.main === module) {
   startServer();
 }
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
