@@ -93,6 +93,8 @@
   gap: 24px;
   align-items: start;
   padding-top: 44px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 /* Left Sidebar - Sticky like the map */
@@ -523,16 +525,211 @@
   text-align: center;
 }
 
-/* Responsive adjustments */
+/* ============================================
+   RESPONSIVE MEDIA QUERIES FOR COMMUNITY
+============================================ */
+
+/* Large tablets (1200px) */
+@media (max-width: 1200px) {
+  .community-grid-main {
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+  }
+
+  .community-left {
+    padding: 20px;
+  }
+
+  .community-right {
+    padding: 20px;
+  }
+}
+
+/* Tablets (1024px) */
 @media (max-width: 1024px) {
+  .community-grid-main {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 12px;
+  }
+
+  .community-left {
+    position: static;
+    max-height: none;
+    margin-bottom: 16px;
+  }
+
+  .community-right {
+    min-height: auto;
+  }
+
+  .sidebar-item {
+    padding: 10px 14px;
+  }
+
+  .sidebar-user-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
   .card-banner {
     height: 380px; /* Slightly shorter on tablets */
   }
 }
 
+/* Mobile landscape and small tablets (768px) */
+@media (max-width: 768px) {
+  .community-bg {
+    padding: 16px;
+  }
+
+  .community-grid-main {
+    padding: 8px;
+  }
+
+  .community-left,
+  .community-right {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .community-title {
+    font-size: 1.3rem;
+  }
+
+  .sidebar-btn {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+  }
+
+  .sidebar-user-header {
+    flex-direction: row;
+  }
+
+  .sidebar-user-avatar {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Mobile (640px) */
 @media (max-width: 640px) {
+  .community-bg {
+    padding: 12px;
+  }
+
+  .community-grid-main {
+    gap: 12px;
+    padding: 6px;
+  }
+
+  .community-left,
+  .community-right {
+    padding: 14px;
+  }
+
+  .community-title {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+  }
+
+  .title-emoji {
+    font-size: 1.5rem;
+  }
+
+  .sidebar-actions {
+    gap: 10px;
+  }
+
+  .sidebar-btn {
+    padding: 11px 14px;
+    font-size: 0.85rem;
+  }
+
+  .sidebar-item {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .sidebar-icon {
+    font-size: 1.2rem;
+  }
+
+  .sidebar-user-stats {
+    gap: 6px;
+  }
+
+  .sidebar-stat {
+    padding: 6px;
+  }
+
+  .sidebar-stat-value {
+    font-size: 1rem;
+  }
+
+  .community-right-title {
+    font-size: 1.15rem;
+  }
+
   .card-banner {
     height: 320px; /* Shorter on mobile */
+  }
+}
+
+/* Small mobile (480px) */
+@media (max-width: 480px) {
+  .community-grid-main {
+    padding-top: 24px;
+  }
+
+  .community-left {
+    padding: 12px;
+  }
+
+  .community-right {
+    padding: 12px;
+  }
+
+  .community-title {
+    font-size: 1.1rem;
+  }
+
+  .sidebar-user-card {
+    padding: 12px;
+  }
+
+  .sidebar-user-name {
+    font-size: 0.95rem;
+  }
+
+  .sidebar-user-email {
+    font-size: 0.8rem;
+  }
+
+  .sidebar-user-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Extra small devices (360px) */
+@media (max-width: 360px) {
+  .community-bg {
+    padding: 8px;
+  }
+
+  .community-title {
+    font-size: 1rem;
+    gap: 8px;
+  }
+
+  .sidebar-btn {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+
+  .sidebar-user-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
   }
 }
 

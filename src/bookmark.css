@@ -164,3 +164,61 @@
 .bm-toast {
   z-index: 100005 !important; /* Increased from 1000 to be above header (2000) */
 }
+
+/* ============================================
+   RESPONSIVE MEDIA QUERIES FOR BOOKMARKS
+============================================ */
+
+/* Tablets (1024px) */
+@media (max-width: 1024px) {
+  .bm-bg-circle.c1 {
+    width: 300px;
+    height: 300px;
+  }
+
+  .bm-bg-circle.c2 {
+    width: 250px;
+    height: 250px;
+  }
+
+  .bm-bg-circle.c3 {
+    width: 200px;
+    height: 200px;
+  }
+
+  .bm-bg-circle.c4 {
+    width: 150px;
+    height: 150px;
+  }
+}
+
+/* Mobile (768px) */
+@media (max-width: 768px) {
+  .bm-page {
+    padding: 12px;
+  }
+
+  .bm-bg-circle.c1,
+  .bm-bg-circle.c2 {
+    display: none;
+  }
+
+  .bm-bg-wave {
+    height: 150px;
+  }
+}
+
+/* Small mobile (480px) */
+@media (max-width: 480px) {
+  .bm-bg-circle {
+    display: none;
+  }
+
+  .bm-bg-dots {
+    background-size: 20px 20px;
+  }
+
+  .bm-bg-wave {
+    height: 100px;
+  }
+}

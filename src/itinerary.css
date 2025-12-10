@@ -452,10 +452,70 @@
   display: none !important;
 }
 
-/* Update responsive for full width */
+/* ============================================
+   RESPONSIVE MEDIA QUERIES
+============================================ */
+
+/* Tablets and below (1024px) */
+@media (max-width: 1024px) {
+  .itn-page {
+    padding: 12px;
+  }
+
+  .itn-hero {
+    padding: 24px;
+    margin: 8px;
+    border-radius: 16px;
+  }
+
+  .itn-hero-title {
+    font-size: 32px;
+  }
+
+  .itn-actions-bar {
+    padding: 16px;
+  }
+
+  .itn-action-btn {
+    min-width: 120px;
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+}
+
+/* Tablets (768px) */
 @media (max-width: 768px) {
   .itn-container-full {
     padding: 0 8px;
+  }
+
+  .itn-hero {
+    padding: 20px;
+    margin: 8px;
+  }
+
+  .itn-hero-title {
+    font-size: 28px;
+  }
+
+  .itn-hero-sub {
+    font-size: 14px;
+  }
+
+  .itn-hero-actions {
+    flex-wrap: wrap;
+  }
+
+  .itn-actions-bar {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .itn-action-btn {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 140px;
+    padding: 12px 14px;
+    font-size: 13px;
   }
 
   .itn-search-section .itn-panel,
@@ -471,12 +531,114 @@
   .itn-search-result-card {
     padding: 12px;
   }
+
+  .itn-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
 }
 
+/* Mobile devices (600px) */
+@media (max-width: 600px) {
+  .itn-page {
+    padding: 8px;
+    padding-top: 12px;
+  }
+
+  .itn-hero {
+    padding: 16px;
+    margin: 4px;
+    border-radius: 12px;
+  }
+
+  .itn-hero-title {
+    font-size: 24px;
+  }
+
+  .itn-hero-sub {
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  .itn-hero-actions {
+    margin-top: 16px;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .itn-actions-bar {
+    padding: 12px;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .itn-action-btn {
+    width: 100%;
+    min-width: 100%;
+    flex: 1 1 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    justify-content: center;
+  }
+
+  .itn-card {
+    padding: 14px;
+    margin-top: 12px;
+  }
+
+  .itn-name {
+    font-size: 16px;
+  }
+
+  .itn-step {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+}
+
+/* Small mobile (480px) */
 @media (max-width: 480px) {
   .itn-search-results {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .itn-hero {
+    padding: 14px;
+  }
+
+  .itn-hero-title {
+    font-size: 22px;
+  }
+
+  .itn-actions-bar-title {
+    font-size: 12px;
+  }
+
+  .itn-action-btn {
+    padding: 11px 14px;
+    font-size: 13px;
+  }
+}
+
+/* Extra small devices (360px) */
+@media (max-width: 360px) {
+  .itn-page {
+    padding: 6px;
+  }
+
+  .itn-hero-title {
+    font-size: 20px;
+  }
+
+  .itn-hero-sub {
+    font-size: 12px;
+  }
+
+  .itn-action-btn {
+    padding: 10px 12px;
+    font-size: 12px;
   }
 }
 

@@ -847,18 +847,55 @@ html, body, #root {
   flex: 1;
 }
 
+/* ============================================
+   RESPONSIVE MEDIA QUERIES FOR PROFILE
+============================================ */
+
+/* Large tablets (1200px) */
+@media (max-width: 1200px) {
+  .profile-main {
+    max-width: 95%;
+    padding: 20px;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .profile-header {
+    padding: 24px;
+  }
+}
+
+/* Tablets (1024px) */
 @media (max-width: 1024px) {
   .leaflet-container {
     height: 420px !important;
   }
+
+  .profile-main {
+    margin: 20px auto;
+    padding: 18px;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
 }
 
+/* Mobile landscape and small tablets (768px) */
 @media (max-width: 768px) {
   /* Tablet adjustments */
   .profile-main {
     margin-top: 20px;
     padding: 16px;
     border-radius: 12px;
+    max-width: 100%;
   }
 
   .profile-header {
@@ -1015,6 +1052,36 @@ html, body, #root {
   }
 }
 
+/* Mobile (640px) */
+@media (max-width: 640px) {
+  .profile-main {
+    margin: 16px 10px;
+    padding: 14px;
+  }
+
+  .profile-header {
+    padding: 16px 12px;
+  }
+
+  .profile-title-row h2 {
+    font-size: 22px;
+  }
+
+  .profile-badges {
+    gap: 6px;
+  }
+
+  .profile-interest {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Small mobile (480px) */
 @media (max-width: 480px) {
   /* Mobile - Enhanced UI */
   .profile-main {
