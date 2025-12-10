@@ -143,10 +143,7 @@ const Profile = () => {
           ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, {
               year: "numeric",
               month: "long",
-<<<<<<< HEAD
-=======
               day: "numeric",
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
             })
           : (data.joined || ""); // fallback to existing
 
@@ -161,10 +158,7 @@ const Profile = () => {
           : (Array.isArray(data.likes) ? data.likes : (prev?.interests || [])),
         likes: Array.isArray(data.likes) ? data.likes : prev?.likes || [],
         dislikes: Array.isArray(data.dislikes) ? data.dislikes : prev?.dislikes || [],
-<<<<<<< HEAD
-=======
         joined, // <-- add this line
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
       }));
 
       setShareCode(data.shareCode || "");
@@ -666,11 +660,7 @@ const Profile = () => {
             overflow: "auto",
             borderRadius: 20,
             background: "linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)",
-<<<<<<< HEAD
-            boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-=======
             boxShadow: "0 20px 60px rgba(168, 85, 247, 0.35)",
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
             padding: 22,
             boxSizing: "border-box",
           }}
@@ -901,13 +891,6 @@ const Profile = () => {
   // Add real-time listener for ratings (similar to dashboard.js)
   useEffect(() => {
     if (!userId) return;
-<<<<<<< HEAD
-    const ratingsCol = collection(db, "users", userId, "ratings");
-    const unsubscribe = onSnapshot(ratingsCol, (snap) => {
-      setStats((prev) => ({
-        ...prev,
-        reviewsWritten: snap.size,
-=======
     const userRef = doc(db, "users", userId);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (!docSnap.exists()) {
@@ -920,7 +903,6 @@ const Profile = () => {
       setStats(prev => ({
         ...prev,
         reviewsWritten: completedCount
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
       }));
     });
     return () => unsubscribe();
@@ -1154,32 +1136,13 @@ const Profile = () => {
                 }}
               />
             ) : (
-<<<<<<< HEAD
-              <div
-=======
               <img
                 src="/prof.png"
                 alt="Default avatar"
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
                 style={{
                   width: 96,
                   height: 96,
                   borderRadius: "50%",
-<<<<<<< HEAD
-                  background: "#a084ee",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "2.5rem",
-                  fontWeight: "700",
-                  border: "4px solid #fff",
-                  boxShadow: "0 2px 12px rgba(108,99,255,0.13)",
-                }}
-              >
-                {(profile?.name || "U").charAt(0).toUpperCase()}
-              </div>
-=======
                   objectFit: "cover",
                   objectPosition: "center",
                   background: "#f3f4f6",
@@ -1188,7 +1151,6 @@ const Profile = () => {
                   display: "block",
                 }}
               />
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
             )}
           </div>
           <div className="profile-info">
@@ -1323,11 +1285,7 @@ const Profile = () => {
             </div>
             <div className="profile-meta">
               <span>🌟 Explorer</span>
-<<<<<<< HEAD
-              <span>• 🎂 Joined {profile?.joined || ""}</span>   {/* null-safe */}
-=======
               <span>• 🎂 Joined:  {profile?.joined || ""}</span>   {/* null-safe */}
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
             </div>
             <div className="profile-badges">
               {( (profile?.interests && profile.interests.length > 0 ? profile.interests : (profile?.likes || [])) ).map((interest) => (
@@ -1416,11 +1374,7 @@ const Profile = () => {
             </div>
             <div className="profile-stat">
               <span>{stats.reviewsWritten}</span>
-<<<<<<< HEAD
-              <div>Reviews Written</div>
-=======
               <div>Achievements</div>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
             </div>
             <div className="profile-stat">
               <span>{stats.friends}</span>
@@ -1906,11 +1860,7 @@ const Profile = () => {
               <div>
                 <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#6c63ff", marginBottom: "16px" }}>
                   Your Friends ({friends.length})
-<<<<<<< HEAD
-                </h3>
-=======
                                </h3>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
                 <div
                   style={{
                     display: "grid",
@@ -2121,14 +2071,10 @@ const Profile = () => {
               </button>
               <EditProfile
                 onClose={() => setShowEditProfile(false)}
-<<<<<<< HEAD
-                onProfileUpdate={() => unlockAchievement(5, "Profile Pioneer")}
-=======
                 onProfileUpdate={() => {
                   unlockAchievement(5, "Profile Pioneer");
                   if (userId) fetchProfile(userId); // <-- ADD THIS LINE
                 }}
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
                 initialData={{
                   name: profile?.name || "",
                   bio: profile?.bio || "",
@@ -2190,10 +2136,6 @@ export async function logActivity(text, icon = "🔵") {
   try {
     const user = auth.currentUser;
     if (!user) return;
-<<<<<<< HEAD
-
-=======
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
     await addDoc(collection(db, "activities"), {
       userId: user.uid,
       text,

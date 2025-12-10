@@ -39,11 +39,7 @@ const FriendPopup = ({ onClose }) => {
             const d = snap.data();
             return {
               id,
-<<<<<<< HEAD
-              name: d.name || d.displayName || "Traveler",
-=======
               name: d.travelerName || d.name || d.displayName || "Traveler",
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               profilePicture: d.profilePicture || d.photoURL || "/user.png"
             };
           }

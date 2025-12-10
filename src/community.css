@@ -1141,11 +1141,7 @@
   animation: shimmer 1.5s infinite;
 }
 
-<<<<<<< HEAD
-/* Modal Styles */
-=======
 /* Modal Styles - UPDATED */
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 .community-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1154,12 +1150,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-<<<<<<< HEAD
-  z-index: 2000;
-  animation: fadeIn 0.2s;
-}
-
-=======
   z-index: 999999;
   animation: fadeIn 0.2s;
 }
@@ -1169,7 +1159,6 @@
   z-index: 999999;
 }
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1184,38 +1173,18 @@
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s ease-out;
-<<<<<<< HEAD
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* UPDATE: Enhanced Share Trip Modal */
-=======
   position: relative;
   z-index: 1000000;
 }
 
 /* ENHANCED Share Trip Modal */
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 .share-trip-modal {
   max-width: 700px;
   max-height: 90vh;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-<<<<<<< HEAD
-=======
   box-shadow: 0 25px 80px rgba(99, 102, 241, 0.3);
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .share-trip-modal::-webkit-scrollbar {
@@ -1225,11 +1194,6 @@
 .share-modal-header {
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: #fff;
-<<<<<<< HEAD
-  padding: 28px;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-=======
   padding: 28px 28px;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
@@ -1245,7 +1209,6 @@
 .share-modal-header-content {
   text-align: left;
   flex: 1;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .share-modal-header h3 {
@@ -1254,21 +1217,6 @@
   font-weight: 800;
   display: flex;
   align-items: center;
-<<<<<<< HEAD
-  gap: 10px;
-}
-
-.share-modal-header p {
-  margin: 8px 0 0;
-  opacity: 0.95;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-.modal-form {
-  padding: 28px;
-  background: #fafbfc;
-=======
   gap: 12px;
   letter-spacing: -0.5px;
 }
@@ -1310,16 +1258,11 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .modal-label {
   display: block;
-<<<<<<< HEAD
-  margin-bottom: 24px;
-=======
   margin: 0;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .field-title {
@@ -1327,12 +1270,8 @@
   font-weight: 700;
   font-size: 0.95rem;
   color: #1f2937;
-<<<<<<< HEAD
-  margin-bottom: 8px;
-=======
   margin-bottom: 10px;
   letter-spacing: -0.3px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .modal-input,
@@ -1347,23 +1286,17 @@
   background: #fff;
 }
 
-<<<<<<< HEAD
-=======
 .modal-input::placeholder,
 .modal-textarea::placeholder {
   color: #9ca3af;
 }
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 .modal-input:focus,
 .modal-textarea:focus {
   outline: none;
   border-color: #6366f1;
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-<<<<<<< HEAD
-=======
   background: #fff;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .modal-textarea {
@@ -1375,11 +1308,7 @@
 .modal-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-<<<<<<< HEAD
-  gap: 16px;
-=======
   gap: 18px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 /* Segmented Control */
@@ -1461,11 +1390,7 @@
   justify-content: flex-end;
   padding-top: 24px;
   border-top: 2px solid #e5e7eb;
-<<<<<<< HEAD
-  margin-top: 24px;
-=======
   margin-top: 12px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .btn-primary,
@@ -1514,17 +1439,6 @@
     height: 100vh;
     max-height: 100vh;
     border-radius: 0;
-<<<<<<< HEAD
-  }
-
-  .share-modal-header {
-    padding: 20px;
-    border-radius: 0;
-  }
-
-  .modal-form {
-    padding: 20px;
-=======
     overflow-y: auto;
   }
 
@@ -1552,14 +1466,11 @@
   .modal-form {
     padding: 20px 16px;
     gap: 18px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   }
 
   .modal-row {
     grid-template-columns: 1fr;
   }
-<<<<<<< HEAD
-=======
 
   .modal-actions {
     flex-direction: column-reverse;
@@ -1569,7 +1480,6 @@
   .btn-secondary {
     width: 100%;
   }
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 /* Make navigation text bold and black */

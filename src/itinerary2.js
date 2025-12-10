@@ -243,20 +243,11 @@ export function useSharedItineraries(user) {
           
           const itemsUnsub = onSnapshot(
             itemsRef,
-<<<<<<< HEAD
-            (itemsSnap) => {
-=======
             async (itemsSnap) => {
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               const sortedItems = itemsSnap.docs
                 .map(x => ({ ...x.data(), id: x.id }))
                 .sort((a, b) => (a.arrival || "").localeCompare(b.arrival || ""));
 
-<<<<<<< HEAD
-              const data = d.data() || {};
-              
-              // Get edit permissions for current user
-=======
               // FETCH GROUPS if it's a grouped itinerary
               let groups = [];
               if (d.data()?.isGroupedItinerary) {
@@ -271,7 +262,6 @@ export function useSharedItineraries(user) {
 
               const data = d.data() || {};
               
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               const editPermsMap = data.editPermissions || {};
               const editPermForUser = editPermsMap[user.uid] || {};
               const canEdit = (data.sharedBy === user.uid) || (editPermForUser.canEdit === true);
@@ -296,13 +286,6 @@ export function useSharedItineraries(user) {
                 collaborative: !!data.collaborative,
                 sharedWith: data.sharedWith || [],
                 items: sortedItems,
-<<<<<<< HEAD
-                itemCount: sortedItems.length,
-                // ADD THIS: Permission info
-                canEdit,
-                userRole: editPermForUser.role || (data.sharedBy === user.uid ? "owner" : "member"),
-                editors
-=======
                 groups: groups,
                 isGroupedItinerary: data.isGroupedItinerary || false,
                 itemCount: sortedItems.length,
@@ -310,7 +293,6 @@ export function useSharedItineraries(user) {
                 userRole: editPermForUser.role || (data.sharedBy === user.uid ? "owner" : "member"),
                 editors,
                 name: data.name
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               });
 
               setSharedWithMe(prev => {

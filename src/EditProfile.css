@@ -811,8 +811,6 @@
 
 /* ensure sticky footer doesn't overflow the rounded corners */
 .edit-profile-actions { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
-<<<<<<< HEAD
-=======
 
 /* --- MOBILE FULLSCREEN MODAL --- */
 @media (max-width: 768px) {
@@ -1008,4 +1006,3 @@
   from { transform: scale(0.9); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1

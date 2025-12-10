@@ -3,11 +3,7 @@ import ReactDOM from "react-dom";
 import { breakdown, category } from "../../rules";
 import { HotelSuggestion, AgencySuggestion } from "../../ItinerarySuggestion";
 import { db, auth } from "../../firebase"; // ADD THIS IMPORT
-<<<<<<< HEAD
-import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"; // ADD THIS IMPORT
-=======
 import { doc, updateDoc, getDoc, setDoc, serverTimestamp, deleteField } from "firebase/firestore"; // ADDED deleteField
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 import "./ItineraryCard.css";
 
 
@@ -18,25 +14,17 @@ export default function ItineraryCard({
   onRemove,
   onShowPriceBadge,
   onHidePriceBadge,
-<<<<<<< HEAD
-  isShared = false,        // ADD THIS
-  sharedId = null,         // ADD THIS
-=======
   isShared = false,
   sharedId = null,
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }) {
   // Modal + UX state
   const [isOpen, setIsOpen] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-<<<<<<< HEAD
-=======
   
   // NEW: Mobile menu state
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const mobileMenuRef = useRef(null);
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 
   // New: Breakdown editing state
   const [isEditingBreakdown, setIsEditingBreakdown] = useState(false);
@@ -309,18 +297,6 @@ export default function ItineraryCard({
   const saveDates = async () => {
     if (!onEdit) return;
 
-<<<<<<< HEAD
-
-    const updated = {
-      ...item,
-      dateFrom: dateFrom || undefined,
-      dateUntil: dateUntil || undefined,
-    };
-
-
-    await saveToFirebase(updated);
-    onEdit(updated);
-=======
     // Build a clean update object: avoid passing undefined to updateDoc.
     const updates = { id: item.id };
 
@@ -369,7 +345,6 @@ export default function ItineraryCard({
         console.warn("Failed to notify server for itinerary date update:", e);
       }
     }
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   };
 
 
@@ -585,8 +560,6 @@ export default function ItineraryCard({
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-<<<<<<< HEAD
-=======
   // NEW: Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -598,7 +571,6 @@ export default function ItineraryCard({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 
   // Handle hotel selection from suggestions
   const handleSelectHotel = (hotelRow) => {
@@ -734,45 +706,6 @@ export default function ItineraryCard({
             {item.name}
           </span>
         </div>
-<<<<<<< HEAD
-        <div className="itn-row-actions">
-          {/* Add status toggle button */}
-          {onEdit && (
-            <button
-              className="itn-btn"
-              onClick={toggleStatus}
-              style={{
-                ...getStatusBadgeStyle(item.status),
-                fontSize: "12px",
-                fontWeight: 700,
-                textTransform: "capitalize",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              title="Click to change status"
-            >
-              {item.status || "upcoming"}
-            </button>
-          )}
-
-          <button className="itn-btn primary" onClick={handleOpen}>
-            View details
-          </button>
-
-
-          {onRemove && (
-            <button
-              className="itn-btn danger sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteConfirm(true);
-              }}
-              title="Remove"
-            >
-              🗑️
-            </button>
-          )}
-=======
         
         {/* Modified Actions Area with Mobile Burger */}
         <div className="itn-row-actions" ref={mobileMenuRef}>
@@ -877,7 +810,6 @@ export default function ItineraryCard({
             )}
           </div>
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
         </div>
       </div>
 

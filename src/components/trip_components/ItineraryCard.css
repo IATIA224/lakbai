@@ -225,14 +225,6 @@
   font-size: 13px;
 }
 .itn-row-name {
-<<<<<<< HEAD
-  font-weight: 700;
-  color: #111827;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 52vw;
-=======
   flex: 1;
   min-width: 0; /* Critical for text truncation in flex containers */
   overflow: hidden;
@@ -252,7 +244,6 @@
   align-items: flex-start;
   min-height: 60px;
   padding: 12px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 .itn-row-actions {
   display: flex;
@@ -2402,11 +2393,7 @@ body.itn-modal-open { overflow: hidden; }
   outline: none;
   border-color: #10b981;
   background: white;
-<<<<<<< HEAD
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12), 0 4px 12px rgba(16, 185, 129, 0.08);
-=======
   box-shadow: 0 0 0 0 0 4px rgba(16, 185, 129, 0.12), 0 4px 12px rgba(16, 185, 129, 0.08);
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 }
 
 .itn-breakdown-row-amount {
@@ -2536,17 +2523,6 @@ body.itn-modal-open { overflow: hidden; }
   background-clip: text;
 }
 
-<<<<<<< HEAD
-/* ====== RESPONSIVE ====== */
-@media (max-width: 768px) {
-  .itn-edit-modal {
-    max-width: 95vw;
-    max-height: 90vh;
-    border-radius: 12px;
-  }
-
-  .itn-edit-modal-header {
-=======
 /* ==================== MOBILE-FIRST RESPONSIVE UPDATES ==================== */
 
 /* Base mobile view - adjust modal sizes */
@@ -2602,7 +2578,6 @@ body.itn-modal-open { overflow: hidden; }
   .itn-edit-modal-header,
   .itn-edit-modal-body,
   .itn-edit-modal-footer {
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
     padding: 16px;
   }
 
@@ -2610,19 +2585,6 @@ body.itn-modal-open { overflow: hidden; }
     font-size: 18px;
   }
 
-<<<<<<< HEAD
-  .itn-edit-modal-body {
-    padding: 16px;
-  }
-
-  .itn-edit-modal-footer {
-    padding: 16px;
-    flex-wrap: wrap;
-  }
-
-  .itn-breakdown-row {
-    flex-wrap: wrap;
-=======
   .itn-accom-container {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -2643,7 +2605,6 @@ body.itn-modal-open { overflow: hidden; }
   .itn-breakdown-row {
     flex-direction: column;
     gap: 10px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   }
 
   .itn-breakdown-row-amount {
@@ -2652,22 +2613,13 @@ body.itn-modal-open { overflow: hidden; }
 
   .itn-breakdown-actions {
     flex-direction: column;
-<<<<<<< HEAD
-    align-items: stretch;
-=======
     gap: 10px;
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   }
 
   .itn-breakdown-total {
     text-align: left;
     margin-top: 8px;
   }
-<<<<<<< HEAD
-}
-
-@media (max-width: 480px) {
-=======
 
   .itn-pack-grid-chips {
     flex-wrap: wrap;
@@ -2778,15 +2730,12 @@ body.itn-modal-open { overflow: hidden; }
     font-size: 11px;
   }
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   .itn-edit-modal {
     max-width: 100vw;
     max-height: 100vh;
     border-radius: 0;
   }
 
-<<<<<<< HEAD
-=======
   .itn-edit-modal-header,
   .itn-edit-modal-body,
   .itn-edit-modal-footer {
@@ -3079,36 +3028,10 @@ body.itn-modal-open { overflow: hidden; }
   }
 
   .itn-edit-modal-header,
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   .itn-edit-modal-body {
     padding: 12px;
   }
 
-<<<<<<< HEAD
-  .itn-breakdown-row {
-    gap: 8px;
-  }
-
-  .itn-breakdown-row-remove {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
-  }
-}
-
-.itinerary-card-ai-section {
-  margin-bottom: 20px;
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 20px;
-}
-
-.itinerary-card-ai-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-=======
   .itn-section {
     margin-bottom: 8px;
   }
@@ -3214,4 +3137,3 @@ body.itn-modal-open { overflow: hidden; }
   }
 }
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1

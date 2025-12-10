@@ -53,12 +53,9 @@ import { markAllCompleted } from "./components/trip_components/MarkCompleteButto
 import { deleteAllItinerary } from "./components/trip_components/DeleteAllButton";
 import ShareItineraryModal from "./components/trip_components/ShareItineraryModal";
 import { exportItineraryToPDF } from "./components/trip_components/ExportPDFButton";
-<<<<<<< HEAD
-=======
 import GroupItineraryModal, { useGroupedItineraries } from "./components/trip_components/GroupItineraryModal";
 import GroupedItineraryView from "./components/trip_components/GroupedItineraryView";
 import SharedGroupedItineraryView from "./components/trip_components/SharedGroupedItineraryView";
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 
 // ==================== ADD TO TRIP HELPER (moved to top) ====================
 export async function addTripForCurrentUser(dest) {
@@ -1268,15 +1265,12 @@ export default function Itinerary() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [activeTab, setActiveTab] = useState("personal");
   const { sharedWithMe, loading: sharedLoading } = useSharedItineraries(auth.currentUser);
-<<<<<<< HEAD
-=======
   
   // ADD THESE NEW STATE VARIABLES
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
   const [viewMode, setViewMode] = useState("list"); // "list" or "grouped"
   const { groups, loading: groupsLoading } = useGroupedItineraries(user?.uid);
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 
   // Export selection helpers
   const toggleExportSelection = React.useCallback((id) => {
@@ -1289,10 +1283,6 @@ export default function Itinerary() {
   }, [setExportSelected]);
 
   const selectAllExport = React.useCallback(() => {
-<<<<<<< HEAD
-    // Get items from active tab
-=======
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
     let tabItems = [];
     if (activeTab === 'personal') {
       tabItems = items;
@@ -1307,14 +1297,6 @@ export default function Itinerary() {
   }, [items, sharedWithMe, activeTab]);
 
   const handleExport = async () => {
-<<<<<<< HEAD
-    // Get items from active tab
-    let allTabItems = [];
-    if (activeTab === 'personal') {
-      allTabItems = items;
-    } else if (activeTab === 'shared') {
-      allTabItems = sharedWithMe.flatMap(s => s.items);
-=======
     let allTabItems = [];
     let exportGroups = [];
     
@@ -1330,7 +1312,6 @@ export default function Itinerary() {
       exportGroups = sharedWithMe
         .filter(s => s.isGroupedItinerary && s.groups)
         .flatMap(s => s.groups);
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
     }
 
     const selectedItems = allTabItems.filter((i) => exportSelected.has(i.id));
@@ -1340,10 +1321,6 @@ export default function Itinerary() {
       return;
     }
 
-<<<<<<< HEAD
-    // Ensure all items have complete data
-=======
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
     const enrichedItems = selectedItems.map(item => ({
       ...item,
       accomType: item.accomType || "",
@@ -1361,12 +1338,6 @@ export default function Itinerary() {
       status: item.status || "upcoming",
     }));
 
-<<<<<<< HEAD
-    try {
-      console.log("[Itinerary] Starting export for", enrichedItems.length);
-      setExportLoading(true);
-      await exportItineraryToPDF(enrichedItems);
-=======
     // Filter groups to only include those with selected items
     const relevantGroups = exportGroups.filter(group => {
       const groupItemIds = group.destinationIds || Object.keys(group.assignments || {});
@@ -1377,7 +1348,6 @@ export default function Itinerary() {
       console.log("[Itinerary] Starting export for", enrichedItems.length, "items with", relevantGroups.length, "groups");
       setExportLoading(true);
       await exportItineraryToPDF(enrichedItems, relevantGroups);
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
       console.log("[Itinerary] Export finished");
       setShowExport(false);
       setExportSelected(new Set());
@@ -1430,8 +1400,6 @@ export default function Itinerary() {
     return () => unsub();
   }, [user]);
 
-<<<<<<< HEAD
-=======
   // Get ungrouped items (items not in any group)
   const getUngroupedItems = () => {
     const groupedIds = new Set();
@@ -1441,7 +1409,6 @@ export default function Itinerary() {
     return items.filter(item => !groupedIds.has(item.id));
   };
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
   return (
     <div className="itn-page">
       <div className="itn-hero">
@@ -1454,14 +1421,6 @@ export default function Itinerary() {
           <div className="itn-actions-bar">
             <div className="itn-actions-bar-title">Quick Actions</div>
             
-<<<<<<< HEAD
-            <button 
-              className="itn-action-btn export"
-              onClick={() => setShowExport(true)} // open modal so user can select items
-              title="Export selected destinations to PDF"
-            >
-              <span className="itn-action-btn-icon"></span>
-=======
             {/* ADD THIS - Group Itinerary Button */}
             <button 
               className="itn-action-btn group"
@@ -1491,23 +1450,15 @@ export default function Itinerary() {
               title="Export selected destinations to PDF"
             >
               <span className="itn-action-btn-icon">📄</span>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               <span className="itn-action-btn-text">Export to PDF</span>
             </button>
 
             <button 
               className="itn-action-btn route"
-<<<<<<< HEAD
-              onClick={() => setShowCostEstimator(true)} // open cost estimator
-              title="Estimate commute routes and times"
-            >
-              <span className="itn-action-btn-icon"></span>
-=======
               onClick={() => setShowCostEstimator(true)}
               title="Estimate commute routes and times"
             >
               <span className="itn-action-btn-icon">🚗</span>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               <span className="itn-action-btn-text">Commute Route</span>
             </button>
 
@@ -1519,11 +1470,7 @@ export default function Itinerary() {
               }}
               title="Share your itinerary with friends"
             >
-<<<<<<< HEAD
-              <span className="itn-action-btn-icon"></span>
-=======
               <span className="itn-action-btn-icon">👥</span>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               <span className="itn-action-btn-text">Share Itinerary</span>
             </button>
 
@@ -1536,11 +1483,7 @@ export default function Itinerary() {
               )}
               title="Mark all destinations as completed"
             >
-<<<<<<< HEAD
-              <span className="itn-action-btn-icon"></span>
-=======
               <span className="itn-action-btn-icon">✅</span>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               <span className="itn-action-btn-text">Mark All Complete</span>
             </button>
 
@@ -1553,11 +1496,7 @@ export default function Itinerary() {
               )}
               title="Delete all destinations permanently"
             >
-<<<<<<< HEAD
-              <span className="itn-action-btn-icon"></span>
-=======
               <span className="itn-action-btn-icon">🗑️</span>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               <span className="itn-action-btn-text">Delete All</span>
             </button>
           </div>
@@ -1613,8 +1552,6 @@ export default function Itinerary() {
                     No destinations added yet. Start planning your next adventure!
                   </p>
                 </div>
-<<<<<<< HEAD
-=======
               ) : viewMode === 'grouped' ? (
                 // GROUPED VIEW
                 <div className="itn-grouped-view">
@@ -1688,7 +1625,6 @@ export default function Itinerary() {
                     </div>
                   )}
                 </div>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
               ) : (
                 <div className="itn-destination-list">
                   {items.map((item, idx) => (
@@ -1721,66 +1657,6 @@ export default function Itinerary() {
                 ) : sharedWithMe.length === 0 ? (
                   <div style={{textAlign:'center', padding:20}}>No itineraries shared with you.</div>
                 ) : (
-<<<<<<< HEAD
-                  sharedWithMe.map((shared) => (
-                    <div key={shared.id} className="shared-card">
-          <div className="shared-card-header">
-            <div>
-              <strong>{shared.name || `Shared by ${shared.sharedBy.name}`}</strong>
-              <div style={{fontSize:12, color:'#64748b', marginTop:3}}>
-                {shared.sharedBy?.name || "Traveler"} • {shared.items.length} destinations
-              </div>
-            </div>
-          </div>
-
-          <div className="itn-destination-list">
-            {shared.items.map((item, idx) => (
-              <ItineraryCard
-                key={item.id}
-                item={item}
-                index={idx}
-                isShared={true}              // ADD THIS
-                sharedId={shared.id}         // ADD THIS
-                // Update item in the shared collection instead of personal itinerary
-                onEdit={async (updatedItem) => {
-                  try {
-                    // Ensure breakdown is included
-                    const itemToUpdate = {
-                      ...updatedItem,
-                      breakdown: Array.isArray(updatedItem.breakdown) ? updatedItem.breakdown : [],
-                      accomType: updatedItem.accomType || "",
-                      accomName: updatedItem.accomName || "",
-                      accomNotes: updatedItem.accomNotes || "",
-                      activities: Array.isArray(updatedItem.activities) ? updatedItem.activities : [],
-                      transport: updatedItem.transport || "",
-                      transportNotes: updatedItem.transportNotes || "",
-                      notes: updatedItem.notes || "",
-                      agency: updatedItem.agency || "",
-                    };
-                    
-                    const sharedRef = doc(db, "sharedItineraries", shared.id, "items", updatedItem.id);
-                    await updateDoc(sharedRef, itemToUpdate);
-                  } catch (err) {
-                    console.error("[SharedItinerary] Failed to update item:", err);
-                  }
-                }}
-                // Delete item inside shared itinerary (anyone can remove if collaborative)
-                onRemove={async (itemId) => {
-                  try {
-                    await deleteDoc(doc(db, "sharedItineraries", shared.id, "items", itemId));
-                  } catch (err) {
-                    console.error("[SharedItinerary] Failed to delete shared item:", err);
-                  }
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      ))
-    )}
-  </div>
-)}
-=======
                   sharedWithMe.map((shared) => {
                     // Check if this is a grouped itinerary
                     const isGrouped = shared.isGroupedItinerary || false;
@@ -1863,7 +1739,6 @@ export default function Itinerary() {
                 )}
               </div>
             )}
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
           </div>
         </section>
       </div>
@@ -1872,29 +1747,20 @@ export default function Itinerary() {
       {showExport && (
         <ExportPDFModal
           items={activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items)}
-<<<<<<< HEAD
-=======
           groups={activeTab === 'personal' ? groups : sharedWithMe.filter(s => s.isGroupedItinerary).flatMap(s => s.groups || [])}
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
           selected={exportSelected}
           onToggle={toggleExportSelection}
           onSelectAll={selectAllExport}
           onExport={handleExport}
           onClose={() => setShowExport(false)}
           exporting={exportLoading}
-<<<<<<< HEAD
-=======
           viewMode={viewMode}
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
         />
       )}
       {showCostEstimator && (
         <ItineraryCostEstimationModal onClose={() => setShowCostEstimator(false)} />
       )}
       {showShareModal && (
-<<<<<<< HEAD
-        <ShareItineraryModal items={items} onClose={() => setShowShareModal(false)} />
-=======
         <ShareItineraryModal 
           items={items} 
           groups={viewMode === 'grouped' ? groups : []}
@@ -1938,7 +1804,6 @@ export default function Itinerary() {
           group={editingGroup}
           allDestinations={items || []}  // Pass your items array here
         />
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
       )}
     </div>
   );

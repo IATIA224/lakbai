@@ -285,11 +285,7 @@ export function HotelSuggestion({ details, onSelect }) {
   
     return (
       <div className="suggestion-form">
-<<<<<<< HEAD
-        <h3>Hotel Suggestions</h3>
-=======
         <h3></h3>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
         <div className="hotels-body">
           {loading ? (
             <div className="hotels-info">Loading accommodations…</div>
@@ -483,11 +479,7 @@ export function HotelSuggestion({ details, onSelect }) {
   
     return (
       <div className="suggestion-form">
-<<<<<<< HEAD
-        <h3>Agency Suggestions</h3>
-=======
         <h3></h3>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
         <div className="agency-body">
           {loading ? (
             <div className="agency-info">Loading travel agencies…</div>

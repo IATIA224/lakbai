@@ -966,10 +966,6 @@ useEffect(() => {
             categories: Array.isArray(dest.category) ? dest.category : [],
             bestTime: dest.bestTime || dest.best_time || '',
             image: dest.image || dest.imageUrl || getImageForDestination(dest.name) || '',
-<<<<<<< HEAD
-            // ADD THESE - Capture packing suggestions and breakdown
-=======
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
             packingSuggestions: dest.packingSuggestions || dest.packing || '',
             breakdown: getBreakdown(dest.price || dest.budget),
             budget: dest.budget || dest.price || '',

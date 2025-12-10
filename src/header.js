@@ -101,22 +101,6 @@ const StickyHeader = () => {
 					))}
 				</nav>
 				<div className="header-right">
-<<<<<<< HEAD
-					<button
-						className="ai-assistant-btn"
-						onClick={() => setShowAIPopup(true)}
-					>
-						<span className="dot"></span> AI Assistant
-					</button>
-					<img
-						src={profilePic}
-						alt="User"
-						className="user-icon"
-						onClick={() => (isLoggedIn ? navigate("/profile") : setShowLoginPrompt(true))}
-						style={{ cursor: "pointer" }}
-					/>
-				</div>
-=======
                     <button
                         className="ai-assistant-btn"
                         onClick={() => setShowAIPopup(true)}
@@ -155,7 +139,6 @@ const StickyHeader = () => {
                         </button>
                     )}
                 </div>
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 			</header>
 			{/* AI Chatbot Popup */}
 			{showAIPopup && (

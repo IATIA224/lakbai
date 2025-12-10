@@ -7,11 +7,6 @@ import { emitAchievement } from './achievementsBus';
 
 const MODEL_API_BASE = (typeof window !== 'undefined' && window.LAKBAI_MODEL_API_BASE) || 'https://chuxia-sys-gemma-tuned.hf.space';
 
-<<<<<<< HEAD
-
-let _csvCache = null;
-
-=======
 let _csvCache = null;
 
 // Mobile detection: toggles CSS class .ai-mobile on documentElement for CSS adjustments
@@ -51,7 +46,6 @@ try {
   console.warn('Ai mobile adaptation init failed:', e?.message || e);
 }
 
->>>>>>> f1d6feb7a9f1cc032ac6cc07aa0a7a9db71801c1
 const PHILIPPINE_PLACES = [
   "philippines", "palawan", "cebu", "bohol", "baguio", "manila", "ilocos",
   "sagada", "siargao", "davao", "vigan", "boracay", "tagaytay", "subic",
