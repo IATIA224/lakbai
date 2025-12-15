@@ -1430,7 +1430,7 @@ export default function Itinerary() {
               }}
               title="Create a multi-day trip group"
             >
-              <span className="itn-action-btn-icon">📅</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Group Itinerary</span>
             </button>
 
@@ -1440,7 +1440,7 @@ export default function Itinerary() {
               onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
               title="Toggle between list and grouped view"
             >
-              <span className="itn-action-btn-icon">{viewMode === 'list' ? '📋' : '🗓️'}</span>
+              <span className="itn-action-btn-icon">{viewMode === 'list' ? '' : ''}</span>
               <span className="itn-action-btn-text">{viewMode === 'list' ? 'List View' : 'Trip View'}</span>
             </button>
             
@@ -1449,7 +1449,7 @@ export default function Itinerary() {
               onClick={() => setShowExport(true)}
               title="Export selected destinations to PDF"
             >
-              <span className="itn-action-btn-icon">📄</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Export to PDF</span>
             </button>
 
@@ -1458,7 +1458,7 @@ export default function Itinerary() {
               onClick={() => setShowCostEstimator(true)}
               title="Estimate commute routes and times"
             >
-              <span className="itn-action-btn-icon">🚗</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Commute Route</span>
             </button>
 
@@ -1470,7 +1470,7 @@ export default function Itinerary() {
               }}
               title="Share your itinerary with friends"
             >
-              <span className="itn-action-btn-icon">👥</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Share Itinerary</span>
             </button>
 
@@ -1483,7 +1483,7 @@ export default function Itinerary() {
               )}
               title="Mark all destinations as completed"
             >
-              <span className="itn-action-btn-icon">✅</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Mark All Complete</span>
             </button>
 
@@ -1496,7 +1496,7 @@ export default function Itinerary() {
               )}
               title="Delete all destinations permanently"
             >
-              <span className="itn-action-btn-icon">🗑️</span>
+              <span className="itn-action-btn-icon"></span>
               <span className="itn-action-btn-text">Delete All</span>
             </button>
           </div>

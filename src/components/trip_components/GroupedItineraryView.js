@@ -282,7 +282,7 @@ function GroupedItineraryView({ group, items, onEditGroup, onDeleteGroup, onRefr
             className="btn edit-trip"
             onClick={() => onEditGroup && onEditGroup(group)}
           >
-            ✏️ Edit Trip
+             Edit Trip
           </button>
         </div>
       </div>

@@ -9,6 +9,7 @@ function SharedGroupedItineraryView({
   items, 
   sharedId,
   onRefresh,
+  onDeleteGroup, // ADD THIS
   canEdit = false,
   editors = []
 }) {
@@ -280,6 +281,17 @@ function SharedGroupedItineraryView({
     }
   };
 
+  // ADD: Handle delete group
+  const handleDeleteGroup = async () => {
+    if (!window.confirm(`Delete "${group.name || 'Untitled Trip'}"? This cannot be undone.`)) {
+      return;
+    }
+    
+    if (onDeleteGroup) {
+      onDeleteGroup(group.id);
+    }
+  };
+
   return (
     <div className="grouped-itinerary-card">
       {/* Header */}
@@ -354,18 +366,54 @@ function SharedGroupedItineraryView({
           )}
         </div>
 
-        {!canEdit && (
-          <div style={{
-            background: 'rgba(255,255,255,0.2)',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: '600',
-            whiteSpace: 'nowrap'
-          }}>
-            👁️ View Only
-          </div>
-        )}
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {!canEdit && (
+            <div style={{
+              background: 'rgba(255,255,255,0.2)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}>
+              👁️ View Only
+            </div>
+          )}
+
+          {/* DELETE BUTTON - Only show if canEdit */}
+          {canEdit && (
+            <button
+              onClick={handleDeleteGroup}
+              style={{
+                background: '#ef4444',
+                color: 'white',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.3s',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#dc2626';
+                e.target.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#ef4444';
+                e.target.style.transform = 'translateY(0)';
+              }}
+              title="Delete this trip"
+            >
+              🗑️ Delete
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Days */}
