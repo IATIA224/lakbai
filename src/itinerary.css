@@ -1125,20 +1125,21 @@
 }
 
 .itn-action-btn.view-toggle {
-  background: #f1f5f9;
-  color: #475569;
-  border: 2px solid #e2e8f0;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); /* CHANGED from #f1f5f9 */
+  color: #fff; /* CHANGED from #475569 */
+  border: 2px solid transparent; /* CHANGED from #e2e8f0 */
 }
 
 .itn-action-btn.view-toggle:hover {
-  background: #e2e8f0;
-  border-color: #cbd5e1;
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); /* CHANGED */
+  border-color: transparent; /* CHANGED */
 }
 
 .itn-action-btn.view-toggle.active {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%); /* CHANGED to green */
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 /* Grouped View Sections */

@@ -532,6 +532,7 @@
   background: #fff;
   border-top: 1px solid #e5e7eb;
   animation: slideDown 0.3s ease;
+  overflow: visible; /* ADD this */
 }
 
 @keyframes slideDown {
@@ -796,7 +797,7 @@
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  overflow: visible; /* CHANGED from hidden */
   margin-bottom: 24px;
 }
 
@@ -851,6 +852,8 @@
 /* Days Container */
 .grouped-itinerary-days-container {
   padding: 16px;
+  overflow: visible; /* ADD this */
+  position: relative;
 }
 
 /* Day Section */
@@ -859,11 +862,8 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   margin-bottom: 12px;
-  overflow: hidden;
-}
-
-.grouped-day-section:last-child {
-  margin-bottom: 0;
+  overflow: visible; /* CHANGED from hidden */
+  position: relative;
 }
 
 /* Day Header */
@@ -935,6 +935,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: visible; /* ADD this */
+  position: relative;
 }
 
 .grouped-day-empty {
@@ -952,13 +954,9 @@
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible; /* CHANGED from hidden */
   transition: all 0.2s;
-}
-
-.grouped-destination-wrapper:hover {
-  border-color: #6366f1;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+  position: relative;
 }
 
 /* Time Display Bar */
@@ -1310,90 +1308,154 @@
   box-shadow: none;
 }
 
-/* Mobile Responsive */
-@media (max-width: 640px) {
-  .grouped-itinerary-header {
-    padding: 16px;
-    flex-direction: column;
-  }
+/* ===== FIX FOR MOBILE MENU DROPDOWN IN ITINERARY CARDS ===== */
 
-  .grouped-itinerary-edit-btn {
-    width: 100%;
-    text-align: center;
-  }
+/* Override overflow only for destination wrapper to allow dropdown */
+.grouped-destination-wrapper {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: visible; /* CHANGED from hidden */
+  transition: all 0.2s;
+  position: relative;
+}
 
-  .grouped-itinerary-meta {
-    flex-direction: column;
-    gap: 6px;
-  }
+/* Ensure day items container allows overflow */
+.grouped-day-items {
+  padding: 0 16px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: visible; /* ADD this */
+  position: relative;
+}
 
-  .grouped-day-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
+/* Target mobile dropdown specifically within grouped view */
+.grouped-day-items .mobile-dropdown,
+.grouped-destination-wrapper .mobile-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 9999 !important;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  min-width: 180px;
+  overflow: visible;
+}
 
-  .grouped-day-summary {
-    width: 100%;
-    justify-content: space-between;
-  }
+/* Ensure card actions container is properly positioned */
+.grouped-day-items .card-actions,
+.grouped-destination-wrapper .card-actions {
+  position: relative;
+  z-index: 50;
+  overflow: visible;
+}
 
-  .grouped-day-items {
-    padding: 0 12px 12px 12px;
-    gap: 8px;
+/* Mobile specific overrides */
+@media (max-width: 768px) {
+  /* Raise z-index even higher on mobile */
+  .grouped-day-items .mobile-dropdown,
+  .grouped-destination-wrapper .mobile-dropdown {
+    z-index: 99999 !important;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.25);
   }
-
-  .grouped-destination-time-editor {
-    flex-direction: column;
+  
+  /* When a card has an open dropdown, raise its stacking context */
+  .grouped-destination-wrapper:has(.mobile-dropdown) {
+    z-index: 9999;
   }
-
-  .grouped-time-editor-fields {
-    width: 100%;
-    min-width: auto;
-    flex-direction: column;
+  
+  /* Fallback for browsers without :has() support */
+  .grouped-destination-wrapper.menu-open {
+    z-index: 9999;
   }
+}
 
-  .grouped-time-editor-actions {
-    width: 100%;
+/* Day Section - MUST allow overflow for dropdown */
+.grouped-day-section {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: visible; /* CHANGED from hidden */
+  position: relative;
+}
+
+/* Days Container - allow overflow */
+.grouped-itinerary-days-container {
+  padding: 16px;
+  overflow: visible; /* ADD this */
+  position: relative;
+}
+
+/* Grouped Itinerary Card - allow overflow */
+.grouped-itinerary-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: visible; /* CHANGED from hidden */
+  margin-bottom: 24px;
+}
+
+/* Day Content - allow overflow */
+.grouped-day-content {
+  padding: 20px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  animation: slideDown 0.3s ease;
+  overflow: visible; /* ADD this */
+}
+
+/* ===== MOBILE MENU DROPDOWN FIX ===== */
+
+/* Ensure the wrapper with dropdown gets raised above siblings */
+.grouped-destination-wrapper {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: visible;
+  transition: all 0.2s;
+  position: relative;
+  z-index: 1;
+}
+
+/* When dropdown is open, raise the wrapper above other day sections */
+.grouped-destination-wrapper:has(.mobile-dropdown) {
+  z-index: 10000;
+}
+
+/* Target the mobile dropdown */
+.mobile-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 99999 !important;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  min-width: 180px;
+}
+
+/* Raise the day section when it contains an open dropdown */
+.grouped-day-section:has(.mobile-dropdown) {
+  z-index: 10000;
+  position: relative;
+}
+
+/* Mobile specific */
+@media (max-width: 768px) {
+  .mobile-dropdown {
+    z-index: 999999 !important;
   }
-
-  .grouped-time-btn {
-    flex: 1;
+  
+  .grouped-day-section:has(.mobile-dropdown) {
+    z-index: 100000;
   }
-
-  .grouped-destination-time-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .grouped-time-edit-btn {
-    align-self: flex-end;
-  }
-
-  .grouped-custom-activity {
-    flex-wrap: wrap;
-  }
-
-  .grouped-activity-content {
-    width: 100%;
-  }
-
-  .grouped-activity-form-fields {
-    width: 100%;
-    min-width: auto;
-    flex-direction: column;
-  }
-
-  .grouped-activity-form-time {
-    width: 100%;
-  }
-
-  .grouped-activity-form-actions {
-    width: 100%;
-  }
-
-  .grouped-form-btn {
-    flex: 1;
+  
+  .grouped-destination-wrapper:has(.mobile-dropdown) {
+    z-index: 100001;
   }
 }
