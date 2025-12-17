@@ -40,11 +40,11 @@
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   width: 650px;
-  max-width: 96vw;
-  height: 90vh;
-  max-height: 1171px;
-  display: flex;
-  flex-direction: column;
+  max-width: 95vw;
+  height: 85vh;
+  max-height: 900px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   overflow: hidden;
   animation: fadeInUp 0.3s ease-out;
   padding-bottom: 0;
@@ -464,8 +464,10 @@
   border-radius: 16px;
   background: #fff;
   color: #1f2937;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.7;
   white-space: pre-wrap;
+  word-wrap: break-word;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -701,13 +703,73 @@
   justify-content: flex-end;
   gap: 12px;
 }
-/* Tablet breakpoint */
-@media (max-width: 1024px) {
+/* Large screens and desktops */
+@media (min-width: 1441px) {
   .ai-card {
-    width: 90vw;
-    max-width: 600px;
+    width: 700px;
+    max-width: 700px;
     height: 85vh;
-    max-height: 900px;
+    max-height: 1000px;
+  }
+}
+
+/* iPad Pro 12.9" and similar large tablets (landscape) */
+@media (max-width: 1366px) and (min-width: 1025px) {
+  .ai-card {
+    width: 75vw;
+    max-width: 950px;
+    height: 88vh;
+    max-height: 1000px;
+  }
+
+  .ai-header {
+    padding: 24px 32px;
+  }
+
+  .ai-chat-container {
+    padding: 24px 32px;
+  }
+
+  .ai-title {
+    font-size: 1.65rem;
+  }
+
+  .ai-subtitle {
+    font-size: 14px;
+  }
+
+  .ai-header-icon {
+    font-size: 46px;
+    width: 46px;
+    height: 46px;
+  }
+
+  .ai-message-text {
+    font-size: 16px;
+    line-height: 1.75;
+    padding: 15px 20px;
+  }
+
+  .ai-message-role {
+    font-size: 13px;
+  }
+
+  .ai-textarea {
+    font-size: 16px;
+  }
+
+  .ai-input-container {
+    padding: 16px 20px;
+  }
+}
+
+/* iPad Pro 11", iPad Air, and tablets (landscape & portrait) */
+@media (max-width: 1024px) and (min-width: 835px) {
+  .ai-card {
+    width: 82vw;
+    max-width: 820px;
+    height: 88vh;
+    max-height: 950px;
   }
 
   .ai-sidebar {
@@ -717,11 +779,101 @@
   }
 
   .ai-header {
+    padding: 22px 28px;
+  }
+
+  .ai-chat-container {
+    padding: 22px 28px;
+  }
+
+  .ai-title {
+    font-size: 1.55rem;
+  }
+
+  .ai-subtitle {
+    font-size: 13px;
+  }
+
+  .ai-header-icon {
+    font-size: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .ai-input-container {
+    padding: 14px 18px;
+  }
+
+  .ai-message-text {
+    padding: 14px 18px;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .ai-message-role {
+    font-size: 12px;
+  }
+
+  .ai-textarea {
+    font-size: 16px;
+  }
+
+  .ai-empty-text {
+    font-size: 17px;
+  }
+}
+
+/* iPad Mini and smaller tablets (portrait) */
+@media (max-width: 834px) and (min-width: 769px) {
+  .ai-card {
+    width: 85vw;
+    max-width: 700px;
+    height: 88vh;
+    max-height: 900px;
+  }
+
+  .ai-header {
     padding: 20px 24px;
   }
 
   .ai-chat-container {
     padding: 20px 24px;
+  }
+
+  .ai-title {
+    font-size: 1.45rem;
+  }
+
+  .ai-subtitle {
+    font-size: 13px;
+  }
+
+  .ai-header-icon {
+    font-size: 42px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .ai-message-text {
+    font-size: 16px;
+    line-height: 1.75;
+    padding: 14px 18px;
+  }
+
+  .ai-message-role {
+    font-size: 12px;
+  }
+
+  .ai-textarea {
+    font-size: 16px;
+  }
+
+  .ai-empty-text {
+    font-size: 16px;
+  }
+
+  .ai-input-container {
+    padding: 14px 18px;
   }
 }
 
@@ -730,8 +882,8 @@
    ========================= */
 @media (max-width: 768px) {
   .ai-popup-overlay {
-    padding: 8px;
-    align-items: flex-end;
+    padding: 12px;
+    align-items: center;
   }
 
   .ai-container {
@@ -755,106 +907,90 @@
   }
 
   .ai-card {
-    width: 100%;
-    max-width: 100%;
-    height: 92vh;
-    max-height: 92vh;
-    border-radius: 16px 16px 0 0;
-    display: flex;
-    flex-direction: column;
+    width: 95vw;
+    max-width: 95vw;
+    height: 88vh;
+    max-height: 88vh;
+    border-radius: 20px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
     overflow: hidden;
   }
 
-  /* Hide sidebar on mobile */
-  .ai-sidebar {
-    display: none;
-  }
-
-  /* Chat area grows and scrolls */
-  .ai-chat {
+  .ai-chat-container {
     flex: 1;
-    min-height: 0; /* allow overflow */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 12px 16px;
+    padding: 16px;
+    min-height: 0;
   }
 
-  /* Sticky input at bottom (in chat content) */
-  .ai-input {
-    position: sticky;
-    bottom: 0;
-    width: 100%;
-    background: var(--ai-input-bg, #fff);
-    padding: 8px;
-    border-top: 1px solid rgba(0,0,0,0.06);
-    display: flex;
-    gap: 8px;
+  .ai-input-container {
+    padding: 12px 16px;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
   }
 
   .ai-header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 18px 20px;
-    gap: 12px;
+    padding: 16px;
+    gap: 10px;
   }
 
   .ai-header-content {
     width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
   }
 
   .ai-header-icon {
-    font-size: 40px;
-    width: 40px;
-    height: 40px;
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
   }
 
   .ai-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .ai-subtitle {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .ai-header-actions {
     width: 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
+    gap: 8px;
   }
 
   .ai-btn {
-    padding: 8px 16px;
-    font-size: 13px;
-  }
-
-  .ai-chat-container {
-    padding: 16px;
-    min-height: 400px;
+    padding: 8px 14px;
+    font-size: 12px;
   }
 
   .ai-message-content {
-    max-width: 85%;
+    max-width: 80%;
   }
 
   .ai-message-text {
-    padding: 12px 14px;
-    font-size: 14px;
+    padding: 10px 12px;
+    font-size: 13px;
   }
 
-  .ai-input-container {
-    padding: 12px 16px;
+  .ai-message-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
   }
 
   .ai-input-wrapper {
-    padding: 6px 10px;
+    padding: 6px 8px;
   }
 
   .ai-textarea {
     font-size: 14px;
-    max-height: 100px;
+    max-height: 80px;
   }
 
   .ai-send-btn {
@@ -896,13 +1032,13 @@
   }
 }
 
-/* Small mobile devices */
-@media (max-width: 600px) {
+/* Small mobile devices (large phones in landscape) */
+@media (max-width: 667px) and (min-width: 481px) {
   .ai-card {
-    width: 100%;
-    height: 92vh;
-    max-height: 92vh;
-    border-radius: 16px 16px 0 0;
+    width: 94vw;
+    height: 86vh;
+    max-height: 86vh;
+    border-radius: 18px;
   }
 
   .ai-header {
@@ -910,7 +1046,7 @@
   }
 
   .ai-title {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
   }
 
   .ai-subtitle {
@@ -918,14 +1054,17 @@
   }
 
   .ai-header-icon {
-    font-size: 36px;
-    width: 36px;
-    height: 36px;
+    font-size: 34px;
+    width: 34px;
+    height: 34px;
   }
 
   .ai-chat-container {
-    padding: 12px;
-    min-height: 420px;
+    padding: 14px;
+  }
+
+  .ai-input-container {
+    padding: 12px 14px;
   }
 
   .ai-message-avatar {
@@ -939,21 +1078,22 @@
   }
 
   .ai-message-text {
-    padding: 10px 12px;
-    font-size: 13px;
+    padding: 11px 14px;
+    font-size: 15px;
+    line-height: 1.7;
   }
 
   .ai-message-role {
     font-size: 11px;
   }
 
-  .ai-input-container {
-    padding: 10px 12px;
+  .ai-textarea {
+    font-size: 16px;
+    max-height: 80px;
   }
 
-  .ai-textarea {
-    font-size: 13px;
-    max-height: 80px;
+  .ai-empty-text {
+    font-size: 16px;
   }
 
   .ai-send-btn {
@@ -979,31 +1119,93 @@
   }
 }
 
-/* Extra small devices (very small phones) */
+/* Standard phones (portrait) */
 @media (max-width: 480px) {
   .ai-popup-overlay {
-    padding: 0;
+    padding: 8px;
   }
 
   .ai-card {
-    width: 100%;
-    max-width: 100%;
-    height: 95vh;
-    max-height: 95vh;
-    border-radius: 16px 16px 0 0;
+    width: 96vw;
+    max-width: 96vw;
+    height: 90vh;
+    max-height: 90vh;
+    border-radius: 16px;
   }
 
   .ai-header {
-    padding: 12px 14px;
+    padding: 14px;
     gap: 8px;
   }
 
   .ai-title {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
+  }
+
+  .ai-header {
+    padding: 14px;
+  }
+
+  .ai-chat-container {
+    padding: 12px;
+  }
+
+  .ai-message-text {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .ai-textarea {
+    font-size: 16px;
+  }
+
+  .ai-empty-text {
+    font-size: 16px;
+  }
+
+  .ai-input-container {
+    padding: 10px 12px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 375px) {
+  .ai-popup-overlay {
+    padding: 6px;
+  }
+
+  .ai-card {
+    width: 98vw;
+    height: 92vh;
+    max-height: 92vh;
+    border-radius: 14px;
+  }
+
+  .ai-header {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .ai-title {
+    font-size: 1.05rem;
   }
 
   .ai-subtitle {
     font-size: 11px;
+  }
+
+  .ai-message-text {
+    font-size: 15px;
+    line-height: 1.7;
+    padding: 11px 14px;
+  }
+
+  .ai-textarea {
+    font-size: 15px;
+  }
+
+  .ai-empty-text {
+    font-size: 15px;
   }
 
   .ai-header-icon {
@@ -1125,6 +1327,78 @@
 
   .ai-modal-footer {
     padding: 16px 18px;
+  }
+}
+
+/* iPad specific landscape orientation */
+@media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
+  .ai-card {
+    width: 78vw;
+    max-width: 850px;
+    height: 90vh;
+  }
+
+  .ai-header {
+    padding: 20px 26px;
+  }
+
+  .ai-chat-container {
+    padding: 20px 26px;
+  }
+
+  .ai-title {
+    font-size: 1.5rem;
+  }
+
+  .ai-message-text {
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .ai-textarea {
+    font-size: 16px;
+  }
+}
+
+/* iPad specific portrait orientation */
+@media (min-width: 769px) and (max-width: 834px) and (orientation: portrait) {
+  .ai-card {
+    width: 85vw;
+    max-width: 720px;
+    height: 88vh;
+  }
+
+  .ai-header {
+    padding: 22px 26px;
+  }
+
+  .ai-chat-container {
+    padding: 22px 26px;
+  }
+
+  .ai-input-container {
+    padding: 14px 20px;
+  }
+
+  .ai-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* Surface Duo and foldable devices */
+@media (min-width: 540px) and (max-width: 720px) {
+  .ai-card {
+    width: 92vw;
+    height: 84vh;
+    max-height: 750px;
+  }
+
+  .ai-header {
+    padding: 18px 20px;
+  }
+
+  .ai-chat-container {
+    padding: 18px 20px;
   }
 }
 
