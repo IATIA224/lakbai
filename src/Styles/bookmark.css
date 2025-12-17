@@ -22,12 +22,12 @@
 /* Card grid */
 .bookmarks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap:140px;
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  gap: 24px;
   padding: 0;
-  margin: 0 auto; /* ADD THIS - centers the grid */
-  max-width: 1700px; /* ADD THIS - constrains width for better centering */
-  justify-items: center; /* ADD THIS - centers cards within grid cells */
+  margin: 0 auto;
+  max-width: 1700px;
+  justify-items: center;
 }
 
 /* Alternative approach - if you want the grid itself centered with cards left-aligned */
@@ -44,15 +44,23 @@
 /* Update responsive breakpoints */
 @media (max-width: 1400px) {
   .bookmarks-grid {
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
     max-width: 1200px;
   }
 }
 
 @media (max-width: 1200px) {
   .bookmarks-grid {
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     max-width: 900px;
+  }
+}
+
+@media (max-width: 900px) {
+  .bookmarks-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    max-width: 700px;
+    gap: 20px;
   }
 }
 
