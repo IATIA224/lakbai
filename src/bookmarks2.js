@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom'; // ADD THIS IMPORT
 import './Styles/bookmark2.css';
+import './Styles/bookmark2-responsive.css';
 import { db, auth } from './firebase';
 import { useNavigate } from 'react-router-dom';
 import { unlockAchievement } from './profile';
