@@ -27,6 +27,35 @@ function Bookmark() {
   const [selectedFares, setSelectedFares] = useState([]); // For fare checkboxes
   const [selectedCard, setSelectedCard] = useState(null);
 
+  // Keep a CSS variable with the header height so mobile layout can adapt (helps with fixed headers)
+  useEffect(() => {
+    let ro;
+    function setHeaderHeight() {
+      try {
+        const el = document.querySelector('.bm-header');
+        const h = el ? el.offsetHeight : 0;
+        document.documentElement.style.setProperty('--app-header-height', `${h}px`);
+      } catch (err) {
+        // ignore in non-browser environments
+      }
+    }
+    setHeaderHeight();
+    window.addEventListener('resize', setHeaderHeight);
+    window.addEventListener('orientationchange', setHeaderHeight);
+    window.addEventListener('load', setHeaderHeight);
+    const headerEl = document.querySelector('.bm-header');
+    if (window.ResizeObserver && headerEl) {
+      ro = new ResizeObserver(setHeaderHeight);
+      ro.observe(headerEl);
+    }
+    return () => {
+      window.removeEventListener('resize', setHeaderHeight);
+      window.removeEventListener('orientationchange', setHeaderHeight);
+      window.removeEventListener('load', setHeaderHeight);
+      if (ro && headerEl) ro.disconnect();
+    };
+  }, []);
+
   // Add-to-Trip state
   const [addingTripId, setAddingTripId] = useState(null);
   const [addedTripId, setAddedTripId] = useState(null);

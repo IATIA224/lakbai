@@ -211,6 +211,41 @@
   }
   .grid-container {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px; /* increase gap so cards are visually separated */
+    padding: 12px 16px; /* inner padding so cards don't touch container */
   }
+
+  /* Make cards smaller to guarantee spacing on narrow Nest Hub layout */
+  .grid-card {
+    min-width: unset;
+    max-width: 340px;
+    margin: 0; /* rely on grid gap instead of margins */
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(108,99,255,0.14);
+    background-clip: padding-box; /* prevents artifacts when using borders */
+    overflow: visible;
+  }
+
+  /* Add subtle border to emphasize separation when cards sit close */
+  .grid-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 14px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.02) inset;
+  }
+
+  /* Ensure card image doesn't extend and visually connect cards */
+  .card-image {
+    border-radius: 14px 14px 0 0; /* consistent rounding */
+    overflow: hidden;
+  }
+
+  /* Add vertical spacing between card content and footer to avoid overlap look */
+  .card-content { padding-bottom: 72px; }
+
+  /* Make footer sit above edges with a subtle separation */
+  .card-footer { position: relative; box-shadow: 0 -2px 8px rgba(16,24,40,0.04); }
 }
 
