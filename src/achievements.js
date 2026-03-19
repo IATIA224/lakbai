@@ -33,7 +33,7 @@ export default function Achievements({ user, open, onClose, achievements = [] })
   if (!open) return null;
 
   return (
-    <div className="achv-backdrop" data-testid="achievements-backdrop" onClick={onClose}>
+    <div className="achv-backdrop" onClick={onClose}>
       <div className="achv-modal" onClick={(e) => e.stopPropagation()}>
         <div className="achv-header">
           <div className="achv-title">

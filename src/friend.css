@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100000; /* Increased to ensure it's above the header */
+  z-index: 50;
 }
 
 /* Modal */
@@ -104,7 +104,6 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fff;
-  animation: friend-fade-in 0.8s ease-out forwards;
 }
 .friend-avatar {
   width: 44px; height: 44px;
@@ -121,26 +120,6 @@
   font-size: 1rem;
   color: #64748b;
   padding: 12px;
-}
-
-/* Stagger effect: each card fades in with a delay */
-.friend-card:nth-child(1) { animation-delay: 0ms; }
-.friend-card:nth-child(2) { animation-delay: 120ms; }
-.friend-card:nth-child(3) { animation-delay: 240ms; }
-.friend-card:nth-child(4) { animation-delay: 360ms; }
-.friend-card:nth-child(5) { animation-delay: 480ms; }
-.friend-card:nth-child(6) { animation-delay: 600ms; }
-.friend-card:nth-child(n+7) { animation-delay: 720ms; }
-
-@keyframes friend-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* Buttons */
@@ -161,125 +140,3 @@
 .friend-btn-primary:disabled { opacity: .6; cursor: not-allowed; }
 .friend-btn-success { background: #10b981; color: #fff; }
 .friend-btn-danger { background: #ef4444; color: #fff; }
-
-/* ============================================
-   RESPONSIVE MEDIA QUERIES FOR FRIEND MODAL
-============================================ */
-
-/* Tablets (768px) */
-@media (max-width: 768px) {
-  .friend-modal {
-    width: 90vw;
-    max-width: 550px;
-  }
-
-  .friend-modal-header {
-    padding: 12px 16px;
-  }
-
-  .friend-section {
-    padding: 14px 16px;
-  }
-
-  .friend-title {
-    font-size: 1.1rem;
-  }
-
-  .friend-input {
-    padding: 9px 11px;
-    font-size: 0.95rem;
-  }
-}
-
-/* Mobile (600px) */
-@media (max-width: 600px) {
-  .friend-modal {
-    width: 95vw;
-    max-width: none;
-    margin: 0 10px;
-  }
-
-  .friend-modal-header {
-    padding: 10px 14px;
-  }
-
-  .friend-modal-title {
-    font-size: 1.05rem;
-  }
-
-  .friend-close {
-    width: 30px;
-    height: 30px;
-    font-size: 18px;
-  }
-
-  .friend-section {
-    padding: 12px 14px;
-  }
-
-  .friend-title {
-    font-size: 1rem;
-  }
-
-  .friend-input-row {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .friend-input {
-    width: 100%;
-    margin-right: 0;
-  }
-
-  .friend-btn {
-    width: 100%;
-    padding: 10px 14px;
-  }
-
-  .friend-card {
-    padding: 8px;
-  }
-
-  .friend-avatar {
-    width: 40px;
-    height: 40px;
-  }
-}
-
-/* Small mobile (480px) */
-@media (max-width: 480px) {
-  .friend-modal {
-    width: 98vw;
-    margin: 0 5px;
-    border-radius: 12px;
-  }
-
-  .friend-modal-header {
-    padding: 8px 12px;
-  }
-
-  .friend-section {
-    padding: 10px 12px;
-  }
-
-  .friend-card {
-    gap: 10px;
-  }
-
-  .friend-name {
-    font-size: 0.95rem;
-  }
-
-  .friend-sub {
-    font-size: 11px;
-  }
-
-  .friend-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .friend-actions .friend-btn {
-    width: 100%;
-  }
-}

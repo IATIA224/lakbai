@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './Styles/contentManager.css';
 import { CloudinaryContext, Image } from './cloudinary';
-import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
 
 // Cloudinary config (same defaults used elsewhere)
-const CLOUDINARY_UPLOAD_PRESET = "lakbai_preset";
-const CLOUDINARY_CLOUD_NAME = "dcv3eqmde";
+const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
+const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
 
 // Helper to get Cloudinary publicId from URL
 function getCloudinaryPublicId(url) {
@@ -54,7 +52,7 @@ const TagInput = ({ tags = [], onChange, placeholder }) => {
         }}
         onBlur={() => val && add(val)}
         placeholder={placeholder}
-        className="form-input-dest"
+        className="form-input"
       />
     </div>
   );
@@ -202,91 +200,25 @@ function packingKey(cat = '') {
   if (!c) return 'tourist';
   if (c.includes('beach')) return 'beach';
   if (c.includes('cave')) return 'caves';
-  if (c.includes('culture')) return 'cultural';
-  if (c.includes('history') || c.includes('heritage')) return 'historical';
+  if (c.includes('cultur')) return 'cultural';
+  if (c.includes('histor') || c.includes('heritage')) return 'historical';
   if (c.includes('island')) return 'islands';
   if (c.includes('landmark')) return 'landmarks';
   if (c.includes('mountain')) return 'mountains';
   if (c.includes('museum')) return 'museums';
   if (c.includes('park') || c.includes('natural') || c.includes('waterfall') || c.includes('lake')) return 'parks';
   if (c.includes('tour')) return 'tourist';
-  return 'tourist'
+  return 'tourist';
 }
-
-// Add this simple toast utility at the top (before your component)
-function showToast(msg, type = "error", duration = 5500) {
-  const toast = document.createElement("div");
-  toast.textContent = msg;
-  toast.style.cssText = `
-    position: fixed;
-    z-index: 9999;
-    left: 50%;
-    bottom: 40px;
-    transform: translateX(-50%);
-    background: ${type === "error" ? "#f87171" : "#34d399"};
-    color: #fff;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 15px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  `;
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = 1; }, 10);
-  setTimeout(() => {
-    toast.style.opacity = 0;
-    setTimeout(() => document.body.removeChild(toast), 350);
-  }, duration);
-}
-
-const REGION_LIST = [
-  'NCR - National Capital Region',
-  'CAR - Cordillera Administrative Region',
-  'Region I - Ilocos Region',
-  'Region II - Cagayan Valley',
-  'Region III - Central Luzon',
-  'Region IV-A - CALABARZON',
-  'Region IV-B - MIMAROPA',
-  'Region V - Bicol Region',
-  'Region VI - Western Visayas',
-  'Region VII - Central Visayas',
-  'Region VIII - Eastern Visayas',
-  'Region IX - Zamboanga Peninsula',
-  'Region X - Northern Mindanao',
-  'Region XI - Davao Region',
-  'Region XII - SOCCSKSARGEN',
-  'Region XIII - Caraga',
-  'BARMM - Bangsamoro Autonomous Region'
-];
 
 const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [], ignoreId = null }) => {
-  function normalizeCategory(cat) {
-    if (!cat) return '';
-    const c = cat.trim().toLowerCase();
-    if (c.startsWith('beach')) return 'Beach';
-    if (c.startsWith('mountain')) return 'Mountain';
-    if (c.startsWith('tourist')) return 'Tourist';
-    if (c.startsWith('waterfall')) return 'Waterfalls';
-    if (c.startsWith('historical') || c.startsWith('heritage')) return 'Historical';
-    if (c.startsWith('park') || c.startsWith('natural')) return 'Parks';
-    if (c.startsWith('museum')) return 'Museums';
-    if (c.startsWith('landmark')) return 'Landmarks';
-    if (c.startsWith('cultural')) return 'Cultural';
-    if (c.startsWith('cave')) return 'Caves';
-    if (c.startsWith('island')) return 'Islands';
-    if (c.startsWith('lake')) return 'Lakes';
-    return '';
-  }
-
   const [data, setData] = useState(() => {
     const base = {
       name: '',
       category: '',
       description: '',
-      content: '',
-      packingSuggestions: '',
+      content: '',                // legacy (kept, not removed)
+      packingSuggestions: '',     // NEW FIELD
       tags: [],
       location: '',
       price: '',
@@ -296,35 +228,17 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
       status: 'draft',
     };
     if (!initial) return base;
-    // Normalize category from Firestore to match dropdown
-    const category = normalizeCategory(initial.category || '');
-    // Packing suggestion logic
-    const catKey = packingKey(category);
-    const autoPacking = PACKING_TEMPLATES[catKey] || '';
-    const importedPacking = initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '';
-    const packingSuggestions = importedPacking && importedPacking.trim() ? importedPacking : autoPacking;
     return {
       ...base,
       ...initial,
-      category,
-      packingSuggestions,
+      // prefer existing packingSuggestions field; fallback to legacy content
+      packingSuggestions: initial.packingSuggestions || initial.packing_suggestions || initial.packing || initial.content || '',
       media: {
         featuredImage: initial?.media?.featuredImage || '',
         gallery: Array.isArray(initial?.media?.gallery) ? initial.media.gallery : [],
       },
     };
   });
-
-  // Sync local state with initial prop (especially status)
-  useEffect(() => {
-    if (initial) {
-      setData((prev) => ({
-        ...prev,
-        // Normalize category from Firestore to match dropdown
-        category: normalizeCategory(initial.category || ''),
-      }));
-    }
-  }, [initial]);
 
   // normalize existing names; support array of strings or {id,name}
   const normalizedExisting = useMemo(() => {
@@ -359,21 +273,6 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     inp.onchange = async () => {
       const f = inp.files?.[0];
       if (!f) return;
-      const destName = (data.name || '').trim();
-      if (!destName) {
-        showToast('Please enter the destination name first.');
-        return;
-      }
-      const imageName = f.name.replace(/\.[^/.]+$/, "");
-      if (imageName.toLowerCase() !== destName.toLowerCase()) {
-        showToast(
-          `Image file name must match the destination name.\n\n` +
-          `Destination: "${destName}"\n` +
-          `Image file: "${f.name}"\n\n` +
-          `Please rename your image file to "${destName}" before uploading.`
-        );
-        return;
-      }
       setUploading(true);
 
       const formData = new FormData();
@@ -381,16 +280,13 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
       formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
       try {
-        // Upload to Cloudinary
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
           method: 'POST',
           body: formData,
         });
-        if (!res.ok) throw new Error('Cloudinary upload failed');
         const dataRes = await res.json();
         if (!dataRes.secure_url) throw new Error('Cloudinary upload failed');
 
-        // Update local state
         setData((d) => {
           const newGallery = [...(d.media.gallery || []), dataRes.secure_url];
           const newFeatured = d.media.featuredImage || dataRes.secure_url;
@@ -403,19 +299,6 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             },
           };
         });
-
-        // Write to dest-images.json via backend API
-        // Use the file name (without extension) as the image name
-        const imageName = f.name.replace(/\.[^/.]+$/, "");
-        await fetch("http://localhost:4000/api/update-dest-image?folder=destinations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: imageName, // image file name without extension
-            url: dataRes.secure_url
-          })
-        });
-
       } catch (err) {
         console.error('Cloudinary error:', err);
         alert('Image upload failed');
@@ -437,19 +320,12 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     if (!template) return;
     const current = data.packingSuggestions?.trim();
     const lastAuto = lastAutoRef.current;
-    // Replace if empty OR still equal to previous auto template OR matches imported packing
-    if (
-      !userEditedPackingRef.current &&
-      (
-        !current ||
-        current === lastAuto ||
-        current === (initial?.packingSuggestions || initial?.packing_suggestions || initial?.packing || '')
-      )
-    ) {
+    // Replace if empty OR still equal to previous auto template
+    if (!userEditedPackingRef.current && (!current || current === lastAuto)) {
       setData(d => ({ ...d, packingSuggestions: template }));
       lastAutoRef.current = template;
     }
-  }, [data.category, initial]);
+  }, [data.category]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   useEffect(() => {
@@ -458,71 +334,21 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     setNameError(normalizedExisting.includes(n) ? 'A destination with this name already exists.' : '');
   }, [data.name, normalizedExisting]);
 
-  // In the submit function, always save both category and categories
-  const submit = async (e) => {
+  const submit = (e) => {
     e?.preventDefault();
     if (!data.name.trim()) return alert('Please enter a destination name');
     if (nameError) return alert(nameError);
 
-    // Normalize categories before save
-    let categories = [];
-    if (Array.isArray(data.categories) && data.categories.length) {
-      categories = data.categories;
-    } else if (typeof data.categories === 'string' && data.categories.trim()) {
-      categories = data.categories.split(',').map(s => s.trim()).filter(Boolean);
-    } else if (data.category) {
-      categories = [data.category].flat().filter(Boolean);
-    }
-
     const payload = {
       ...data,
-      region: region,
-      category: data.category || '',
+      // Keep legacy "content" (do not remove) & also store new dedicated field
       packingSuggestions: data.packingSuggestions,
-      content: data.content || data.packingSuggestions,
+      content: data.content || data.packingSuggestions, // legacy fallback
       updatedAt: new Date().toISOString(),
       createdAt: initial?.createdAt || new Date().toISOString(),
     };
-
-    // Write region to Firestore (destinations collection)
-    const id = data.name
-      ? String(data.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-      : Math.random().toString(36).slice(2, 10);
-
-    await setDoc(doc(db, 'destinations', id), payload);
-
-    // --- Audit log for update ---
-    if (initial) {
-      await logDestinationUpdate({
-        before: initial,
-        after: payload,
-        user: {
-          name: 'Aclan Jeremy',
-          username: 'aclanjeremy432@gmail.com',
-          role: 'admin',
-          userId: 'cuuEceXHEmOMa37xQeSTFbixeqt2',
-          session: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-        }
-      });
-    }
-
     onSave?.(payload);
   };
-
-  function normalizeRegion(region) {
-    if (!region) return '';
-    // Try to find a matching region in REGION_LIST
-    const r = region.trim().toLowerCase();
-    const match = REGION_LIST.find(opt => opt.toLowerCase().includes(r));
-    return match || '';
-  }
-
-  const [region, setRegion] = useState(() => normalizeRegion(initial?.region));
-
-  // Update region when initial changes
-  useEffect(() => {
-    setRegion(normalizeRegion(initial?.region));
-  }, [initial]);
 
   return (
     <form className="content-form" onSubmit={submit}>
@@ -555,7 +381,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
               required
               value={data.name}
               onChange={(e) => setData({ ...data, name: e.target.value })}
-              className="form-input-dest"
+              className="form-input"
               style={nameError ? { borderColor: '#f87171' } : undefined}
             />
             {nameError && (
@@ -570,7 +396,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <select
               value={data.category}
               onChange={(e) => setData({ ...data, category: e.target.value })}
-              className="form-input-dest"
+              className="form-input"
             >
               <option value="">Select category</option>
               <option>Beach</option>
@@ -595,7 +421,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <textarea
               value={data.description}
               onChange={(e) => setData({ ...data, description: e.target.value })}
-              className="form-input-dest"
+              className="form-input"
             />
           </div>
 
@@ -608,7 +434,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
                 setData({ ...data, packingSuggestions: e.target.value });
               }}
               placeholder="Auto-generated based on category (you can edit)..."
-              className="form-input-dest"
+              className="form-input"
               style={{ minHeight: 220, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
@@ -653,7 +479,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <input
               value={data.location}
               onChange={(e) => setData({ ...data, location: e.target.value })}
-              className="form-input-dest"
+              className="form-input"
             />
           </div>
 
@@ -695,7 +521,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
                     price: e.target.value.replace(/[^\d]/g, '')
                   })
                 }
-                className="form-input-dest"
+                className="form-input"
                 style={{ paddingLeft: 32 }}
               />
             </div>
@@ -706,24 +532,11 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             <input
               value={data.bestTime}
               onChange={(e) => setData({ ...data, bestTime: e.target.value })}
-              className="form-input-dest"
+              className="form-input"
               placeholder="e.g., March to May"
             />
           </div>
-
-          <div>
-            <label>Region</label>
-            <select
-              value={region}
-              onChange={e => setRegion(e.target.value)}
-              className="form-input-dest"
-            >
-              <option value="">Select region</option>
-              {REGION_LIST.map(r => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
+          
         </div>
       )}
 
@@ -780,7 +593,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             onChange={(e) =>
               setData({ ...data, seo: { ...(data.seo || {}), metaTitle: e.target.value } })
             }
-            className="form-input-dest"
+            className="form-input"
           />
           <label>Meta Description</label>
           <textarea
@@ -788,7 +601,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
             onChange={(e) =>
               setData({ ...data, seo: { ...(data.seo || {}), metaDescription: e.target.value } })
             }
-            className="form-input-dest"
+            className="form-input"
           />
           <label>Keywords</label>
           <TagInput
@@ -805,7 +618,7 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
           <select
             value={data.status}
             onChange={(e) => setData({ ...data, status: e.target.value })}
-            className="form-input-dest"
+            className="form-input"
           >
             <option value="draft">Draft</option>
             <option value="published">Published</option>
@@ -849,53 +662,5 @@ const DestinationForm = ({ initial = null, onCancel, onSave, existingNames = [],
     </form>
   );
 };
-
-// Audit log for destination update
-async function logDestinationUpdate({ before, after, user }) {
-  // Find changed fields
-  const changes = {};
-  Object.keys(after).forEach(key => {
-    const beforeVal = before[key] === undefined ? null : before[key];
-    const afterVal = after[key] === undefined ? null : after[key];
-    if (JSON.stringify(afterVal) !== JSON.stringify(beforeVal)) {
-      changes[key] = { from: beforeVal, to: afterVal };
-    }
-  });
-
-  // Compose target string (list changed fields)
-  const changedFields = Object.keys(changes).join(', ');
-  const target = changedFields
-    ? `Changed: ${changedFields}`
-    : `No changes`;
-
-  await addDoc(collection(db, 'auditLogs'), {
-    eventType: 'destination_update',
-    timestamp: serverTimestamp(),
-    action: 'update',
-    category: 'update destination',
-    target,
-    outcome: 'SUCCESS',
-    eventDetails: {
-      destinationId: after.name,
-      changes,
-    },
-    
-    user: {
-      name: user?.name || 'Aclan Jeremy',
-      username: user?.username || 'aclanjeremy432@gmail.com',
-      role: user?.role || 'admin',
-      userId: user?.userId || 'cuuEceXHEmOMa37xQeSTFbixeqt2',
-      session: user?.session || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-    },
-    source: {
-      device: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop',
-      browser: navigator.userAgent,
-      os: navigator.userAgentData?.platform || navigator.platform,
-    },
-    securityFlags: 'None',
-    userAgent: navigator.userAgent,
-    createdAt: serverTimestamp(),
-  });
-}
 
 export default DestinationForm;

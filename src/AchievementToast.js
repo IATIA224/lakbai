@@ -19,7 +19,7 @@ export default function AchievementToast() {
   if (!open) return null;
 
   return (
-    <div className="achievement-notification" data-testid="achievement-notification">
+    <div className="achievement-notification">
       <span className="achievement-icon">🏆</span>
       <span>{message}</span>
     </div>

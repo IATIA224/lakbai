@@ -1,29 +1,9 @@
-html, body, #root {
-  height: 100%;
-}
-
-body {
-  display: flex;
-  flex-direction: column;
-}
-
-#root {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-#main-content {
-  flex: 1;
-}
-
 .global-footer {
   background: #1a2332;
   color: #e3eaf5;
   padding: 40px 0 0 0;
   font-size: 1rem;
   margin-top: 48px;
-  flex-shrink: 0;
 }
 .footer-main {
   display: flex;
@@ -34,8 +14,8 @@ body {
   padding: 0 24px;
 }
 .footer-brand {
-  flex: 1 1 60px;
-  min-width: 60px;
+  flex: 1 1 260px;
+  min-width: 260px;
   margin-bottom: 24px;
 }
 .footer-logo {
@@ -142,16 +122,10 @@ body {
 .footer-bottom a:hover {
   color: #3b5fff;
 }
-/* ============================================
-   RESPONSIVE MEDIA QUERIES FOR FOOTER
-============================================ */
-
-/* Tablets (900px) */
 @media (max-width: 900px) {
   .footer-main {
     flex-direction: column;
     gap: 24px;
-    padding: 0 20px;
   }
   .footer-links {
     flex-direction: column;
@@ -161,99 +135,5 @@ body {
     flex-direction: column;
     gap: 8px;
     text-align: center;
-    padding: 16px 20px;
-  }
-}
-
-/* Mobile (600px) */
-@media (max-width: 600px) {
-  .global-footer {
-    padding: 32px 0 0 0;
-    margin-top: 32px;
-  }
-
-  .footer-main {
-    padding: 0 16px;
-    gap: 20px;
-  }
-
-  .footer-logo {
-    font-size: 1.5rem;
-  }
-
-  .footer-title {
-    font-size: 1.2rem;
-  }
-
-  .footer-desc {
-    font-size: 0.95rem;
-  }
-
-  .footer-links {
-    gap: 20px;
-  }
-
-  .footer-section {
-    min-width: 100%;
-  }
-
-  .footer-heading {
-    font-size: 1rem;
-  }
-
-  .footer-section a {
-    font-size: 0.95rem;
-  }
-
-  .footer-subscribe {
-    flex-direction: column;
-  }
-
-  .footer-subscribe input,
-  .footer-subscribe button {
-    width: 100%;
-  }
-
-  .footer-bottom {
-    padding: 14px 16px;
-    font-size: 0.9rem;
-  }
-}
-
-/* Small mobile (480px) */
-@media (max-width: 480px) {
-  .global-footer {
-    padding: 24px 0 0 0;
-    margin-top: 24px;
-  }
-
-  .footer-main {
-    padding: 0 12px;
-  }
-
-  .footer-brand {
-    margin-bottom: 16px;
-  }
-
-  .footer-logo {
-    font-size: 1.3rem;
-  }
-
-  .footer-title {
-    font-size: 1.1rem;
-  }
-
-  .footer-desc {
-    font-size: 0.9rem;
-  }
-
-  .footer-social a {
-    font-size: 1.1rem;
-    margin-right: 10px;
-  }
-
-  .footer-bottom {
-    padding: 12px;
-    font-size: 0.85rem;
   }
 }

@@ -1,9 +1,4 @@
-import React from 'react';
-import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import App from './App';
-
-//Force real react-router-dom (avoid local manual mock)
+// Force real react-router-dom (avoid local manual mock)
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
   return actual;
@@ -51,6 +46,10 @@ jest.mock('jspdf', () => ({ __esModule: true, default: jest.fn().mockImplementat
 })) }));
 jest.mock('jspdf-autotable', () => ({ __esModule: true, default: jest.fn() }));
 
+import React from 'react';
+import { render } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import App from './App';
 
 test('renders without crashing', () => {
   const { container } = render(
@@ -58,6 +57,5 @@ test('renders without crashing', () => {
       <App />
     </MemoryRouter>
   );
-  // Prefer Testing Library queries over direct node access
-  expect(container).toBeInTheDocument();
+  expect(container.firstChild).toBeTruthy();
 });

@@ -1,327 +1,72 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- Helper functions ---
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    // Helper function to check if user is admin
     function isAdmin() {
-      return isSignedIn() &&
+      return request.auth != null && 
         exists(/databases/$(database)/documents/Admin/$(request.auth.uid));
     }
 
-    // --- Admin collection ---
+    // Allow access to Admin collection for initial setup
     match /Admin/{adminId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn()
-        && adminId == request.auth.uid
-        && (
-          getAfter(/databases/$(database)/documents/Admin/$(request.auth.uid)).data.role == 'admin'
-          || !exists(/databases/$(database)/documents/Admin/__any__)
-        );
-    }
-    
-    // --- Cloudinary Images ---
-    match /cloudinaryImages/{imageName} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // --- Audit Logs ---
-    match /auditLogs/{logId} {
-      allow write: if request.auth != null;
       allow read: if request.auth != null;
-      allow read, write: if isAdmin();
+      // Allow write if it's their own document and either they're the first admin or already an admin
+      allow write: if request.auth != null && 
+                  adminId == request.auth.uid && 
+                  (getAfter(/databases/$(database)/documents/Admin/$(request.auth.uid)).data.role == 'admin' || 
+                   !exists(/databases/$(database)/documents/Admin/__any__));
     }
-    match /auditLogs/{docId} {
-      allow read, write: if true;
-    }
-    
-    // --- Destinations ---
-    match /destinations/{destId} {
-      allow read: if true;
-      allow write: if isAdmin();
 
-      match /ratings/{uid} {
-        allow read: if isSignedIn();
-        allow create, update, delete: if isOwner(uid);
-      }
-    }
-    
-    // --- Reviews ---
-    match /destinations/{destId}/reviews/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-
-    // --- Categories ---
-    match /categories/{categoryId} {
+    // Allow read access to all destinations
+    match /destinations/{destinationId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-
-    // --- Stats Collection ---
-    match /Stats/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (
-        docId in ['addedDestinations', 'completedDestinations'] ||
-        docId.matches('completed_.*')
-      );
-      allow read, write: if isAdmin();
-    }
-
-    // --- Users and subcollections ---
+    
+    // User profiles collection (includes achievements)
     match /users/{userId} {
-      allow read, list: if true;
-      allow create, update: if isOwner(userId) || isAdmin();
-      allow delete: if isOwner(userId) || isAdmin();
-
-      // --- LakbAI Chatbot ---
-      match /aiChats/{chatId} {
-        allow read, write, delete: if isOwner(userId);
-      }
-
-      match /bookmarks/{destId} {
-        allow read, write, delete: if isOwner(userId);
-      }
-			
-      // --- Ratings ---
-      match /ratings/{destId} {
-        allow read: if isSignedIn();
-        allow write, delete: if isOwner(userId);
-      }
-
-      match /friends/{friendUid} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow create: if isSignedIn()
-          && (request.auth.uid == userId || request.auth.uid == friendUid)
-          && request.resource.data.keys().hasOnly(['friendId','since'])
-          && request.resource.data.friendId == friendUid;
-        allow update: if false;
-        allow delete: if isOwner(userId) || request.auth.uid == friendUid || isAdmin();
-      }
-
-      match /viewedDestinations/{docId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-
-      match /trips/{tripId} {
-        allow read, write, delete: if isOwner(userId) || isAdmin();
-      }
-
-      match /notifications/{notifId} {
-        allow read, write, delete: if isOwner(userId) || isAdmin();
-      }
-
-      match /savedPosts/{postId} {
-        allow read, list: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.postId == postId;
-        allow delete: if isOwner(userId);
-        allow update: if false;
-      }
-
-      allow update: if isSignedIn()
-        && request.auth.uid != userId
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['friendRequests'])
-        && !(request.auth.uid in (resource.data.keys().hasAny(['friendRequests']) ? resource.data.friendRequests : []))
-        && (request.auth.uid in (request.resource.data.keys().hasAny(['friendRequests']) ? request.resource.data.friendRequests : []))
-        && (request.resource.data.friendRequests.size() ==
-            (resource.data.keys().hasAny(['friendRequests']) ? resource.data.friendRequests.size() : 0) + 1);
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
     }
+    
 
-    // --- Itinerary ---
-    match /itinerary/{uid} {
-      allow read, create, update, delete: if isOwner(uid) || isAdmin();
-      match /items/{itemId} {
-        allow read, create, update, delete: if isOwner(uid) || isAdmin();
-      }
+    
+    // User bookmarks rules
+    match /userBookmarks/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if request.auth != null && 
+                   (request.auth.uid == userId && 
+                   request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if request.auth != null && 
+                   (request.auth.uid == userId && 
+                   request.resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
     }
-
-    // --- Shared Itineraries ---
-    match /sharedItineraries/{shareId} {
-      allow read: if isSignedIn() && (
-        resource.data.sharedBy == request.auth.uid ||
-        resource.data.sharedWith.hasAny([request.auth.uid])
-      );
-      allow create: if isSignedIn();
-      allow delete: if isSignedIn() && (
-        resource.data.sharedBy == request.auth.uid || 
-        resource.data.sharedWith.hasAny([request.auth.uid]) ||
-        isAdmin()
-      );
-      allow update: if isSignedIn() && (
-        resource.data.sharedBy == request.auth.uid || 
-        resource.data.sharedWith.hasAny([request.auth.uid])
-      );
-      match /items/{itemId} {
-        allow read, write, delete: if isSignedIn() && exists(/databases/$(database)/documents/sharedItineraries/$(shareId)) && (
-          get(/databases/$(database)/documents/sharedItineraries/$(shareId)).data.sharedBy == request.auth.uid ||
-          get(/databases/$(database)/documents/sharedItineraries/$(shareId)).data.sharedWith.hasAny([request.auth.uid])
-        );
-      }
+    
+    // Photos collection rules
+    match /photos/{photoId} {
+      allow read: if request.auth != null && 
+                 (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if request.auth != null && 
+                   (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if request.auth != null && 
+                   (resource.data.userId == request.auth.uid || isAdmin());
     }
-
-    // --- Notifications ---
-    match /notifications/{notifId} {
-      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
-      allow create: if isSignedIn() && (
-        (request.resource.data.type == "ITINERARY_SHARED" && 
-         request.resource.data.data.sharedBy == request.auth.uid) ||
-        isAdmin()
-      );
-      allow update: if isSignedIn() && 
-        request.auth.uid == resource.data.userId &&
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']);
-      allow delete: if isSignedIn() && 
+    
+    // Activities collection rules
+    match /activities/{activityId} {
+      allow read: if request.auth != null && 
+                 (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if request.auth != null && 
+                   (request.resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Travel map collection rules
+    match /travel_map/{locationId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.userId || isAdmin());
+      allow create, update, delete: if request.auth.uid != null &&
         (request.auth.uid == resource.data.userId || isAdmin());
     }
-
-    // --- User Bookmarks ---
-    match /userBookmarks/{uid} {
-      allow read, write, delete: if isOwner(uid) || isAdmin();
-    }
-
-    // --- Photos ---
-    match /photos/{photoId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
-      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
-    }
-
-    // --- Activities ---
-    match /activities/{activityId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
-      allow update: if false;
-    }
-
-    // --- Travel map ---
-    match /travel_map/{locationId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-    }
-
-    // --- Reports (singular) ---
-    match /report/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll([
-          'reporterId', 'reporterName', 'reportedUserId', 'reportedUserName',
-          'contentType', 'reason', 'reasonLabel', 'details',
-          'priority', 'status', 'createdAt'
-        ])
-        && request.resource.data.reporterId == request.auth.uid
-        && (request.resource.data.contentType in ['post','comment'])
-        && (request.resource.data.priority in ['High','Medium','Low'])
-        && request.resource.data.status == 'pending'
-        && (
-          (request.resource.data.contentType == 'post'
-            && request.resource.data.keys().hasAll(['postId'])) ||
-          (request.resource.data.contentType == 'comment'
-            && request.resource.data.keys().hasAll(['postId','commentId']))
-        );
-      allow update, delete: if isAdmin();
-    }
-
-    // --- Reports (plural) ---
-    match /reports/{reportId} {
-      allow read, list, update, delete: if isAdmin();
-    }
-
-    // --- Moderation logs ---
-    match /moderationLogs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn() && (
-        (request.resource.data.action == 'report_submitted' && 
-         request.resource.data.reporterId == request.auth.uid) ||
-        isAdmin()
-      );
-      allow update: if false;
-      allow delete: if isAdmin();
-    }
-
-    // --- Comments ---
-    match /comments/{commentId} {
-      allow read: if true;
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (
-        (request.auth.uid == resource.data.userId &&
-         request.resource.data.diff(resource.data).changedKeys().hasOnly(['text', 'edited', 'updatedAt']) &&
-         request.resource.data.edited == true) ||
-        (
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['hearts','heartedBy']) &&
-          (
-            (!(request.auth.uid in resource.data.heartedBy)) &&
-            (request.auth.uid in request.resource.data.heartedBy) &&
-            request.resource.data.hearts == resource.data.hearts + 1
-          ) ||
-          (
-            (request.auth.uid in resource.data.heartedBy) &&
-            !(request.auth.uid in request.resource.data.heartedBy) &&
-            request.resource.data.hearts == resource.data.hearts - 1
-          )
-        )
-      );
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
-    }
-
-    // --- Community posts ---
-    match /community/{postId} {
-      allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && (
-        (request.auth.uid == resource.data.authorId && 
-         request.resource.data.diff(resource.data).changedKeys().hasAny(
-           ['details', 'location', 'duration', 'budget', 'highlights', 'visibility', 'title', 'updatedAt'])) ||
-        isAdmin() ||
-        (
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['likes','likedBy']) &&
-          (
-            (!(request.auth.uid in resource.data.likedBy)) &&
-            (request.auth.uid in request.resource.data.likedBy) &&
-            request.resource.data.likes == resource.data.likes + 1
-          ) ||
-          (
-            (request.auth.uid in resource.data.likedBy) &&
-            !(request.auth.uid in request.resource.data.likedBy) &&
-            request.resource.data.likes == resource.data.likes - 1
-          )
-        ) ||
-        (
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['comments']) &&
-          (
-            request.resource.data.comments == resource.data.comments + 1 ||
-            request.resource.data.comments == resource.data.comments - 1
-          )
-        )
-      );
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isAdmin());
-    }
-
-    // --- Community Logs ---
-    match /community-log/{logId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-
-    // --- Achievements ---
-    match /achievements/{achievementId} {
-      allow read: if true;
-      allow write: if isAdmin();
-     }
-     
-    // --- Top Rated Destinations ---
-    match /topRatedDestinations/{docId} {
-      allow read: if true;
-    }
-    
-     // User profiles collection (includes achievements)
-     match /users/{userId} {
-       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-     }
   }
 }

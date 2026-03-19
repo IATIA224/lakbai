@@ -1,22 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, setDoc, serverTimestamp, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import {
   deleteDoc, collection, getDocs,
-  orderBy, query as fsQuery, onSnapshot
+  orderBy, query as fsQuery, onSnapshot // removed: addDoc, where, limit
 } from 'firebase/firestore';
 import './Styles/bookmark.css';
 import { unlockAchievement } from './profile';
 import { addTripForCurrentUser } from './Itinerary';
-import { trackDestinationAdded } from './itinerary_Stats';
-import destImages from './dest-images.json';
-import { fetchCloudinaryImages, getImageForDestination } from "./image-router";
-import { category, breakdown } from './rules';
-import { logActivity } from './utils/activityLogger';
-// Add this extra import to load the new background styles just for Bookmarks
-import './bookmark.css';
 
 function Bookmark() {
   const navigate = useNavigate();
@@ -24,37 +16,6 @@ function Bookmark() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('recent');
-  const [selectedFares, setSelectedFares] = useState([]); // For fare checkboxes
-  const [selectedCard, setSelectedCard] = useState(null);
-
-  // Keep a CSS variable with the header height so mobile layout can adapt (helps with fixed headers)
-  useEffect(() => {
-    let ro;
-    function setHeaderHeight() {
-      try {
-        const el = document.querySelector('.bm-header');
-        const h = el ? el.offsetHeight : 0;
-        document.documentElement.style.setProperty('--app-header-height', `${h}px`);
-      } catch (err) {
-        // ignore in non-browser environments
-      }
-    }
-    setHeaderHeight();
-    window.addEventListener('resize', setHeaderHeight);
-    window.addEventListener('orientationchange', setHeaderHeight);
-    window.addEventListener('load', setHeaderHeight);
-    const headerEl = document.querySelector('.bm-header');
-    if (window.ResizeObserver && headerEl) {
-      ro = new ResizeObserver(setHeaderHeight);
-      ro.observe(headerEl);
-    }
-    return () => {
-      window.removeEventListener('resize', setHeaderHeight);
-      window.removeEventListener('orientationchange', setHeaderHeight);
-      window.removeEventListener('load', setHeaderHeight);
-      if (ro && headerEl) ro.disconnect();
-    };
-  }, []);
 
   // Add-to-Trip state
   const [addingTripId, setAddingTripId] = useState(null);
@@ -70,146 +31,20 @@ function Bookmark() {
   // NEW: average ratings loaded from destinations/{id}/ratings
   const [ratingsByDest, setRatingsByDest] = useState({});
 
-  // Confirm "unbookmark"
+  // Confirm “unbookmark”
   const [confirmingUnbookmark, setConfirmingUnbookmark] = useState(false);
   const confirmTimerRef = useRef(null);
-
-  // NEW: UI confirm modal for "Clear All"
-  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
-  const [isClearingAll, setIsClearingAll] = useState(false);
-
-  const [reviewsByDest, setReviewsByDest] = useState({});
-  const [ratingsCountByDest, setRatingsCountByDest] = useState({});
-  const [cloudImages, setCloudImages] = useState([]);
-  const [firebaseImages, setFirebaseImages] = useState([]);
-  const [userReviewsCountByDest, setUserReviewsCountByDest] = useState({});
-
-  // NEW: app-themed error toast state
-  const [errorMsg, setErrorMsg] = useState('');
-  const errorTimerRef = useRef(null);
-  const showError = (msg) => {
-    setErrorMsg(String(msg || 'Something went wrong.'));
-    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-    errorTimerRef.current = setTimeout(() => setErrorMsg(''), 4000);
-  };
 
   // clear pending confirm timer on unmount
   useEffect(() => {
     return () => {
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-      if (errorTimerRef.current) clearTimeout(errorTimerRef.current); // NEW: clear toast timer
     };
-  }, []);
-
-    useEffect(() => {
-      if (!modalOpen || !selected) return;
-  
-      async function fetchReviewCount() {
-        try {
-          const docRef = doc(db, 'destinations', selected.id,);
-          const snap = await getDoc(docRef);
-          if (snap.exists()) {
-            const review = snap.data().review;
-            setReviewsByDest(prev => ({
-              ...prev,
-              [selected.id]: typeof review === 'number' ? review : 0
-            }));
-          } else {
-            setReviewsByDest(prev => ({
-              ...prev,
-              [selected.id]: 0
-            }));
-          }
-        } catch (e) {
-          setReviewsByDest(prev => ({
-            ...prev,
-            [selected.id]: 0
-          }));
-        }
-      }
-  
-      fetchReviewCount();
-    }, [modalOpen, selected]);
-
-  useEffect(() => {
-  if (!modalOpen || !selected) return;
-
-  async function fetchRatingsCount() {
-    try {
-      const ratingsSnap = await getDocs(collection(db, 'destinations', selected.id, 'ratings'));
-      setRatingsCountByDest(prev => ({
-        ...prev,
-        [selected.id]: ratingsSnap.size || 0
-      }));
-    } catch (e) {
-      setRatingsCountByDest(prev => ({
-        ...prev,
-        [selected.id]: 0
-      }));
-    }
-  }
-
-  fetchRatingsCount();
-}, [modalOpen, selected]);
-    
-    const formatPackingSuggestions = (text) => {
-    if (!text) return "No packing suggestions available.";
-    
-    // Split by bullet points (•, -, or *)
-    const lines = text
-      .split(/[•\-*]/)
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-    
-    if (lines.length === 0) return "No packing suggestions available.";
-    
-    return lines;
-  };
-
-  useEffect(() => {
-  if (!modalOpen || !selected) return;
-  async function fetchUserReviewsCount() {
-    try {
-      const reviewsSnap = await getDocs(collection(db, 'destinations', selected.id, 'reviews'));
-      setUserReviewsCountByDest(prev => ({
-        ...prev,
-        [selected.id]: reviewsSnap.size || 0
-      }));
-    } catch (e) {
-      setUserReviewsCountByDest(prev => ({
-        ...prev,
-        [selected.id]: 0
-      }));
-    }
-  }
-  fetchUserReviewsCount();
-}, [modalOpen, selected]);
-
-  useEffect(() => {
-    async function fetchFirebaseImages() {
-      try {
-        const snap = await getDocs(collection(db, 'photos'));
-        const imgs = snap.docs.map(doc => ({
-          name: doc.data().name,
-          publicId: doc.data().publicId, // <-- fetch publicId
-          url: doc.data().url
-        })).filter(img => img.name && img.url);
-        setFirebaseImages(imgs);
-      } catch (e) {
-        console.warn('Failed to fetch images from Firestore:', e);
-        setFirebaseImages([]);
-      }
-    }
-    fetchFirebaseImages();
-  }, []);
-
-  useEffect(() => {
-    fetchCloudinaryImages().then(setCloudImages);
   }, []);
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+    const unsub = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user || null);
       if (user) {
         await fetchBookmarkedDestinations(user.uid);
@@ -218,87 +53,20 @@ function Bookmark() {
       }
       setLoading(false);
     });
-    return () => {
-      if (typeof unsubscribeAuth === "function") {
-        unsubscribeAuth();
-      }
-    };
+    return () => unsub();
   }, []);
 
   // NEW: live count of itinerary items for current user
   useEffect(() => {
     if (!currentUser) { setInTripCount(0); return; }
     const colRef = collection(db, 'itinerary', currentUser.uid, 'items');
-    const unsubscribeSnapshot = onSnapshot(
+    const unsub = onSnapshot(
       colRef,
       (snap) => setInTripCount(snap.size),
       () => setInTripCount(0)
     );
-    return () => {
-      if (typeof unsubscribeSnapshot === "function") {
-        unsubscribeSnapshot();
-      }
-    };
+    return () => unsub();
   }, [currentUser]);
-
-  const fareOptions = [
-  { type: 'sea', label: '₱500 - ₱850+ (Sea Travel: short routes)', value: 'sea-short' },
-  { type: 'sea', label: '₱1,100 - ₱7,100+ (Sea Travel: long routes)', value: 'sea-long' },
-  { type: 'air', label: '₱1,500 - ₱4,000+ (Air Travel: short routes)', value: 'air-short' },
-  { type: 'air', label: '₱2,500 - ₱8,600+ (Air Travel: long routes)', value: 'air-long' },
-  ];
-
-    const getFareLabel = (val) => fareOptions.find(f => f.value === val)?.label || '';
-
-    // Compute the highest fare selected
-  const selectedFareAmounts = selectedFares
-    .map(val => {
-      const label = getFareLabel(val);
-      return parseFareRange(label);
-    })
-    .filter(Boolean);
-
-  const totalSelectedFare = selectedFareAmounts.length > 0
-    ? selectedFareAmounts.reduce((sum, v) => sum + v, 0)
-    : 0;
-
-    function parseFareRange(str) {
-    // Example: "₱2,500 - ₱5,000+ (long routes)"
-    const match = str.match(/₱([\d,]+)\s*-\s*₱([\d,]+)/);
-    if (!match) return 0;
-    // Return the higher value as number
-    return Number(match[2].replace(/,/g, ''));
-  }
-  const getTotalPrice = (basePrice) => {
-    let base = 0;
-    if (typeof basePrice === 'number') base = basePrice;
-    else if (typeof basePrice === 'string') {
-      const digits = basePrice.replace(/[^\d]/g, '');
-      base = digits ? Number(digits) : 0;
-    }
-    return base + totalSelectedFare;
-  };
-
-  const formatPeso = (v) => {
-    if (v === null || v === undefined) return '—';
-    if (typeof v === 'number') return '₱' + v.toLocaleString();
-    if (typeof v === 'string') {
-      if (v.trim().startsWith('₱')) return v;
-      const digits = v.replace(/[^\d]/g, '');
-      return digits ? '₱' + Number(digits).toLocaleString() : v;
-    }
-    return '—';
-  };
-
-  function getBreakdown(price) {
-    if (!price) return [];
-    // Remove non-digits and leading ₱, commas, spaces
-    const digits = String(price).replace(/[^\d]/g, '');
-    if (!digits) return [];
-    const key = `P${digits}`;
-    return breakdown[key] || [];
-  }
-
 
   // Read ONLY current user's bookmarks collection and merge with destination data if needed
   const fetchBookmarkedDestinations = async (uid) => {
@@ -309,38 +77,27 @@ function Bookmark() {
         snap.docs.map(async (b) => {
           const data = b.data() || {};
           // Prefer data stored on the bookmark doc
-          let merged = {};
           if (data.name && data.description) {
-            merged = {
+            return {
               id: b.id,
               ...data,
               savedAt: toDateSafe(data.createdAt || data.updatedAt),
             };
-          } else {
-            // Fallback: merge with source destination doc
-            const dref = doc(db, 'destinations', b.id);
-            const ddoc = await getDoc(dref);
-            merged = {
-              id: b.id,
-              ...(ddoc.exists() ? ddoc.data() : {}),
-              ...data,
-              savedAt: toDateSafe(data.createdAt || data.updatedAt),
-            };
           }
-          // Attach image from dest-images.json if available and not already present
-          if (!merged.image) {
-            merged.image = getImageForDestination(merged.name);
-          }
-          return merged;
+          // Fallback: merge with source destination doc
+          const dref = doc(db, 'destinations', b.id);
+          const ddoc = await getDoc(dref);
+          return {
+            id: b.id,
+            ...(ddoc.exists() ? ddoc.data() : {}),
+            ...data,
+            savedAt: toDateSafe(data.createdAt || data.updatedAt),
+          };
         })
       );
-      
-      const validRows = rows.filter(Boolean);
-      
-      setItems(validRows);
+      setItems(rows.filter(Boolean));
     } catch (e) {
-      // console.error('Error fetching current user bookmarks:', e);
-      showError('Failed to load your bookmarks.');
+      console.error('Error fetching current user bookmarks:', e);
       setItems([]);
     }
   };
@@ -361,11 +118,6 @@ function Bookmark() {
   const removeBookmark = async (destinationId) => {
     try {
       if (!currentUser) { alert('Please login to manage bookmarks'); return; }
-      
-      // Get destination name before removing for activity log
-      const dest = items.find(item => item.id === destinationId);
-      const destName = dest?.name || "destination";
-      
       await deleteDoc(doc(db, 'users', currentUser.uid, 'bookmarks', destinationId)).catch(() => {});
       const legacyRef = doc(db, 'userBookmarks', currentUser.uid);
       const legacyDoc = await getDoc(legacyRef);
@@ -378,27 +130,16 @@ function Bookmark() {
           { merge: true }
         );
       }
-      
-      // Log activity after successful removal
-      await logActivity(`Removed "${destName}" from bookmarks`, "💔");
-      
       setItems((prev) => prev.filter((d) => d.id !== destinationId));
     } catch (error) {
-      showError('Failed to remove bookmark.');
+      console.error('Error removing bookmark:', error);
       alert('Failed to remove bookmark. Please try again.');
     }
   };
 
-  // Change Clear All to open modal instead of window.confirm
   const clearAllBookmarks = async () => {
     if (!currentUser) { alert('Please login to manage bookmarks'); return; }
-    setConfirmClearOpen(true);
-  };
-
-  // NEW: run actual clear when user confirms in the modal
-  const handleConfirmClear = async () => {
-    if (!currentUser) { setConfirmClearOpen(false); alert('Please login to manage bookmarks'); return; }
-    setIsClearingAll(true);
+    if (!window.confirm('Clear all bookmarks?')) return;
     try {
       const colRef = collection(db, 'users', currentUser.uid, 'bookmarks');
       const snap = await getDocs(colRef);
@@ -409,33 +150,19 @@ function Bookmark() {
         { merge: true }
       );
       setItems([]);
-      setConfirmClearOpen(false);
     } catch (e) {
-      // console.error(e);
-      showError('Failed to clear bookmarks.');
+      console.error(e);
       alert('Failed to clear bookmarks.');
-    } finally {
-      setIsClearingAll(false);
     }
   };
-  
 
   // Derived stats
   const stats = useMemo(() => {
     const total = items.length;
     const regions = new Set(items.map((d) => d.region || d.locationRegion || '').filter(Boolean));
-    // Compute average rating from ratingsByDest for all bookmarks that have a rating
-    const rated = items
-      .map((d) => ratingsByDest[d.id]?.avg)
-      .filter((v) => typeof v === 'number' && !isNaN(v));
-    const avgRating = rated.length === 0 ? 0 : rated.reduce((s, v) => s + v, 0) / rated.length;
-    return {
-      total,
-      regions: regions.size,
-      avgRating: Number(avgRating.toFixed(1)),
-      inTrip: inTripCount
-    };
-  }, [items, inTripCount, ratingsByDest]);
+    const avg = total === 0 ? 0 : items.reduce((s, d) => s + (Number(d.rating) || 0), 0) / total;
+    return { total, regions: regions.size, avgRating: Number(avg.toFixed(1)), inTrip: inTripCount }; // <- use live count
+  }, [items, inTripCount]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -475,125 +202,12 @@ function Bookmark() {
     if (!u) { alert('Please sign in to add to My Trips.'); return; }
     setAddingTripId(dest.id);
     try {
-      // Get packing suggestions from category lookup
-      const suggestionsFromCategory = getPackingSuggestionsFromCategory(
-        Array.isArray(dest.categories) ? dest.categories : 
-        Array.isArray(dest.tags) ? dest.tags : 
-        []
-      );
-
-      console.log("[Bookmark] Category:", Array.isArray(dest.categories) ? dest.categories : dest.tags);
-      console.log("[Bookmark] Suggestions from category:", suggestionsFromCategory);
-
-      // Use existing packing suggestions if available, otherwise use generated ones
-      const finalPackingSuggestions = (
-        Array.isArray(dest.packingSuggestions) && dest.packingSuggestions.length > 0
-          ? dest.packingSuggestions
-          : suggestionsFromCategory && suggestionsFromCategory.length > 0
-          ? suggestionsFromCategory
-          : []
-      );
-
-      console.log("[Bookmark] Final packing suggestions:", finalPackingSuggestions);
-
-      // Prepare the destination object with ALL fields INCLUDING packing suggestions
-      const destinationData = {
-        id: dest.id,
-        name: dest.name || '',
-        display_name: dest.name || '',
-        region: dest.region || dest.locationRegion || '',
-        location: dest.location || '',
-        description: dest.description || '',
-        lat: dest.lat || dest.latitude,
-        lon: dest.lon || dest.longitude,
-        place_id: dest.place_id || dest.id,
-        rating: dest.rating || 0,
-        price: dest.price || '',
-        priceTier: dest.priceTier || null,
-        tags: Array.isArray(dest.tags) ? dest.tags : [],
-        categories: Array.isArray(dest.categories) ? dest.categories : [],
-        bestTime: dest.bestTime || dest.best_time || '',
-        image: dest.image || '',
-        // IMPORTANT: Set as array of strings
-        packingSuggestions: finalPackingSuggestions,
-        packingCategory: Array.isArray(dest.categories) ? dest.categories[0] : null,
-        // ADD BREAKDOWN:
-        breakdown: getBreakdown(dest.price) || [],
-        activities: Array.isArray(dest.activities) ? dest.activities : [],
-        transport: dest.transport || '',
-        transportNotes: dest.transportNotes || '',
-        accomType: dest.accomType || '',
-        accomName: dest.accomName || '',
-        accomNotes: dest.accomNotes || '',
-        agency: dest.agency || '',
-        notes: dest.notes || '',
-      };
-
-      console.log("[Bookmark] Final destinationData being saved:", destinationData);
-
-      await addTripForCurrentUser(destinationData);
-      
-      // Track destination added to itinerary
-      await trackDestinationAdded(u.uid, {
-        id: dest.id,
-        name: dest.name,
-        region: dest.region || dest.locationRegion,
-        location: dest.location,
-        latitude: dest.lat || dest.latitude,
-        longitude: dest.lon || dest.longitude,
-      });
-      
-      // Log activity for adding to trip
-      await logActivity(`Added "${dest.name}" to your trip itinerary`, "🗺️");
-      
+      await addTripForCurrentUser(dest);
       setAddedTripId(dest.id);
       setTimeout(() => setAddedTripId(null), 1200);
-
-      // parse estimated expenditure from price and save to users/{uid}/trips
-      const parseEstimatedFromPrice = (p) => {
-        if (p == null) return 0;
-        if (typeof p === "number") return p;
-        const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
-        const nums = s.match(/\d+/g);
-        if (!nums || nums.length === 0) return 0;
-        const numbers = nums.map(Number).filter(Number.isFinite);
-        const sum = numbers.reduce((a, b) => a + b, 0);
-        return Math.round(sum / numbers.length);
-      };
-      const estimated = parseEstimatedFromPrice(dest?.price ?? dest?.priceTier ?? dest?.estimatedExpenditure ?? dest?.budget);
-
-      try {
-        await setDoc(
-          doc(db, 'users', u.uid, 'trips', String(dest.id)),
-          {
-            destId: String(dest.id),
-            name: dest.name || '',
-            region: dest.region || dest.locationRegion || '',
-            location: dest.location || '',
-            rating: dest.rating ?? null,
-            price: dest.price || '',
-            priceTier: dest.priceTier || null,
-            estimatedExpenditure: estimated,
-            tags: Array.isArray(dest.tags) ? dest.tags : [],
-            categories: Array.isArray(dest.categories) ? dest.categories : [],
-            bestTime: dest.bestTime || dest.best_time || '',
-            image: dest.image || '',
-            // IMPORTANT: Include packing suggestions as array
-            packingSuggestions: finalPackingSuggestions,
-            breakdown: destinationData.breakdown,
-            addedBy: u.uid,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-        console.log("[Bookmark] Saved to trips with packing suggestions:", finalPackingSuggestions);
-      } catch (e) {
-        console.warn('users/{uid}/trips write skipped:', e.code || e.message);
-      }
     } catch (e) {
-      console.error('Failed to add to My Trips:', e);
-      showError(`Failed to add to My Trips: ${e.message || 'Unknown error'}`);
+      console.error('Add to trip failed:', e?.code || e?.message, e);
+      alert('Failed to add to My Trips.');
     } finally {
       setAddingTripId(null);
     }
@@ -626,8 +240,7 @@ function Bookmark() {
         const avg = count ? sum / count : 0;
         setRatingsByDest((m) => ({ ...m, [dest.id]: { avg, count } }));
       } catch (e) {
-        // console.error('Load selected avg failed', e);
-        showError('Failed to load ratings.');
+        console.error('Load selected avg failed', e);
       }
     }
   };
@@ -653,19 +266,14 @@ function Bookmark() {
       // Save under the destination's ratings subcollection (canonical for averages)
       await setDoc(
         doc(db, 'destinations', String(selected.id), 'ratings', u.uid),
-        { value: v, userId: u.uid, updatedAt: serverTimestamp(), name: selected.name || '' }, // <-- add name
+        { value: v, userId: u.uid, updatedAt: serverTimestamp() },
         { merge: true }
       );
 
-      // Also keep a user copy (for user profile/achievements)
+      // Optional: also keep a user copy (not used for averages)
       await setDoc(
         doc(db, 'users', u.uid, 'ratings', String(selected.id)),
-        {
-          value: v,
-          updatedAt: serverTimestamp(),
-          name: selected.name || '', // <-- add name
-          destId: String(selected.id)
-        },
+        { value: v, updatedAt: serverTimestamp() },
         { merge: true }
       );
 
@@ -682,13 +290,12 @@ function Bookmark() {
 
       setRatingsByDest((m) => ({ ...m, [selected.id]: { avg, count } }));
     } catch (e) {
-      showError('Failed to save rating.');
+      console.error('Save rating failed:', e);
       alert('Failed to save rating.');
     } finally {
       setSavingRating(false);
     }
   };
-  
 
   // Two-step confirm remove for Bookmarked button
   const handleBookmarkedClick = async () => {
@@ -700,17 +307,12 @@ function Bookmark() {
       confirmTimerRef.current = setTimeout(() => setConfirmingUnbookmark(false), 2500);
       return;
     }
-    
-    // Get destination name for activity log BEFORE removing
-    const destName = selected.name || "destination";
-    
     try {
       await removeBookmark(selected.id);
-      // Activity is already logged inside removeBookmark
       setConfirmingUnbookmark(false);
       closeDetails();
     } catch (e) {
-      showError('Failed to remove bookmark.');
+      console.error('Remove bookmark failed:', e);
       setConfirmingUnbookmark(false);
       alert('Failed to remove bookmark. Please try again.');
     }
@@ -724,154 +326,28 @@ function Bookmark() {
         return;
       }
       
+      // Check if this is the first bookmark
       const userRef = doc(db, 'userBookmarks', currentUser.uid);
       const docSnap = await getDoc(userRef);
       const isFirstBookmark = !docSnap.exists() || !(docSnap.data()?.bookmarks || []).length;
       
+      // Fetch the user's current bookmarks
       const bookmarks = new Set(docSnap.data()?.bookmarks || []);
-      const isRemoving = bookmarks.has(destinationId);
+
+      // Regular bookmark logic...
       
-      // Get destination name for activity log
-      const dest = items.find(item => item.id === destinationId);
-      const destName = dest?.name || "destination";
-
-      if (isRemoving) {
-        bookmarks.delete(destinationId);
-        await logActivity(`Removed "${destName}" from bookmarks`, "💔");
-      } else {
-        bookmarks.add(destinationId);
-        await logActivity(`Bookmarked "${destName}"`, "⭐");
-        
-        // If this is the first bookmark, unlock achievement
-        if (isFirstBookmark) {
-          await unlockAchievement(2, "First Bookmark");
-        }
+      // If this is the first bookmark, unlock the achievement
+      if (isFirstBookmark && !bookmarks.has(destinationId)) {
+        await unlockAchievement(2, "First Bookmark");
       }
-
-      // Update Firestore
-      await setDoc(
-        userRef,
-        {
-          userId: currentUser.uid,
-          bookmarks: Array.from(bookmarks),
-          updatedAt: serverTimestamp()
-        },
-        { merge: true }
-      );
-
-      // Update local state
-      setItems(prev => prev.filter(item => item.id !== destinationId || !isRemoving));
       
     } catch (error) {
       console.error('Error toggling bookmark:', error);
-      showError('Failed to update bookmark.');
     }
   };
-
-  // NEW: transient pop animation state per card
-  const [popIds, setPopIds] = useState({});
-  const triggerCardPop = (id, duration = 180) => {
-    setPopIds((m) => ({ ...m, [id]: true }));
-    setTimeout(() => {
-      setPopIds((m) => {
-        const n = { ...m };
-        delete n[id];
-        return n;
-      });
-    }, duration);
-  };
-
-  // NEW: track cards being removed while waiting for server
-  const [removingIds, setRemovingIds] = useState({});
-  const beginRemove = (id) => setRemovingIds((m) => ({ ...m, [id]: true }));
-  const endRemove = (id) =>
-    setRemovingIds((m) => {
-      const n = { ...m };
-      delete n[id];
-      return n;
-    });
-
-  // Helper to get image URL by destination name
-const getImageForDestination = (name) => {
-  if (typeof name !== "string") return undefined;
-  const found = destImages.find(
-    img =>
-      typeof img.name === "string" &&
-      img.name.trim().toLowerCase() === name.trim().toLowerCase()
-  );
-  return found ? found.url : undefined;
-};
-
-  // Fetch and attach ratings for all bookmarks after loading items
-  useEffect(() => {
-    // Only run if there are items and not all ratings loaded
-    const fetchAllRatings = async () => {
-      const idsToFetch = items
-        .map((d) => d.id)
-        .filter((id) => !(ratingsByDest[id] && typeof ratingsByDest[id].avg === 'number'));
-      if (idsToFetch.length === 0) return;
-      const updates = {};
-      for (const id of idsToFetch) {
-        try {
-          const rsnap = await getDocs(collection(db, 'destinations', id, 'ratings'));
-          let sum = 0, count = 0;
-          rsnap.forEach((r) => {
-            const v = Number(r.data()?.value) || 0;
-            if (v > 0) { sum += v; count += 1; }
-          });
-          const avg = count ? sum / count : 0;
-          updates[id] = { avg, count };
-        } catch {
-          updates[id] = { avg: 0, count: 0 };
-        }
-      }
-      if (Object.keys(updates).length > 0) {
-        setRatingsByDest((prev) => ({ ...prev, ...updates }));
-      }
-    };
-    if (items.length > 0) fetchAllRatings();
-    // eslint-disable-next-line
-  }, [items]);
-
-  // Add this useEffect after your other useEffect hooks (around line 180, after the ratings fetch effect)
-  useEffect(() => {
-    const cardsContainer = document.querySelector('.bookmarks-grid');
-    if (cardsContainer) {
-      cardsContainer.style.zoom = '100%';
-    }
-    
-    return () => {
-      if (cardsContainer) {
-        cardsContainer.style.zoom = '100%';
-      }
-    };
-  }, [sorted]); // Re-run when sorted changes
-
-  function getFirebaseImageForDestination(firebaseImages, destName) {
-    if (!destName) return null;
-    const normalized = destName.trim().toLowerCase();
-    const found = firebaseImages.find(img =>
-      (img.name && img.name.trim().toLowerCase() === normalized) ||
-      (img.publicId && img.publicId.trim().toLowerCase() === normalized)
-    );
-    return found && found.url ? found.url : null;
-  }
 
   return (
     <div className="App bm-page" aria-busy={loading}>
-      {/* Animated background layers */}
-      <div className="bm-bg-dots" />
-      <div className="bm-bg-wave" />
-      <div className="bm-bg-circle c1" />
-      <div className="bm-bg-circle c2" />
-      <div className="bm-bg-circle c3" />
-      <div className="bm-bg-circle c4" />
-      <div className="bm-bg-shapes">
-        <div className="bm-bg-shape s1" />
-        <div className="bm-bg-shape s2" />
-        <div className="bm-bg-shape s3" />
-      </div>
-
       {loading && (
         <div className="bm-loading-backdrop">
           <div className="bm-loading-container">
@@ -913,7 +389,7 @@ const getImageForDestination = (name) => {
         <div className="bm-title-wrap">
           <div className="bm-title-icon">❤️</div>
           <div>
-            <h1 className="bm-title">Bookmarks</h1>
+            <h1 className="bm-title">My Bookmarks</h1>
             <p className="bm-subtitle">Your saved destinations with quick previews and actions</p>
           </div>
         </div>
@@ -965,7 +441,7 @@ const getImageForDestination = (name) => {
 
       {/* Grid */}
       {sorted.length === 0 ? (
-        <section className="bm-empty" style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.6)', borderRadius: '12px', padding: '16px' }}>
+        <section className="bm-empty">
           <div className="bm-empty-heart">
             <span>❤️</span>
           </div>
@@ -981,72 +457,32 @@ const getImageForDestination = (name) => {
       ) : (
         <div className="bookmarks-grid">
           {sorted.map((d) => (
-            <article
-              key={d.id}
-              className={`bm-card ${popIds[d.id] ? 'pop-anim' : ''} ${removingIds[d.id] ? 'removing' : ''}`}
-            >
+            <article key={d.id} className="bm-card">
               {/* Top art */}
               <div className="bm-card-hero">
-              {cloudImages.length === 0 ? (
-                <div style={{ width: "100%", height: 150, background: "#e0e7ef" }}>Loading...</div>
-              ) : (
-                (() => {
-                  const cloudUrl = getImageForDestination(cloudImages, d.name);
-                  const firebaseUrl = getFirebaseImageForDestination(firebaseImages, d.name);
-                  const imgUrl = cloudUrl || firebaseUrl;
-                  return imgUrl ? (
-                  <img
-                    src={imgUrl}
-                    alt={d.name}
-                    className="bm-card-img"
-                    style={{
-                      width: '100%',
-                      height: 180,
-                      objectFit: 'cover',
-                      borderTopLeftRadius: 16,
-                      borderTopRightRadius: 16,
-                      marginBottom: 8,
-                      background: '#eee'
-                    }}
-                  />
-                ) : null;
-            })()
-            )}
-            </div>
-            <div className="bm-saved-badge">Saved {fmtSaved(d.savedAt)}</div>
-              <button
-                className="bm-heart-bubble"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  triggerCardPop(d.id);
-                  beginRemove(d.id);
-                  
-                  // Get destination name for activity log BEFORE removing
-                  const destName = d.name || "destination";
-                  
-                  try {
-                    await removeBookmark(d.id);
-                    // Activity is already logged inside removeBookmark
-                  } finally {
-                    endRemove(d.id);
-                  }
-                }}
-                aria-label="Remove from bookmarks"
-                title="Remove"
-              >
-                ❤️
-              </button>
+                <div className="sun-decoration" />
+                <div className="wave-decoration" />
+                <div className="bm-saved-badge">Saved {fmtSaved(d.savedAt)}</div>
+                <button
+                  className="bm-heart-bubble"
+                  onClick={(e) => { e.stopPropagation(); removeBookmark(d.id); }}
+                  aria-label="Remove from bookmarks"
+                  title="Remove"
+                >
+                  ❤️
+                </button>
+              </div>
 
               {/* Content */}
               <div className="bm-card-body">
                 <div className="bm-card-head">
                   <h3 className="bm-card-title">{d.name}</h3>
                   <div className="bm-card-rating" title="Average Rating">
-                    <span>⭐</span> {Number(d.avgRating || d.rating || 0) > 0 ? Number(d.avgRating || d.rating).toFixed(1) : '0'}
+                    <span>⭐</span> {ratingsByDest[d.id]?.avg?.toFixed(1) || '—'}
                   </div>
                 </div>
 
-                <a href="https://maps.google.com" className="bm-region-link" onClick={(e) => e.preventDefault()} title="Region">
+                <a href="#" className="bm-region-link" onClick={(e) => e.preventDefault()} title="Region">
                   {d.region || d.locationRegion}
                 </a>
 
@@ -1058,10 +494,11 @@ const getImageForDestination = (name) => {
                     <div className="bm-pill">{d.bestTime || d.best_time || '—'}</div>
                   </div>
                   <div className="bm-info-item">
-                    <div className="bm-info-label1">Price:</div>
-                    <div className="bm-pill">{d.price ?? '—'}</div>
+                    <div className="bm-info-label">Price Range:</div>
+                    <div className={`bm-pill ${d.priceTier === 'less' ? 'pill-green' : 'pill-gray'}`}>
+                      {d.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}
+                    </div>
                   </div>
-                  {/* REMOVED LOCATION FROM CARD - Only shows in details modal */}
                 </div>
 
                 <div className="bm-tags">
@@ -1082,24 +519,8 @@ const getImageForDestination = (name) => {
                   >
                     Add to Trip
                   </button>
-                  <button
-                    className="itn-btn danger"
-                    onClick={async () => {
-                      triggerCardPop(d.id);
-                      beginRemove(d.id);
-                      
-                      const destName = d.name || "destination";
-                      
-                      try {
-                        await removeBookmark(d.id);
-                      } finally {
-                        endRemove(d.id);
-                      }
-                    }}
-                    disabled={removingIds[d.id] === true}
-                    aria-busy={removingIds[d.id] === true}
-                  >
-                    <span className="bm-trash-responsive">🗑️</span> <span className='bm-remove-text'>Remove</span>
+                  <button className="itn-btn danger" onClick={() => removeBookmark(d.id)}>
+                    <span>🗑️</span> Remove
                   </button>
                 </div>
               </div>
@@ -1109,46 +530,21 @@ const getImageForDestination = (name) => {
       )}
 
       {/* NEW: Details modal */}
-      {modalOpen && selected && ReactDOM.createPortal(
+      {modalOpen && selected && (
         <div className="bm-modal-backdrop" onClick={closeDetails}>
           <div className="bm-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <button className="bm-modal-close" onClick={closeDetails} aria-label="Close">✕</button>
+            <button className="bm-modal-close" onClick={closeDetails} aria-label="Close details">✕</button>
 
-              <div className="bm-modal-hero">
-              {cloudImages.length === 0 ? (
-                <div style={{ width: "100%", background: "#e0e7ef", borderRadius: 16  }} />
-              ) : (
-                (() => {
-                const cloudUrl = getImageForDestination(cloudImages, selected.name);
-                const firebaseUrl = getFirebaseImageForDestination(firebaseImages, selected.name);
-                const imgUrl = cloudUrl || firebaseUrl;
-                return imgUrl ? (
-                  <img
-                    src={imgUrl}
-                    alt={selected.name}
-                    className="bm-modal-img"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      maxHeight: 300,
-                      objectFit: 'cover',
-                      borderTopLeftRadius: 10,
-                      borderTopRightRadius: 10,
-                      background: '#eee'
-                    }}
-                  />
-                ) : (
-                  <div className="bm-modal-sky" />
-                );
-            })()
-            )}
-          </div>
+            <div className="bm-modal-hero">
+              <div className="bm-modal-sky" />
+              <div className="bm-modal-wave" />
+            </div>
 
             <div className="bm-modal-body">
               <div className="bm-modal-main">
                 <h2 className="bm-modal-title">{selected.name}</h2>
 
-                <a className="bm-modal-region" href="https://maps.google.com" onClick={(e) => e.preventDefault()}>
+                <a className="bm-modal-region" href="#" onClick={(e) => e.preventDefault()}>
                   {selected.region || selected.locationRegion}
                 </a>
 
@@ -1157,23 +553,10 @@ const getImageForDestination = (name) => {
                     <span className="star">⭐</span>
                     {(ratingsByDest[selected.id]?.count ?? 0) > 0
                       ? ratingsByDest[selected.id].avg.toFixed(1)
-                      : '0'} <span className="muted">(Average Rating)</span>
+                      : '—'} <span className="muted">(Average Rating)</span>
                   </div>
-                    <span className="muted">
-                      ({ratingsCountByDest[selected.id] !== undefined
-                        ? ratingsCountByDest[selected.id]
-                        : 0} ratings)
-                    </span>
-                    <span className="label">
-                      Reviews: {
-                        userReviewsCountByDest[selected.id] !== undefined
-                          ? userReviewsCountByDest[selected.id]
-                          : 0
-                      }
-                    </span>
-
                   <div className="bm-user-rating">
-                    <span className="label">Rating:</span>
+                    <span className="label">Your Rating:</span>
                     <div className="bm-stars" aria-label="Your Rating">
                       {[1,2,3,4,5].map((v) => (
                         <button
@@ -1186,66 +569,6 @@ const getImageForDestination = (name) => {
                       ))}
                     </div>
                   </div>
-                </div>
-                {/* Mobile: inline Trip Information right after ratings */}
-                <div className="bm-info-panel-inline">
-                  <h3 className="bm-info-title">Trip Information</h3>
-
-                  <div className="bm-info-row">
-                    <div className="bm-info-key">Price:</div>
-                    <div className="bm-info-val">
-                      <span className="chip-green">
-                        {selectedFares.length > 0
-                          ? `₱${getTotalPrice(selected.price).toLocaleString()}`
-                          : formatPeso(selected.price)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="bm-info-row">
-                    <div className="bm-info-key">Best Time to Visit:</div>
-                    <div className="bm-info-val">{selected.bestTime || selected.best_time || '—'}</div>
-                  </div>
-
-                  {selected.location && (
-                    <div className="bm-info-row">
-                      <div className="bm-info-key">Location:</div>
-                      <div className="bm-info-val">
-                        <span className="badge blue1">{selected.location}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bm-info-row">
-                    <div className="bm-info-key">Categories:</div>
-                    <div className="bm-info-val">
-                      {selected.category ? (
-                        <span className="badge purple1">{selected.category}</span>
-                      ) : (
-                        <span className="badge purple">No category</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="bm-modal-actions">
-                  <button
-                    className={`bm-bookmarked ${confirmingUnbookmark ? 'confirm' : ''}`}
-                    onClick={handleBookmarkedClick}
-                    aria-pressed="true"
-                    title={confirmingUnbookmark ? 'Click again to remove' : 'Bookmarked'}
-                  >
-                    <span className="bm-heart">💗</span>
-                    {confirmingUnbookmark ? 'Click again to remove' : 'Bookmarked'}
-                  </button>
-                  <button
-                    className={`itn-btn success ${addedTripId === selected.id ? 'btn-success' : ''}`}
-                    onClick={() => onAddToTrip(selected)}
-                    disabled={addingTripId === selected.id}
-                    aria-busy={addingTripId === selected.id}
-                  >
-                    <span>{addedTripId === selected.id ? '✔' : '+'}</span>
-                    {addingTripId === selected.id ? ' Adding…' : addedTripId === selected.id ? ' Added!' : ' Add to Trip'}
-                  </button>
-                </div>
                 </div>
 
                 <section>
@@ -1261,189 +584,37 @@ const getImageForDestination = (name) => {
                     ))}
                   </div>
                 </section>
-                <div className="section-title">Price Breakdown:</div>
-                <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different factors</div>
-                <div className="breakdown-box">
-                {(() => {
-                  // Use budget if available, otherwise use price
-                  const budgetOrPrice = selected.budget || selected.price;
-                  if (!budgetOrPrice) return null;
-
-                  const breakdownArr = getBreakdown(budgetOrPrice);
-                  if (!breakdownArr.length) return <span>No breakdown available.</span>;
-                  return (
-                    <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', justifyContent: 'left', textAlign: 'left' }}>
-                      {breakdownArr.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  );
-                })()}
-                </div>
-
-                <div className="section-title">Additional Fees:</div>
-                <div style={{ fontWeight: '300', fontStyle: 'italic', justifyContent: 'left', textAlign: 'left', marginBottom: '10px' }}>Price may vary on different class</div>
-                <div className="breakdown-box" style={{textAlign: 'left'}}>
-                  {/* NEW: Fare checkboxes */}
-                  <div style={{ marginBottom: 10 }}>
-                    {fareOptions.map(opt => (
-                      <label key={opt.value} style={{ display: 'block', marginBottom: 2, fontWeight: 'normal', fontSize: 14 }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedFares.includes(opt.value)}
-                          onChange={e => {
-                            setSelectedFares(prev => {
-                              if (e.target.checked) return [...prev, opt.value];
-                              return prev.filter(v => v !== opt.value);
-                            });
-                          }}
-                        />
-                        <span style={{ marginLeft: 6 }}>{opt.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {selected && (
-                  <div style={{ marginBottom: 24 }}>
-                    <div className="section-title" style={{ marginBottom: 8 }}>User Reviews</div>
-                    <ReviewsList destId={selected.id} currentUser={currentUser} />
-                  </div>
-                )}
-                
-                <div className="section-title">Write a Review</div>
-                <div
-                  className="review-box"
-                  style={{
-                    width: '100%',          // fill available width
-                    gridColumn: '1 / -1',   // span all columns of the parent grid
-                    marginBottom: 18,
-                    zIndex: 1
-                  }}
-                >
-                <WriteReview
-                  destId={selected.id}
-                  user={currentUser}
-                  onReviewSaved={() => {
-                    // Optionally reload reviews or show a message
-                    // Refresh user reviews count after submit
-                    (async () => {
-                      try {
-                        const reviewsSnap = await getDocs(collection(db, 'destinations', selected.id, 'reviews'));
-                        setUserReviewsCountByDest(prev => ({
-                          ...prev,
-                          [selected.id]: reviewsSnap.size || 0
-                        }));
-                      } catch (e) {}
-                    })();
-                  }}
-                />
-                </div>
 
                 <section>
                   <h3 className="bm-section-title">Packing Suggestions</h3>
-                  <div className="packing-box">
-                    {(() => {
-                      if (!selected) return <div className="packing-empty">No packing suggestions available.</div>;
-
-                      let raw = selected.packingSuggestions || selected.packing || "";
-                      if (Array.isArray(raw) && raw.length > 0) {
-                        return (
-                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
-                            {raw.map((s, i) => <li key={i}>{s}</li>)}
-                          </ul>
-                        );
-                      }
-                      if (typeof raw === "string" && raw.trim().length > 0) {
-                        // Split by line or bullet for display
-                        const lines = raw.split(/[\n•\-*]/).map(l => l.trim()).filter(Boolean);
-                        if (lines.length > 0) {
-                          return (
-                            <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
-                              {lines.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
-                          );
-                        }
-                      }
-
-                      const { category, breakdown } = require('./rules');
-                      let cats =
-                        Array.isArray(selected.category)
-                          ? selected.category
-                          : Array.isArray(selected.categories)
-                          ? selected.categories
-                          : typeof selected.category === "string"
-                          ? [selected.category]
-                          : typeof selected.categories === "string"
-                          ? [selected.categories]
-                          : [];
-
-                      let found = [];
-                      for (let c of cats) {
-                        if (!c) continue;
-                        const key = c.trim().toLowerCase();
-                        if (category[key]) {
-                          found = category[key];
-                          break;
-                        }
-                        const singular = key.endsWith("s") ? key.slice(0, -1) : key;
-                        if (category[singular]) {
-                          found = category[singular];
-                          break;
-                        }
-                      }
-                      if (found.length > 0) {
-                        return (
-                          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6', textAlign: 'left' }}>
-                            {found.map((s, i) => <li key={i}>{s}</li>)}
-                          </ul>
-                        );
-                      }
-
-                      return <div className="packing-empty">No packing suggestions available.</div>;
-                    })()}
+                  <div className="bm-pack-card">
+                    {selected.packing || 'Swimwear, sunscreen, light clothing, waterproof bag, snorkeling gear'}
                   </div>
                 </section>
               </div>
-              
 
               <aside className="bm-modal-aside">
                 <div className="bm-info-panel">
                   <h3 className="bm-info-title">Trip Information</h3>
 
                   <div className="bm-info-row">
-                    <div className="bm-info-key">Price:</div>
+                    <div className="bm-info-key">Price Range</div>
                     <div className="bm-info-val">
-                      <span className="chip-green">
-                        {selectedFares.length > 0
-                        ? `₱${getTotalPrice(selected.price).toLocaleString()}`
-                        : formatPeso(selected.price)}</span>
+                      <span className="chip-green">{selected.priceTier === 'less' ? 'Less Expensive' : 'Expensive'}</span>
                     </div>
                   </div>
 
                   <div className="bm-info-row">
-                    <div className="bm-info-key">Best Time to Visit:</div>
+                    <div className="bm-info-key">Best Time to Visit</div>
                     <div className="bm-info-val">{selected.bestTime || selected.best_time || '—'}</div>
                   </div>
 
-                  {/* ADD THIS NEW SECTION FOR LOCATION */}
-                  {selected.location && (
-                    <div className="bm-info-row">
-                      <div className="bm-info-key">Location:</div>
-                      <div className="bm-info-val">
-                        <span className="badge blue1">{selected.location}</span>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="bm-info-row">
-                    <div className="bm-info-key">Categories:</div>
+                    <div className="bm-info-key">Categories</div>
                     <div className="bm-info-val">
-                      {selected.category ? (
-                        <span className="badge purple1">{selected.category}</span>
-                      ) : (
-                        <span className="badge purple">No category</span>
-                      )}
+                      {(selected.categories || selected.tags || []).map((c, i) => (
+                        <span key={i} className="bm-chip soft">{c}</span>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1471,91 +642,6 @@ const getImageForDestination = (name) => {
               </aside>
             </div>
           </div>
-        </div>,
-        document.body
-      )}
-
-      {/* NEW: Confirm Clear All modal (matches existing modal theme) */}
-      {confirmClearOpen && ReactDOM.createPortal(
-        <div className="bm-modal-backdrop" onClick={() => setConfirmClearOpen(false)}>
-          <div
-            className="bm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="clear-all-title"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: 560,
-              background: '#ffffff' // removed glass effect
-            }}
-          >
-            <button className="bm-modal-close" onClick={() => setConfirmClearOpen(false)} aria-label="Close">✕</button>
-            <div
-              className="bm-modal-body"
-              // make it a vertical stack: title -> text -> actions
-              style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-            >
-              <h2
-                id="clear-all-title"
-                className="bm-modal-title"
-                style={{ fontSize: '1.25rem', margin: '0 0 4px', lineHeight: 1.2 }}
-              >
-                Clear all bookmarks?
-              </h2>
-
-              <p className="bm-modal-desc" style={{ margin: 0 }}>
-                This will remove all saved destinations from your bookmarks. You can add them again later from Explore.
-              </p>
-
-              <div className="bm-modal-actions" style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button className="itn-btn" onClick={() => setConfirmClearOpen(false)} disabled={isClearingAll}>
-                  Cancel
-                </button>
-                <button
-                  className="itn-btn danger"
-                  onClick={handleConfirmClear}
-                  disabled={isClearingAll}
-                  aria-busy={isClearingAll}
-                >
-                  {isClearingAll ? 'Clearing…' : 'Clear All'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* NEW: themed error toast (click to dismiss) */}
-      {errorMsg && (
-        <div
-          role="alert"
-          className="bm-toast bm-toast-error"
-          onClick={() => setErrorMsg('')}
-          style={{
-            position: 'fixed',
-            right: 16,
-            bottom: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '12px 14px',
-            borderRadius: 12,
-            // glass effect for toast
-            background: 'rgba(255, 255, 255, 1)',
-
-            color: '#1f2937',
-            border: '1px solid rgba(255,255,255,0.35)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
-            zIndex: 1000,
-            cursor: 'pointer',
-            fontWeight: 500
-          }}
-          title="Dismiss"
-        >
-          <span aria-hidden="true">⚠️</span>
-          <span>Error:</span>
-          <span style={{ opacity: 0.95 }}>{errorMsg}</span>
         </div>
       )}
     </div>
@@ -1563,371 +649,3 @@ const getImageForDestination = (name) => {
 }
 
 export default Bookmark;
-
-function WriteReview({ destId, user, onReviewSaved }) {
-  const [review, setReview] = useState('');
-  const [star, setStar] = useState(0); // NEW: star rating state
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
-
-  useEffect(() => {
-    let ignore = false;
-    async function checkExistingReview() {
-      if (!user || !destId) {
-        setAlreadyReviewed(false);
-        return;
-      }
-      try {
-        const reviewDoc = await getDoc(doc(db, "destinations", String(destId), "reviews", user.uid));
-        if (!ignore) setAlreadyReviewed(reviewDoc.exists());
-      } catch {
-        if (!ignore) setAlreadyReviewed(false);
-      }
-    }
-    checkExistingReview();
-    return () => { ignore = true; };
-  }, [user, destId, success]);
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setSaving(true);
-  setError('');
-  setSuccess('');
-  try {
-    if (!user) throw new Error("You must be signed in to write a review.");
-    if (!review.trim()) throw new Error("Review cannot be empty.");
-    if (star < 1 || star > 5) throw new Error("Please select a star rating.");
-    if (alreadyReviewed) throw new Error("You have already submitted a review for this destination.");
-    const reviewData = {
-      userId: user.uid,
-      userName: user.displayName || user.email || "Anonymous",
-      review: review.trim(),
-      rating: star, // NEW: save star rating
-      createdAt: new Date().toISOString(),
-    };
-    // Save review
-    await setDoc(
-      doc(db, "destinations", String(destId), "reviews", user.uid),
-      reviewData,
-      { merge: true }
-    );
-    // Save rating in ratings subcollection (for aggregation)
-    await setDoc(
-      doc(db, "destinations", String(destId), "ratings", user.uid),
-      {
-        value: star,
-        userId: user.uid,
-        updatedAt: serverTimestamp(),
-        name: user.displayName || user.email || "Anonymous",
-      },
-      { merge: true }
-    );
-    setSuccess("Review submitted!");
-    setReview('');
-    setStar(0);
-    if (onReviewSaved) onReviewSaved();
-  } catch (err) {
-    setError(err.message || "Failed to submit review.");
-    console.error("Firestore error:", err);
-    console.log("destId:", destId);
-    console.log("user:", user);
-  } finally {
-    setSaving(false);
-  }
-};
-
-  if (alreadyReviewed && !success) {
-    return (
-      <div style={{ color: "#0862eaff", fontWeight: 500, marginBottom: 8 }}>
-        You have already submitted a review for this destination.
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <span style={{ fontWeight: 500, fontSize: 13 }}>Your Rating:</span>
-        {[1, 2, 3, 4, 5].map(n => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => setStar(n)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: alreadyReviewed || saving ? 'not-allowed' : 'pointer',
-              fontSize: 18,
-              color: n <= star ? '#ffb300' : '#d1d5db',
-              padding: 0,
-              marginRight: 2,
-              transition: 'color 0.15s',
-              outline: 'none'
-            }}
-            disabled={alreadyReviewed || saving}
-            aria-label={`${n} star${n > 1 ? 's' : ''}`}
-          >
-            ★
-          </button>
-        ))}
-      </div>
-      <div style={{ position: 'relative' }}>
-        <textarea
-          value={review}
-          onChange={e => setReview(e.target.value)}
-          placeholder={alreadyReviewed ? "You have already submitted a review." : "Write your review here..."}
-          rows={3}
-          style={{
-            width: '100%',
-            borderRadius: 8,
-            border: '1px solid #e5e7eb',
-            padding: 12,
-            paddingRight: 50,
-            fontSize: 15,
-            resize: 'vertical'
-          }}
-          disabled={saving || alreadyReviewed}
-        />
-        <button
-          type="submit"
-          aria-label="Submit review"
-          disabled={saving || !review.trim() || alreadyReviewed || star < 1}
-          style={{
-            position: 'absolute',
-            right: 8,
-            bottom: 8,
-            width: 36,
-            height: 36,
-            borderRadius: '999px',
-            background: 'transparent',
-            border: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: saving || !review.trim() || alreadyReviewed || star < 1 ? 'not-allowed' : 'pointer',
-            opacity: saving || !review.trim() || alreadyReviewed || star < 1 ? 0.6 : 1
-          }}
-        >
-          <img src="send.png" alt="Send" style={{ width: 18, height: 18 }} />
-        </button>
-      </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {alreadyReviewed && !success && (
-          <span style={{ color: "#0862eaff" }}>You have already submitted a review for this destination.</span>
-        )}
-        {success && <span style={{ color: "#22c55e" }}>{success}</span>}
-        {error && <span style={{ color: "#e74c3c" }}>{error}</span>}
-      </div>
-    </form>
-  );
-}
-
-function ReviewsList({ destId, currentUser }) {
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [userRating, setUserRating] = useState(null);
-
-  useEffect(() => {
-    let ignore = false;
-    async function fetchReviews() {
-      setLoading(true);
-      try {
-        const snap = await getDocs(collection(db, "destinations", String(destId), "reviews"));
-        let arr = [];
-        snap.forEach(docSnap => {
-          const data = docSnap.data();
-          arr.push({
-            id: docSnap.id,
-            userName: data.userName || "Anonymous",
-            review: data.review || "",
-            createdAt: data.createdAt,
-            userId: data.userId,
-            rating: typeof data.rating === "number" ? data.rating : undefined,
-          });
-        });
-        // Sort by newest first
-        arr.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-        if (!ignore) setReviews(arr);
-      } catch {
-        if (!ignore) setReviews([]);
-      }
-      setLoading(false);
-    }
-    if (destId) fetchReviews();
-    return () => { ignore = true; };
-  }, [destId]);
-
-  // Fetch current user's star rating for this destination
-  useEffect(() => {
-    if (!currentUser || !destId) { setUserRating(null); return; }
-    let ignore = false;
-    async function fetchUserRating() {
-      try {
-        const ratingDoc = await getDoc(doc(db, "destinations", String(destId), "ratings", currentUser.uid));
-        if (!ignore) setUserRating(Number(ratingDoc.data()?.value) || null);
-      } catch {
-        if (!ignore) setUserRating(null);
-      }
-    }
-    fetchUserRating();
-    return () => { ignore = true; };
-  }, [currentUser, destId]);
-
-  if (loading) return <div style={{ color: "#888", fontSize: 14 }}>Loading reviews…</div>;
-  if (!reviews.length) return <div style={{ color: "#888", fontSize: 14 }}>No user reviews yet.</div>;
-
-  // Separate current user's review if available
-  let userReview = null;
-  let otherReviews = reviews;
-  if (currentUser) {
-    userReview = reviews.find(r => r.userId === currentUser.uid);
-    otherReviews = reviews.filter(r => r.userId !== currentUser.uid);
-  }
-
-  // Star rendering helper
-  const renderStars = (rating,) => (
-    <span style={{ marginLeft: 8, marginRight: 8 }}>
-      {Array.from({ length: 5 }).map((_, idx) => (
-        <span
-          key={idx}
-          style={{
-            color: idx < rating ? "#ffb300" : "#d1d5db",
-            fontSize: 18,
-            marginRight: 2,
-            verticalAlign: "middle",
-            fontFamily: "Arial, sans-serif", // <-- add this             // <-- and this
-          }}
-        >
-          ★
-        </span>
-      ))}
-    </span>
-  );
-
-  // Card style for all reviews
-  const cardStyle = {
-    background: "#e0f7fa",
-    border: "2px solid #38bdf8",
-    borderRadius: 16,
-    padding: "12px 16px",
-    fontSize: 18,
-    boxShadow: "0 1px 2px rgba(0,0,0,.03)",
-    marginBottom: 0,
-    marginTop: 0,
-    marginLeft: 0,
-    marginRight: 0,
-    minWidth: 220,
-    maxWidth: 600,
-    width: "100%",
-    boxSizing: "border-box"
-  };
-
-  const nameStyle = {
-    fontWeight: 700,
-    color: "#2196f3",
-    fontSize: 14,
-    marginRight: 10,
-    marginBottom: 0,
-    display: "inline-block"
-  };
-
-  const dateStyle = {
-    color: "#6b7280",
-    fontSize: 12,
-    marginBottom: 0,
-    display: "block",
-    textAlign: "left",
-  };
-
-  const reviewTextStyle = {
-    marginTop: 10,
-    marginLeft: 15,
-    marginBottom: 10,
-    fontSize: 14,
-    color: "#222",
-    textAlign: "left",
-    fontFamily: "inherit",
-    fontWeight: 400,
-    wordBreak: "break-word"
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* Show current user's review first if available */}
-      {userReview && (
-        <div key={userReview.id} style={cardStyle}>
-          <div style={{ display: "flex", alignItems: "center", marginBottom: 0, flexWrap: "wrap" }}>
-            <span style={nameStyle}>
-              {userReview.userName} (You)
-            </span>
-            {renderStars(userRating ?? userReview.rating ?? 0, 24)}
-          </div>
-          <span style={dateStyle}>
-            {userReview.createdAt ? new Date(userReview.createdAt).toLocaleString() : ""}
-          </span>
-          <div style={reviewTextStyle}>{userReview.review}</div>
-        </div>
-      )}
-      {/* Show other users' reviews */}
-      {otherReviews.map((r) => (
-        <div key={r.id} style={{
-          ...cardStyle,
-          background: "#f8fafc",
-          border: "1.5px solid #b6c7d6",
-          color: "#222"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", marginBottom: 0, flexWrap: "wrap" }}>
-            <span style={{ ...nameStyle, color: "#0d47a1" }}>{r.userName}</span>
-            {renderStars(r.rating ?? 0, 22)}
-          </div>
-          <span style={dateStyle}>
-            {r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}
-          </span>
-          <div style={reviewTextStyle}>{r.review}</div>
-        </div>
-      ))}
-    </div>
-  );
-  
-}
-
-function getPackingSuggestionsFromCategory(categories) {
-  if (!categories || categories.length === 0) return [];
-  
-  const { category } = require('./rules');
-  
-  // Try first category
-  const cat = Array.isArray(categories) ? categories[0] : categories;
-  if (!cat) return [];
-  
-  const catLower = String(cat).toLowerCase().trim();
-  
-  // Try exact match first
-  if (category[catLower]) {
-    const result = category[catLower];
-    return Array.isArray(result) ? result : [];
-  }
-  
-  // Try singular form (remove trailing 's')
-  const singular = catLower.endsWith('s') ? catLower.slice(0, -1) : catLower;
-  if (category[singular]) {
-
-    const result = category[singular];
-    return Array.isArray(result) ? result : [];
-  }
-  
-  // Try without spaces/special chars
-  const normalized = catLower.replace(/[^a-z0-9]/g, '');
-  const matchedKey = Object.keys(category).find(key => 
-    key.replace(/[^a-z0-9]/g, '') === normalized
-  );
-  
-  if (matchedKey) {
-    const result = category[matchedKey];
-    return Array.isArray(result) ? result : [];
-  }
-  
-  return [];
-}

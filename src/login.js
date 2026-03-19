@@ -3,41 +3,36 @@ import Header2 from "./header_2";
 import "./login.css";
 import { Link, useNavigate } from "react-router-dom";
 import { auth, db } from "./firebase";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  FacebookAuthProvider,
-  sendPasswordResetEmail,
-  signInWithRedirect,
-  signOut
-} from "firebase/auth";
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, query, limit, serverTimestamp, updateDoc } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { useUser } from './UserContext';
-import { action_types } from './rules';
-
-// CHANGED: Updated icon path
-const ERROR_ICON = "/warning.png";
-
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, sendPasswordResetEmail, getRedirectResult } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 // Function to save user data to Firestore
 const saveUserToFirestore = async (user) => {
   if (!user) return;
-  try {
-    const userRef = doc(db, "users", user.uid);
 
+  try {
+    const userRef = doc(db, 'users', user.uid);
+
+    // Always create or update user data
     const userData = {
       uid: user.uid,
-      email: user.email || "",
-      displayName: user.displayName || "",
-      photoURL: user.photoURL || "",
-      phoneNumber: user.phoneNumber || "",
-      providerId: user.providerData?.[0]?.providerId || "email",
-      lastLogin: new Date(),
+      email: user.email,
+      displayName: user.displayName || '', // <-- user's name from Google/Facebook
+      photoURL: user.photoURL || '',
+      phoneNumber: user.phoneNumber || '',
+      providerId: user.providerData[0]?.providerId || 'email',
+      lastLogin: new Date()
     };
 
-    const snap = await getDoc(userRef); // no .catch here
-    if (!snap || !snap.exists?.()) {
+    // Save only name and email for Google/Facebook
+    if (user.providerData[0]?.providerId === "google.com" || user.providerData[0]?.providerId === "facebook.com") {
+      userData.name = user.displayName || '';
+      userData.email = user.email || '';
+    }
+
+    // Check if user document already exists
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
       userData.createdAt = new Date();
     }
 
@@ -48,81 +43,6 @@ const saveUserToFirestore = async (user) => {
   }
 };
 
-function mapAuthError(code) {
-  switch (code) {
-    case "auth/user-not-found":
-      return "No account found with this email.";
-    case "auth/wrong-password":
-      return "Incorrect password. Please try again.";
-    case "auth/invalid-email":
-      return "Please enter a valid email address.";
-    case "auth/network-request-failed":
-      return "Network issue. Check your connection and retry.";
-    case "auth/too-many-requests":
-      return "Too many attempts. Please wait a moment and try again.";
-    case "auth/popup-closed-by-user":
-      return "Sign-in popup was closed before finishing.";
-    default:
-      return "Login failed. Please try again.";
-  }
-}
-
-// Add this helper to get device/browser info
-function getDeviceInfo() {
-  let device = "Unknown";
-  let browser = "Unknown";
-  let os = "Unknown";
-  let userAgent = navigator.userAgent || "";
-
-  // Device
-  if (/Mobi|Android/i.test(userAgent)) device = "Mobile";
-  else if (/Tablet|iPad/i.test(userAgent)) device = "Tablet";
-  else device = "Desktop";
-
-  // Browser
-  if (/chrome|crios|crmo/i.test(userAgent)) browser = "Chrome";
-  else if (/firefox|fxios/i.test(userAgent)) browser = "Firefox";
-  else if (/safari/i.test(userAgent) && !/chrome|crios|crmo/i.test(userAgent)) browser = "Safari";
-  else if (/edg/i.test(userAgent)) browser = "Edge";
-  else if (/opr\//i.test(userAgent)) browser = "Opera";
-  else if (/msie|trident/i.test(userAgent)) browser = "IE";
-
-  // OS
-  if (/windows nt/i.test(userAgent)) os = "Windows";
-  else if (/android/i.test(userAgent)) os = "Android";
-  else if (/iphone|ipad|ipod/i.test(userAgent)) os = "iOS";
-  else if (/macintosh|mac os x/i.test(userAgent)) os = "MacOS";
-  else if (/linux/i.test(userAgent)) os = "Linux";
-
-  return { device, browser, os, userAgent };
-}
-
-// Helper to generate a session ID
-function generateSessionId() {
-  return (
-    "sess_" +
-    Math.random().toString(36).substr(2, 9) +
-    "_" +
-    Date.now().toString(36)
-  );
-}
-
-const MAX_LOGIN_ATTEMPTS = 3;
-const LOGIN_ATTEMPT_KEY = "lakbai_login_attempts";
-
-// Helper to track login attempts in localStorage
-function incrementLoginAttempts(email) {
-  const attempts = JSON.parse(localStorage.getItem(LOGIN_ATTEMPT_KEY) || "{}");
-  attempts[email] = (attempts[email] || 0) + 1;
-  localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify(attempts));
-  return attempts[email];
-}
-function resetLoginAttempts(email) {
-  const attempts = JSON.parse(localStorage.getItem(LOGIN_ATTEMPT_KEY) || "{}");
-  attempts[email] = 0;
-  localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify(attempts));
-}
-
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(localStorage.getItem('rememberedEmail') || "");
@@ -132,415 +52,103 @@ const Login = () => {
   const [forgotPopup, setForgotPopup] = useState({ show: false });
   const [resetEmail, setResetEmail] = useState("");
   const [loading, setLoading] = useState(true);
-  const [isSigningIn, setIsSigningIn] = useState(false);
-  const [accountModal, setAccountModal] = useState({ type: null, message: '', until: null });
   const navigate = useNavigate();
-  const { setUser } = useUser();
-
-  // Remove: const REDIRECT_FLAG = "pendingSocialRedirect";
-
-  // REMOVE the entire redirect result useEffect block:
-  // useEffect(() => { ... getRedirectResult ... }, [navigate]);
-
-  // ADD simple mount effect to end loading sooner:
+  
+  // Handle redirect result from social logins
   useEffect(() => {
-    setLoading(false);
-  }, []);
+    const handleRedirectResult = async () => {
+      try {
+        setLoading(true);
+        const result = await getRedirectResult(auth);
+        
+        if (result) {
+          // User successfully authenticated with a provider
+          const user = result.user;
+          console.log("Social login successful:", user.email);
+          
+          // Save user data to Firestore and wait for it to finish
+          await saveUserToFirestore(user);
+          
+          // Use SPA navigation
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error("Authentication error:", error);
+        setPopup({ 
+          show: true, 
+          type: "error", 
+          message: "Authentication failed. Please try again." 
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    handleRedirectResult();
+  }, [navigate]);
 
   const handleSignupClick = () => {
     navigate("/register");
   };
 
-  // Helper: after login, set a flag if interests missing
-  async function ensureSetupFlag(uid) {
-    try {
-      const snap = await getDoc(doc(db, "users", uid));
-      const data = snap.exists() ? snap.data() : {};
-      const interests = Array.isArray(data?.interests) ? data.interests : [];
-      if (!interests.length) {
-        localStorage.setItem("SHOW_PROFILE_SETUP", "1");
-      } else {
-        localStorage.removeItem("SHOW_PROFILE_SETUP");
-      }
-    } catch (e) {
-      // Non-fatal
-      console.warn("ensureSetupFlag failed:", e);
-    }
-  }
-
-  function formatUntil(until) {
-    if (!until) return '';
-    const d = until.toDate ? until.toDate() : (until instanceof Date ? until : new Date(until));
-    return d.toLocaleString();
-  }
-
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Save user data to Firestore
       await saveUserToFirestore(userCredential.user);
-
-      // Moderation check
-      const uRef = doc(db, "users", userCredential.user.uid);
-      const uSnap = await getDoc(uRef);
-      const moderation = uSnap.exists() ? uSnap.data().moderation || {} : {};
-      const status = moderation.status;
-      const suspensionEnds = moderation.suspensionEnds;
-      const lastAction = moderation.lastAction || {};
-      const lastReason = lastAction.reason || '';
-
-      const reasonKey = lastReason.trim().replace(/[\/\s]+/g,'_');
-
-      if (status === 'banned') {
-        const banMsg = (action_types?.Ban_Account && action_types.Ban_Account[0]) ||
-          "Your account has been banned due to repeated guideline violations.";
-        setAccountModal({ type: 'banned', message: banMsg, until: null });
-        await signOut(auth);
-        return;
+      
+      // Handle remember me
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
       }
-
-      if (status === 'suspended') {
-        const template = action_types?.Suspend_Account?.[reasonKey]?.[0];
-        const baseMsg = template || "Your account is suspended for violating our community guidelines.";
-        const endsMs = suspensionEnds?.toMillis?.() ?? (suspensionEnds ? Date.parse(suspensionEnds) : 0);
-        if (endsMs && Date.now() < endsMs) {
-          setAccountModal({
-            type: 'suspended',
-            message: `${baseMsg} Suspension ends on ${formatUntil(suspensionEnds)}.`,
-            until: suspensionEnds
-          });
-          await signOut(auth);
-          return;
-        } else {
-          try { await updateDoc(uRef, { 'moderation.status': null }); } catch {}
-        }
-      }
-
-      // Reset login attempts on successful login
-      resetLoginAttempts(email);
-
-      // FIXED: Set token for email login (same as Google)
-      const token = await userCredential.user.getIdToken();
-      localStorage.setItem('token', token);
-
-      // --- Ensure auditLogs collection exists (create a dummy doc if empty) ---
-      const auditLogsSnap = await getDocs(query(collection(db, "auditLogs"), limit(1)));
-      if (auditLogsSnap.empty) {
-        await addDoc(collection(db, "auditLogs"), {
-          timestamp: serverTimestamp(),
-          userName: "system",
-          userEmail: "",
-          role: "system",
-          action: "init",
-          category: "SYSTEM",
-          outcome: "SUCCESS",
-          details: "Initialized auditLogs collection.",
-        });
-      }
-
-      // --- Add audit log for email login ---
-      const deviceInfo = getDeviceInfo();
-      const sessionId = generateSessionId();
-      await addDoc(collection(db, "auditLogs"), {
-        timestamp: serverTimestamp(),
-        userName: userCredential.user.displayName || "",
-        userEmail: userCredential.user.email,
-        userId: userCredential.user.uid,
-        role: "user",
-        action: "login",
-        category: "AUTHENTICATION",
-        outcome: "SUCCESS",
-        details: "Email/Password login",
-        provider: "email",
-        device: deviceInfo.device,
-        browser: deviceInfo.browser,
-        os: deviceInfo.os,
-        userAgent: deviceInfo.userAgent,
-        ipAddress: "",
-        location: "",
-        session: sessionId,
-        target: "user_session",
-        clientTime: Date.now(),
-      });
-
-      // Check if interests exist; mark flag if not
-      await ensureSetupFlag(userCredential.user.uid);
-
-      if (rememberMe) localStorage.setItem("rememberedEmail", email);
-      else localStorage.removeItem("rememberedEmail");
-
-      // FIXED: Set user context (same as Google)
-      if (setUser) setUser({ uid: userCredential.user.uid, email: userCredential.user.email });
-
-      navigate("/dashboard");
+      
+      // Use window.location.href for consistent navigation behavior
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
     } catch (err) {
-      // Increment failed login attempts
-      const attempts = incrementLoginAttempts(email);
-
-      // Try to get user info for failed login
-      let failedUserName = "";
-      let failedUserId = "";
-      try {
-        // Query Firestore users collection by email
-        const usersRef = collection(db, "users");
-        const q = query(usersRef);
-        const snapshot = await getDocs(q);
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.email === email) {
-            failedUserName = data.displayName || "";
-            failedUserId = data.uid || "";
-          }
-        });
-      } catch (e) {
-        // If lookup fails, leave as blank
+      let errorMessage = "Login failed. Please try again.";
+      if (err.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email.";
+      } else if (err.code === "auth/wrong-password") {
+        errorMessage = "Incorrect password.";
+      } else if (err.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address.";
       }
-
-      // If max attempts reached, log to auditLogs
-      if (attempts >= MAX_LOGIN_ATTEMPTS) {
-        const deviceInfo = getDeviceInfo();
-        const sessionId = generateSessionId();
-        await addDoc(collection(db, "auditLogs"), {
-          timestamp: serverTimestamp(),
-          userName: failedUserName,
-          userEmail: email,
-          userId: failedUserId,
-          role: "user",
-          action: "login failed",
-          category: "AUTHENTICATION",
-          outcome: "FAILURE",
-          details: "multiple_failed_attempts",
-          provider: "email",
-          device: deviceInfo.device,
-          browser: deviceInfo.browser,
-          os: deviceInfo.os,
-          userAgent: deviceInfo.userAgent,
-          ipAddress: "",
-          location: "",
-          session: sessionId,
-          target: "user_session",
-        });
-        // Optionally, reset attempts after logging
-        resetLoginAttempts(email);
-      }
-
-      console.error("Email login error:", err);
-      const errorMessage = mapAuthError(err.code);
       setPopup({ show: true, type: "error", message: errorMessage });
     }
-    // removed setLoading(false); loading is controlled by mount effect
   };
 
   const handleGoogleLogin = async () => {
-    if (isSigningIn) return;
-    setIsSigningIn(true);
-    const provider = new GoogleAuthProvider();
-    provider.addScope("profile");
-    provider.addScope("email");
-    provider.setCustomParameters({ prompt: "select_account" });
-    
     try {
-      // FIXED: Use signInWithPopup with error handling
+      const provider = new GoogleAuthProvider();
+      provider.addScope('profile');
+      provider.addScope('email');
+      provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, provider);
-      
-      if (!result || !result.user) {
-        throw new Error("No user returned from Google login");
-      }
-      
-      await saveUserToFirestore(result.user);
-
-      // --- Add audit log for Google login ---
-      const deviceInfo = getDeviceInfo();
-      const sessionId = generateSessionId();
-      await addDoc(collection(db, "auditLogs"), {
-        timestamp: serverTimestamp(),
-        userName: result.user.displayName || "",
-        userEmail: result.user.email,
-        userId: result.user.uid,
-        role: "user",
-        action: "login",
-        category: "AUTHENTICATION",
-        outcome: "SUCCESS",
-        details: "Google login",
-        provider: "google",
-        device: deviceInfo.device,
-        browser: deviceInfo.browser,
-        os: deviceInfo.os,
-        userAgent: deviceInfo.userAgent,
-        ipAddress: "",
-        location: "",
-        session: sessionId,
-        target: "user_session",
-      });
-
-      // Mark flag if interests are missing
-      await ensureSetupFlag(result.user.uid);
-
       const user = result.user;
-      const token = await user.getIdToken();
-      localStorage.setItem('token', token);
-
-      // Moderation check
-      const uRef2 = doc(db, "users", result.user.uid);
-      const uSnap2 = await getDoc(uRef2);
-      const moderation2 = uSnap2.exists() ? uSnap2.data().moderation || {} : {};
-      const status2 = moderation2.status;
-      const suspensionEnds2 = moderation2.suspensionEnds;
-      const lastAction2 = moderation2.lastAction || {};
-      const lastReason2 = lastAction2.reason || '';
-      const reasonKey2 = lastReason2.trim().replace(/[\/\s]+/g,'_');
-
-      if (status2 === 'banned') {
-        const banMsg2 = (action_types?.Ban_Account && action_types.Ban_Account[0]) ||
-          "Your account has been banned due to repeated guideline violations.";
-        setAccountModal({
-          type: 'banned',
-          message: banMsg2,
-          until: null
-        });
-        await signOut(auth);
-        return;
-      }
-      if (status2 === 'suspended') {
-        const template2 = action_types?.Suspend_Account?.[reasonKey2]?.[0];
-        const baseMsg2 = template2 || "Your account is suspended for violating our community guidelines.";
-        const endsMs2 = suspensionEnds2?.toMillis?.() ?? (suspensionEnds2 ? Date.parse(suspensionEnds2) : 0);
-        if (endsMs2 && Date.now() < endsMs2) {
-          setAccountModal({
-            type: 'suspended',
-            message: `${baseMsg2} Suspension ends on ${formatUntil(suspensionEnds2)}.`,
-            until: suspensionEnds2
-          });
-          await signOut(auth);
-          return;
-        }
-      }
-
-      // FIXED: Set user context
-      if (setUser) setUser({ uid: result.user.uid, email: result.user.email });
-
-      // Navigate with replace to clear history
-      navigate('/dashboard', { replace: true });
-      
+      await saveUserToFirestore(user);
+      navigate("/dashboard");
     } catch (err) {
-      console.error("Google login error:", err);
-      
-      // FIXED: Handle specific errors better
-      if (err.code === "auth/popup-closed-by-user") {
-        console.warn("User closed the Google sign-in popup");
-        // Don't show error - user intentionally closed it
-        return;
-      } 
-      else if (err.code === "auth/cancelled-popup-request") {
-        console.warn("Google sign-in popup was cancelled");
-        return;
-      }
-      else if (err.code === "auth/operation-not-supported-in-this-environment") {
-        console.warn("Popups blocked in this environment, trying redirect...");
-        try {
-          await signInWithRedirect(auth, provider);
-        } catch (redirectErr) {
-          console.error("Redirect also failed:", redirectErr);
-          setPopup({ 
-            show: true, 
-            type: "error", 
-            message: "Could not open Google sign-in. Please check your browser settings." 
-          });
-        }
-        return;
-      }
-      else {
-        // Generic error
-        const msg = mapAuthError(err.code) || "Google sign-in failed. Please try again.";
-        setPopup({ show: true, type: "error", message: msg });
-      }
-    } finally {
-      setIsSigningIn(false);
+      setPopup({ show: true, type: "error", message: "Google login failed. Please try again." });
     }
-    // removed setLoading(false)
   };
 
   const handleFacebookLogin = async () => {
-    setIsSigningIn(true);
-    const provider = new FacebookAuthProvider();  // MOVE THIS LINE HERE - declare at top
-    
     try {
-      provider.addScope("email");
-      provider.addScope("public_profile");
-      provider.setCustomParameters({ display: "popup" });
-      
+      const provider = new FacebookAuthProvider();
+      provider.addScope('email');
+      provider.addScope('public_profile');
+      provider.setCustomParameters({ display: 'popup' });
       const result = await signInWithPopup(auth, provider);
-      
-      if (!result || !result.user) {
-        throw new Error("No user returned from Facebook login");
-      }
-      
-      await saveUserToFirestore(result.user);
-
-      const token = await result.user.getIdToken();
-      localStorage.setItem('token', token);
-
-      const deviceInfo = getDeviceInfo();
-      const sessionId = generateSessionId();
-      await addDoc(collection(db, "auditLogs"), {
-        timestamp: serverTimestamp(),
-        userName: result.user.displayName || "",
-        userEmail: result.user.email,
-        userId: result.user.uid,
-        role: "user",
-        action: "login",
-        category: "AUTHENTICATION",
-        outcome: "SUCCESS",
-        details: "Facebook login",
-        provider: "facebook",
-        device: deviceInfo.device,
-        browser: deviceInfo.browser,
-        os: deviceInfo.os,
-        userAgent: deviceInfo.userAgent,
-        ipAddress: "",
-        location: "",
-        session: sessionId,
-        target: "user_session",
-      });
-
-      await ensureSetupFlag(result.user.uid);
-
-      if (setUser) setUser({ uid: result.user.uid, email: result.user.email });
-
+      const user = result.user;
+      await saveUserToFirestore(user);
       navigate("/dashboard");
     } catch (err) {
-      console.error("Facebook login error:", err);
-      
-      if (err.code === "auth/popup-closed-by-user") {
-        console.warn("User closed the Facebook sign-in popup");
-        setIsSigningIn(false);
-        return;
-      }
-      else if (err.code === "auth/cancelled-popup-request") {
-        console.warn("Facebook sign-in popup was cancelled");
-        setIsSigningIn(false);
-        return;
-      }
-      else if (err.code === "auth/operation-not-supported-in-this-environment") {
-        console.warn("Popups blocked in this environment, trying redirect...");
-        try {
-          await signInWithRedirect(auth, provider);
-        } catch (redirectErr) {
-          console.error("Redirect also failed:", redirectErr);
-          setPopup({ 
-            show: true, 
-            type: "error", 
-            message: "Could not open Facebook sign-in. Please check your browser settings." 
-          });
-        }
-        setIsSigningIn(false);
-        return;
-      }
-      else {
-        const msg = mapAuthError(err.code) || "Facebook sign-in failed. Please try again.";
-        setPopup({ show: true, type: "error", message: msg });
-        setIsSigningIn(false);
-      }
+      setPopup({ show: true, type: "error", message: "Facebook login failed. Please try again." });
     }
   };
 
@@ -579,113 +187,100 @@ const Login = () => {
     setResetEmail("");
   };
 
-  // wherever the component returns JSX, ensure it returns one root element:
   return (
     <>
-      {/* page content */}
-      <div className="login-container">
-        <Header2 />
-        {loading ? (
-          <div className="login-bg" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              <img src="/coconut-tree.png" alt="Loading" className="login-logo" style={{ width: 60, height: 60 }} />
-              <p>Loading...</p>
-            </div>
-          </div>
-        ) : (
-        <div className="login-bg">
-          {/* Animated background elements */}
-          <div className="login-bg-circle"></div>
-          <div className="login-bg-circle"></div>
-          <div className="login-bg-circle"></div>
-          <div className="login-bg-wave"></div>
-          <div className="login-bg-dots"></div>
-          
-          <div className="login-container-1">
-            <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
-            <h2 className="login-title">Welcome Back!</h2>
-            <p className="login-subtitle">Sign in to continue your Philippine adventure</p>
-            <form className="login-form" onSubmit={handleEmailLogin}>
-              <label className="login-label">
-                Email Address
-                <input 
-                  type="email" 
-                  className="login-input" 
-                  placeholder="your@email.com" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="login-label">
-                Password
-                <div className="login-password-wrapper">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    className="login-input"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <span
-                    className="login-eye"
-                    onClick={() => setShowPassword((v) => !v)}
-                    tabIndex={0}
-                    role="button"
-                    aria-label="Show password"
-                  >
-                    <img
-                      src={showPassword ? "/show.png" : "/hide.png"}
-                      alt={showPassword ? "Hide password" : "Show password"}
-                      style={{ width: 20, height: 20 }}
-                    />
-                  </span>
-                </div>
-              </label>
-              <div className="login-options">
-                <label className="login-remember">
-                  <input 
-                    type="checkbox" 
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  /> Remember me
-                </label>
-                <span className="login-forgot" onClick={handleForgotPassword} style={{ cursor: "pointer" }}>Forgot password?</span>
-              </div>
-              <button className="login-btn" type="submit">
-                Sign In to LakbAI
-              </button>
-            </form>
-            <div className="login-divider">
-              <span>Or continue with</span>
-            </div>
-            <div className="login-socials">
-              <button className="login-social-btn" onClick={handleGoogleLogin} type="button" disabled={isSigningIn}>
-                <span className="login-social-icon-wrapper">
-                  <img src="/google.png" alt="Google" className="login-social-icon" />
-                </span>
-                {isSigningIn ? "Signing in…" : "Sign in with Google"}
-              </button>
-              <button className="login-social-btn" onClick={handleFacebookLogin} type="button">
-                <span className="login-social-icon-wrapper">
-                  <img src="/facebook.png" alt="Facebook" className="login-social-icon" />
-                </span>
-                Facebook
-              </button>
-            </div>
-            <div className="login-signup">
-              Don’t have an account?{" "}
-              <span style={{color: "#3b5fff", cursor: "pointer"}} onClick={handleSignupClick}>
-                Sign up for free
-              </span>
-            </div>
+      <Header2 />
+      {loading ? (
+        <div className="login-bg" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <img src="/coconut-tree.png" alt="Loading" className="login-logo" style={{ width: 60, height: 60 }} />
+            <p>Loading...</p>
           </div>
         </div>
-        )}
+      ) : (
+      <div className="login-bg">
+        <div className="login-container-1">
+          <img src="/coconut-tree.png" alt="LakbAI" className="login-logo" />
+          <h2 className="login-title">Welcome Back!</h2>
+          <p className="login-subtitle">Sign in to continue your Philippine adventure</p>
+          <form className="login-form" onSubmit={handleEmailLogin}>
+            <label className="login-label">
+              Email Address
+              <input 
+                type="email" 
+                className="login-input" 
+                placeholder="your@email.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </label>
+            <label className="login-label">
+              Password
+              <div className="login-password-wrapper">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="login-input"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <span
+                  className="login-eye"
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={0}
+                  role="button"
+                  aria-label="Show password"
+                >
+                  <img
+                    src={showPassword ? "/show.png" : "/hide.png"}
+                    alt={showPassword ? "Hide password" : "Show password"}
+                    style={{ width: 20, height: 20 }}
+                  />
+                </span>
+              </div>
+            </label>
+            <div className="login-options">
+              <label className="login-remember">
+                <input 
+                  type="checkbox" 
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                /> Remember me
+              </label>
+              <span className="login-forgot" onClick={handleForgotPassword} style={{ cursor: "pointer" }}>Forgot password?</span>
+            </div>
+            <button className="login-btn" type="submit">
+              Sign In to LakbAI
+            </button>
+          </form>
+          <div className="login-divider">
+            <span>Or continue with</span>
+          </div>
+          <div className="login-socials">
+            <button className="login-social-btn" onClick={handleGoogleLogin} type="button">
+              <span className="login-social-icon-wrapper">
+                <img src="/google.png" alt="Google" className="login-social-icon" />
+              </span>
+              Google
+            </button>
+            <button className="login-social-btn" onClick={handleFacebookLogin} type="button">
+              <span className="login-social-icon-wrapper">
+                <img src="/facebook.png" alt="Facebook" className="login-social-icon" />
+              </span>
+              Facebook
+            </button>
+          </div>
+          <div className="login-signup">
+            Don’t have an account?{" "}
+            <span style={{color: "#3b5fff", cursor: "pointer"}} onClick={handleSignupClick}>
+              Sign up for free
+            </span>
+          </div>
+        </div>
       </div>
-
-      {/* modals / toasts / other siblings must be inside this fragment */}
+      )}
       {forgotPopup.show && (
         <div className="login-popup-overlay" style={{
           position: "fixed",
@@ -773,16 +368,9 @@ const Login = () => {
             boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)"
           }}>
             <img
-              src={
-                popup.type === "success"
-                  ? "/coconut-tree.png"
-                  : ERROR_ICON
-              }
+              src={popup.type === "success" ? "/coconut-tree.png" : "/warning(1).png"}
               alt={popup.type === "success" ? "Success" : "Error"}
               style={{ width: 48, marginBottom: 12 }}
-              onError={(e) => {
-                e.currentTarget.src = ERROR_ICON;
-              }}
             />
             <h3 style={{ margin: 0, color: popup.type === "success" ? "#3b5fff" : "#b97b7b" }}>
               {popup.type === "success" ? "Success!" : "Error"}
@@ -792,29 +380,6 @@ const Login = () => {
               className="login-btn" 
               onClick={handleClosePopup} 
               style={{ width: "100%" }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-      {accountModal.type && (
-        <div className="login-popup-overlay" style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100
-        }}>
-          <div className="login-popup" style={{
-            background: "#fff", padding: 32, borderRadius: 16,
-            maxWidth: 420, width: "90%", boxShadow: "0 10px 30px rgba(0,0,0,0.25)"
-          }}>
-            <h3 style={{ marginTop: 0, color: accountModal.type === 'banned' ? '#b91c1c' : '#b45309' }}>
-              {accountModal.type === 'banned' ? 'Account Banned' : 'Account Suspended'}
-            </h3>
-            <p style={{ fontSize: 14, lineHeight: 1.5 }}>{accountModal.message}</p>
-            <button
-              className="login-btn"
-              style={{ width: '100%' }}
-              onClick={() => setAccountModal({ type: null, message: '', until: null })}
             >
               Close
             </button>
