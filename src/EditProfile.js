@@ -1,29 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import axios from "axios";
 import "./EditProfile.css";
 import { doc, updateDoc } from "firebase/firestore";
-import { db, auth } from "./firebase"; // Make sure db and auth are exported from firebase.js
+import { auth, db } from './firebase'; // ensure available
+import { doc as fsDoc, getDoc, updateDoc as fsUpdateDoc, arrayRemove } from 'firebase/firestore';
+
 
 const interestsList = [
-  { icon: "🏄‍♂️", label: "Surfer", color: "#e0f7fa" },
-  { icon: "🎒", label: "Backpacker", color: "#f3e8ff" },
-  { icon: "🍜", label: "Foodie Traveler", color: "#fffbe6" },
-  { icon: "🏛️", label: "Culture Seeker", color: "#ede9fe" },
-  { icon: "⚡", label: "Adventure Junkie", color: "#fee2e2" },
-  { icon: "🌿", label: "Nature Enthusiast", color: "#e7fbe7" },
-  { icon: "💻", label: "Digital Nomad", color: "#e0f2fe" },
-  { icon: "🚗", label: "Road Tripper", color: "#fef3c7" },
-  { icon: "🏖️", label: "Beach Lover", color: "#e0e7ff" },
-  { icon: "🏙️", label: "City Explorer", color: "#f7f8fa" },
-  { icon: "📸", label: "Photographer", color: "#f3f4f6" },
-  { icon: "🏺", label: "Historian", color: "#e6fffa" },
-  { icon: "🎉", label: "Festival Hopper", color: "#ffe4e6" },
-  { icon: "🥾", label: "Hiker", color: "#dcfce7" },
-  { icon: "💎", label: "Luxury Traveler", color: "#f0f5ff" },
-  { icon: "🌱", label: "Eco-Traveler", color: "#e6fffa" },
-  { icon: "🛳️", label: "Cruise Lover", color: "#e0e7ff" },
-  { icon: "⛷️", label: "Winter Sports Enthusiast", color: "#e0f2fe" },
-  { icon: "🧳", label: "Solo Wanderer", color: "#fef3c7" }
+  { icon: "🏄‍♂️", label: "Surfer", color: "rgba(99,102,241,0.12)" },
+  { icon: "🎒", label: "Backpacker", color: "rgba(96,165,250,0.10)" },
+  { icon: "🍜", label: "Foodie Traveler", color: "rgba(250,204,21,0.12)" },
+  { icon: "🏛️", label: "Culture Seeker", color: "rgba(124,58,237,0.10)" },
+  { icon: "⚡", label: "Adventure Junkie", color: "rgba(34,197,94,0.08)" },
+  { icon: "🌿", label: "Nature Enthusiast", color: "rgba(16,185,129,0.08)" },
+  { icon: "💻", label: "Digital Nomad", color: "rgba(99,102,241,0.07)" },
+  { icon: "🚗", label: "Road Tripper", color: "rgba(234,88,12,0.07)" },
+  { icon: "🏖️", label: "Beach Lover", color: "rgba(56,189,248,0.08)" },
+  { icon: "🏙️", label: "City Explorer", color: "rgba(168,85,247,0.08)" },
+  { icon: "📸", label: "Photographer", color: "rgba(245,158,11,0.08)" },
+  { icon: "🏺", label: "Historian", color: "rgba(94,234,212,0.06)" },
+  { icon: "🎉", label: "Festival Hopper", color: "rgba(236,72,153,0.07)" },
+  { icon: "🥾", label: "Hiker", color: "rgba(34,197,94,0.07)" },
+  { icon: "💎", label: "Luxury Traveler", color: "rgba(99,102,241,0.07)" },
+  { icon: "🌱", label: "Eco-Traveler", color: "rgba(34,197,94,0.06)" },
+  { icon: "🛳️", label: "Cruise Lover", color: "rgba(56,189,248,0.07)" },
+  { icon: "🧳", label: "Solo Wanderer", color: "rgba(168,85,247,0.06)" }
 ];
 
 const MAX_BIO = 300;
@@ -32,20 +34,55 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
   const [photo, setPhoto] = useState(null);
   const [photoFile, setPhotoFile] = useState(null); // <-- store file
   const [name, setName] = useState(initialData.name || "");
+  const [randomPlaceholder] = useState(() => `User${Math.floor(10000 + Math.random() * 90000)}`);
   const [bio, setBio] = useState(initialData.bio || "");
+  // if initialData.interests is an empty array, fall back to default interestsList
   const [interests, setInterests] = useState(
-    initialData.interests ||
-      interestsList.map(i => ({ ...i, status: null }))
+    Array.isArray(initialData.interests) && initialData.interests.length
+      ? initialData.interests
+      : interestsList.map(i => ({ ...i, status: null }))
   );
-  const [saving, setSaving] = useState(false);
 
-  // Toggle status: null -> like (green) -> dislike (red) -> null
-  const handleInterestClick = (idx) => {
-    setInterests(interests =>
-      interests.map((i, iIdx) => {
+  // ADD: active interests from Firestore (used only for border + one-click removal)
+  const [activeInterests, setActiveInterests] = useState(() => {
+    const arr = Array.isArray(initialData.interests) ? initialData.interests : [];
+    const labels = arr.map(v => (typeof v === 'string' ? v : v?.label)).filter(Boolean);
+    return new Set(labels);
+  });
+  const [saving, setSaving] = useState(false);
+  const [showClearSuccess, setShowClearSuccess] = useState(false); // Add state for popup
+
+  // Toggle status: null -> like -> dislike -> null
+  // UPDATED: if the clicked interest is already active (has border), remove it from Firestore
+  const handleInterestClick = async (idx) => {
+    const clicked = interests[idx];
+    const label = clicked?.label;
+    if (!label) return;
+
+    // If this interest is active from Firestore, clicking removes it
+    if (activeInterests.has(label)) {
+      try {
+        const u = auth.currentUser;
+        if (!u) throw new Error('No user');
+        await fsUpdateDoc(fsDoc(db, 'users', u.uid), { interests: arrayRemove(label) });
+        setActiveInterests(prev => {
+          const next = new Set(prev);
+          next.delete(label);
+          return next;
+        });
+      } catch (err) {
+        console.error('Remove interest failed:', err);
+        alert('Failed to remove interest. Please try again.');
+      }
+      return; // do not alter like/dislike when removing active
+    }
+
+    // Otherwise keep your existing like/dislike cycling
+    setInterests(cur =>
+      cur.map((i, iIdx) => {
         if (iIdx !== idx) return i;
-        if (i.status === null) return { ...i, status: "like" };
-        if (i.status === "like") return { ...i, status: "dislike" };
+        if (i.status === null) return { ...i, status: 'like' };
+        if (i.status === 'like') return { ...i, status: 'dislike' };
         return { ...i, status: null };
       })
     );
@@ -81,168 +118,316 @@ const EditProfile = ({ onClose, onProfileUpdate, initialData = {} }) => {
       const user = auth.currentUser;
       if (!user) throw new Error("No user logged in");
 
-      // Likes and dislikes
+      // Likes and dislikes from the UI
       const likes = interests.filter(i => i.status === "like").map(i => i.label);
       const dislikes = interests.filter(i => i.status === "dislike").map(i => i.label);
 
-      // Build update object with only changed fields
+      // FINAL interests to store
+      const finalInterests = Array.from(new Set([
+        ...Array.from(activeInterests),
+        ...likes
+      ]));
+
       const updateData = {};
 
-      // Only update name if it's changed and not empty
+      // Only add fields that have actual values and have changed
       if (name && name.trim() !== (initialData.name || "")) {
-        updateData.name = name.trim();
+        updateData.travelerName = name.trim();
       }
-
-      // Only update bio if it's changed
       if (bio !== (initialData.bio || "")) {
         updateData.bio = bio;
       }
 
-      // Only update profile picture if a new file was selected
+      // profile picture
       if (photoFile) {
         updateData.profilePicture = await uploadToCloudinary(photoFile);
       }
 
-      // Only update interests if they changed
-      if (JSON.stringify(likes) !== JSON.stringify(initialData.likes || [])) {
-        updateData.likes = likes;
+      // interests
+      const initialInterests = Array.isArray(initialData.interests) ? initialData.interests : [];
+      if (JSON.stringify(finalInterests.sort()) !== JSON.stringify(initialInterests.sort())) {
+        updateData.interests = finalInterests;
       }
-      if (JSON.stringify(dislikes) !== JSON.stringify(initialData.dislikes || [])) {
+
+      // dislikes
+      if (JSON.stringify(dislikes.sort()) !== JSON.stringify((initialData.dislikes || []).sort())) {
         updateData.dislikes = dislikes;
       }
 
-      // If no changes, just close
+      // Filter out any undefined values (safety check)
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
       if (Object.keys(updateData).length === 0) {
         if (onClose) onClose();
         setSaving(false);
         return;
       }
 
+      // Use updateDoc to only update specified fields
       await updateDoc(doc(db, "users", user.uid), updateData);
 
-      // Call the profile update callback to trigger achievement
-      if (onProfileUpdate) onProfileUpdate();
+      // Send updated interests to the email API
+      await axios.post("/api/send-interests-email", {
+        interests: finalInterests, // or the current interests array
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        }
+      });
 
+      if (onProfileUpdate) onProfileUpdate();
       if (onClose) onClose();
     } catch (err) {
+      console.error("Save profile error:", err);
       alert("Failed to save profile: " + err.message);
     }
     setSaving(false);
   };
 
-  return (
-    <div className="edit-profile-modal">
-      <div className="edit-profile-header">
-        <span>Edit Travel Profile</span>
-        <div className="edit-profile-sub">Customize your adventure identity</div>
-      </div>
-      <div className="edit-profile-content">
-        <div className="edit-profile-left">
-          <div className="edit-profile-avatar">
-            <label htmlFor="profile-photo-upload" className="edit-profile-avatar-label">
-              {photo ? (
-                <img src={photo} alt="Profile" className="edit-profile-avatar-img" />
-              ) : (
-                <img
-                  src="/user.png"
-                  alt="Profile"
-                  className="edit-profile-avatar-img"
-                  style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    background: "#f3f4f6"
-                  }}
+  // ADD: load the current user's interests once (keeps other logic untouched)
+  React.useEffect(() => {
+    const unsub = auth.onAuthStateChanged(async (u) => {
+      if (!u) return;
+      try {
+        const snap = await getDoc(fsDoc(db, 'users', u.uid));
+        const raw = Array.isArray(snap.data()?.interests) ? snap.data().interests : [];
+        const labels = raw.map(v => (typeof v === 'string' ? v : v?.label)).filter(Boolean);
+        setActiveInterests(new Set(labels));
+      } catch (e) {
+        console.warn('Failed to load interests:', e);
+      }
+    });
+    return () => typeof unsub === 'function' && unsub();
+  }, []);
+
+  // Lock body scroll while modal is open (same pattern as itinerary modal)
+  useEffect(() => {
+    document.body.classList.add("profile-modal-open");
+    return () => {
+      document.body.classList.remove("profile-modal-open");
+    };
+  }, []);
+
+  // Close on Esc key
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Handler to clear all interests (likes/dislikes and active)
+  const handleClearAllInterests = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user logged in");
+      await updateDoc(doc(db, "users", user.uid), {
+        interests: [],
+        dislikes: [],
+      });
+      setActiveInterests(new Set());
+      setInterests(interestsList.map(i => ({ ...i, status: null })));
+
+      // --- SEND EMAIL NOTIFICATION ---
+      await axios.post("/api/send-interests-email", {
+        interests: [], // all cleared
+      }, {
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        }
+      });
+      // --- END EMAIL NOTIFICATION ---
+
+      setShowClearSuccess(true); // Show custom popup instead of alert
+      if (onProfileUpdate) onProfileUpdate();
+    } catch (err) {
+      console.error("Clear interests error:", err);
+      alert("Failed to clear preferences: " + err.message);
+    }
+  };
+
+  const modal = (
+    <>
+      <div className="edit-profile-backdrop" onClick={() => onClose?.()}>
+        <div className="edit-profile-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="edit-profile-header">
+            <span>Edit Travel Profile</span>
+            <div className="edit-profile-sub">Customize your adventure identity</div>
+          </div>
+          <div className="edit-profile-content">
+            <div className="edit-profile-left">
+              <div className="edit-profile-avatar">
+                <label htmlFor="profile-photo-upload" className="edit-profile-avatar-label">
+                  {photo ? (
+                    <img 
+                      src={photo} 
+                      alt="Profile" 
+                      className="edit-profile-avatar-img"
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        background: "#f3f4f6",
+                        border: "3px solid #e5e7eb",
+                        cursor: "pointer"
+                      }}
+                    />
+                  ) : initialData.profilePicture && initialData.profilePicture !== "/user.png" ? (
+                    <img
+                      src={initialData.profilePicture}
+                      alt="Profile"
+                      className="edit-profile-avatar-img"
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        background: "#f3f4f6",
+                        border: "3px solid #e5e7eb",
+                        cursor: "pointer"
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src="/prof.png"
+                      alt="Default avatar"
+                      className="edit-profile-avatar-img"
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        background: "#f3f4f6",
+                        border: "3px solid #e5e7eb",
+                        cursor: "pointer"
+                      }}
+                    />
+                  )}
+                  <input
+                    data-testid="photo-input"
+                    id="profile-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handlePhotoChange}
+                  />
+                </label>
+                <div className="edit-profile-avatar-change">Click to change photo</div>
+              </div>
+              <label className="edit-profile-label">
+                Traveler Name
+                <input
+                  type="text"
+                  className="edit-profile-input"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  maxLength={40}
+                  placeholder={randomPlaceholder}
                 />
-              )}
-              <input
-                id="profile-photo-upload"
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handlePhotoChange}
-              />
-            </label>
-            <div className="edit-profile-avatar-change">Click to change photo</div>
-          </div>
-          <label className="edit-profile-label">
-            Travel Name
-            <input
-              type="text"
-              className="edit-profile-input"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={40}
-              placeholder="John Doe"
-            />
-          </label>
-          <label className="edit-profile-label">
-            Travel Bio
-            <textarea
-              className="edit-profile-textarea"
-              value={bio}
-              onChange={e => setBio(e.target.value.slice(0, MAX_BIO))}
-              maxLength={MAX_BIO}
-              rows={4}
-              placeholder="Share something about your travel style..."
-            />
-            <div className="edit-profile-bio-count">
-              {bio.length}/{MAX_BIO} characters
-            </div>
-          </label>
-        </div>
-        <div className="edit-profile-right">
-          <div style={{ height: 12 }} /> {/* spacing between left and right */}
-          <div className="edit-profile-interests-title">
-            Travel Interests
-            <div className="edit-profile-interests-sub">
-              Click each interest to like (green) or dislike (red)
-            </div>
-          </div>
-          <div className="edit-profile-interests-list" style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", overflowX: "hidden"}}>
-            {interests.map((interest, idx) => {
-              let bgColor = interest.color;
-              if (interest.status === "like") bgColor = "#d1fae5"; // green
-              if (interest.status === "dislike") bgColor = "#fee2e2"; // red
-              return (
-                <div
-                  key={interest.label}
-                  className="edit-profile-interest"
-                  style={{
-                    background: bgColor,
-                    cursor: "pointer",
-                    transition: "background 0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    border: interest.status ? "2px solid #6c63ff" : "2px solid transparent",
-                    minHeight: "48px",
-                    borderRadius: "12px",
-                    padding: "12px 16px",
-                    fontSize: "1.08rem",
-                    fontWeight: "500",
-                    boxShadow: "0 2px 8px rgba(108,99,255,0.07)",
-                    userSelect: "none"
-                  }}
-                  onClick={() => handleInterestClick(idx)}
-                >
-                  <span className="edit-profile-interest-icon">{interest.icon}</span>
-                  <span className="edit-profile-interest-label">{interest.label}</span>
+              </label>
+              <label className="edit-profile-label">
+                Travel Bio
+                <textarea
+                  className="edit-profile-textarea"
+                  value={bio}
+                  onChange={e => setBio(e.target.value.slice(0, MAX_BIO))}
+                  maxLength={MAX_BIO}
+                  rows={4}
+                  placeholder="Share something about your travel style..."
+                />
+                <div className="edit-profile-bio-count">
+                  {bio.length}/{MAX_BIO} characters
                 </div>
-              );
-            })}
+              </label>
+            </div>
+            <div className="edit-profile-right">
+              <div style={{ height: 12 }} /> {/* spacing between left and right */}
+              <div className="edit-profile-interests-title">
+                Travel Interests
+                <div className="edit-profile-interests-sub">
+                  Click each interest to like (green) or dislike (red)
+                </div>
+                <button
+                  type="button"
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 8,
+                    background: "#f3f4f6",
+                    color: "#6c63ff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: "6px 14px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: "0.98rem",
+                    float: "right"
+                  }}
+                  onClick={handleClearAllInterests}
+                >
+                  Clear All Preferences
+                </button>
+              </div>
+              <div className="edit-profile-interests-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', overflowX: 'hidden' }}>
+                {interests.map((interest, idx) => {
+                  const active = interest.status === "like" || interest.status === "dislike";
+                  const background =
+                    interest.status === "like"
+                      ? "#d1fae5"
+                      : interest.status === "dislike"
+                      ? "#fee2e2"
+                      : interest.color || "rgba(243,246,249,0.8)";
+
+                  return (
+                    <div
+                      key={interest.label}
+                      className="edit-profile-interest"
+                      data-colored={Boolean(interest.color)}
+                      onClick={() => handleInterestClick(idx)}
+                      style={{
+                        background,
+                        border: active ? "2px solid #6c63ff" : "1px solid rgba(16,24,40,0.04)",
+                        boxShadow: active ? "0 6px 18px rgba(99,102,241,0.12)" : undefined,
+                      }}
+                    >
+                      <span className="edit-profile-interest-dot" style={{ background: interest.color || "rgba(0,0,0,0.06)" }} />
+                      <span className="edit-profile-interest-icon">{interest.icon}</span>
+                      <span className="edit-profile-interest-label">{interest.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="edit-profile-actions">
+            <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save Profile"}
+            </button>
+            <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
           </div>
         </div>
       </div>
-      <div className="edit-profile-actions">
-        <button className="edit-profile-cancel" onClick={onClose}>Cancel</button>
-        <button className="edit-profile-save" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save Profile"}
-        </button>
-      </div>
-    </div>
+
+      {/* Success Popup for Clearing Preferences */}
+      {showClearSuccess && (
+        <div className="clear-success-backdrop" onClick={() => setShowClearSuccess(false)}>
+          <div className="clear-success-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="clear-success-icon">✨</div>
+            <h3>Preferences Cleared!</h3>
+            <p>All your travel interests and dislikes have been reset successfully.</p>
+            <button onClick={() => setShowClearSuccess(false)}>OK</button>
+          </div>
+        </div>
+      )}
+    </>
   );
+
+  return ReactDOM.createPortal(modal, document.body);
 };
 
 export default EditProfile;

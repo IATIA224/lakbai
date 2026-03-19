@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { collectionGroup, getDocs, query, where, orderBy, limit, getDoc, doc, collection } from 'firebase/firestore';
 import { db } from './firebase';
 import { CloudinaryContext, Image } from './cloudinary';
+import { useUserDashboardStats } from './hooks/useDashboardStats';
+import { getUserStats, listenUserStats } from './user-stats-cms';
 
 // Cloudinary (same defaults as elsewhere)
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -48,6 +50,8 @@ export default function ViewProfileCMS({
   const [tab, setTab] = useState('overview');
   const uid = user?.id || user?.uid || user?.userId || null;
 
+  const { stats: dashboardStats, loading: dashboardStatsLoading } = useUserDashboardStats(uid);
+
   // Local state for Activity + Photos
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [userActivity, setUserActivity] = useState([]);
@@ -65,6 +69,12 @@ export default function ViewProfileCMS({
   const [achievementsLoading, setAchievementsLoading] = useState(false);
   const [userTrips, setUserTrips] = useState([]);
   const [userTripsLoading, setUserTripsLoading] = useState(false);
+  const [userStats, setUserStats] = useState({
+    placesOnTrips: 0,
+    photosShared: 0,
+    ratedDestinations: 0,
+    friends: 0,
+  });
 
   useEffect(() => { if (open) setTab('overview'); }, [open]);
 
@@ -274,6 +284,18 @@ export default function ViewProfileCMS({
     return () => { alive = false; };
   }, [open, uid]);
 
+  // NEW: Load User Stats from backend
+  useEffect(() => {
+    let unsubscribe;
+    const userId = user?.id || user?.uid || user?.userId;
+    if (open && userId) {
+      unsubscribe = listenUserStats(userId, setUserStats);
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [open, user]);
+
   const resolvedStats = useMemo(() => {
     if (!stats) return { places: 0, photos: 0, reviews: 0, friends: 0 };
     // allow either map-by-user or direct object
@@ -341,6 +363,10 @@ export default function ViewProfileCMS({
           <div style={{ color: '#fff', flex: 1 }}>
             <div style={{ fontSize: 22, fontWeight: 500 }}>{user.travelerName || user.name || 'Unnamed'}</div>
             <div style={{ opacity: .95, fontWeight: 400 }}>{user.email || ''}</div>
+            {/* Show UID below email */}
+            <div style={{ opacity: .7, fontWeight: 400, fontSize: 13, marginTop: 2 }}>
+              UID: {uid}
+            </div>
             <div style={{ display: 'flex', gap: 12, marginTop: 10, alignItems: 'center' }}>
               <span style={{ background: '#34d399', color: '#fff', fontSize: 13, fontWeight: 500, borderRadius: 999, padding: '7px 18px' }}>
                 {(user.status || 'active').toString().toUpperCase()}
@@ -393,29 +419,33 @@ export default function ViewProfileCMS({
               {/* Travel Stats card (from Firestore) */}
               <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,.04)', padding: 18 }}>
                 <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 16 }}>Travel Stats</div>
-                {(() => {
-                  const s = resolvedStats || { places: 0, photos: 0, reviews: 0, friends: 0 };
-                  const placesCount = tripChips.length; // derived from itinerary/{uid}/items list
-                  const cell = (val, label, color) => (
+                {dashboardStatsLoading ? (
+                  <div className="centered" style={{ padding: 40 }}><div className="loading-spinner" /></div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4,1fr)',
+                    gap: 12,
+                    alignItems: 'center'
+                  }}>
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 24, fontWeight: 800, color }}>{Number(val || 0).toLocaleString()}</div>
-                      <div className="muted small" style={{ marginTop: 4 }}>{label}</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#2563eb' }}>{userStats.placesOnTrips}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Places on Trips</div>
                     </div>
-                  );
-                  return (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(4,1fr)',
-                      gap: 12,
-                      alignItems: 'center'
-                    }}>
-                      {cell(placesCount, 'Places on Trips', '#2563eb')}
-                      {cell(s.photos, 'Photos Shared', '#16a34a')}
-                      {cell(s.reviews, 'Reviews Written', '#7c3aed')}
-                      {cell(s.friends, 'Friends', '#f97316')}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>{userStats.photosShared}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Photos Shared</div>
                     </div>
-                  );
-                })()}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed' }}>{userStats.ratedDestinations}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Rated Destinations</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#f97316' }}>{userStats.friends}</div>
+                      <div className="muted small" style={{ marginTop: 4 }}>Friends</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

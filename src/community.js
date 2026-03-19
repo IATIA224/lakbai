@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom"; // <-- ADD THIS
 import { Link } from "react-router-dom";
 import {
   addDoc, collection, serverTimestamp, getDocs, query, where, doc, getDoc,
-  updateDoc, setDoc, arrayUnion, arrayRemove, onSnapshot, increment, deleteDoc
+  updateDoc, setDoc, arrayUnion, arrayRemove, onSnapshot, increment, deleteDoc,
+  documentId
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "./firebase";
@@ -10,6 +12,11 @@ import { CLOUDINARY_CONFIG } from "./profile";
 import FriendPopup from "./friend";
 import "./community.css";
 import { emitAchievement } from "./achievementsBus";
+import { logCommunityShareAdventure, logCommunityDeleteAdventure } from "./community-log"; // Add this import
+import { filterPostsByView, loadAllPosts, loadUserFriends, loadUserSavedPosts } from "./communityNav";
+
+// Simple in-memory cache for user photos to avoid repeated Firestore reads
+const userPhotoCache = new Map();
 
 // Helper to upload images to Cloudinary
 async function uploadToCloudinary(file) {
@@ -25,242 +32,325 @@ async function uploadToCloudinary(file) {
 const initialPosts = []; // Start empty to show the placeholder
 
 function ShareTripModal({ onClose, onCreate }) {
+  const [title, setTitle] = useState("");
+  const [details, setDetails] = useState("");
   const [location, setLocation] = useState("");
-  const [caption, setCaption] = useState("");
   const [duration, setDuration] = useState("");
   const [budget, setBudget] = useState("");
   const [highlights, setHighlights] = useState("");
-  const [files, setFiles] = useState([]);
-  const [previews, setPreviews] = useState([]);
   const [visibility, setVisibility] = useState("Public");
-  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("success");
 
-  const inputRef = useRef(null);
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
 
-  const handleFiles = (fileList) => {
-    const arr = Array.from(fileList || []);
-    const filtered = arr.filter(f => f.type.startsWith("image/") && f.size <= 10 * 1024 * 1024);
-    const urls = filtered.map(f => URL.createObjectURL(f));
-    setFiles(prev => [...prev, ...filtered]);
-    setPreviews(prev => [...prev, ...urls]);
+    setUploading(true);
+    const uploaded = [];
+
+    for (const file of files) {
+      try {
+        const url = await uploadToCloudinary(file);
+        uploaded.push(url);
+      } catch (err) {
+        console.error("Upload failed:", err);
+        alert(`Failed to upload ${file.name}`);
+      }
+    }
+
+    setImages((prev) => [...prev, ...uploaded]);
+    setUploading(false);
   };
 
-  const onBrowse = (e) => handleFiles(e.target.files);
-
-  const removePreview = (idx) => {
-    setFiles(prev => prev.filter((_, i) => i !== idx));
-    setPreviews(prev => prev.filter((_, i) => i !== idx));
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setCurrentImageIndex(0);
   };
 
-  const canPost = location && (caption.trim().length > 0 || previews.length > 0);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!canPost) return;
-    const user = auth.currentUser;
-    console.log("DEBUG: auth.currentUser =", user);
-
-    if (!user) {
-      alert("Please sign in to share a trip.");
+  const handleSubmit = async () => {
+    if (!title.trim()) {
+      setAlertMessage("Please enter a title for your trip");
+      setAlertType("error");
+      setShowAlert(true);
       return;
     }
 
-    setLoading(true);
-    try {
-      const imageUrls = [];
-      for (const file of files) {
-        const url = await uploadToCloudinary(file);
-        imageUrls.push(url);
-      }
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setAlertMessage("Please sign in to share a trip");
+      setAlertType("error");
+      setShowAlert(true);
+      return;
+    }
 
-      const postPayload = {
-        authorId: user.uid,
-        author: {
-          name: user.displayName || "You",
-          initials: (user.displayName || "You")
-            .split(" ")
-            .map(n => n[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase()
-        },
-        location,
-        title: caption.split("\n")[0].slice(0, 80) || "Shared Adventure",
-        details: caption || "",
-        budget: budget || "",
-        duration: duration || "",
-        highlights: highlights || "",
+    setUploading(true);
+
+    try {
+      const postData = {
+        title: title.trim(),
+        details: details.trim() || "",
+        location: location.trim() || "",
+        duration: duration.trim() || "",
+        budget: budget.trim() || "",
+        highlights: highlights.trim() || "",
         visibility,
+        images: images || [],
+        authorId: currentUser.uid,
+        author: {
+          name: currentUser.displayName || currentUser.email || "Anonymous",
+          uid: currentUser.uid
+        },
         likes: 0,
+        likedBy: [],
         comments: 0,
         createdAt: serverTimestamp()
       };
-      if (imageUrls.length > 0) postPayload.images = imageUrls;
-      if (visibility === "Friends") postPayload.allowedUids = []; // put friend UIDs here
 
-      console.log("DEBUG: Posting payload (authorId, visibility, createdAt sentinel):", {
-        authorId: postPayload.authorId,
-        visibility: postPayload.visibility,
-        createdAt: "serverTimestamp()",
-        allowedUids: postPayload.allowedUids,
-        imagesCount: postPayload.images?.length || 0
+      await addDoc(collection(db, "community"), postData);
+
+      // Log the share adventure activity
+      await logCommunityShareAdventure({
+        title: postData.title,
+        location: postData.location,
+        user: currentUser
       });
 
-      await addDoc(collection(db, "community"), postPayload);
-
-      // Unlock Hello World achievement and add activity
+      // Unlock achievement if first post (with check to prevent duplicates)
       await unlockHelloWorldAchievement();
 
-      onCreate();
-      onClose();
+      onCreate(postData);
+      
+      // Show success alert
+      setAlertMessage("Trip shared successfully! 🎉");
+      setAlertType("success");
+      setShowAlert(true);
+      
+      setTimeout(() => {
+        onClose();
+      }, 2200);
     } catch (err) {
-      console.error("Firestore write failed:", err);
-      alert("Failed to share trip: " + (err.code || err.message || err));
+      console.error("Failed to create post:", err);
+      setAlertMessage("Failed to share trip. Please try again.");
+      setAlertType("error");
+      setShowAlert(true);
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
-  return (
-    <div className="community-modal-backdrop" onClick={onClose}>
-      <div className="community-modal" onClick={e => e.stopPropagation()}>
-        {/* Colorful header like EditProfile */}
+  return ReactDOM.createPortal(
+    <div className="community-modal-backdrop share-modal-backdrop" onClick={onClose}>
+      <div className="community-modal share-trip-modal" onClick={(e) => e.stopPropagation()}>
         <div className="share-modal-header">
-          <h3>Share Your Philippines Adventure</h3>
+          <div className="share-modal-header-content">
+            <h3>🧳 Share Your Travel Experience</h3>
+            <p>Share your amazing journey with the community</p>
+          </div>
+          <button 
+            className="share-modal-close-btn" 
+            onClick={onClose}
+            aria-label="Close modal"
+          >
+            ×
+          </button>
         </div>
 
-        <form className="modal-form" onSubmit={handleSubmit}>
+        <div className="modal-form">
+          {/* Title */}
           <label className="modal-label">
-            <span className="field-title">📍 Location</span>
-            <select
+            <span className="field-title">Trip Title *</span>
+            <input
               className="modal-input"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-            >
-              <option value="">Select Province/City</option>
-              <option>Metro Manila</option>
-              <option>Cebu</option>
-              <option>Bohol</option>
-              <option>Palawan</option>
-              <option>Siargao</option>
-              <option>Baguio</option>
-              <option>Davao</option>
-            </select>
+              placeholder="e.g., Amazing Weekend in Baguio"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={100}
+            />
           </label>
 
-          {/* Upload Photos as a button matching Share */}
+          {/* Location - Manual Input */}
           <label className="modal-label">
-            <span className="field-title">📷 Photos</span>
-            <div className="upload-row">
+            <span className="field-title">Location</span>
+            <input
+              className="modal-input"
+              placeholder="e.g., Baguio City, Benguet"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              maxLength={100}
+            />
+          </label>
+
+          {/* Duration & Budget */}
+          <div className="modal-row">
+            <label className="modal-label">
+              <span className="field-title">Duration</span>
+              <input
+                className="modal-input"
+                placeholder="e.g., 3 Days"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+              />
+            </label>
+
+            <label className="modal-label">
+              <span className="field-title">Budget (PHP)</span>
+              <input
+                className="modal-input"
+                type="number"
+                placeholder="e.g., 5000"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+              />
+            </label>
+          </div>
+
+          {/* Details */}
+          <label className="modal-label">
+            <span className="field-title">Trip Details</span>
+            <textarea
+              className="modal-textarea"
+              placeholder="Share your experience, tips, and recommendations..."
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+              maxLength={2000}
+              rows={5}
+            />
+            <div style={{ textAlign: "right", fontSize: "0.85rem", color: "#6b7280", marginTop: 4 }}>
+              {details.length}/2000
+            </div>
+          </label>
+
+          {/* Highlights */}
+          <label className="modal-label">
+            <span className="field-title">Highlights</span>
+            <textarea
+              className="modal-textarea"
+              placeholder="e.g., Day 1: Burnham Park, Day 2: Botanical Garden, Day 3: Night Market"
+              value={highlights}
+              onChange={(e) => setHighlights(e.target.value)}
+              maxLength={500}
+              rows={3}
+            />
+          </label>
+
+          {/* Visibility */}
+          <label className="modal-label">
+            <span className="field-title">Who can see this?</span>
+            <div className="segmented">
               <button
                 type="button"
-                className="btn-primary btn-upload"
-                onClick={() => inputRef.current?.click()}
+                className={`seg-btn ${visibility === "Public" ? "is-active" : ""}`}
+                onClick={() => setVisibility("Public")}
               >
-                <span className="btn-upload-icon">📷</span>
-                Upload Photos
+                🌍 Public
               </button>
-              <input
-                ref={inputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                hidden
-                onChange={onBrowse}
-              />
-              <div className="upload-hint">JPG, PNG up to 10MB each</div>
+              <button
+                type="button"
+                className={`seg-btn ${visibility === "Friends" ? "is-active" : ""}`}
+                onClick={() => setVisibility("Friends")}
+              >
+                👥 Friends
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${visibility === "Only Me" ? "is-active" : ""}`}
+                onClick={() => setVisibility("Only Me")}
+              >
+                🔒 Only Me
+              </button>
+            </div>
+          </label>
+
+          {/* Image Upload */}
+          <label className="modal-label">
+            <span className="field-title">Photos</span>
+            <div className="upload-row">
+              <label className="btn-secondary btn-upload" style={{ cursor: "pointer", margin: 0 }}>
+                <span className="btn-upload-icon">📷</span>
+                <span>Choose Photos</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  style={{ display: "none" }}
+                  disabled={uploading}
+                />
+              </label>
+              <span className="upload-hint">
+                {uploading ? "Uploading..." : `${images.length} photo(s) selected`}
+              </span>
             </div>
 
-            {previews.length > 0 && (
+            {images.length > 0 && (
               <div className="thumbs">
-                {previews.map((src, i) => (
-                  <div className="thumb" key={src}>
-                    <img src={src} alt={`upload ${i + 1}`} />
-                    <button
-                      type="button"
-                      className="thumb-remove"
-                      onClick={() => removePreview(i)}
-                      aria-label="Remove photo"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
+                <div className="thumb-community">
+                  <img src={images[currentImageIndex]} alt="Preview" />
+                  <button
+                    className="thumb-remove"
+                    onClick={() => removeImage(currentImageIndex)}
+                    title="Remove photo"
+                  >
+                    ×
+                  </button>
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        className="thumb-arrow left"
+                        onClick={() =>
+                          setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+                        }
+                      >
+                        ‹
+                      </button>
+                      <button
+                        className="thumb-arrow right"
+                        onClick={() =>
+                          setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+                        }
+                      >
+                        ›
+                      </button>
+                      <div className="thumb-carousel-indicator">
+                        {currentImageIndex + 1} / {images.length}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </label>
 
-          {/* NEW: Visibility */}
-          <label className="modal-label">
-            <span className="field-title">Who can see this?</span>
-            <div className="segmented" role="group" aria-label="Post visibility">
-              {["Public", "Friends", "Only Me"].map(opt => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={`seg-btn${visibility === opt ? " is-active" : ""}`}
-                  onClick={() => setVisibility(opt)}
-                >
-                  {opt === "Public" ? "🌐 Public" : opt === "Friends" ? "👥 Friends" : "🔒 Only Me"}
-                </button>
-              ))}
-            </div>
-          </label>
-
-          <label className="modal-label">
-            <span className="field-title">📝 Caption</span>
-            <textarea
-              className="modal-textarea"
-              rows={4}
-              placeholder="Share your experience... What made this trip special?"
-              value={caption}
-              onChange={e => setCaption(e.target.value)}
-              maxLength={1000}
-            />
-          </label>
-
-          <div className="modal-row">
-            <label className="modal-label">
-              <span className="field-title">📅 Duration</span>
-              <input
-                className="modal-input"
-                placeholder="e.g., 3 days"
-                value={duration}
-                onChange={e => setDuration(e.target.value)}
-              />
-            </label>
-            <label className="modal-label">
-              <span className="field-title">💰 Budget</span>
-              <input
-                className="modal-input"
-                placeholder="e.g., ₱15,000"
-                value={budget}
-                onChange={e => setBudget(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <label className="modal-label">
-            <span className="field-title">🗺️ Itinerary Highlights</span>
-            <textarea
-              className="modal-textarea"
-              rows={3}
-              placeholder="Day 1: Arrival, Day 2: Island hopping, etc."
-              value={highlights}
-              onChange={e => setHighlights(e.target.value)}
-              maxLength={1000}
-            />
-          </label>
-
+          {/* Actions */}
           <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={!canPost || loading}>
-              {loading ? "Sharing..." : "Share Adventure"}
+            <button className="btn-secondary" onClick={onClose} disabled={uploading}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleSubmit}
+              disabled={uploading || !title.trim()}
+            >
+              {uploading ? "Sharing..." : "Share Trip"}
             </button>
           </div>
-        </form>
+        </div>
+
+        {showAlert && (
+          <AlertPopup 
+            message={alertMessage} 
+            type={alertType}
+            onClose={() => setShowAlert(false)}
+          />
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -272,9 +362,12 @@ function ReportSuccessPopup({ onClose }) {
   return (
     <div className="report-success-backdrop">
       <div className="report-success-popup">
-        <span className="report-success-icon">✅</span>
-        <div className="report-success-title">Report Submitted</div>
-        <div className="report-success-desc">Thank you for helping keep the community safe.</div>
+        <div className="report-success-icon-wrapper">
+          <span className="report-success-icon">✅</span>
+        </div>
+        <div className="report-success-title">Trip Shared Successfully!</div>
+        <div className="report-success-desc">Your adventure is now live in the community.</div>
+        <div className="report-success-bar"></div>
       </div>
     </div>
   );
@@ -300,7 +393,10 @@ function ReportPostModal({ post, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!reason) return;
+    if (!reason) {
+      alert("Please select a reason for reporting.");
+      return;
+    }
     
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -311,31 +407,39 @@ function ReportPostModal({ post, onClose }) {
     setLoading(true);
     try {
       const selected = reasons.find(r => r.value === reason);
-      await addDoc(collection(db, "report"), {
-        reporterId: currentUser.uid,           // ID of the user submitting the report
-        reporterName: currentUser.displayName || "Anonymous user", // Name of reporter
-        reportedUserId: post.authorId,         // ID of the user who created the reported content
-        reportedUserName: post.author?.name || "Unknown user", // Name of reported user
+      
+      const reportData = {
+        reporterId: currentUser.uid,
+        reporterName: currentUser.displayName || "Anonymous user",
+        reportedUserId: post.authorId || "unknown",
+        reportedUserName: post.author?.name || "Unknown user",
         postId: post.id,
         contentType: "post",
-        contentSnapshot: {                     // Save snapshot of reported content
+        contentSnapshot: {
           title: post.title || "",
           details: post.details || "",
           location: post.location || "",
         },
         reason,
         reasonLabel: selected?.label || reason,
-        details,
+        details: details || "",
         priority: selected?.priority || "Low",
         status: "pending",
-        reviewedBy: null,                      // Admin who reviews this report
-        reviewNotes: null,                     // Admin review notes
-        reviewedAt: null,                      // When review happened
-        createdAt: serverTimestamp(),          // When report was created
-      });
+        reviewedBy: null,
+        reviewNotes: null,
+        reviewedAt: null,
+        createdAt: serverTimestamp(),
+      };
+      
+      console.log("Submitting report:", reportData);
+      
+      // Add the report to Firestore
+      const docRef = await addDoc(collection(db, "report"), reportData);
+      console.log("Report submitted with ID:", docRef.id);
+      
       setShowSuccess(true);
       
-      // Also log this action for moderation history
+      // Also log this action for moderation history (non-blocking)
       try {
         await addDoc(collection(db, "moderationLogs"), {
           action: "report_submitted",
@@ -346,9 +450,9 @@ function ReportPostModal({ post, onClose }) {
           reason: selected?.label || reason,
           timestamp: serverTimestamp()
         });
+        console.log("Moderation log created");
       } catch (logErr) {
         console.error("Failed to log moderation action:", logErr);
-        // Non-blocking error - main report was still created
       }
       
       setTimeout(() => {
@@ -356,14 +460,19 @@ function ReportPostModal({ post, onClose }) {
         onClose();
       }, 2200);
     } catch (err) {
-      alert("Failed to submit report.");
-      console.error(err);
+      console.error("Failed to submit report:", err);
+      console.error("Error details:", {
+        code: err.code,
+        message: err.message,
+        stack: err.stack
+      });
+      alert(`Failed to submit report: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
         <div className="community-modal" onClick={e => e.stopPropagation()}>
@@ -406,387 +515,8 @@ function ReportPostModal({ post, onClose }) {
         </div>
       </div>
       {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
-    </>
-  );
-}
-
-function CommentActionMenu({ comment, onEdit, onDelete }) {
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
-  const currentUser = auth.currentUser;
-  const isOwner = currentUser && comment.userId === currentUser.uid;
-  
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-  
-  if (!isOwner) return null;
-  
-  return (
-    <div className="action-menu" ref={dropdownRef}>
-      <button 
-        className="action-dots" 
-        onClick={() => setShowDropdown(!showDropdown)}
-        aria-label="Comment options"
-      >
-        •••
-      </button>
-      
-      {showDropdown && (
-        <div className="action-dropdown">
-          <div className="action-item" onClick={() => { onEdit(); setShowDropdown(false); }}>
-            <span className="action-item-icon">✏️</span> Edit
-          </div>
-          <div className="action-item delete" onClick={() => { onDelete(); setShowDropdown(false); }}>
-            <span className="action-item-icon">🗑️</span> Delete
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CommentModal({ post, onClose, onCountChange }) {
-  // Existing states
-  const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [comments, setComments] = useState([]);
-  const [fetching, setFetching] = useState(true);
-  const [reportingComment, setReportingComment] = useState(null);
-  // Add these new states
-  const [editingComment, setEditingComment] = useState(null);
-  const [editText, setEditText] = useState("");
-  const textareaRef = useRef(null);
-  const editTextareaRef = useRef(null);
-
-  const getInitials = (name = "User") =>
-    name.trim().split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase();
-
-  const timeAgo = (ms) => {
-    if (!ms) return "just now";
-    const s = Math.floor((Date.now() - ms) / 1000);
-    if (s < 60) return `${s}s ago`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const d = Math.floor(h / 24);
-    return `${d}d ago`;
-  };
-
-  // autosize textarea
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const fit = () => {
-      el.style.height = "0px";
-      el.style.height = Math.min(el.scrollHeight, 180) + "px";
-    };
-    fit();
-    el.addEventListener("input", fit);
-    return () => el.removeEventListener("input", fit);
-  }, []);
-
-  // realtime comments + hydrate missing user photos
-  useEffect(() => {
-    const q = query(collection(db, "comments"), where("postId", "==", post.id));
-    const unsub = onSnapshot(
-      q,
-      async (snap) => {
-        let items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        items.sort((a, b) => {
-          const ta = a.createdAt?.toMillis?.() ?? 0;
-          const tb = b.createdAt?.toMillis?.() ?? 0;
-          return ta - tb;
-        });
-
-        // fetch profile pictures for comments missing userPhoto
-        const uidsToFetch = [...new Set(items.filter(c => !c.userPhoto && c.userId).map(c => c.userId))];
-        if (uidsToFetch.length) {
-          const userCol = collection(db, "users");
-          const snaps = await Promise.all(uidsToFetch.map(uid => getDoc(doc(userCol, uid))));
-          const photoByUid = {};
-          snaps.forEach((s, i) => {
-            if (s.exists()) photoByUid[uidsToFetch[i]] = s.data().profilePicture || null;
-          });
-          items = items.map(c => c.userPhoto ? c : { ...c, userPhoto: photoByUid[c.userId] || null });
-        }
-
-        setComments(items);
-        setFetching(false);
-        onCountChange?.(items.length); // keep parent count in sync
-      },
-      (err) => {
-        console.error("Comments listener error:", err);
-        setComments([]);
-        setFetching(false);
-        onCountChange?.(0);
-      }
-    );
-    return () => unsub();
-  }, [post.id, onCountChange]);
-
-  async function handleSubmit(e) {
-    e?.preventDefault?.();
-    if (!text.trim() || loading) return;
-    setLoading(true);
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        alert("Please sign in to comment.");
-        return;
-      }
-
-      // try to attach commenter profile photo
-      let userPhoto = user.photoURL || null;
-      try {
-        const uSnap = await getDoc(doc(db, "users", user.uid));
-        if (uSnap.exists()) userPhoto = uSnap.data().profilePicture || userPhoto;
-      } catch (_) { /* ignore */ }
-
-      await addDoc(collection(db, "comments"), {
-        postId: post.id,
-        userId: user.uid,
-        userName: user.displayName || "Anonymous",
-        userPhoto: userPhoto || null,
-        text: text.trim(),
-        hearts: 0,
-        heartedBy: [],
-        createdAt: serverTimestamp()
-      });
-
-      // bump post's comment count in Firestore (UI syncs via onCountChange)
-      await updateDoc(doc(db, "community", post.id), { comments: increment(1) });
-
-      setText("");
-      textareaRef.current?.focus();
-    } catch (err) {
-      console.error("Failed to post comment:", err);
-      alert("Failed to post comment.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleHeart(c) {
-    const user = auth.currentUser;
-    if (!user) {
-      alert("Please sign in to heart comments.");
-      return;
-    }
-    try {
-      const ref = doc(db, "comments", c.id);
-      const hasHeart = c.heartedBy?.includes(user.uid);
-      await updateDoc(ref, hasHeart
-        ? { hearts: Math.max((c.hearts || 1) - 1, 0), heartedBy: arrayRemove(user.uid) }
-        : { hearts: (c.hearts || 0) + 1, heartedBy: arrayUnion(user.uid) }
-      );
-    } catch (err) {
-      console.error("Failed to update heart:", err);
-      alert("Failed to update heart.");
-    }
-  }
-
-  const onComposerKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
-
-  // Add delete comment function
-  async function handleDeleteComment(commentId) {
-    if (!window.confirm("Are you sure you want to delete this comment?")) {
-      return;
-    }
-    
-    try {
-      await deleteDoc(doc(db, "comments", commentId));
-      
-      // Update post's comment count
-      await updateDoc(doc(db, "community", post.id), { comments: increment(-1) });
-      
-      // Local state update (will be overwritten by onSnapshot, but this makes it feel faster)
-      setComments(prev => prev.filter(c => c.id !== commentId));
-      onCountChange?.(comments.length - 1);
-    } catch (err) {
-      console.error("Failed to delete comment:", err);
-      alert("Failed to delete comment.");
-    }
-  }
-  
-  // Add edit comment function
-  async function handleEditComment(comment) {
-    if (editText.trim() === comment.text || !editText.trim() || loading) return;
-    
-    setLoading(true);
-    try {
-      await updateDoc(doc(db, "comments", comment.id), {
-        text: editText.trim(),
-        edited: true,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Reset state
-      setEditingComment(null);
-      setEditText("");
-    } catch (err) {
-      console.error("Failed to edit comment:", err);
-      alert("Failed to edit comment.");
-    } finally {
-      setLoading(false);
-    }
-  }
-  
-  // When a comment is set for editing, set the text
-  useEffect(() => {
-    if (editingComment) {
-      setEditText(editingComment.text);
-    }
-  }, [editingComment]);
-  
-  // Setup autosize for edit textarea
-  useEffect(() => {
-    const el = editTextareaRef.current;
-    if (!el) return;
-    
-    const fit = () => {
-      el.style.height = "0px";
-      el.style.height = Math.min(el.scrollHeight, 180) + "px";
-    };
-    
-    fit();
-    el.addEventListener("input", fit);
-    return () => el.removeEventListener("input", fit);
-  }, [editingComment]);
-  
-  return (
-    <>
-      <div className="community-modal-backdrop" onClick={onClose}>
-        <div className="community-modal cmt-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="share-modal-header cmt-header">
-            <h3>
-              Comments <span className="cmt-count">({comments.length})</span>
-            </h3>
-            <button className="cmt-close" onClick={onClose} aria-label="Close" type="button">×</button>
-          </div>
-
-          <div className="cmt-list">
-            {fetching ? (
-              <div className="cmt-skeleton">
-                <div className="cmt-skel-row" />
-                <div className="cmt-skel-row" />
-                <div className="cmt-skel-row" />
-              </div>
-            ) : comments.length === 0 ? (
-              <div className="cmt-empty">No comments yet.</div>
-            ) : (
-              comments.map((c) => (
-                <div key={c.id} className="cmt-item">
-                  <div className="cmt-avatar" aria-hidden="true">
-                    {c.userPhoto ? <img src={c.userPhoto} alt={c.userName || "User"} /> : getInitials(c.userName)}
-                  </div>
-                  <div className="cmt-content">
-                    <div className="cmt-meta">
-                      <span className="cmt-name">{c.userName}</span>
-                      <span className="cmt-dot">•</span>
-                      <span className="cmt-time">
-                        {timeAgo(c.createdAt?.toMillis?.())}
-                        {c.edited && <span className="cmt-edited"> (edited)</span>}
-                      </span>
-                    </div>
-                    
-                    {editingComment?.id === c.id ? (
-                      <div className="cmt-edit-form">
-                        <textarea
-                          ref={editTextareaRef}
-                          className="cmt-input"
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          maxLength={500}
-                        />
-                        <div className="cmt-edit-actions">
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={() => setEditingComment(null)}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => handleEditComment(c)}
-                            disabled={!editText.trim() || editText.trim() === c.text || loading}
-                          >
-                            {loading ? "Saving..." : "Save"}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="cmt-text">{c.text}</div>
-                    )}
-                  </div>
-                  
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <CommentActionMenu
-                      comment={c}
-                      onEdit={() => setEditingComment(c)}
-                      onDelete={() => handleDeleteComment(c.id)}
-                    />
-                    <button
-                      type="button"
-                      className={`cmt-heart ${c.heartedBy?.includes(auth.currentUser?.uid) ? "is-on" : ""}`}
-                      onClick={() => handleHeart(c)}
-                      title="Heart this comment"
-                    >
-                      <span>❤️</span>
-                      <b>{c.hearts || 0}</b>
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <form className="cmt-composer" onSubmit={handleSubmit}>
-            <textarea
-              ref={textareaRef}
-              className="cmt-input"
-              rows={1}
-              placeholder="Write a comment… (Enter to send, Shift+Enter for newline)"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={onComposerKeyDown}
-              maxLength={500}
-              required
-            />
-            <div className="cmt-actions">
-              <span className="cmt-countdown">{text.length}/500</span>
-              <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
-              <button type="submit" className="btn-primary" disabled={!text.trim() || loading}>
-                {loading ? "Posting…" : "Post"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {reportingComment && (
-        <ReportCommentModal
-          comment={reportingComment}
-          post={post}
-          onClose={() => setReportingComment(null)}
-        />
-      )}
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -810,7 +540,10 @@ function ReportCommentModal({ comment, post, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!reason) return;
+    if (!reason) {
+      alert("Please select a reason for reporting.");
+      return;
+    }
     
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -821,31 +554,39 @@ function ReportCommentModal({ comment, post, onClose }) {
     setLoading(true);
     try {
       const selected = reasons.find(r => r.value === reason);
-      await addDoc(collection(db, "report"), {
-        reporterId: currentUser.uid,           // ID of user submitting report
-        reporterName: currentUser.displayName || "Anonymous user", // Name of reporter
-        reportedUserId: comment.userId,        // ID of user who created reported content
-        reportedUserName: comment.userName || "Unknown user", // Name of reported user
-        postId: post.id,                       // Parent post ID
+      
+      const reportData = {
+        reporterId: currentUser.uid,
+        reporterName: currentUser.displayName || "Anonymous user",
+        reportedUserId: comment.userId || "unknown",
+        reportedUserName: comment.userName || "Unknown user",
+        postId: post.id,
         commentId: comment.id,
         contentType: "comment",
-        contentSnapshot: {                     // Save snapshot of reported content
+        contentSnapshot: {
           text: comment.text || "",
           createdAt: comment.createdAt || null,
         },
         reason,
         reasonLabel: selected?.label || reason,
-        details,
+        details: details || "",
         priority: selected?.priority || "Low",
         status: "pending",
-        reviewedBy: null,                      // Admin who reviews this report
-        reviewNotes: null,                     // Admin review notes
-        reviewedAt: null,                      // When review happened
-        createdAt: serverTimestamp(),          // When report was created
-      });
+        reviewedBy: null,
+        reviewNotes: null,
+        reviewedAt: null,
+        createdAt: serverTimestamp(),
+      };
+      
+      console.log("Submitting comment report:", reportData);
+      
+      // Add the report to Firestore
+      const docRef = await addDoc(collection(db, "report"), reportData);
+      console.log("Comment report submitted with ID:", docRef.id);
+      
       setShowSuccess(true);
       
-      // Also log this action for moderation history
+      // Also log this action for moderation history (non-blocking)
       try {
         await addDoc(collection(db, "moderationLogs"), {
           action: "report_submitted",
@@ -857,9 +598,9 @@ function ReportCommentModal({ comment, post, onClose }) {
           reason: selected?.label || reason,
           timestamp: serverTimestamp()
         });
+        console.log("Comment moderation log created");
       } catch (logErr) {
         console.error("Failed to log moderation action:", logErr);
-        // Non-blocking error - main report was still created
       }
       
       setTimeout(() => {
@@ -867,14 +608,19 @@ function ReportCommentModal({ comment, post, onClose }) {
         onClose();
       }, 2200);
     } catch (err) {
-      alert("Failed to submit report.");
-      console.error(err);
+      console.error("Failed to submit comment report:", err);
+      console.error("Error details:", {
+        code: err.code,
+        message: err.message,
+        stack: err.stack
+      });
+      alert(`Failed to submit report: ${err.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className="community-modal-backdrop" onClick={onClose}>
         <div className="community-modal" onClick={e => e.stopPropagation()}>
@@ -917,17 +663,494 @@ function ReportCommentModal({ comment, post, onClose }) {
         </div>
       </div>
       {showSuccess && <ReportSuccessPopup onClose={() => setShowSuccess(false)} />}
-    </>
+    </>,
+    document.body
   );
 }
 
-function PostActionMenu({ post, onEdit, onDelete }) {
+function CommentModal({ post, onClose, onCountChange }) {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [fetching, setFetching] = useState(true);
+  const [reportingComment, setReportingComment] = useState(null);
+  const [editingComment, setEditingComment] = useState(null);
+  const [editText, setEditText] = useState("");
+  const textareaRef = useRef(null);
+  const editTextareaRef = useRef(null);
+  const commentListRef = useRef(null);
+
+  const getInitials = (name = "User") =>
+    name.trim().split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase();
+
+  const timeAgo = (ms) => {
+    if (!ms) return "just now";
+    const s = Math.floor((Date.now() - ms) / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    const d = Math.floor(h / 24);
+    return `${d}d`;
+  };
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.height = "0px";
+      el.style.height = Math.min(el.scrollHeight, 180) + "px";
+    };
+    fit();
+    el.addEventListener("input", fit);
+    return () => el.removeEventListener("input", fit);
+  }, []);
+
+  // Realtime comments listener with caching
+  useEffect(() => {
+    const q = query(
+      collection(db, "comments"), 
+      where("postId", "==", post.id)
+    );
+    
+    const unsub = onSnapshot(
+      q,
+      async (snap) => {
+        let items = snap.docs.map(d => {
+          const data = d.data();
+          return { 
+            id: d.id, 
+            ...data,
+            createdAt: data.createdAt || null,
+            createdAtClient: data.createdAtClient || null
+          };
+        });
+        
+        // Sort by timestamp
+        items.sort((a, b) => {
+          const ta = a.createdAt?.toMillis?.() ?? a.createdAtClient ?? 0;
+          const tb = b.createdAt?.toMillis?.() ?? b.createdAtClient ?? 0;
+          return ta - tb;
+        });
+
+        // Batch fetch user photos
+        const uidsToFetch = [...new Set(
+          items.filter(c => !c.userPhoto && c.userId).map(c => c.userId)
+        )].filter(uid => !userPhotoCache.has(uid));
+        
+        if (uidsToFetch.length) {
+          for (let i = 0; i < uidsToFetch.length; i += 10) {
+            const chunk = uidsToFetch.slice(i, i + 10);
+            try {
+              const userDocs = await Promise.all(
+                chunk.map(uid => getDoc(doc(db, "users", uid)))
+              );
+              
+              userDocs.forEach((snap, idx) => {
+                const uid = chunk[idx];
+                const photo = snap.exists() ? (snap.data()?.profilePicture || null) : null;
+                userPhotoCache.set(uid, photo);
+              });
+            } catch (err) {
+              console.error("Failed to fetch user photos:", err);
+              chunk.forEach(uid => userPhotoCache.set(uid, null));
+            }
+          }
+        }
+
+        // Apply cached photos
+        items = items.map(c => {
+          if (c.userPhoto) return c;
+          const cachedPhoto = userPhotoCache.get(c.userId);
+          return { ...c, userPhoto: cachedPhoto ?? null };
+        });
+
+        setComments(items);
+        setFetching(false);
+        onCountChange?.(items.length);
+
+        // Auto-scroll to bottom for new comments
+        setTimeout(() => {
+          if (commentListRef.current) {
+            commentListRef.current.scrollTop = commentListRef.current.scrollHeight;
+          }
+        }, 100);
+      },
+      (err) => {
+        console.error("Comments listener error:", err);
+        setComments([]);
+        setFetching(false);
+        onCountChange?.(0);
+      }
+    );
+    
+    return () => unsub();
+  }, [post.id, onCountChange]);
+
+  // Optimized submit with instant feedback
+  async function handleSubmit(e) {
+    e?.preventDefault?.();
+    if (!text.trim() || loading) return;
+    
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Please sign in to comment.");
+      return;
+    }
+
+    const commentText = text.trim();
+    setText(""); // Clear immediately
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "44px";
+    }
+
+    // Get user photo from cache
+    let userPhoto = userPhotoCache.get(user.uid);
+    if (userPhoto === undefined) {
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        userPhoto = userDoc.exists() ? (userDoc.data()?.profilePicture || null) : null;
+        userPhotoCache.set(user.uid, userPhoto);
+      } catch (err) {
+        userPhoto = null;
+        userPhotoCache.set(user.uid, null);
+      }
+    }
+
+    // Optimistic UI: add immediately
+    const nowMs = Date.now();
+    const tempId = `temp-${nowMs}`;
+    const optimistic = {
+      id: tempId,
+      postId: post.id,
+      userId: user.uid,
+      userName: user.displayName || user.email || "Anonymous",
+      userPhoto: userPhoto,
+      text: commentText,
+      hearts: 0,
+      heartedBy: [],
+      createdAtClient: nowMs,
+      pending: true
+    };
+    
+    setComments(prev => [...prev, optimistic]);
+    onCountChange?.((comments?.length || 0) + 1);
+
+    // Scroll to bottom
+    setTimeout(() => {
+      if (commentListRef.current) {
+        commentListRef.current.scrollTop = commentListRef.current.scrollHeight;
+      }
+    }, 50);
+
+    // Background Firestore write
+    try {
+      const commentData = {
+        postId: post.id,
+        userId: user.uid,
+        userName: user.displayName || user.email || "Anonymous",
+        userPhoto: userPhoto,
+        text: commentText,
+        hearts: 0,
+        heartedBy: [],
+        createdAt: serverTimestamp()
+      };
+      
+      await addDoc(collection(db, "comments"), commentData);
+
+      // Update post's comment count
+      updateDoc(doc(db, "community", post.id), { 
+        comments: increment(1) 
+      }).catch(err => console.error("Failed to update post comment count:", err));
+
+    } catch (err) {
+      console.error("Failed to post comment:", err);
+      alert("Failed to post comment. Please try again.");
+      // Remove optimistic comment on error
+      setComments(prev => prev.filter(c => c.id !== tempId));
+    }
+  }
+
+  async function handleHeart(c) {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const hasHeart = c.heartedBy?.includes(user.uid);
+    
+    // Optimistic update
+    setComments(prev => prev.map(comment => 
+      comment.id === c.id 
+        ? {
+            ...comment,
+            hearts: Math.max((comment.hearts || 0) + (hasHeart ? -1 : 1), 0),
+            heartedBy: hasHeart 
+              ? (comment.heartedBy || []).filter(uid => uid !== user.uid)
+              : [...(comment.heartedBy || []), user.uid]
+          }
+        : comment
+    ));
+
+    try {
+      const ref = doc(db, "comments", c.id);
+      await updateDoc(ref, hasHeart
+        ? { hearts: Math.max((c.hearts || 1) - 1, 0), heartedBy: arrayRemove(user.uid) }
+        : { hearts: (c.hearts || 0) + 1, heartedBy: arrayUnion(user.uid) }
+      );
+    } catch (err) {
+      console.error("Failed to update heart:", err);
+      // Rollback on error
+      setComments(prev => prev.map(comment => comment.id === c.id ? c : comment));
+    }
+  }
+
+  const onComposerKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  async function handleDeleteComment(commentId) {
+    if (!window.confirm("Delete this comment?")) return;
+    
+    // Optimistic update
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    onCountChange?.(comments.length - 1);
+    
+    try {
+      await deleteDoc(doc(db, "comments", commentId));
+      await updateDoc(doc(db, "community", post.id), { comments: increment(-1) });
+    } catch (err) {
+      console.error("Failed to delete comment:", err);
+      alert("Failed to delete comment.");
+    }
+  }
+  
+  async function handleEditComment(comment) {
+    if (editText.trim() === comment.text || !editText.trim() || loading) return;
+    setLoading(true);
+    
+    // Optimistic update
+    setComments(prev => prev.map(c => 
+      c.id === comment.id 
+        ? { ...c, text: editText.trim(), edited: true }
+        : c
+    ));
+    setEditingComment(null);
+    setEditText("");
+    
+    try {
+      await updateDoc(doc(db, "comments", comment.id), {
+        text: editText.trim(),
+        edited: true,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Failed to edit comment:", err);
+      // Rollback
+      setComments(prev => prev.map(c => c.id === comment.id ? comment : c));
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  useEffect(() => {
+    if (editingComment) {
+      setEditText(editingComment.text);
+    }
+  }, [editingComment]);
+  
+  useEffect(() => {
+    const el = editTextareaRef.current;
+    if (!el) return;
+    
+    const fit = () => {
+      el.style.height = "0px";
+      el.style.height = Math.min(el.scrollHeight, 180) + "px";
+    };
+    
+    fit();
+    el.addEventListener("input", fit);
+    return () => el.removeEventListener("input", fit);
+  }, [editingComment]);
+
+  return ReactDOM.createPortal(
+    <>
+      {ReactDOM.createPortal(
+        <>
+          <div className="community-modal-backdrop" onClick={onClose}>
+            <div className="community-modal cmt-modal-enhanced" onClick={(e) => e.stopPropagation()}>
+              <div className="cmt-header-enhanced">
+                <h3>
+                  💬 Comments <span className="cmt-count-enhanced">({comments.length})</span>
+                </h3>
+                <button className="cmt-close-enhanced" onClick={onClose} aria-label="Close">×</button>
+              </div>
+
+              <div className="cmt-list-enhanced" ref={commentListRef}>
+                {fetching ? (
+                  <div className="cmt-skeleton-enhanced">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="cmt-skel-item">
+                        <div className="cmt-skel-avatar"></div>
+                        <div className="cmt-skel-content">
+                          <div className="cmt-skel-line" style={{ width: '60%' }}></div>
+                          <div className="cmt-skel-line" style={{ width: '90%' }}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : comments.length === 0 ? (
+                  <div className="cmt-empty-enhanced">
+                    <div className="cmt-empty-icon">💭</div>
+                    <div className="cmt-empty-text">No comments yet. Be the first!</div>
+                  </div>
+                ) : (
+                  comments.map((c) => (
+                    <div 
+                      key={c.id} 
+                      className={`cmt-item-enhanced ${c.pending ? 'pending' : ''}`}
+                    >
+                      <div className="cmt-avatar-enhanced">
+                        {c.userPhoto ? 
+                          <img src={c.userPhoto} alt={c.userName || "User"} /> : 
+                          <div className="cmt-avatar-initials">{getInitials(c.userName)}</div>
+                        }
+                      </div>
+                      <div className="cmt-bubble">
+                        <div className="cmt-meta-enhanced">
+                          <span className="cmt-name-enhanced">{c.userName}</span>
+                          <span className="cmt-time-enhanced">{timeAgo(c.createdAt?.toMillis?.() ?? c.createdAtClient)}</span>
+                          {c.edited && <span className="cmt-edited-badge">edited</span>}
+                        </div>
+                        
+                        {editingComment?.id === c.id ? (
+                          <div className="cmt-edit-form-enhanced">
+                            <textarea
+                              ref={editTextareaRef}
+                              className="cmt-edit-input"
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              maxLength={500}
+                            />
+                            <div className="cmt-edit-actions">
+                              <button
+                                type="button"
+                                className="btn-cancel"
+                                onClick={() => setEditingComment(null)}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-save"
+                                onClick={() => handleEditComment(c)}
+                                disabled={!editText.trim() || editText.trim() === c.text || loading}
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="cmt-text-enhanced">{c.text}</div>
+                        )}
+                        
+                        <div className="cmt-actions-enhanced">
+                          <button
+                            type="button"
+                            className={`cmt-heart-btn ${c.heartedBy?.includes(auth.currentUser?.uid) ? "active" : ""}`}
+                            onClick={() => handleHeart(c)}
+                          >
+                            ❤️ {c.hearts > 0 && <span>{c.hearts}</span>}
+                          </button>
+                          
+                          {auth.currentUser && auth.currentUser.uid === c.userId && (
+                            <div className="cmt-owner-actions">
+                              <button
+                                type="button"
+                                className="cmt-action-btn"
+                                onClick={() => setEditingComment(c)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="cmt-action-btn delete"
+                                onClick={() => handleDeleteComment(c.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                          
+                          {auth.currentUser && auth.currentUser.uid !== c.userId && (
+                            <button
+                              type="button"
+                              className="cmt-report-btn"
+                              onClick={() => setReportingComment(c)}
+                            >
+                              Report
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <form className="cmt-composer-enhanced" onSubmit={handleSubmit}>
+                <div className="cmt-composer-wrap">
+                  <textarea
+                    ref={textareaRef}
+                    className="cmt-input-enhanced"
+                    rows={1}
+                    placeholder="Write a comment..."
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={onComposerKeyDown}
+                    maxLength={500}
+                    required
+                  />
+                  <button 
+                    type="submit" 
+                    className="cmt-send-btn" 
+                    disabled={!text.trim() || loading}
+                    aria-label="Send comment"
+                  >
+                    ➤
+                  </button>
+                </div>
+                <div className="cmt-char-count">{text.length}/500</div>
+              </form>
+            </div>
+          </div>
+
+          {reportingComment && (
+            <ReportCommentModal
+              comment={reportingComment}
+              post={post}
+              onClose={() => setReportingComment(null)}
+            />
+          )}
+        </>,
+        document.body
+      )}
+    </>,
+    document.body
+  );
+}
+
+function PostActionMenu({ post, user, friends, onEdit, onDelete, onAddFriend, onReport, addingFriendId }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
-  const currentUser = auth.currentUser;
-  const isOwner = currentUser && post.authorId === currentUser.uid;
-  
-  // Close dropdown when clicking outside
+
+  const isOwner = !!user && post.authorId === user.uid;
+  const isFriend = friends?.has?.(post.authorId);
+  const addDisabled = !user || isOwner || isFriend || post.requestedByMe || addingFriendId === post.authorId;
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -937,554 +1160,870 @@ function PostActionMenu({ post, onEdit, onDelete }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  
-  if (!isOwner) return null;
-  
+
+  const addLabel = isOwner
+    ? "You"
+    : isFriend
+    ? "Friends"
+    : post.requestedByMe
+    ? "Requested"
+    : addingFriendId === post.authorId
+    ? "Sending..."
+    : "+ Add Friend";
+
   return (
     <div className="action-menu" ref={dropdownRef}>
-      <button 
-        className="action-dots" 
-        onClick={() => setShowDropdown(!showDropdown)}
+      <button
+        className="action-dots"
+        onClick={() => setShowDropdown((s) => !s)}
         aria-label="Post options"
       >
         •••
       </button>
-      
+
       {showDropdown && (
         <div className="action-dropdown">
-          <div className="action-item" onClick={() => { onEdit(); setShowDropdown(false); }}>
-            <span className="action-item-icon">✏️</span> Edit
-          </div>
-          <div className="action-item delete" onClick={() => { onDelete(); setShowDropdown(false); }}>
-            <span className="action-item-icon">🗑️</span> Delete
-          </div>
+          {isOwner ? (
+            <>
+              <div className="action-item" onClick={() => { onEdit?.(); setShowDropdown(false); }}>
+                <span className="action-item-icon"></span> Edit
+              </div>
+              <div className="action-item delete" onClick={() => { onDelete?.(); setShowDropdown(false); }}>
+                <span className="action-item-icon"></span> Delete
+              </div>
+            </>
+          ) : (
+            <>
+              {!isFriend && (
+                <div
+                  className="action-item"
+                  onClick={() => {
+                    if (!addDisabled) {
+                      onAddFriend?.(post.authorId);
+                      setShowDropdown(false);
+                    }
+                  }}
+                  style={addDisabled ? { opacity: 0.6, pointerEvents: "none" } : undefined}
+                  title={addDisabled ? addLabel : undefined}
+                >
+                  <span className="action-item-icon"></span> {addLabel}
+                </div>
+              )}
+              <div
+                className="action-item"
+                onClick={() => { onReport?.(); setShowDropdown(false); }}
+              style={{color: "#dc2626"}}>
+                <span className="action-item-icon" ></span> Report
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// Add this component for editing a post
-function EditPostModal({ post, onClose, onUpdate }) {
-  const [caption, setCaption] = useState(post.details || "");
-  const [location, setLocation] = useState(post.location || "");
-  const [duration, setDuration] = useState(post.duration || "");
-  const [budget, setBudget] = useState(post.budget || "");
-  const [highlights, setHighlights] = useState(post.highlights || "");
-  const [loading, setLoading] = useState(false);
-  const [visibility, setVisibility] = useState(post.visibility || "Public");
-
-  const canSave = caption.trim().length > 0 || location;
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!canSave || loading) return;
-    
-    setLoading(true);
-    try {
-      const postRef = doc(db, "community", post.id);
-      
-      await updateDoc(postRef, {
-        details: caption.trim(),
-        location,
-        duration,
-        budget,
-        highlights,
-        visibility,
-        title: caption.split("\n")[0].slice(0, 80) || "Shared Adventure",
-        updatedAt: serverTimestamp()
-      });
-      
-      onUpdate({
-        ...post,
-        details: caption.trim(),
-        location,
-        duration,
-        budget,
-        highlights,
-        visibility,
-        title: caption.split("\n")[0].slice(0, 80) || "Shared Adventure"
-      });
-      
-      onClose();
-    } catch (err) {
-      console.error("Failed to update post:", err);
-      alert("Failed to update post: " + (err.code || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+// Add this component near the top of the file, after the imports
+function TruncatedText({ text, maxLength = 100 }) {
+  const [expanded, setExpanded] = useState(false);
+  
+  if (!text) return null;
+  
+  // Find the first sentence (ending with . ! or ?)
+  const firstSentenceMatch = text.match(/^[^.!?]+[.!?]+/);
+  const firstSentence = firstSentenceMatch ? firstSentenceMatch[0].trim() : text.slice(0, maxLength);
+  
+  const shouldTruncate = text.length > firstSentence.length;
+  
+  if (!shouldTruncate) {
+    return <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</p>;
+  }
+  
   return (
-    <div className="community-modal-backdrop" onClick={onClose}>
-      <div className="community-modal" onClick={e => e.stopPropagation()}>
-        <div className="share-modal-header">
-          <h3>Edit Your Post</h3>
-        </div>
-
-        <form className="modal-form" onSubmit={handleSubmit}>
-          <label className="modal-label">
-            <span className="field-title">📍 Location</span>
-            <select
-              className="modal-input"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-            >
-              <option value="">Select Province/City</option>
-              <option>Metro Manila</option>
-              <option>Cebu</option>
-              <option>Bohol</option>
-              <option>Palawan</option>
-              <option>Siargao</option>
-              <option>Baguio</option>
-              <option>Davao</option>
-            </select>
-          </label>
-
-          <label className="modal-label">
-            <span className="field-title">Who can see this?</span>
-            <div className="segmented" role="group" aria-label="Post visibility">
-              {["Public", "Friends", "Only Me"].map(opt => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={`seg-btn${visibility === opt ? " is-active" : ""}`}
-                  onClick={() => setVisibility(opt)}
-                >
-                  {opt === "Public" ? "🌐 Public" : opt === "Friends" ? "👥 Friends" : "🔒 Only Me"}
-                </button>
-              ))}
-            </div>
-          </label>
-
-          <label className="modal-label">
-            <span className="field-title">📝 Caption</span>
-            <textarea
-              className="modal-textarea"
-              rows={4}
-              placeholder="Share your experience... What made this trip special?"
-              value={caption}
-              onChange={e => setCaption(e.target.value)}
-              maxLength={1000}
-            />
-          </label>
-
-          <div className="modal-row">
-            <label className="modal-label">
-              <span className="field-title">📅 Duration</span>
-              <input
-                className="modal-input"
-                placeholder="e.g., 3 days"
-                value={duration}
-                onChange={e => setDuration(e.target.value)}
-              />
-            </label>
-            <label className="modal-label">
-              <span className="field-title">💰 Budget</span>
-              <input
-                className="modal-input"
-                placeholder="e.g., ₱15,000"
-                value={budget}
-                onChange={e => setBudget(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <label className="modal-label">
-            <span className="field-title">🗺️ Itinerary Highlights</span>
-            <textarea
-              className="modal-textarea"
-              rows={3}
-              placeholder="Day 1: Arrival, Day 2: Island hopping, etc."
-              value={highlights}
-              onChange={e => setHighlights(e.target.value)}
-              maxLength={1000}
-            />
-          </label>
-
-          <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={!canSave || loading}>
-              {loading ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </form>
-      </div>
+    <div>
+      <p style={{ margin: 0, whiteSpace: "pre-wrap", display: "inline" }}>
+        {expanded ? text : firstSentence}
+      </p>
+      {shouldTruncate && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            background: "none",
+            border: "none",
+            color: "#6366f1",
+            fontWeight: 600,
+            cursor: "pointer",
+            padding: "0 4px",
+            marginLeft: "4px",
+            fontSize: "0.95rem"
+          }}
+        >
+          {expanded ? "See less" : "See more"}
+        </button>
+      )}
     </div>
   );
 }
 
-const Community = () => {
-  const [posts, setPosts] = useState(initialPosts);
-  const [open, setOpen] = useState(false);
-  const [showFriends, setShowFriends] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  // NEW: track current user's friends and add-in-progress
-  const [friends, setFriends] = useState(new Set());
-  const [addingFriendId, setAddingFriendId] = useState(null);
-  const [reportingPost, setReportingPost] = useState(null);
-  const [commentingPost, setCommentingPost] = useState(null); // NEW
-  const [editingPost, setEditingPost] = useState(null);
-  const [deletingPost, setDeletingPost] = useState(null);
-  
-  // NEW: load current user's friends
-  async function loadFriendsForUser(user) {
-    if (!user) {
-      setFriends(new Set());
-      return;
-    }
-    const snap = await getDocs(collection(db, "users", user.uid, "friends"));
-    setFriends(new Set(snap.docs.map(d => d.id)));
+async function getUserPostCount(userId) {
+  try {
+    const q = query(collection(db, "community"), where("authorId", "==", userId));
+    const snapshot = await getDocs(q);
+    return snapshot.size;
+  } catch (err) {
+    console.error("Failed to get user post count:", err);
+    return 0;
   }
+}
 
-  async function loadPostsForUser(user) {
-    setIsLoading(true);
-    try {
-      const col = collection(db, "community");
-      const [pubSnap, ownSnap, friendsSnap] = await Promise.all([
-        getDocs(query(col, where("visibility", "==", "Public"))),
-        user ? getDocs(query(col, where("authorId", "==", user.uid))) : Promise.resolve({ docs: [] }),
-        user ? getDocs(query(col, where("visibility", "==", "Friends"), where("allowedUids", "array-contains", user.uid))) : Promise.resolve({ docs: [] }),
-      ]);
-
-      const map = new Map();
-      [...pubSnap.docs, ...ownSnap.docs, ...friendsSnap.docs].forEach(d => {
-        map.set(d.id, { id: d.id, ...d.data() });
-      });
-      const postsArr = Array.from(map.values());
-
-      const authorIds = [...new Set(postsArr.map(p => p.authorId).filter(Boolean))];
-
-      const authorProfiles = {};
-      const requestedByMe = {};
-      if (authorIds.length > 0) {
-        const userCol = collection(db, "users");
-        const authorSnaps = await Promise.all(authorIds.map(uid => getDoc(doc(userCol, uid))));
-        authorSnaps.forEach((snap, i) => {
-          const data = snap.exists() ? snap.data() : {};
-          const uid = authorIds[i];
-          authorProfiles[uid] = data.profilePicture || "/user.png";
-          if (user) requestedByMe[uid] = Array.isArray(data.friendRequests) && data.friendRequests.includes(user.uid);
-        });
-      }
-
-      const postsWithMeta = postsArr.map(post => ({
-        ...post,
-        profilePicture: authorProfiles[post.authorId] || "/user.png",
-        requestedByMe: user ? !!requestedByMe[post.authorId] : false,
-      }));
-
-      postsWithMeta.sort((a, b) => {
-        const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-        const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-        return tb - ta;
-      });
-
-      setPosts(postsWithMeta);
-    } finally {
-      setIsLoading(false);
-    }
+async function getUserLikesCount(userId) {
+  try {
+    const q = query(collection(db, "community"), where("authorId", "==", userId));
+    const snapshot = await getDocs(q);
+    let totalLikes = 0;
+    snapshot.docs.forEach(doc => {
+      totalLikes += doc.data().likes || 0;
+    });
+    return totalLikes;
+  } catch (err) {
+    console.error("Failed to get user likes count:", err);
+    return 0;
   }
+}
+
+function CommunitySidebar(props) {
+  const [postCount, setPostCount] = useState(0);
+  const [likeCount, setLikeCount] = useState(0);
+  const [friendCount, setFriendCount] = useState(0);
+  const [profilePicture, setProfilePicture] = useState(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      loadPostsForUser(user);
-      loadFriendsForUser(user); // NEW
+    if (props.user?.uid) {
+      getUserPostCount(props.user.uid).then(setPostCount);
+      getUserLikesCount(props.user.uid).then(setLikeCount);
+
+      // Fetch friend count from Firestore
+      getDocs(collection(db, "users", props.user.uid, "friends"))
+        .then(snap => setFriendCount(snap.size))
+        .catch(() => setFriendCount(0));
+
+      // Fetch user's profile picture
+      getDoc(doc(db, "users", props.user.uid))
+        .then(snap => {
+          if (snap.exists()) {
+            setProfilePicture(snap.data()?.profilePicture || null);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch profile picture:", err);
+          setProfilePicture(null);
+        });
+    }
+  }, [props.user]);
+
+  const menuItems = [
+    { id: 'feed', icon: '🏠', label: 'Home Feed', view: 'feed' },
+    { id: 'trending', icon: '🔥', label: 'Trending', view: 'trending' },
+    { id: 'friends', icon: '👥', label: 'Friends Only', view: 'friends' },
+    { id: 'saved', icon: '🔖', label: 'Saved Posts', view: 'saved' },
+    { id: 'my-posts', icon: '📝', label: 'My Posts', view: 'my-posts' },
+  ];
+
+  const quickLinks = [
+    { id: 'profile', icon: '👤', label: 'My Profile', path: '/profile' },
+  ];
+
+  return (
+    <div className="community-left">
+      {/* Title */}
+      <div className="community-title">
+        <span className="title-emoji"></span>
+        Community Feed
+      </div>
+
+      {/* Action Buttons */}
+      <div className="sidebar-actions">
+        <button className="sidebar-btn sidebar-btn-primary" onClick={props.onShareTrip}>
+           Share Trip
+        </button>
+        <button className="sidebar-btn sidebar-btn-secondary" onClick={props.onFriendSettings}>
+          👥 Friend Settings
+        </button>
+      </div>
+
+      {/* Navigation Menu */}
+      <div className="sidebar-section">
+        <div className="sidebar-title">Navigation</div>
+        <div className="sidebar-menu">
+          {menuItems.map(item => (
+            <div
+              key={item.id}
+              className={`sidebar-item ${props.activeView === item.view ? 'active' : ''}`}
+              onClick={() => props.onNavigate(item.view)}
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="sidebar-divider"></div>
+
+      {/* Quick Links */}
+      <div className="sidebar-section">
+        <div className="sidebar-title">Quick Links</div>
+        <div className="sidebar-menu">
+          {quickLinks.map(item => (
+            <div
+              key={item.id}
+              className="sidebar-item"
+              onClick={() => window.location.href = item.path}
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* User Profile */}
+      {props.user && (
+        <>
+          <div className="sidebar-divider"></div>
+          <div className="sidebar-section">
+            <div className="sidebar-title">Your Profile</div>
+            <div className="sidebar-user-card">
+              <div className="sidebar-user-header">
+                <div className="sidebar-user-avatar">
+                  {profilePicture ? (
+                    <img 
+                      src={profilePicture} 
+                      alt={props.user.displayName || "User"} 
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    (props.user.displayName || props.user.email || 'U')[0].toUpperCase()
+                  )}
+                </div>
+                <div className="sidebar-user-info">
+                  <div className="sidebar-user-name">
+                    {props.user.displayName || 'Traveler'}
+                  </div>
+                  <div className="sidebar-user-email">
+                    {props.user.email}
+                  </div>
+                </div>
+              </div>
+              <div className="sidebar-user-stats">
+                <div className="sidebar-stat">
+                  <div className="sidebar-stat-value">{postCount}</div>
+                  <div className="sidebar-stat-label">Posts</div>
+                </div>
+                <div className="sidebar-stat">
+                  <div className="sidebar-stat-value">{friendCount}</div>
+                  <div className="sidebar-stat-label">Friends</div>
+                </div>
+                <div className="sidebar-stat">
+                  <div className="sidebar-stat-value">{likeCount}</div>
+                  <div className="sidebar-stat-label">Likes</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function Community() {
+  const [posts, setPosts] = useState([]);
+  const [allPosts, setAllPosts] = useState([]); // <-- Add this to store all posts
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showFriendModal, setShowFriendModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [commenting, setCommenting] = useState(null);
+  const [reporting, setReporting] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
+  const [activeView, setActiveView] = useState('feed');
+  const [user, setUser] = useState(null);
+  const [friends, setFriends] = useState(new Set());
+  const [addingFriendId, setAddingFriendId] = useState(null);
+  const [savedSet, setSavedSet] = useState(new Set());
+
+  // Track current user and load data
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setLoading(true);
+        const [friendsSet, savedPostsSet] = await Promise.all([
+          loadUserFriends(currentUser),
+          loadUserSavedPosts(currentUser)
+        ]);
+        setFriends(friendsSet);
+        setSavedSet(savedPostsSet);
+        
+        const loadedPosts = await loadAllPosts(currentUser, friendsSet);
+        setAllPosts(loadedPosts);
+        setLoading(false);
+      } else {
+        setFriends(new Set());
+        setSavedSet(new Set());
+        const loadedPosts = await loadAllPosts(null, new Set());
+        setAllPosts(loadedPosts);
+        setLoading(false);
+      }
     });
-    return () => unsub();
+    return unsub;
   }, []);
 
-  const handleCreate = () => loadPostsForUser(auth.currentUser);
+  // Filter posts whenever activeView, allPosts, friends, or savedSet changes
+  useEffect(() => {
+    const filtered = filterPostsByView(activeView, allPosts, user, friends, savedSet);
+    setPosts(filtered);
+  }, [activeView, allPosts, user, friends, savedSet]);
 
-  const hasPosts = useMemo(() => posts.length > 0, [posts]);
+  // Update handleCreatePost to reload all posts
+  const handleCreatePost = async () => {
+    if (user) {
+      const friendsSet = await loadUserFriends(user);
+      const loadedPosts = await loadAllPosts(user, friendsSet);
+      setAllPosts(loadedPosts);
+    }
+  };
 
-  // NEW: add friend (mutual)
+  // Handle post like
+  async function handleLike(post) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("Please sign in to like posts.");
+      return;
+    }
+
+    const postRef = doc(db, "community", post.id);
+    const liked = post.likedBy?.includes(currentUser.uid);
+
+    try {
+      await updateDoc(postRef, liked
+        ? { likes: increment(-1), likedBy: arrayRemove(currentUser.uid) }
+        : { likes: increment(1), likedBy: arrayUnion(currentUser.uid) }
+      );
+
+      // Optimistic UI update
+      setPosts(prev => prev.map(p => p.id === post.id
+        ? {
+            ...p,
+            likes: Math.max((p.likes || 0) + (liked ? -1 : 1), 0),
+            likedBy: liked
+              ? (p.likedBy || []).filter(uid => uid !== currentUser.uid)
+              : [...(p.likedBy || []), currentUser.uid]
+          }
+        : p
+      ));
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+    }
+  }
+
+  // Handle adding friend
   async function handleAddFriend(targetUid) {
-    const me = auth.currentUser;
-    if (!me) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
       alert("Please sign in to add friends.");
       return;
     }
-    if (!targetUid || targetUid === me.uid || friends.has(targetUid)) return;
+    if (!targetUid || targetUid === currentUser.uid || friends.has(targetUid)) return;
 
     try {
       setAddingFriendId(targetUid);
       const targetRef = doc(db, "users", targetUid);
-      await updateDoc(targetRef, { friendRequests: arrayUnion(me.uid) });
-      // Fallback if user doc missing
-      // await setDoc(targetRef, { friendRequests: [me.uid] }, { merge: true });
+      await updateDoc(targetRef, { friendRequests: arrayUnion(currentUser.uid) });
 
-      // Reflect locally
-      setPosts(prev => prev.map(p => p.authorId === targetUid ? { ...p, requestedByMe: true } : p));
-    } catch (e) {
-      console.error("Send request failed:", e);
+      setPosts(prev => prev.map(p => 
+        p.authorId === targetUid ? { ...p, requestedByMe: true } : p
+      ));
+    } catch (err) {
+      console.error("Failed to send friend request:", err);
       alert("Failed to send friend request.");
     } finally {
       setAddingFriendId(null);
     }
   }
 
-  // NEW: like toggle for posts (saves count and who liked)
-  async function handleLike(post) {
-    const user = auth.currentUser;
-    if (!user) {
-      alert("Please sign in to like posts.");
-      return;
-    }
-    const postRef = doc(db, "community", post.id);
-    const liked = post.likedBy?.includes?.(user.uid);
-    try {
-      await updateDoc(postRef, liked
-        ? { likes: increment(-1), likedBy: arrayRemove(user.uid) }
-        : { likes: increment(1), likedBy: arrayUnion(user.uid) }
-      );
-      // local optimistic update
-      setPosts(prev => prev.map(p => p.id === post.id
-        ? {
-            ...p,
-            likes: Math.max((p.likes || 0) + (liked ? -1 : 1), 0),
-            likedBy: liked
-              ? (p.likedBy || []).filter(uid => uid !== user.uid)
-              : ([...(p.likedBy || []), user.uid])
-          }
-        : p));
-    } catch (e) {
-      console.error("Failed to toggle like:", e);
-      alert("Failed to like the post.");
-    }
-  }
-
-  // Add delete post function
+  // Handle deleting post
   const handleDeletePost = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this post? This cannot be undone.")) {
-      return;
-    }
-    
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+
     try {
       await deleteDoc(doc(db, "community", postId));
-      // Remove from local state
+      
+      // Log the deletion
+      await logCommunityDeleteAdventure({
+        postId,
+        user: auth.currentUser
+      });
+
       setPosts(prev => prev.filter(p => p.id !== postId));
     } catch (err) {
       console.error("Failed to delete post:", err);
-      alert("Failed to delete post. Please try again.");
+      alert("Failed to delete post.");
     }
   };
-  
-  // Add update post function
+
+  // Handle updating post
   const handleUpdatePost = (updatedPost) => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
   };
-  
-  return (
-    <>
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="cm-loading-backdrop">
-          <div className="cm-loading-card">
-            <div className="cm-spinner" />
-            <div className="cm-loading-title">Loading community feed…</div>
-            <div className="cm-skeleton-row">
-              <div className="cm-skel-card" />
-              <div className="cm-skel-card" />
-              <div className="cm-skel-card" />
+
+  // Add handleSavePost
+  async function handleSavePost(post) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("Please sign in to save posts.");
+      return;
+    }
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        savedPosts: arrayUnion(post.id)
+      });
+      setSavedSet(prev => new Set([...prev, post.id]));
+    } catch (err) {
+      console.error("Failed to save post:", err);
+      alert("Failed to save post.");
+    }
+  }
+
+  // Add handleUnsavePost
+  async function handleUnsavePost(postId) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      await updateDoc(userRef, {
+        savedPosts: arrayRemove(postId)
+      });
+      setSavedSet(prev => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to unsave post:", err);
+      alert("Failed to unsave post.");
+    }
+  }
+
+  // Add EditPostModal (minimal version)
+  function EditPostModal({ post, onClose, onUpdate }) {
+    const [title, setTitle] = useState(post.title || "");
+    const [details, setDetails] = useState(post.details || "");
+    const [location, setLocation] = useState(post.location || "");
+    const [duration, setDuration] = useState(post.duration || "");
+    const [budget, setBudget] = useState(post.budget || "");
+    const [highlights, setHighlights] = useState(post.highlights || "");
+    const [visibility, setVisibility] = useState(post.visibility || "Public");
+    const [uploading, setUploading] = useState(false);
+
+    const handleSubmit = async () => {
+      if (!title.trim()) {
+        alert("Please enter a title for your trip");
+        return;
+      }
+      setUploading(true);
+      try {
+        const updatedData = {
+          title: title.trim(),
+          details: details.trim() || "",
+          location: location.trim() || "",
+          duration: duration.trim() || "",
+          budget: budget.trim() || "",
+          highlights: highlights.trim() || "",
+          visibility,
+          updatedAt: serverTimestamp()
+        };
+        await updateDoc(doc(db, "community", post.id), updatedData);
+        onUpdate({ ...post, ...updatedData });
+        onClose();
+        alert("Post updated successfully! ✨");
+      } catch (err) {
+        console.error("Failed to update post:", err);
+        alert("Failed to update post. Please try again.");
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    return ReactDOM.createPortal(
+      <div className="community-modal-backdrop" onClick={onClose}>
+        <div className="community-modal share-trip-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="share-modal-header">
+            <h3>✏️ Edit Your Travel Story</h3>
+          </div>
+          <div className="modal-form">
+            <label className="modal-label">
+              <span className="field-title">Trip Title *</span>
+              <input
+                className="modal-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={100}
+              />
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Location</span>
+              <input
+                className="modal-input"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                maxLength={100}
+              />
+            </label>
+            <div className="modal-row">
+              <label className="modal-label">
+                <span className="field-title">Duration</span>
+                <input
+                  className="modal-input"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                />
+              </label>
+              <label className="modal-label">
+                <span className="field-title">Budget (PHP)</span>
+                <input
+                  className="modal-input"
+                  type="number"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                />
+              </label>
+            </div>
+            <label className="modal-label">
+              <span className="field-title">Trip Details</span>
+              <textarea
+                className="modal-textarea"
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                maxLength={2000}
+                rows={5}
+              />
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Highlights</span>
+              <textarea
+                className="modal-textarea"
+                value={highlights}
+                onChange={(e) => setHighlights(e.target.value)}
+                maxLength={500}
+                rows={3}
+              />
+            </label>
+            <label className="modal-label">
+              <span className="field-title">Who can see this?</span>
+              <div className="segmented">
+                <button
+                  type="button"
+                  className={`seg-btn ${visibility === "Public" ? "is-active" : ""}`}
+                  onClick={() => setVisibility("Public")}
+                >
+                  🌍 Public
+                </button>
+                <button
+                  type="button"
+                  className={`seg-btn ${visibility === "Friends" ? "is-active" : ""}`}
+                  onClick={() => setVisibility("Friends")}
+                >
+                  👥 Friends
+                </button>
+                <button
+                  type="button"
+                  className={`seg-btn ${visibility === "Only Me" ? "is-active" : ""}`}
+                  onClick={() => setVisibility("Only Me")}
+                >
+                  🔒 Only Me
+                </button>
+              </div>
+            </label>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={onClose} disabled={uploading}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSubmit}
+                disabled={uploading || !title.trim()}
+              >
+                {uploading ? "Saving..." : "Save Changes"}
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </div>,
+      document.body
+    );
+  }
 
-      <div className="community-bg">
-        <div className="community-container">
-          <div className="community-header">
-            <div className="community-title">
-              <span className="title-emoji">🌍</span> Community Feed
-            </div>
-            <div className="header-actions">
-              <button className="btn-friend" onClick={() => setShowFriends(true)}>
-                + Add Friend
-              </button>
-              <button className="btn-primary" onClick={() => setOpen(true)}>
-                + Share Trip
-              </button>
-            </div>
+  return (
+    <div className="com-page">
+      {/* Animated background layers */}
+      <div className="com-bg-dots" />
+      <div className="com-bg-wave" />
+      <div className="com-bg-circle c1" />
+      <div className="com-bg-circle c2" />
+      <div className="com-bg-circle c3" />
+      <div className="com-bg-circle c4" />
+      <div className="com-bg-shapes">
+        <div className="com-bg-shape s1" />
+        <div className="com-bg-shape s2" />
+        <div className="com-bg-shape s3" />
+      </div>
+
+      <div className="community-grid-main">
+        <CommunitySidebar 
+          activeView={activeView}
+          onNavigate={setActiveView}
+          user={user}
+          onShareTrip={() => setShowShareModal(true)}
+          onFriendSettings={() => setShowFriendModal(true)}
+        />
+
+        <div className="community-right">
+          <div className="community-right-title">
+            {activeView === 'feed' && '🏠 Home Feed'}
+            {activeView === 'trending' && '🔥 Trending Stories'}
+            {activeView === 'friends' && '👥 Friends Only'}
+            {activeView === 'saved' && '🔖 Saved Posts'}
+            {activeView === 'my-posts' && '📝 My Posts'}
           </div>
 
-          {!hasPosts && (
-            <div className="community-empty">
-              <div className="empty-badge">🗺️</div>
-              <h3>No trips yet</h3>
-              <p>Be the first to inspire others. Share your travel highlights and tips.</p>
-            </div>
-          )}
-
-          {hasPosts && (
-            <div className="community-list">
-              {posts.map(post => (
-                <article className="community-card card-popup" key={post.id}>
-                  <header className="card-head">
-                    <div className="avatar" style={{
-                      width: 40, height: 40, borderRadius: "50%", overflow: "hidden", background: "#f3f4f6"
-                    }}>
-                      <img
-                        src={post.profilePicture || "/user.png"}
-                        alt={post.authorName || "User"}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    </div>
-                    <div className="meta">
-                      <div className="name">{post.author?.name || "Anonymous"}</div>
-                      <div className="sub">
-                        {post.location ? <>📍 {post.location}</> : "Shared a trip"}
-                        {post.budget ? <span className="dot">•</span> : null}
-                        {post.budget ? <>Budget: {post.budget}</> : null}
-                        {post.duration ? <span className="dot">•</span> : null}
-                        {post.duration ? <>{post.duration}</> : null}
-                        {post.visibility ? <span className="dot">•</span> : null}
-                        {post.visibility ? <>{post.visibility}</> : null}
+          <div className="community-container">
+            {loading ? (
+              <div className="cm-loading-backdrop">
+                <div className="cm-loading-card">
+                  <div className="cm-spinner"></div>
+                  <div className="cm-loading-title">Loading amazing travel stories...</div>
+                  <div className="cm-skeleton-row">
+                    <div className="cm-skel-card"></div>
+                    <div className="cm-skel-card"></div>
+                    <div className="cm-skel-card"></div>
+                  </div>
+                </div>
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="community-empty">
+                <div className="empty-badge"></div>
+                <h3>No travel stories yet</h3>
+                <p>Be the first to share your adventure!</p>
+                <button className="btn-primary" onClick={() => setShowShareModal(true)}>
+                  Share Your Trip
+                </button>
+              </div>
+            ) : (
+              <div className="community-list">
+                {posts.map((post) => (
+                  <article key={post.id} className="community-card card-popup">
+                    <header className="card-head">
+                      <div className="avatar" style={{
+                        width: 40, height: 40, borderRadius: "50%", overflow: "hidden", background: "#f3f4f6"
+                      }}>
+                        <img
+                          src={post.profilePicture || "/user.png"}
+                          alt={post.author?.name || "User"}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <PostActionMenu 
-                        post={post} 
-                        onEdit={() => setEditingPost(post)} 
-                        onDelete={() => handleDeletePost(post.id)}
-                      />
-                      <button
-                        className="add-friend"
-                        onClick={() => handleAddFriend(post.authorId)}
-                        disabled={
-                          !auth.currentUser ||
-                          auth.currentUser.uid === post.authorId ||
-                          friends.has(post.authorId) ||
-                          post.requestedByMe ||
-                          addingFriendId === post.authorId
-                        }
-                      >
-                        {auth.currentUser?.uid === post.authorId
-                          ? "You"
-                          : friends.has(post.authorId)
-                            ? "Friends"
-                            : post.requestedByMe
-                              ? "Requested"
-                              : addingFriendId === post.authorId
-                                ? "Sending..."
-                                : "+ Add Friend"}
-                      </button>
-                      <button
-                        className="report-btn"
-                        onClick={() => setReportingPost(post)}
-                      >
-                        Report
-                      </button>
-                    </div>
-                  </header>
-
-                  {post.images?.length ? (
-                    <div className="card-banner">
-                      <img src={post.images[0]} alt={post.title} />
-                    </div>
-                  ) : (
-                    <div className="card-banner">
-                      <div className="banner-gradient">
-                        <h4>{post.title}</h4>
+                      <div className="meta">
+                        <div className="name">{post.author?.name || "Anonymous"}</div>
+                        <div className="sub">
+                          {post.location ? <>📍 {post.location}</> : "Shared a trip"}
+                          {post.budget && <><span className="dot">•</span>Budget: {post.budget}</>}
+                          {post.duration && <><span className="dot">•</span>{post.duration}</>}
+                          {post.visibility && <><span className="dot">•</span>{post.visibility}</>}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <PostActionMenu
+                          post={post}
+                          user={user}
+                          friends={friends}
+                          addingFriendId={addingFriendId}
+                          onEdit={() => setEditingPost(post)}
+                          onDelete={() => handleDeletePost(post.id)}
+                          onAddFriend={handleAddFriend}
+                          onReport={() => setReporting(post)}
+                        />
+                      </div>
+                    </header>
 
-                  <div className="card-body">
-                    <p>{post.details}</p>
-                    {post.highlights && (
-                      <div className="highlights">
-                        <strong>Highlights: </strong>{post.highlights}
+                    {post.images?.length ? (
+                      <div className="card-banner">
+                        <img src={post.images[0]} alt={post.title} />
+                      </div>
+                    ) : (
+                      <div className="card-banner">
+                        <div className="banner-gradient">
+                          <h4>{post.title}</h4>
+                        </div>
                       </div>
                     )}
-                  </div>
 
-                  <footer className="card-actions">
-                    <button
-                      className="act"
-                      onClick={() => handleLike(post)}
-                      style={{
-                        color: post.likedBy?.includes?.(auth.currentUser?.uid) ? "#ef4444" : undefined,
-                        fontWeight: 700
-                      }}
-                    >
-                      <span>❤️</span> {post.likes || 0}
-                    </button>
-                    <button
-                      className="act"
-                      onClick={() => setCommentingPost(post)}
-                    >
-                      <span>💬</span> {post.comments || 0}
-                    </button>
-                    <button className="act"><span>📌</span> Save</button>
-                  </footer>
-                </article>
-              ))}
-            </div>
-          )}
+                    <div className="card-body">
+                      <TruncatedText text={post.details} />
+                      {post.highlights && (
+                        <div className="highlights">
+                          <strong>Highlights: </strong>
+                          <TruncatedText text={post.highlights} />
+                        </div>
+                      )}
+                    </div>
+
+                    <footer className="card-actions">
+                      <button
+                        className="act"
+                        onClick={() => handleLike(post)}
+                        style={{
+                          color: post.likedBy?.includes(user?.uid) ? "#ef4444" : undefined,
+                          fontWeight: 700
+                        }}
+                      >
+                        <span>❤️</span> {post.likes || 0}
+                      </button>
+                      <button className="act" onClick={() => setCommenting(post)}>
+                        <span>💬</span> {post.comments || 0}
+                      </button>
+                      {/* Save/Unsave button */}
+                      {savedSet.has(post.id) ? (
+                        <button
+                          className="act"
+                          onClick={() => handleUnsavePost(post.id)}
+                          title="Remove from saved posts"
+                        >
+                          <span>💾</span> Saved
+                        </button>
+                      ) : (
+                        <button
+                          className="act"
+                          onClick={() => handleSavePost(post)}
+                          title="Save this post"
+                        >
+                          <span>💾</span> Save
+                        </button>
+                      )}
+                    </footer>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-
-        {open && (
-          <ShareTripModal onClose={() => setOpen(false)} onCreate={handleCreate} />
-        )}
-        {showFriends && (
-          <FriendPopup onClose={() => setShowFriends(false)} />
-        )}
-        {reportingPost && (
-          <ReportPostModal
-            post={reportingPost}
-            onClose={() => setReportingPost(null)}
-          />
-        )}
-        {commentingPost && (
-          <CommentModal
-            post={commentingPost}
-            onClose={() => setCommentingPost(null)}
-            onCountChange={(count) =>
-              setPosts(prev =>
-                prev.map(p => p.id === commentingPost.id ? { ...p, comments: count } : p)
-              )
-            }
-          />
-        )}
-        {editingPost && (
-          <EditPostModal 
-            post={editingPost} 
-            onClose={() => setEditingPost(null)} 
-            onUpdate={handleUpdatePost} 
-          />
-        )}
       </div>
-    </>
+
+      {showShareModal && (
+        <ShareTripModal
+          onClose={() => setShowShareModal(false)}
+          onCreate={handleCreatePost}
+        />
+      )}
+
+      {showFriendModal && (
+        <FriendPopup onClose={() => setShowFriendModal(false)} />
+      )}
+
+      {commenting && (
+        <CommentModal
+          post={commenting}
+          onClose={() => setCommenting(null)}
+          onCountChange={(count) => {
+            setPosts(prev => prev.map(p => 
+              p.id === commenting.id ? { ...p, comments: count } : p
+            ));
+          }}
+        />
+      )}
+
+      {reporting && (
+        <ReportPostModal
+          post={reporting}
+          onClose={() => setReporting(null)}
+        />
+      )}
+
+      {editingPost && (
+        <EditPostModal
+          post={editingPost}
+          onClose={() => setEditingPost(null)}
+          onUpdate={handleUpdatePost}
+        />
+      )}
+    </div>
   );
 };
 
-export default Community;
-
 // Achievement and activity functions
 async function unlockHelloWorldAchievement() {
-  const user = auth.currentUser;
-  if (!user) return;
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
   try {
-    await updateDoc(doc(db, "users", user.uid), { ["achievements.4"]: true });
-    await addActivity(user.uid, "You posted in the community!", "💬");
-    emitAchievement("Hello, World! Achievement Unlocked! 🎉");
-  } catch (err) {
-    console.error("Failed to unlock Hello World achievement:", err);
+    const userRef = doc(db, "users", currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    
+    // Check if already unlocked
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      if (userData.achievements?.helloWorldUnlocked) {
+        console.log("Hello World already unlocked");
+        return; // Don't unlock again
+      }
+    }
+
+    // Only unlock if not already done
+    await updateDoc(userRef, {
+      "achievements.helloWorldUnlocked": true,
+      "achievements.helloWorldDate": serverTimestamp()
+    });
+
+    console.log("Hello World achievement unlocked!");
+  } catch (error) {
+    console.error("Error unlocking achievement:", error);
   }
 }
 
-// Helper to add activity for a user
-async function addActivity(userId, text, icon = "🔵") {
-  try {
-    const activityData = {
-      userId,
-      text,
-      icon,
-      timestamp: new Date().toISOString()
-    };
-    await addDoc(collection(db, "activities"), activityData);
-  } catch (error) {
-    console.error("Error adding activity:", error);
-  }
+// Add new alert popup component
+function AlertPopup({ message, type = "success", onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 2200);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const icons = {
+    success: "✅",
+    error: "❌",
+    warning: "⚠️",
+    info: "ℹ️"
+  };
+
+  const colors = {
+    success: { bg: "#d1fae5", border: "#86efac", gradient: "135deg, #10b981 0%, #059669 100%", icon: "#10b981" },
+    error: { bg: "#fee2e2", border: "#fca5a5", gradient: "135deg, #ef4444 0%, #dc2626 100%", icon: "#ef4444" },
+    warning: { bg: "#fef3c7", border: "#fde68a", gradient: "135deg, #f59e0b 0%, #d97706 100%", icon: "#f59e0b" },
+    info: { bg: "#dbeafe", border: "#bfdbfe", gradient: "135deg, #3b82f6 0%, #1d4ed8 100%", icon: "#3b82f6" }
+  };
+
+  const color = colors[type] || colors.success;
+
+  return ReactDOM.createPortal(
+    <div className="alert-popup-backdrop">
+      <div className="alert-popup">
+        <div className="alert-popup-icon-wrapper" style={{ background: `linear-gradient(${color.gradient})` }}>
+          <span className="alert-popup-icon">{icons[type]}</span>
+        </div>
+        <div className="alert-popup-message">{message}</div>
+        <div className="alert-popup-bar" style={{ background: `linear-gradient(90deg, ${color.icon}, ${color.bg})` }}></div>
+      </div>
+    </div>,
+    document.body
+  );
 }

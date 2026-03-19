@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
+import ReactDOM from "react-dom"; // ADD THIS IMPORT
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./itinerary.css";
@@ -15,21 +16,185 @@ import {
   query as fsQuery,
   getDocs,
   setDoc,
+  where,
+  getDoc,  // ADD THIS if not already present
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { unlockAchievement } from "./profile";
 import {
-  ShareItineraryModal, 
   useFriendsList,
   useSharedItineraries,
-  shareItinerary as shareItineraryWithFriends,
+  shareItineraryWithFriends,
   SharedItinerariesTab,
-  // add:
   deleteTripDestination,
   clearAllTripDestinations,
 } from './itinerary2';
+import ItineraryHotelsModal from "./itineraryHotels";
+import ItineraryCostEstimationModal from "./itineraryCostEstimation";
+import ItineraryAgencyModal from "./itineraryAgency"; // ADD THIS IMPORT
+import {
+  trackDestinationAdded,
+  trackDestinationCompleted,
+  trackDestinationUncompleted,
+  trackDestinationRemoved,
+} from "./itinerary_Stats";
+import { logActivity } from "./profile"; // ADD THIS IMPORT
+
+// NEW: import UpdateCSV component
+import UpdateCSV from "./updatecsv";
+import { 
+  SuggestionView,
+  HotelSuggestion,
+  AgencySuggestion 
+} from "./ItinerarySuggestion";
+import ItineraryCard from "./components/trip_components/ItineraryCard"; // ADD THIS LINE
+import ExportPDFModal from "./components/trip_components/ExportPDFModal";
+import { markAllCompleted } from "./components/trip_components/MarkCompleteButton";
+import { deleteAllItinerary } from "./components/trip_components/DeleteAllButton";
+import ShareItineraryModal from "./components/trip_components/ShareItineraryModal";
+import { exportItineraryToPDF } from "./components/trip_components/ExportPDFButton";
+import GroupItineraryModal, { useGroupedItineraries } from "./components/trip_components/GroupItineraryModal";
+import GroupedItineraryView from "./components/trip_components/GroupedItineraryView";
+import SharedGroupedItineraryView from "./components/trip_components/SharedGroupedItineraryView";
+
+// ==================== ADD TO TRIP HELPER (moved to top) ====================
+export async function addTripForCurrentUser(dest) {
+  const u = auth.currentUser;
+  if (!u) throw new Error("AUTH_REQUIRED");
+
+  const parseEstimatedFromPrice = (p) => {
+    if (p == null) return 0;
+    if (typeof p === "number") return p;
+    const s = String(p).replace(/\s/g, "").replace(/₱/g, "").replace(/,/g, "");
+    const nums = s.match(/\d+/g);
+    if (!nums || nums.length === 0) return 0;
+    const numbers = nums.map(Number).filter(Number.isFinite);
+    if (numbers.length === 0) return 0;
+    const sum = numbers.reduce((a, b) => a + b, 0);
+    return Math.round(sum / numbers.length);
+  };
+
+  await setDoc(
+    doc(db, "itinerary", u.uid),
+    { owner: u.uid, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  const id = String(dest?.id || dest?.place_id || dest?.name || Date.now())
+    .replace(/[^\w-]/g, "_");
+  const ref = doc(db, "itinerary", u.uid, "items", id);
+  const now = serverTimestamp();
+
+  const estimated = parseEstimatedFromPrice(
+    dest?.price ?? dest?.priceTier ?? dest?.budget ?? dest?.estimatedExpenditure
+  );
+
+  const payload = {
+    id,
+    name: dest?.name || "Untitled",
+    display_name: dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
+    region: dest?.region || "",
+    location: dest?.location || "",
+    description: dest?.description || "",
+    lat: dest?.lat || dest?.latitude || "",
+    lon: dest?.lon || dest?.longitude || "",
+    place_id: dest?.place_id || dest?.id || "",
+    rating: dest?.rating || 0,
+    price: dest?.price || "",
+    priceTier: dest?.priceTier || null,
+    tags: Array.isArray(dest?.tags) ? dest.tags : [],
+    categories: Array.isArray(dest?.categories) ? dest.categories : [],
+    bestTime: dest?.bestTime || "",
+    image: dest?.image || "",
+    status: dest?.status || "Upcoming",
+    estimatedExpenditure: estimated,
+    packingSuggestions: dest?.packingSuggestions || dest?.packing || "",
+    packingCategory: dest?.packingCategory || null,
+    budget: dest?.budget || null,
+    breakdown: Array.isArray(dest?.breakdown) ? dest.breakdown : [], // ENSURE THIS
+    arrival: dest?.arrival || "",
+    departure: dest?.departure || "",
+    accomType: dest?.accomType || "",
+    accomName: dest?.accomName || "",
+    accomNotes: dest?.accomNotes || "",
+    activities: Array.isArray(dest?.activities) ? dest.activities : [],
+    transport: dest?.transport || "",
+    transportNotes: dest?.transportNotes || "",
+    notes: dest?.notes || "",
+    agency: dest?.agency || "",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  try {
+    await setDoc(ref, payload, { merge: true });
+    return id;
+  } catch (err) {
+    console.error("[Itinerary] Failed to add trip:", err);
+    throw err;
+  }
+}
+
+// ==================== CACHING LAYER ====================
+const ITINERARY_CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
+const itineraryCache = {
+  data: null,
+  timestamp: null,
+  userId: null,
+  isValid(uid) {
+    return (
+      this.data &&
+      this.userId === uid &&
+      this.timestamp &&
+      Date.now() - this.timestamp < ITINERARY_CACHE_DURATION
+    );
+  },
+  set(data, uid) {
+    this.data = data;
+    this.userId = uid;
+    this.timestamp = Date.now();
+    // Cache to localStorage for persistence
+    try {
+      localStorage.setItem('itinerary_cache', JSON.stringify({
+        data,
+        userId: uid,
+        timestamp: this.timestamp
+      }));
+    } catch (e) {
+      console.warn('Failed to cache itinerary to localStorage:', e);
+    }
+  },
+  get(uid) {
+    // Try memory cache first
+    if (this.isValid(uid)) return this.data;
+    
+    // Try localStorage cache
+    try {
+      const cached = localStorage.getItem('itinerary_cache');
+      if (cached) {
+        const { data, userId, timestamp } = JSON.parse(cached);
+        if (userId === uid && Date.now() - timestamp < ITINERARY_CACHE_DURATION) {
+          this.data = data;
+          this.userId = userId;
+          this.timestamp = timestamp;
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read itinerary cache from localStorage:', e);
+    }
+    
+    return null;
+  },
+  clear() {
+    this.data = null;
+    this.userId = null;
+    this.timestamp = null;
+    try {
+      localStorage.removeItem('itinerary_cache');
+    } catch (e) {}
+  }
+};
 
 // Simple place search via OpenStreetMap Nominatim
 async function searchPlace(q) {
@@ -42,61 +207,82 @@ async function searchPlace(q) {
 }
 
 function EditDestinationModal({ initial, onSave, onClose }) {
+  const isMobile = useIsMobile();
   const [form, setForm] = useState(() => ({
     name: initial?.display_name?.split(",")[0] || initial?.name || "",
     region:
       initial?.display_name?.split(",").slice(1).join(",").trim() ||
       initial?.region ||
       "",
+    location: initial?.location || "",
     arrival: initial?.arrival || "",
     departure: initial?.departure || "",
     status: initial?.status || "Upcoming",
-    budget: initial?.budget ?? 0,
-    accomBudget: initial?.accomBudget ?? 0,
-    activityBudget: initial?.activityBudget ?? 0,
+    estimatedExpenditure: initial?.estimatedExpenditure ?? initial?.budget ?? 0,
     accomType: initial?.accomType || "",
     accomName: initial?.accomName || "",
     accomNotes: initial?.accomNotes || "",
     activities: initial?.activities || [],
     activityDraft: "",
     transport: initial?.transport || "",
-    transportCost: initial?.transportCost ?? 0,
     transportNotes: initial?.transportNotes || "",
     notes: initial?.notes || "",
+    agency: initial?.agency || "",
   }));
 
   const [notif, setNotif] = useState("");
+  const [mobileViewMode, setMobileViewMode] = useState("form");
 
-  const addActivity = () => {
+  const addActivity = React.useCallback(() => {
     const v = form.activityDraft.trim();
     if (!v) return;
     setForm((f) => ({ ...f, activities: [...f.activities, v], activityDraft: "" }));
-  };
+  }, [form.activityDraft]);
+  
   const removeActivity = (i) =>
     setForm((f) => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+  };
 
   const handleSave = async () => {
     try {
       await onSave({
-        ...initial, // This ensures we're keeping the ID and other metadata
+        ...initial,
         ...form,
-        budget: Number(form.budget) || 0,
-        accomBudget: Number(form.accomBudget) || 0,
-        activityBudget: Number(form.activityBudget) || 0,
-        transportCost: Number(form.transportCost) || 0,
+        estimatedExpenditure: Number(form.estimatedExpenditure) || 0,
       });
-      setNotif("Itinerary item updated successfully!"); // Changed "created" to "updated"
+      setNotif("Itinerary item updated successfully!");
       setTimeout(() => {
         setNotif("");
-        onClose(); // Close the modal after showing popup
-      }, 1200); // 1.2 seconds
-    } catch (e) {
-      setNotif("Failed to update itinerary item."); // Changed "create" to "update"
+        onClose();
+      }, 1200);
+    } catch (err) {
+      setNotif("Itinerary item update failed.");
       setTimeout(() => setNotif(""), 2000);
     }
   };
 
-  // Allow Enter to add activity and Esc to close
+  const handleSelectHotel = (hotel) => {
+    setForm(prev => ({
+      ...prev,
+      accomType: hotel.type,
+      accomName: hotel.name,
+      accomNotes: hotel.address,
+    }));
+    if (isMobile) setMobileViewMode("form");
+  };
+
+  const handleSelectAgency = (agency) => {
+    setForm(prev => ({
+      ...prev,
+      agency: `${agency.name} - ${agency.phone || ''} ${agency.website || ''}`.trim(),
+    }));
+    if (isMobile) setMobileViewMode("form");
+  };
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose();
@@ -107,271 +293,474 @@ function EditDestinationModal({ initial, onSave, onClose }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [addActivity, onClose]);
 
-  return (
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div
-        className="itn-modal"
-        style={{
-          maxWidth: 700,
-          boxShadow: "0 8px 32px rgba(108,99,255,0.12)",
-          borderRadius: 16,
-          padding: 0,
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: "80vh",
-          background: "#fff",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="itn-modal-header" style={{ padding: "24px 32px 12px 32px" }}>
-          <div className="itn-modal-title">Edit Destination Details</div>
-          <button className="itn-close" onClick={onClose}>×</button>
+  const formContent = (
+    <div className="itn-form-grid">
+      <div className="itn-form-col">
+        <div className="itn-field">
+          <span className="itn-label">Destination Name</span>
+          <input
+            className="itn-input"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="City or place name (required)"
+          />
         </div>
 
-        <div
-          className="itn-modal-body"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "0 32px 24px 32px",
-            background: "#fafaff",
-          }}
-        >
-          <div className="itn-form-grid" style={{ gap: 32 }}>
-            <div className="itn-form-col">
-              {/* ...left column fields... */}
-              {/* (same as your previous code) */}
-              <div className="itn-grid">
-                <label className="itn-field">
-                  <span className="itn-label">Destination Name</span>
-                  <input
-                    className="itn-input"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="City or place name"
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Country/Region</span>
-                  <input
-                    className="itn-input"
-                    value={form.region}
-                    onChange={(e) => setForm({ ...form, region: e.target.value })}
-                    placeholder="Region"
-                  />
-                </label>
-              </div>
+        <div className="itn-field">
+          <span className="itn-label">Country/Region</span>
+          <input
+            className="itn-input"
+            name="region"
+            value={form.region}
+            onChange={handleChange}
+            placeholder="Region (e.g., Metro Manila)"
+          />
+        </div>
 
-              <div className="itn-grid">
-                <label className="itn-field">
-                  <span className="itn-label">Arrival Date</span>
-                  <input
-                    type="date"
-                    className="itn-input"
-                    value={form.arrival}
-                    onChange={(e) => setForm({ ...form, arrival: e.target.value })}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Departure Date</span>
-                  <input
-                    type="date"
-                    className="itn-input"
-                    value={form.departure}
-                    onChange={(e) => setForm({ ...form, departure: e.target.value })}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Trip Status</span>
-                  <select
-                    className="itn-input"
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  >
-                    <option>Upcoming</option>
-                    <option>Ongoing</option>
-                    <option>Completed</option>
-                    <option>Cancelled</option>
-                  </select>
-                </label>
-              </div>
+        <div className="itn-field">
+          <span className="itn-label">Location</span>
+          <input
+            className="itn-input"
+            name="location"
+            value={form.location}
+            onChange={handleChange}
+            placeholder="Full address or location"
+          />
+        </div>
 
-              <div className="itn-grid">
-                <label className="itn-field">
-                  <span className="itn-label">Total Budget ($)</span>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    value={form.budget}
-                    onChange={(e) => setForm({ ...form, budget: e.target.value })}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Accommodation ($)</span>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    value={form.accomBudget}
-                    onChange={(e) => setForm({ ...form, accomBudget: e.target.value })}
-                  />
-                </label>
-                <label className="itn-field">
-                  <span className="itn-label">Activities ($)</span>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    value={form.activityBudget}
-                    onChange={(e) => setForm({ ...form, activityBudget: e.target.value })}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="itn-form-col">
-              {/* ...right column fields... */}
-              <div className="itn-field">
-                <span className="itn-label">Accommodation Details</span>
-                <div className="itn-grid-2">
-                  <select
-                    className="itn-input"
-                    value={form.accomType}
-                    onChange={(e) => setForm({ ...form, accomType: e.target.value })}
-                  >
-                    <option value="">Select type...</option>
-                    <option>Hotel</option>
-                    <option>Hostel</option>
-                    <option>Apartment</option>
-                    <option>Resort</option>
-                    <option>Homestay</option>
-                  </select>
-                  <input
-                    className="itn-input"
-                    placeholder="Hotel/Place name"
-                    value={form.accomName}
-                    onChange={(e) => setForm({ ...form, accomName: e.target.value })}
-                  />
-                </div>
-                <textarea
-                  rows={2}
-                  className="itn-input"
-                  placeholder="Address, booking details, special notes..."
-                  value={form.accomNotes}
-                  onChange={(e) => setForm({ ...form, accomNotes: e.target.value })}
-                />
-              </div>
-
-              <div className="itn-field">
-                <span className="itn-label">Planned Activities</span>
-                <div className="itn-row">
-                  <input
-                    id="itn-activity-draft"
-                    className="itn-input"
-                    placeholder="Add an activity..."
-                    value={form.activityDraft}
-                    onChange={(e) => setForm({ ...form, activityDraft: e.target.value })}
-                  />
-                  <button type="button" className="itn-btn success" onClick={addActivity}>
-                    Add
-                  </button>
-                </div>
-                {form.activities.length > 0 && (
-                  <ul className="itn-chips">
-                    {form.activities.map((a, i) => (
-                      <li key={`${a}-${i}`} className="itn-chip">
-                        {a}
-                        <button onClick={() => removeActivity(i)}>×</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="itn-field">
-                <span className="itn-label">Transportation</span>
-                <div className="itn-grid-2">
-                  <select
-                    className="itn-input"
-                    value={form.transport}
-                    onChange={(e) => setForm({ ...form, transport: e.target.value })}
-                  >
-                    <option value="">Select transportation...</option>
-                    <option>Flight</option>
-                    <option>Train</option>
-                    <option>Bus</option>
-                    <option>Car</option>
-                    <option>Ferry</option>
-                  </select>
-                  <input
-                    type="number"
-                    className="itn-input"
-                    placeholder="0"
-                    value={form.transportCost}
-                    onChange={(e) => setForm({ ...form, transportCost: e.target.value })}
-                  />
-                </div>
-                <textarea
-                  rows={2}
-                  className="itn-input"
-                  placeholder="Flight numbers, booking details, pickup times..."
-                  value={form.transportNotes}
-                  onChange={(e) => setForm({ ...form, transportNotes: e.target.value })}
-                />
-              </div>
-
-              <label className="itn-field">
-                <span className="itn-label">Additional Notes</span>
-                <textarea
-                  rows={2}
-                  className="itn-input"
-                  placeholder="Important information, reminders, contacts..."
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                />
-              </label>
-            </div>
+        <div className="itn-grid-2">
+          <div className="itn-field">
+            <span className="itn-label">Arrival Date</span>
+            <input
+              type="date"
+              className="itn-input"
+              name="arrival"
+              value={form.arrival}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="itn-field">
+            <span className="itn-label">Departure Date</span>
+            <input
+              type="date"
+              className="itn-input"
+              name="departure"
+              value={form.departure}
+              onChange={handleChange}
+            />
           </div>
         </div>
 
-        <div className="itn-modal-footer" style={{
-          padding: "16px 32px",
-          borderTop: "1px solid #eee",
-          background: "#fff",
-          position: "sticky",
-          bottom: 0,
-          zIndex: 2,
-        }}>
-          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
-          <button className="itn-btn primary" onClick={handleSave}>Save Details</button>
+        <div className="itn-grid-2">
+          <div className="itn-field">
+            <span className="itn-label">Trip Status</span>
+            <select
+              className="itn-input"
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+            >
+              <option>Upcoming</option>
+              <option>Ongoing</option>
+              <option>Completed</option>
+            </select>
+          </div>
+          <div className="itn-field">
+            <span className="itn-label">Estimated Expenditure (₱)</span>
+            <input
+              className="itn-input"
+              name="estimatedExpenditure"
+              type="number"
+              value={form.estimatedExpenditure}
+              onChange={handleChange}
+            />
+          </div>
         </div>
 
-        {/* Notification popup */}
-        {notif && (
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "#6c63ff",
-              color: "#fff",
-              padding: "10px 24px",
-              borderRadius: 8,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              fontWeight: 500,
-              zIndex: 10,
-            }}
-          >
-            {notif}
+        <div className="itn-field">
+          <span className="itn-label">Activities & Things to Do</span>
+          <div className="itn-grid-2">
+            <input
+              id="itn-activity-draft"
+              className="itn-input"
+              placeholder="e.g., Snorkeling, Hiking..."
+              value={form.activityDraft}
+              onChange={(e) => setForm({ ...form, activityDraft: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addActivity())}
+            />
+            <button type="button" className="itn-btn primary" onClick={addActivity}>
+              Add Activity
+            </button>
           </div>
-        )}
+          {form.activities.length > 0 && (
+            <div className="itn-activities-wrapper" style={{ marginTop: 8 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {form.activities.map((act, i) => (
+                  <div key={i} className="itn-activity-tag">
+                    <span>{act}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeActivity(i)}
+                      className="itn-activity-remove-btn"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="itn-form-col">
+        <div className="itn-field">
+          <span className="itn-label">Accommodation Details</span>
+          <div className="itn-grid-2">
+            <select
+              className="itn-input"
+              name="accomType"
+              value={form.accomType}
+              onChange={handleChange}
+            >
+              <option value="">Select type...</option>
+              <option>Hotel</option>
+              <option>Hostel</option>
+              <option>Apartment</option>
+              <option>Resort</option>
+              <option>Homestay</option>
+            </select>
+            <input
+              className="itn-input"
+              placeholder="Hotel/Place name"
+              name="accomName"
+              value={form.accomName}
+              onChange={handleChange}
+            />
+          </div>
+          <textarea
+            rows={2}
+            className="itn-input"
+            name="accomNotes"
+            placeholder="Address, booking details, special notes..."
+            value={form.accomNotes}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="itn-field">
+          <span className="itn-label">Transport</span>
+          <div className="itn-grid-2">
+            <select
+              className="itn-input"
+              name="transport"
+              value={form.transport}
+              onChange={handleChange}
+            >
+              <option value="">Select transportation...</option>
+              <option>Flight</option>
+              <option>Train</option>
+              <option>Bus</option>
+              <option>Car</option>
+              <option>Ferry</option>
+            </select>
+          </div>
+          <textarea
+            rows={2}
+            className="itn-input"
+            name="transportNotes"
+            placeholder="Transport notes..."
+            value={form.transportNotes}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="itn-field">
+          <span className="itn-label">Travel Agency</span>
+          <input
+            className="itn-input"
+            placeholder="Agency name or details"
+            name="agency"
+            value={form.agency}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="itn-field">
+          <span className="itn-label">Additional Notes</span>
+          <textarea
+            rows={3}
+            className="itn-input"
+            name="notes"
+            placeholder="Any other important details..."
+            value={form.notes}
+            onChange={handleChange}
+          />
+        </div>
       </div>
     </div>
   );
-}
 
-function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus }) {
+  // MOBILE: Bottom sheet
+  if (isMobile) {
+    const mobileContent = (
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          zIndex: 9999,
+          animation: 'slideUp 0.3s ease-out'
+        }}
+        onClick={onClose}
+      >
+        <div 
+          style={{
+            background: '#fff',
+            borderRadius: '20px 20px 0 0',
+            width: '100%',
+            maxHeight: '95vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            overflow: 'hidden'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div style={{
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+            color: '#fff',
+            padding: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0
+          }}>
+            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>
+              Edit Details
+            </h2>
+            <button 
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                color: '#fff',
+                fontSize: '24px',
+                cursor: 'pointer',
+                padding: '0 8px',
+                borderRadius: '8px'
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Mobile Tabs */}
+          <div style={{
+            padding: '12px 16px',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: '8px',
+            flexShrink: 0
+          }}>
+            <button
+              onClick={() => setMobileViewMode("form")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "form" ? '2px solid #6366f1' : '1px solid #e5e7eb',
+                background: mobileViewMode === "form" ? '#eef2ff' : '#fff',
+                color: mobileViewMode === "form" ? '#6366f1' : '#64748b',
+                fontWeight: mobileViewMode === "form" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✏️ Details
+            </button>
+            <button
+              onClick={() => setMobileViewMode("hotels")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "hotels" ? '2px solid #10b981' : '1px solid #e5e7eb',
+                background: mobileViewMode === "hotels" ? '#ecfdf5' : '#fff',
+                color: mobileViewMode === "hotels" ? '#10b981' : '#64748b',
+                fontWeight: mobileViewMode === "hotels" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              🏨 Hotels
+            </button>
+            <button
+              onClick={() => setMobileViewMode("agencies")}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: mobileViewMode === "agencies" ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+                background: mobileViewMode === "agencies" ? '#fffbeb' : '#fff',
+                color: mobileViewMode === "agencies" ? '#f59e0b' : '#64748b',
+                fontWeight: mobileViewMode === "agencies" ? '700' : '600',
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              🛫 Agencies
+            </button>
+          </div>
+
+          {/* Content */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            padding: '16px'
+          }}>
+            {mobileViewMode === "form" && formContent}
+            {mobileViewMode === "hotels" && (
+              <HotelSuggestion details={initial} onSelect={handleSelectHotel} />
+            )}
+            {mobileViewMode === "agencies" && (
+              <AgencySuggestion details={initial} onSelect={handleSelectAgency} />
+            )}
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            padding: '12px 16px',
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: '12px',
+            justifyContent: 'flex-end',
+            flexShrink: 0,
+            background: '#f8fafc'
+          }}>
+            <button 
+              onClick={onClose}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: '#fff',
+                color: '#374151',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            {mobileViewMode === "form" && (
+              <button 
+                onClick={handleSave}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Save Details
+              </button>
+            )}
+          </div>
+
+          {notif && (
+            <div style={{
+              position: "fixed",
+              top: 20,
+              right: 20,
+              background: "#6c63ff",
+              color: "#fff",
+              padding: "12px 20px",
+              borderRadius: 8,
+              zIndex: 10001,
+            }}>
+              {notif}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+    return ReactDOM.createPortal(mobileContent, document.body);
+  }
+
+  // DESKTOP: SuggestionView with form in center
+  const desktopContent = (
+    <SuggestionView 
+      item={initial} 
+      onClose={onClose}
+      onSelectHotel={handleSelectHotel}
+      onSelectAgency={handleSelectAgency}
+    >
+      <form className="itn-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header">
+          <div className="itn-modal-title">Edit Destination Details</div>
+          <button type="button" className="itn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="itn-modal-body">
+          {formContent}
+        </div>
+
+        <div className="itn-modal-footer">
+          <button type="button" className="itn-btn ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="itn-btn primary" onClick={handleSave}>Save Details</button>
+        </div>
+        
+        {notif && (
+          <div className="itn-notification">
+            {notif}
+          </div>
+        )}
+      </form>
+    </SuggestionView>
+  );
+
+  return ReactDOM.createPortal(desktopContent, document.body);
+}
+function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus, setEditing }) {
+  const isMobile = useIsMobile();
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showCostEstimation, setShowCostEstimation] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  // ADD THIS - Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.itn-card-settings') && !e.target.closest('.itn-card-menu')) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showMenu]);
+
   const days =
     item.arrival && item.departure
       ? Math.max(
@@ -383,845 +772,474 @@ function DestinationCard({ item, index, onEdit, onRemove, onToggleStatus }) {
         )
       : 0;
 
-  return (
-    <div className="itn-card">
-      <div className="itn-card-head">
-        <div className="itn-card-title">
-          <span className="itn-step">{index + 1}</span>
-          <div>
-            <div className="itn-name">{item.name || "Destination"}</div>
-            <div className="itn-sub">{item.region}</div>
-          </div>
-        </div>
-        <div className="itn-actions">
-          <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
-          <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle Status</button>
-          <button className="itn-btn" onClick={() => onEdit(item)}>Edit</button>
-          <button className="itn-btn danger" onClick={() => onRemove(item.id)}>Remove</button>
-        </div>
-      </div>
+  const activities = item.activities || [];
+  const showToggle = activities.length > 3;
 
-      <div className="itn-stats">
-        <div className="itn-stat blue">
-          <div className="itn-stat-title">Dates</div>
-          <div className="itn-stat-body">
-            {item.arrival || item.departure ? (
+  return (
+    <>
+      <div className={`itn-card`} style={{ overflow: 'visible', position: 'relative' }}>
+        {/* ADD THIS - Settings button for mobile only */}
+        <button
+          className="itn-card-settings"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowMenu(!showMenu);
+          }}
+          title="Options"
+        >
+          ⚙️
+        </button>
+
+        {/* ADD THIS - Settings menu (mobile only) */}
+        {showMenu && (
+          <div className="itn-card-menu">
+            <button
+              className="itn-card-menu-item"
+              onClick={() => {
+                setShowSummary(true);
+                setShowMenu(false);
+              }}
+            >
+               View Summary
+            </button>
+            <button
+              className="itn-card-menu-item"
+              onClick={() => {
+                setShowCostEstimation(true);
+                setShowMenu(false);
+              }}
+            >
+               Estimate Transport Cost
+            </button>
+          </div>
+        )}
+
+        <div className="itn-card-head">
+          <div className="itn-card-title">
+            <span className="itn-step">{index + 1}</span>
+            <div>
+              <div className="itn-name">{item.name || "Destination"}</div>
+              <div className="itn-sub">{item.region}</div>
+              {item.location && (
+                <div className="itn-location" style={{ 
+                  fontSize: '0.85rem', 
+                  color: '#94a3b8',
+                  marginTop: '2px'
+                }}>
+                  📌 {item.location}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="itn-actions" style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? 6 : 8,
+            minWidth: isMobile ? 'auto' : '240px'
+          }}>
+            <span className={`itn-badge ${item.status.toLowerCase()}`}>{item.status}</span>
+            {!isMobile && (
               <>
-                <div>{item.arrival || "—"}</div>
-                <div>{item.departure || "—"}</div>
-                <div className="itn-muted">{days} {days === 1 ? "day" : "days"} total</div>
+                <button className="itn-btn" onClick={() => onToggleStatus(item.id)}>Toggle</button>
+                <button className="itn-btn" onClick={() => setEditing(item)}>Edit</button>
+                {/* CHANGE THIS LINE: add 'danger' class */}
+                <button className="itn-btn danger" onClick={() => onRemove(item.id)}>Remove</button>
               </>
-            ) : (
-              <div className="itn-muted">Not set</div>
             )}
           </div>
         </div>
 
-        <div className="itn-stat green">
-          <div className="itn-stat-title">Budget</div>
-          <div className="itn-stat-body">
-            <div>${item.budget || 0}</div>
-            <div className="itn-muted">Hotel: ${item.accomBudget || 0}</div>
-            <div className="itn-muted">Activities: ${item.activityBudget || 0}</div>
-          </div>
-        </div>
-
-        <div className="itn-stat purple">
-          <div className="itn-stat-title">Stay</div>
-          <div className="itn-stat-body">
-            <div>{item.accomType || "Not planned"}</div>
-            <div className="itn-muted">{item.accomName || "No details"}</div>
-          </div>
-        </div>
-
-        <div className="itn-stat orange">
-          <div className="itn-stat-title">Activities</div>
-          <div className="itn-stat-body">
-            <div>{item.activities?.length || 0} planned</div>
-            {item.activities?.length ? (
-              <div className="itn-muted">{item.activities.slice(0, 3).join(", ")}</div>
-            ) : (
-              <div className="itn-muted">—</div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ExportPDFModal({ items, selected, onToggle, onSelectAll, onExport, onClose }) {
-  const [filter, setFilter] = useState("");
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (it) =>
-        (it.name || "").toLowerCase().includes(q) ||
-        (it.region || "").toLowerCase().includes(q)
-    );
-  }, [items, filter]);
-
-  const allChecked = selected.size === items.length && items.length > 0;
-
-  return (
-    <div className="itn-modal-backdrop" onClick={onClose}>
-      <div className="itn-modal itn-modal-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="itn-modal-header itn-gradient">
-          <div className="itn-modal-title">Export Itinerary to PDF</div>
-          <button className="itn-close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="itn-modal-body">
-          <div className="itn-toolbar">
-            <input
-              className="itn-input"
-              placeholder="Search destinations to include..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <div className="itn-toolbar-right">
-              <span className="itn-muted">
-                Selected {selected.size}/{items.length}
-              </span>
-              <button className="itn-btn ghost" onClick={onSelectAll}>
-                {allChecked ? "Clear all" : "Select all"}
-              </button>
+        <div className="itn-stats">
+          <div className="itn-stat blue">
+            <div className="itn-stat-title">Dates</div>
+            <div className="itn-stat-body">
+              {item.arrival || item.departure ? (
+                <>
+                  <div>{item.arrival || "—"}</div>
+                  <div>{item.departure || "—"}</div>
+                  <div className="itn-muted">{days} {days === 1 ? "day" : "days"} total</div>
+                </>
+              ) : (
+                <div className="itn-muted">Not set</div>
+              )}
             </div>
           </div>
 
-          <div className="itn-results">
-            {filtered.map((it) => {
-              const checked = selected.has(it.id);
-              return (
-                <label key={it.id} className={`itn-result ${checked ? "is-checked" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => onToggle(it.id)}
-                  />
-                  <div className="itn-result-main">
-                    <div className="itn-result-title">{it.name || "Destination"}</div>
-                    <div className="itn-result-sub">
-                      {(it.region || "—")} • {(it.arrival || "—")} → {(it.departure || "—")} • {(it.status || "Upcoming")}
-                    </div>
+          <div className="itn-stat green">
+            <div className="itn-stat-title">Estimated expenditure</div>
+            <div className="itn-stat-body">
+              <div>₱{Number(item.estimatedExpenditure ?? item.budget ?? 0).toLocaleString()}</div>
+              <div className="itn-muted">Estimated total cost for this trip</div>
+            </div>
+          </div>
+
+          <div className="itn-stat purple">
+            <div className="itn-stat-title">Stay</div>
+            <div className="itn-stat-body">
+              <div>{item.accomType || "Not planned"}</div>
+              <div className="itn-muted">{item.accomName || "No details"}</div>
+            </div>
+          </div>
+
+          <div className="itn-stat purple">
+            <div className="itn-stat-title">Agency</div>
+            <div className="itn-stat-body">
+              <div>{item.agency || "Not planned"}</div>
+            </div>
+          </div>
+
+          <div className="itn-stat orange">
+            <div className="itn-stat-title">Activities</div>
+            <div className="itn-stat-body">
+              <div>{activities.length} planned</div>
+              {activities.length ? (
+                <>
+                  <div className="itn-muted" style={{ wordBreak: "break-word" }}>
+                    {showAllActivities
+                      ? activities.join(", ")
+                      : activities.slice(0, 3).join(", ")}
+                    {showToggle && !showAllActivities && "…"}
                   </div>
-                </label>
-              );
-            })}
-            {!items.length && <div className="itn-empty-sm">No destinations available.</div>}
-            {items.length > 0 && filtered.length === 0 && (
-              <div className="itn-empty-sm">No matches for "{filter}".</div>
+                  {showToggle && (
+                    <button
+                      className="itn-btn ghost"
+                      style={{ marginTop: 4, fontSize: 12, padding: "2px 8px" }}
+                      onClick={() => setShowAllActivities((v) => !v)}
+                    >
+                      {showAllActivities ? "Show Less" : "Show All"}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="itn-muted">—</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Action buttons - full width stacked (MOBILE ONLY) */}
+        {isMobile && (
+          <div style={{ 
+            marginTop: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            width: '100%'
+          }}>
+            <button 
+              onClick={() => onToggleStatus(item.id)}
+              style={{ 
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '10px',
+                border: '1px solid #e5e7eb',
+                background: '#f3f4f6',
+                color: '#374151',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#e5e7eb';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#f3f4f6';
+              }}
+            >
+              ☑️ Toggle
+            </button>
+            
+            <button 
+              onClick={() => setEditing(item)}
+              style={{ 
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 12px rgba(99, 102,241, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)';
+              }}
+            >
+              ✏️ Edit
+            </button>
+            
+            <button 
+              onClick={() => onRemove(item.id)}
+              style={{ 
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                borderRadius: '10px',
+                background: '#fee2e2',
+                color: '#991b1b',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#fecaca';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = '#fee2e2';
+              }}
+            >
+              🗑️ Remove
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Render modals OUTSIDE the card */}
+      {showSummary && (
+        <ItinerarySummaryModal item={item} onClose={() => setShowSummary(false)} />
+      )}
+
+      {showCostEstimation && (
+        <ItineraryCostEstimationModal
+          onClose={() => setShowCostEstimation(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ADD: Mobile detection hook at the top level
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+}
+
+function ItinerarySummaryModal({ item, onClose }) {
+  const days =
+    item && item.arrival && item.departure
+      ? Math.max(
+          1,
+          Math.ceil(
+            (new Date(item.departure).getTime() - new Date(item.arrival).getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        )
+      : 0;
+
+  const modalContent = (
+    <div className="itn-modal-backdrop" onClick={onClose}>
+      <div className="itn-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="itn-modal-header">
+          <div className="itn-modal-title"> Trip Summary</div>
+          <button className="itn-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="itn-modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="itn-summary-content">
+            <div className="itn-summary-section">
+              <h3 className="itn-summary-heading"> Destination</h3>
+              <div className="itn-summary-item">
+                <strong>{item.name}</strong>
+                {item.region && <span className="itn-summary-region">{item.region}</span>}
+              </div>
+              {item.location && (
+                <div className="itn-summary-item" style={{ marginTop: '12px' }}>
+                  <span className="itn-summary-label" style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                     Location: 
+                  </span>
+                  <span style={{ marginLeft: '8px', color: '#475569' }}>
+                    {item.location}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {(item.arrival || item.departure) && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading"> Travel Dates</h3>
+                <div className="itn-summary-grid">
+                  {item.arrival && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Arrival:</span>
+                      <span>{new Date(item.arrival).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {item.departure && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Departure:</span>
+                      <span>{new Date(item.departure).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {days > 0 && (
+                    <div className="itn-summary-item">
+                      <span className="itn-summary-label">Duration:</span>
+                      <span>{days} day{days !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
+
+            {item.estimatedExpenditure > 0 && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading"> Budget</h3>
+                <div className="itn-summary-item">
+                  <span className="itn-summary-amount">
+                    ₱{Number(item.estimatedExpenditure).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {item.activities && item.activities.length > 0 && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading"> Activities</h3>
+                <div className="itn-summary-tags">
+                  {item.activities.map((activity, idx) => (
+                    <span key={idx} className="itn-summary-tag">{activity}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(item.accomType || item.accomName) && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading"> Accommodation</h3>
+                <div className="itn-summary-item">
+                  {item.accomType && <span className="itn-summary-badge">{item.accomType}</span>}
+                  {item.accomName && <strong>{item.accomName}</strong>}
+                  {item.accomNotes && <p className="itn-summary-notes">{item.accomNotes}</p>}
+                </div>
+              </div>
+            )}
+
+            {item.transport && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading"> Transportation</h3>
+                <div className="itn-summary-item">
+                  <span className="itn-summary-badge">{item.transport}</span>
+                  {item.transportNotes && <p className="itn-summary-notes">{item.transportNotes}</p>}
+                </div>
+              </div>
+            )}
+
+            {item.agency && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading"> Agency</h3>
+                <div className="itn-summary-item">
+                  <p className="itn-summary-notes">{item.agency}</p>
+                </div>
+              </div>
+            )}
+
+            {item.notes && (
+              <div className="itn-summary-section">
+                <h3 className="itn-summary-heading"> Notes</h3>
+                <div className="itn-summary-item">
+                  <p className="itn-summary-notes">{item.notes}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="itn-summary-section">
+              <h3 className="itn-summary-heading"> Status</h3>
+              <div className="itn-summary-item">
+                <span className={`itn-summary-status ${item.status.toLowerCase()}`}>
+                  {item.status}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="itn-modal-footer">
-          <button className="itn-btn ghost" onClick={onClose}>Cancel</button>
-          <button className="itn-btn primary" onClick={onExport} disabled={!selected.size}>
-            Export PDF
-          </button>
+          <button className="itn-btn primary" onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
-export default function Itinerary() {
-  const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const [map, setMap] = useState(null);
-
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState([]);
-  const [selected, setSelected] = useState(null);
-
-  const [items, setItems] = useState([]);
-  const [editing, setEditing] = useState(null);
-
-  // ADD THESE
-  const [showExport, setShowExport] = useState(false);
-  const [exportSelected, setExportSelected] = useState(new Set());
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareSelected, setShareSelected] = useState(new Set());
-  const [activeTab, setActiveTab] = useState("personal");
-
-  // NEW: current user
-  const [user, setUser] = useState(null);
-
-  // NEW: watch auth, then subscribe to user's itinerary
-  useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u || null));
-    return () => unsubAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setItems([]);
-      return;
-    }
-    const colRef = collection(db, "itinerary", user.uid, "items");
-    const q = fsQuery(colRef, orderBy("createdAt", "asc")); // use aliased function
-    const unsub = onSnapshot(q, (snap) => {
-      const list = [];
-      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-      setItems(list);
-    });
-    return () => unsub();
-  }, [user]);
-
-  // Init Leaflet map
-  useEffect(() => {
-    if (map) return;
-    const m = L.map(mapRef.current, { zoomControl: true }).setView([14.5995, 120.9842], 11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
-    }).addTo(m);
-    setMap(m);
-  }, [map]);
-
-  // Center map on selected place and show custom pin icon
-  useEffect(() => {
-    if (!map || !selected) return;
-    const lat = Number(selected.lat);
-    const lon = Number(selected.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-    const pinIcon = L.icon({
-      iconUrl: `${process.env.PUBLIC_URL || ""}/placeholder.png`,
-      iconSize: [40, 40],
-      iconAnchor: [20, 38],   // tip near bottom-center
-      popupAnchor: [0, -38],
-    });
-
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lon]);
-      markerRef.current.setIcon(pinIcon);
-    } else {
-      markerRef.current = L.marker([lat, lon], { icon: pinIcon }).addTo(map);
-    }
-    map.setView([lat, lon], 13);
-  }, [map, selected]);
-
-  const onSearch = async () => {
-    setSearching(true);
-    try {
-      const data = await searchPlace(query);
-      setResults(data.slice(0, 5));
-      setSelected(data[0] || null);
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  // Open the form using the selected place
-  const openAddModal = () => {
-    if (!selected) return;
-    setEditing({
-      ...selected,
-      status: "Upcoming",
-      // no id here; Firestore will assign one
-    });
-  };
-
-  // Replace saveItem with the parent-doc ensure before writing
-  const saveItem = async (data) => {
-    if (!user) {
-      alert("Please sign in to save your itinerary.");
-      return;
-    }
-
-    if (!data.name) data.name = "Untitled destination";
-    
-    try {
-      // Check if this is an edit (has an id) or a new item
-      if (data.id) {
-        // It's an edit - update the existing document
-        const itemRef = doc(db, "itinerary", user.uid, "items", data.id);
-        await updateDoc(itemRef, { 
-          ...data, 
-          updatedAt: serverTimestamp() 
-        });
-        console.log("Updated existing itinerary item:", data.id);
-      } else {
-        // It's a new item - create a new document
-        const colRef = collection(db, "itinerary", user.uid, "items");
-        await addDoc(colRef, { 
-          ...data, 
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp() 
-        });
-        
-        // Check if this is the user's first itinerary item
-        const snap = await getDocs(colRef);
-        if (snap.size === 1) {
-          // Unlock "First Step" achievement (id: 1)
-          await unlockAchievement(1, "First Step");
-        }
-        
-        console.log("Created new itinerary item");
-      }
-    } catch (e) {
-      console.error("[Itinerary] saveItem write failed:", e);
-      alert(`Failed to save itinerary item: ${e?.code || e?.message || e}`);
-    }
-  };
-
-  // NEW: delete from Firestore
-  const removeItem = async (id) => {
-    if (!user) return;
-    // delete from itinerary (existing behavior)
-    await deleteDoc(doc(db, "itinerary", user.uid, "items", id));
-
-    // also delete from My Trips (all users)
-    try {
-      await removeTripForAllUsers(id);
-    } catch (e) {
-      console.warn("[Trips] Failed to delete from trips across users:", e);
-    }
-  };
-
-  // NEW: toggle status in Firestore
-  const toggleStatus = async (id) => {
-    if (!user) return;
-    const current = items.find((i) => i.id === id);
-    if (!current) return;
-    const next =
-      current.status === "Upcoming"
-        ? "Ongoing"
-        : current.status === "Ongoing"
-        ? "Completed"
-        : "Upcoming";
-    await updateDoc(doc(db, "itinerary", user.uid, "items", id), {
-      status: next,
-      updatedAt: serverTimestamp(),
-    });
-  };
-
-  const markAllComplete = async () => {
-    if (!user || !items.length) return;
-    try {
-      await Promise.all(
-        items.map((it) =>
-          updateDoc(doc(db, "itinerary", user.uid, "items", it.id), {
-            status: "Completed",
-            updatedAt: serverTimestamp(),
-          })
-        )
-      );
-      console.log("[Itinerary] Marked all complete for", user.uid);
-    } catch (e) {
-      console.error("Mark All Complete failed:", e);
-      alert("Failed to mark all complete. Please try again.");
-    }
-  };
-
-  const clearAll = async () => {
-    if (!user || !items.length) return;
-    if (!window.confirm("Remove all destinations from your itinerary?")) return;
-    try {
-      // clear itinerary (existing behavior)
-      const colRef = collection(db, "itinerary", user.uid, "items");
-      const snap = await getDocs(colRef);
-      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
-      console.log("[Itinerary] Cleared itinerary for", user.uid);
-
-      // also clear My Trips (all users)
-      try {
-        await clearAllTripsForAllUsers();
-      } catch (e) {
-        console.warn("[Trips] Failed to clear trips across users:", e);
-      }
-    } catch (e) {
-      console.error("Clear All failed:", e);
-      alert("Failed to clear your itinerary. Please try again.");
-    }
-  };
-
-  // Open export dialog (preselect all) 
-  const openExport = () => {
-    setExportSelected(new Set(items.map(i => i.id)));
-    setShowExport(true);
-  };
-
-  const toggleSelected = (id) => {
-    setExportSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    setExportSelected(prev => {
-      if (prev.size === items.length) return new Set();
-      return new Set(items.map(i => i.id));
-    });
-  };
-
-  const exportToPDF = async () => {
-    if (!exportSelected.size) return;
-
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const w = doc.internal.pageSize.getWidth();
-    const h = doc.internal.pageSize.getHeight();
-    const pad = 40;
-    const contentW = w - pad * 2;
-
-    // Sort by arrival date, newest first, then name
-    const toMs = (d) => (d ? new Date(d).getTime() : 0);
-    const sel = [...items]
-      .filter((i) => exportSelected.has(i.id))
-      .sort((a, b) => (toMs(b.arrival) - toMs(a.arrival)) || (a.name || "").localeCompare(b.name || ""));
-
-    const totals = sel.reduce(
-      (acc, it) => {
-        const days =
-          it.arrival && it.departure
-            ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
-            : 0;
-        acc.days += days;
-        acc.budget += Number(it.budget || 0);
-        return acc;
-      },
-      { days: 0, budget: 0 }
-    );
-
-    // Header + footer via didDrawPage
-    const drawHeader = () => {
-      doc.setFillColor(246, 247, 255);
-      doc.rect(0, 0, w, 64, "F");
-      doc.setFontSize(18);
-      doc.setTextColor(28, 28, 30);
-      doc.text("LakbAI Itinerary", pad, 32);
-      doc.setFontSize(10);
-      doc.setTextColor(90, 90, 100);
-      doc.text(
-        `Exported: ${new Date().toLocaleString()} • Destinations: ${sel.length} • Total days: ${totals.days} • Total budget: $${totals.budget.toLocaleString()}`,
-        pad,
-        50
-      );
-    };
-    const drawFooter = () => {
-      const page = doc.getNumberOfPages();
-      doc.setFontSize(10);
-      doc.setTextColor(120, 120, 130);
-      doc.text(`Page ${page}`, w - pad, h - 16, { align: "right" });
-    };
-
-    // Build table rows
-    const rows = sel.map((it, idx) => {
-      const days =
-        it.arrival && it.departure
-          ? Math.max(1, Math.ceil((new Date(it.departure) - new Date(it.arrival)) / 86400000))
-          : "";
-      const dates = [it.arrival || "—", it.departure ? `– ${it.departure}` : ""].join(" ");
-      const budget = `$${Number(it.budget || 0).toLocaleString()}`;
-      return [
-        idx + 1,
-        it.name || "Destination",
-        it.region || "—",
-        dates,
-        String(days || "—"),
-        it.status || "—",
-        budget,
-      ];
-    });
-
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 90);
-    doc.text(`Destinations: ${sel.length}`, pad + 12, 80);
-    doc.text(`Total days: ${totals.days}`, pad + 160, 80);
-    doc.text(`Total budget: $${totals.budget.toLocaleString()}`, pad + 280, 80);
-
-    // when adding a table:
-    const addTable = (opts) => {
-      // works with both plugin styles
-      if (typeof doc.autoTable === 'function') {
-        doc.autoTable(opts);
-      } else {
-        autoTable(doc, opts);
-      }
-    };
-
-    addTable({
-      startY: 92,
-      margin: { left: pad, right: pad },
-      head: [["#", "Destination", "Region", "Dates", "Days", "Status", "Budget"]],
-      body: rows,
-      styles: {
-        fontSize: 9,
-        cellPadding: 6,
-        overflow: "linebreak",
-        lineColor: [230, 230, 242],
-        lineWidth: 0.2,
-        valign: "middle",
-      },
-      headStyles: { fillColor: [108, 99, 255], textColor: 255 },
-      alternateRowStyles: { fillColor: [248, 248, 255] },
-      columnStyles: {
-        0: { cellWidth: contentW * 0.06, halign: "right" },
-        1: { cellWidth: contentW * 0.32 },
-        2: { cellWidth: contentW * 0.16 },
-        3: { cellWidth: contentW * 0.20 },
-        4: { cellWidth: contentW * 0.08, halign: "right" },
-        5: { cellWidth: contentW * 0.10 },
-        6: { cellWidth: contentW * 0.08, halign: "right" },
-      },
-      didDrawPage: () => {
-        drawHeader();
-        drawFooter();
-      },
-    });
-
-    // Summary box after table
-    let y = (doc.lastAutoTable?.finalY || 72) + 18;
-    if (y + 80 > h - pad) {
-      doc.addPage();
-      drawHeader();
-      drawFooter();
-      y = 72;
-    }
-    doc.setDrawColor(108, 99, 255);
-    doc.setLineWidth(0.8);
-    doc.roundedRect(pad, y, contentW, 60, 8, 8);
-    doc.setFontSize(12);
-    doc.setTextColor(20, 20, 20);
-    doc.text("Summary", pad + 12, y + 20);
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 90);
-    doc.text(`Destinations: ${sel.length}`, pad + 12, y + 40);
-    doc.text(`Total days: ${totals.days}`, pad + 160, y + 40);
-    doc.text(`Total budget: $${totals.budget.toLocaleString()}`, pad + 280, y + 40);
-
-    const filename = `itinerary-${new Date().toISOString().slice(0, 10)}.pdf`;
-    doc.save(filename);
-    setShowExport(false);
-  };
-
-  const friends = useFriendsList(user);
-  const { sharedWithMe, loading: loadingShared } = useSharedItineraries(user);
-
-  const toggleShareItem = (id) => {
-    setShareSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleShareItinerary = async (itemIds, friendIds) => {
-    if (!user) return;
-    try {
-      console.log("Starting share with:", { itemIds, friendIds });
-      
-      // First check that we have the data we need
-      if (!itemIds.length) {
-        alert("Please select at least one destination to share");
-        return;
-      }
-      
-      if (!friendIds.length) {
-        alert("Please select at least one friend to share with");
-        return;
-      }
-      
-      // Get the actual items to be shared
-      const itemsToShare = items.filter(item => itemIds.includes(item.id));
-      
-      if (!itemsToShare.length) {
-        alert("Could not find the selected destinations");
-        return;
-      }
-      
-      // Now call the share function
-      await shareItineraryWithFriends(user, items, itemIds, friendIds);
-      alert(`Itinerary shared with ${friendIds.length} friend${friendIds.length > 1 ? 's' : ''}!`);
-    } catch (err) {
-      console.error("Share failed:", err);
-      alert(`Failed to share itinerary: ${err.message || "Unknown error"}`);
-    }
-  };
-
-  return (
-    <div className="itn-page">
-      <div className="itn-hero">
-        <div className="itn-hero-title">LakbAI: Your AI Travel Assistant</div>
-        <div className="itn-hero-sub">Plan every aspect of your perfect journey</div>
-        <div className="itn-hero-actions">
-          <button 
-            className="itn-btn ghost" 
-            onClick={() => setShowShareModal(true)} 
-            disabled={!items.length}
-            title={!items.length ? "No itineraries to share" : "Share with friends"}
-          >
-            Share Itinerary
-          </button>
-          <button
-            className="itn-btn ghost"
-            onClick={openExport}
-            disabled={!items.length}
-            title={!items.length ? "No items to export" : "Export to PDF"}
-          >
-            Export PDF
-          </button>
+// Custom confirmation dialog for remove
+function showCustomConfirm({ icon, title, items, body, confirmText = "Confirm", cancelText = "Cancel", danger = false }) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'itn-confirm-backdrop';
+    backdrop.innerHTML = `
+      <div class="itn-confirm-dialog">
+        <div class="itn-confirm-header">
+          <div class="itn-confirm-icon">${icon}</div>
+          <h2 class="itn-confirm-title">${title}</h2>
+        </div>
+        <div class="itn-confirm-content">
+          ${items || ""}
+          ${body ? `<div style="color:#ef4444; text-align:center; margin:10px 0;">${body}</div>` : ""}
+        </div>
+        <div class="itn-confirm-footer">
+          <button class="itn-confirm-btn cancel" id="confirm-cancel">${cancelText}</button>
+          <button class="itn-confirm-btn confirm${danger ? " itn-confirm-btn--danger" : ""}" id="confirm-ok">${confirmText}</button>
         </div>
       </div>
-
-      <div className="itn-grid-main">
-        <section className="itn-left">
-          <div className="itn-panel">
-            <div className="itn-panel-title">Find Destination</div>
-
-            <div className="itn-row">
-              <input
-                className="itn-input"
-                placeholder="Search destinations..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onSearch()}
-              />
-              <button className="itn-btn primary" onClick={onSearch} disabled={searching}>
-                {searching ? "Searching..." : "Search"}
-              </button>
-            </div>
-
-            {/* Map container (remove the CSS dot element) */}
-            <div className="itn-map-wrap">
-              <div className="itn-map" ref={mapRef} />
-            </div>
-
-            {selected ? (
-              <>
-                <div className="itn-place-line">{selected.display_name}</div>
-                <button className="itn-btn success block" onClick={openAddModal}>
-                  + Add to Itinerary
-                </button>
-              </>
-            ) : (
-              <div className="itn-muted">Search for places on the map to start planning.</div>
-            )}
-            
-            {results.length > 1 && (
-              <div className="itn-results">
-                {results.map((r) => (
-                  <div
-                    key={r.place_id || `${r.lat}-${r.lon}`}
-                    className="itn-result"
-                  >
-                    <div className="itn-result-title">{r.display_name}</div>
-                    <div className="itn-result-coords">
-                      {r.lat && r.lon ? `Lat: ${r.lat}, Lon: ${r.lon}` : "Coordinates not found"}
-                    </div>
-                    <button
-                      className="itn-btn success itn-result-add"
-                      onClick={() => setSelected(r)}
-                    >
-                      Add to Itinerary
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="itn-right">
-          <div className="itn-tabs">
-            <div 
-              className={`itn-tab ${activeTab === 'personal' ? 'active' : ''}`} 
-              onClick={() => setActiveTab('personal')}
-            >
-              My Itineraries
-            </div>
-            <div 
-              className={`itn-tab ${activeTab === 'shared' ? 'active' : ''}`}
-              onClick={() => setActiveTab('shared')}
-            >
-              Shared With Me {sharedWithMe.length > 0 && `(${sharedWithMe.length})`}
-            </div>
-          </div>
-          
-          <div className="itn-panel">
-            <div className="itn-panel-title">
-              {activeTab === 'personal' ? 'Your Detailed Itinerary' : 'Itineraries Shared With You'}
-            </div>
-            
-            {activeTab === 'personal' ? (
-              <>
-                <div className="itn-head-actions">
-                  <button
-                    className="itn-btn primary"
-                    onClick={() => setShowShareModal(true)}
-                    disabled={!items.length}
-                  >
-                    Share
-                  </button>
-                  <button
-                    className="itn-btn success"
-                    onClick={markAllComplete}
-                    disabled={!items.length}
-                  >
-                    Mark All Complete
-                  </button>
-                  <button
-                    className="itn-btn danger"
-                    onClick={clearAll}
-                    disabled={!items.length}
-                  >
-                    Clear All
-                  </button>
-                </div>
-
-                {!items.length ? (
-                  <div className="itn-empty">
-                    <div className="itn-empty-icon">🧳</div>
-                    <div className="itn-empty-title">No destinations planned yet</div>
-                    <div className="itn-muted">
-                      Search for places on the map to start building your itinerary!
-                    </div>
-                  </div>
-                ) : (
-                  items.map((item, idx) => (
-                    <DestinationCard
-                      key={item.id}
-                      item={item}
-                      index={idx}
-                      onEdit={(it) => setEditing(it)}
-                      onRemove={removeItem}
-                      onToggleStatus={toggleStatus}
-                    />
-                  ))
-                )}
-              </>
-            ) : (
-              <SharedItinerariesTab user={user} />
-            )}
-            
-          </div>
-        </section>
-      </div>
-
-      {editing && (
-        <EditDestinationModal
-          initial={editing}
-          onSave={saveItem}
-          onClose={() => setEditing(null)}
-        />
-      )}
-
-      {showExport && (
-        <ExportPDFModal
-          items={items}
-          selected={exportSelected}
-          onToggle={toggleSelected}
-          onSelectAll={toggleSelectAll}
-          onExport={exportToPDF}
-          onClose={() => setShowExport(false)}
-        />
-      )}
-
-      {showShareModal && (
-        <ShareItineraryModal
-          items={items}
-          friends={friends}
-          selected={shareSelected}
-          onToggleItem={toggleShareItem}
-          onShare={handleShareItinerary}
-          onClose={() => setShowShareModal(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-function Trips() {
-  const [user, setUser] = useState(null);
-  const [addingId, setAddingId] = useState(null);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u || null));
-    return () => unsub();
-  }, []);
-
-  // Call this when the "Add to Trip" button is clicked
-  const addToMyTrips = async (dest) => {
-    try {
-      await addTripForCurrentUser(dest);
-    } catch (e) {
-      if (e.message === "AUTH_REQUIRED") {
-        alert("Please sign in to add to My Trips.");
-      } else {
-        console.error("Add to My Trips failed:", e);
-        alert("Failed to add. Please try again.");
+    `;
+    document.body.appendChild(backdrop);
+    document.getElementById('confirm-ok').addEventListener('click', () => {
+      document.body.removeChild(backdrop);
+      resolve(true);
+    });
+    document.getElementById('confirm-cancel').addEventListener('click', () => {
+      document.body.removeChild(backdrop);
+      resolve(false);
+    });
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        document.body.removeChild(backdrop);
+        resolve(false);
       }
-    }
-  };
-
-  return (
-    <div>
-      {/* Example usage inside your card/list render:
-      <button
-        className="add-trip-btn"
-        onClick={() => addToMyTrips(destination)}
-        disabled={addingId === (destination.id || destination.name)}
-        aria-busy={addingId === (destination.id || destination.name)}
-
-     
-
-      >
-        {addingId === (destination.id || destination.name) ? 'Adding…' : '+ Add to Trip'}
-      </button>
-      */}
-    </div>
-  );
+    });
+  });
 }
 
-// Add this named export near the bottom (outside components)
-export async function addTripForCurrentUser(dest) {
+// ==================== EXPORT FUNCTIONS ====================
+export async function removeTripForCurrentUser(itemId) {
   const u = auth.currentUser;
-  if (!u) throw new Error("AUTH_REQUIRED");
-
-  // Ensure parent doc exists
-  await setDoc(
-    doc(db, "itinerary", u.uid),
-    { owner: u.uid, updatedAt: serverTimestamp() },
-    { merge: true }
-  );
-
-  const id = String(dest?.id || dest?.place_id || dest?.name || Date.now())
-    .replace(/[^\w-]/g, "_");
-
-  const ref = doc(db, "itinerary", u.uid, "items", id);
-  const now = serverTimestamp();
-
-  const payload = {
-    name: dest?.name || "Untitled destination",
-    region: dest?.region || "",
-    display_name:
-      dest?.display_name || `${dest?.name || ""}${dest?.region ? `, ${dest.region}` : ""}`,
-    categories: dest?.categories || dest?.tags || [],
-    priceTier: dest?.priceTier || null,
-    bestTime: dest?.bestTime || "",
-    image: dest?.image || "",
-    status: dest?.status || "Upcoming",
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  try {
-    await setDoc(ref, payload, { merge: true });
-    console.log("[Itinerary] Added trip:", payload);
-    return id;
-  } catch (err) {
-    console.error("[Itinerary] Failed to add trip:", err);
-    throw err;
-  }
+  if (!u) return;
+  
+  const ref = doc(db, "itinerary", u.uid, "items", itemId);
+  await deleteDoc(ref);
 }
 
-// Add these named exports near the bottom (outside components) so "My Trips" UI can call them.
 export async function removeTripForAllUsers(itemId) {
   const u = auth.currentUser;
   if (!u) throw new Error("AUTH_REQUIRED");
@@ -1234,4 +1252,559 @@ export async function clearAllTripsForAllUsers() {
   if (!u) throw new Error("AUTH_REQUIRED");
   // Clears users/*/trips for every user. Does not touch itinerary/sharedItineraries.
   await clearAllTripDestinations(u);
+}
+
+// UPDATE: Main Itinerary component
+export default function Itinerary() {
+  const [user, setUser] = useState(null);
+  const [items, setItems] = useState([]);
+  const [showExport, setShowExport] = useState(false);
+  const [exportSelected, setExportSelected] = useState(new Set());
+  const [exportLoading, setExportLoading] = useState(false);
+  const [showCostEstimator, setShowCostEstimator] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("personal");
+  const { sharedWithMe, loading: sharedLoading } = useSharedItineraries(auth.currentUser);
+  
+  // ADD THESE NEW STATE VARIABLES
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [viewMode, setViewMode] = useState("list"); // "list" or "grouped"
+  const { groups, loading: groupsLoading } = useGroupedItineraries(user?.uid);
+
+  // Export selection helpers
+  const toggleExportSelection = React.useCallback((id) => {
+    setExportSelected(prev => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }, [setExportSelected]);
+
+  const selectAllExport = React.useCallback(() => {
+    let tabItems = [];
+    if (activeTab === 'personal') {
+      tabItems = items;
+    } else if (activeTab === 'shared') {
+      tabItems = sharedWithMe.flatMap(s => s.items);
+    }
+    
+    setExportSelected(prev => {
+      if (prev.size === tabItems.length) return new Set();
+      return new Set(tabItems.map(i => i.id));
+    });
+  }, [items, sharedWithMe, activeTab]);
+
+  const handleExport = async () => {
+    let allTabItems = [];
+    let exportGroups = [];
+    
+    if (activeTab === 'personal') {
+      allTabItems = items;
+      // Include groups if in grouped view mode
+      if (viewMode === 'grouped' && groups.length > 0) {
+        exportGroups = groups;
+      }
+    } else if (activeTab === 'shared') {
+      allTabItems = sharedWithMe.flatMap(s => s.items);
+      // Include groups from shared itineraries
+      exportGroups = sharedWithMe
+        .filter(s => s.isGroupedItinerary && s.groups)
+        .flatMap(s => s.groups);
+    }
+
+    const selectedItems = allTabItems.filter((i) => exportSelected.has(i.id));
+    
+    if (!selectedItems.length) {
+      alert("Select at least one destination to export.");
+      return;
+    }
+
+    const enrichedItems = selectedItems.map(item => ({
+      ...item,
+      accomType: item.accomType || "",
+      accomName: item.accomName || "",
+      accomNotes: item.accomNotes || "",
+      activities: Array.isArray(item.activities) ? item.activities : (item.activities ? String(item.activities).split(",").map(a => a.trim()) : []),
+      packingSuggestions: Array.isArray(item.packingSuggestions) ? item.packingSuggestions : (item.packingSuggestions ? String(item.packingSuggestions).split(",").map(p => p.trim()) : []),
+      notes: item.notes || "",
+      agency: item.agency || "",
+      transport: item.transport || "",
+      transportNotes: item.transportNotes || "",
+      arrival: item.arrival || "",
+      departure: item.departure || "",
+      estimatedExpenditure: item.estimatedExpenditure || item.price || 0,
+      status: item.status || "upcoming",
+    }));
+
+    // Filter groups to only include those with selected items
+    const relevantGroups = exportGroups.filter(group => {
+      const groupItemIds = group.destinationIds || Object.keys(group.assignments || {});
+      return groupItemIds.some(id => exportSelected.has(id));
+    });
+
+    try {
+      console.log("[Itinerary] Starting export for", enrichedItems.length, "items with", relevantGroups.length, "groups");
+      setExportLoading(true);
+      await exportItineraryToPDF(enrichedItems, relevantGroups);
+      console.log("[Itinerary] Export finished");
+      setShowExport(false);
+      setExportSelected(new Set());
+    } catch (err) {
+      console.error("[Itinerary] export failed:", err);
+      alert("Export failed. Check console.");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u || null));
+    return () => {
+      if (typeof unsubAuth === "function") unsubAuth();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setItems([]);
+      itineraryCache.clear();
+      return;
+    }
+
+    const cached = itineraryCache.get(user.uid);
+    if (cached) {
+      setItems(cached);
+    }
+
+    const colRef = collection(db, "itinerary", user.uid, "items");
+    const q = fsQuery(colRef, orderBy("createdAt", "asc"));
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        itineraryCache.set(list, user.uid);
+        setItems(list);
+      },
+      (error) => {
+        const cachedData = itineraryCache.get(user.uid);
+        if (cachedData) {
+          setItems(cachedData);
+        }
+      }
+    );
+
+    return () => unsub();
+  }, [user]);
+
+  // Get ungrouped items (items not in any group)
+  const getUngroupedItems = () => {
+    const groupedIds = new Set();
+    groups.forEach(g => {
+      Object.keys(g.assignments || {}).forEach(id => groupedIds.add(id));
+    });
+    return items.filter(item => !groupedIds.has(item.id));
+  };
+
+  return (
+    <div className="itn-page">
+      <div className="itn-hero">
+        <div className="itn-hero-title">🗺️ My Travel Itineraries</div>
+        <div className="itn-hero-sub">Plan, organize, and share your perfect journey</div>
+      </div>
+      <div className="itn-container-full">
+        {/* ADD THIS - Action buttons bar */}
+        {items.length > 0 && (
+          <div className="itn-actions-bar">
+            <div className="itn-actions-bar-title">Quick Actions</div>
+            
+            {/* ADD THIS - Group Itinerary Button */}
+            <button 
+              className="itn-action-btn group"
+              onClick={() => {
+                setEditingGroup(null);
+                setShowGroupModal(true);
+              }}
+              title="Create a multi-day trip group"
+            >
+              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-text">Group Itinerary</span>
+            </button>
+
+            {/* ADD THIS - View Toggle */}
+            <button 
+              className={`itn-action-btn view-toggle ${viewMode === 'grouped' ? 'active' : ''}`}
+              onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
+              title="Toggle between list and grouped view"
+            >
+              <span className="itn-action-btn-icon">{viewMode === 'list' ? '' : ''}</span>
+              <span className="itn-action-btn-text">{viewMode === 'list' ? 'List View' : 'Trip View'}</span>
+            </button>
+            
+            <button 
+              className="itn-action-btn export"
+              onClick={() => setShowExport(true)}
+              title="Export selected destinations to PDF"
+            >
+              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-text">Export to PDF</span>
+            </button>
+
+            <button 
+              className="itn-action-btn route"
+              onClick={() => setShowCostEstimator(true)}
+              title="Estimate commute routes and times"
+            >
+              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-text">Commute Route</span>
+            </button>
+
+            <button 
+              className="itn-action-btn share"
+              onClick={() => {
+                console.log("Share button clicked, showShareModal:", true);
+                setShowShareModal(true);
+              }}
+              title="Share your itinerary with friends"
+            >
+              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-text">Share Itinerary</span>
+            </button>
+
+            <button 
+              className="itn-action-btn complete"
+              onClick={() => markAllCompleted(
+                activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items),
+                user,
+                activeTab === 'shared' ? sharedWithMe : null
+              )}
+              title="Mark all destinations as completed"
+            >
+              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-text">Mark All Complete</span>
+            </button>
+
+            <button 
+              className="itn-action-btn delete"
+              onClick={() => deleteAllItinerary(
+                activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items),
+                user,
+                activeTab === 'shared' ? sharedWithMe : null
+              )}
+              title="Delete all destinations permanently"
+            >
+              <span className="itn-action-btn-icon"></span>
+              <span className="itn-action-btn-text">Delete All</span>
+            </button>
+          </div>
+        )}
+
+        <section className="itn-itinerary-full">
+          <div className="itn-tabs">
+            <div
+              className={`itn-tab ${activeTab === 'personal' ? 'active' : ''}`}
+              onClick={() => setActiveTab('personal')}
+            >
+              📋 My Itineraries
+            </div>
+            <div
+              className={`itn-tab ${activeTab === 'shared' ? 'active' : ''}`}
+              onClick={() => setActiveTab('shared')}
+            >
+              👥 Shared With Me
+            </div>
+          </div>
+          <div className="itn-panel itn-panel-full-width">
+            {activeTab === 'personal' && (
+              items.length === 0 ? (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '400px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{
+                    fontSize: '80px',
+                    animation: 'float 3s ease-in-out infinite'
+                  }}>
+                    ✈️
+                  </div>
+                  <h3 style={{
+                    fontSize: '24px',
+                    fontWeight: '800',
+                    color: '#1e293b',
+                    margin: '0 0 12px 0'
+                  }}>
+                    Your Itinerary is Empty
+                  </h3>
+                  <p style={{
+                    fontSize: '15px',
+                    color: '#64748b',
+                    margin: '0',
+                    lineHeight: '1.6'
+                  }}>
+                    No destinations added yet. Start planning your next adventure!
+                  </p>
+                </div>
+              ) : viewMode === 'grouped' ? (
+                // GROUPED VIEW
+                <div className="itn-grouped-view">
+                  {/* Show grouped trips */}
+                  {groups.length > 0 && (
+                    <div className="itn-grouped-section">
+                      <h3 className="itn-grouped-section-title">
+                        🗓️ My Trip Groups ({groups.length})
+                      </h3>
+                      {groups.map(group => (
+                        <GroupedItineraryView
+                          key={group.id}
+                          group={group}
+                          items={items}
+                          onEditGroup={(g) => {
+                            setEditingGroup(g);
+                            setShowGroupModal(true);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Show ungrouped items */}
+                  {getUngroupedItems().length > 0 && (
+                    <div className="itn-ungrouped-section">
+                      <h3 className="itn-grouped-section-title">
+                        📍 Ungrouped Destinations ({getUngroupedItems().length})
+                      </h3>
+                      <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '16px' }}>
+                        These destinations are not part of any trip group. 
+                        <button 
+                          onClick={() => {
+                            setEditingGroup(null);
+                            setShowGroupModal(true);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#6366f1',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            marginLeft: '4px'
+                          }}
+                        >
+                          Create a trip group
+                        </button>
+                      </p>
+                      <div className="itn-destination-list">
+                        {getUngroupedItems().map((item, idx) => (
+                          <ItineraryCard 
+                            key={item.id} 
+                            item={item} 
+                            index={idx}
+                            onEdit={async (updatedItem) => {
+                              if (!user) return;
+                              try {
+                                const ref = doc(db, "itinerary", user.uid, "items", updatedItem.id);
+                                await updateDoc(ref, updatedItem);
+                              } catch (err) {
+                                console.error("[Itinerary] Failed to update item:", err);
+                              }
+                            }}
+                            onRemove={(itemId) => {
+                              deleteDoc(doc(db, "itinerary", user.uid, "items", itemId));
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="itn-destination-list">
+                  {items.map((item, idx) => (
+                    <ItineraryCard 
+                      key={item.id} 
+                      item={item} 
+                      index={idx}
+                      onEdit={async (updatedItem) => {
+                        if (!user) return;
+                        try {
+                          const ref = doc(db, "itinerary", user.uid, "items", updatedItem.id);
+                          await updateDoc(ref, updatedItem);
+                        } catch (err) {
+                          console.error("[Itinerary] Failed to update item:", err);
+                        }
+                      }}
+                      onRemove={(itemId) => {
+                        deleteDoc(doc(db, "itinerary", user.uid, "items", itemId));
+                      }}
+                    />
+                  ))}
+                </div>
+              )
+            )}
+
+            {activeTab === 'shared' && (
+              <div className="itn-shared-list">
+                {sharedLoading ? (
+                  <div style={{textAlign:'center', padding:20}}>Loading shared itineraries…</div>
+                ) : sharedWithMe.length === 0 ? (
+                  <div style={{textAlign:'center', padding:20}}>No itineraries shared with you.</div>
+                ) : (
+                  sharedWithMe.map((shared) => {
+                    // Check if this is a grouped itinerary
+                    const isGrouped = shared.isGroupedItinerary || false;
+                    
+                    if (isGrouped && shared.groups && shared.groups.length > 0) {
+                      // Render grouped itinerary
+                      return (
+                        <div key={shared.id}>
+                          {shared.groups.map(group => (
+                            <SharedGroupedItineraryView
+                              key={group.id}
+                              group={group}
+                              items={shared.items}
+                              sharedId={shared.id}
+                              canEdit={shared.canEdit}
+                              editors={shared.editors}
+                              onRefresh={() => {
+                                // Force refresh of shared itineraries
+                              }}
+                            />
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    // Render individual items (non-grouped)
+                    return (
+                      <div key={shared.id} className="shared-card">
+                        <div className="shared-card-header">
+                          <div>
+                            <strong>{shared.name || `Shared by ${shared.sharedBy.name}`}</strong>
+                            <div style={{fontSize:12, color:'#64748b', marginTop:3}}>
+                              {shared.sharedBy?.name || "Traveler"} • {shared.items.length} destinations
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="itn-destination-list">
+                          {shared.items.map((item, idx) => (
+                            <ItineraryCard
+                              key={item.id}
+                              item={item}
+                              index={idx}
+                              isShared={true}
+                              sharedId={shared.id}
+                              onEdit={async (updatedItem) => {
+                                try {
+                                  const itemToUpdate = {
+                                    ...updatedItem,
+                                    breakdown: Array.isArray(updatedItem.breakdown) ? updatedItem.breakdown : [],
+                                    accomType: updatedItem.accomType || "",
+                                    accomName: updatedItem.accomName || "",
+                                    accomNotes: updatedItem.accomNotes || "",
+                                    activities: Array.isArray(updatedItem.activities) ? updatedItem.activities : [],
+                                    transport: updatedItem.transport || "",
+                                    transportNotes: updatedItem.transportNotes || "",
+                                    notes: updatedItem.notes || "",
+                                    agency: updatedItem.agency || "",
+                                  };
+                                  
+                                  const sharedRef = doc(db, "sharedItineraries", shared.id, "items", updatedItem.id);
+                                  await updateDoc(sharedRef, itemToUpdate);
+                                } catch (err) {
+                                  console.error("[SharedItinerary] Failed to update item:", err);
+                                }
+                              }}
+                              onRemove={async (itemId) => {
+                                try {
+                                  await deleteDoc(doc(db, "sharedItineraries", shared.id, "items", itemId));
+                                } catch (err) {
+                                  console.error("[SharedItinerary] Failed to delete shared item:", err);
+                                }
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* Modals */}
+      {showExport && (
+        <ExportPDFModal
+          items={activeTab === 'personal' ? items : sharedWithMe.flatMap(s => s.items)}
+          groups={activeTab === 'personal' ? groups : sharedWithMe.filter(s => s.isGroupedItinerary).flatMap(s => s.groups || [])}
+          selected={exportSelected}
+          onToggle={toggleExportSelection}
+          onSelectAll={selectAllExport}
+          onExport={handleExport}
+          onClose={() => setShowExport(false)}
+          exporting={exportLoading}
+          viewMode={viewMode}
+        />
+      )}
+      {showCostEstimator && (
+        <ItineraryCostEstimationModal onClose={() => setShowCostEstimator(false)} />
+      )}
+      {showShareModal && (
+        <ShareItineraryModal 
+          items={items} 
+          groups={viewMode === 'grouped' ? groups : []}
+          onClose={() => setShowShareModal(false)} 
+        />
+      )}
+      {showGroupModal && (
+        <GroupItineraryModal
+          open={showGroupModal}
+          onClose={() => {
+            setShowGroupModal(false);
+            setEditingGroup(null);
+          }}
+          onSave={async (groupData) => {
+            try {
+              // Save or update group
+              if (editingGroup) {
+                // Update existing group
+                const groupRef = doc(db, "itinerary", user.uid, "groups", editingGroup.id);
+                await updateDoc(groupRef, {
+                  name: groupData.name,
+                  destinationIds: groupData.destinations,
+                  updatedAt: serverTimestamp(),
+                });
+              } else {
+                // Create new group
+                await addDoc(collection(db, "itinerary", user.uid, "groups"), {
+                  name: groupData.name,
+                  destinationIds: groupData.destinations,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                });
+              }
+              
+              setShowGroupModal(false);
+              setEditingGroup(null);
+            } catch (err) {
+              console.error("[Itinerary] Failed to save group:", err);
+            }
+          }}
+          group={editingGroup}
+          allDestinations={items || []}  // Pass your items array here
+        />
+      )}
+    </div>
+  );
 }

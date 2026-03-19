@@ -6,21 +6,29 @@ import {
   orderBy,
   limit,
   getDocs,
-  onSnapshot
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  startAfter
 } from 'firebase/firestore';
 import ViewAuditLogModal from './viewauditlog-cms'; // NEW
 
 // Colors & badge presets (tuned to screenshot)
 const CATEGORY_STYLES = {
   AUTHENTICATION: { bg: '#e0f2fe', fg: '#0369a1' },
-  'USER MANAGEMENT': { bg: '#d1fae5', fg: '#065f46' },
+  'USER MANAGEMENT': { bg: '#d1fae5', fg: '#065f46' }, // green background
+  'CONTENT DELETION': { bg: '#fee2e2', fg: '#b91c1c' }, // <-- Red background for CONTENT DELETION
   'CONTENT CREATION': { bg: '#ede9fe', fg: '#5b21b6' },
   MODERATION: { bg: '#fef3c7', fg: '#b45309' },
   'DATA ACCESS': { bg: '#cffafe', fg: '#155e75' },
   'SYSTEM ADMINISTRATION': { bg: '#f1f5f9', fg: '#334155' },
   SECURITY: { bg: '#ffe4e6', fg: '#be123c' },
   'ACCESS CONTROL': { bg: '#fef9c3', fg: '#92400e' },
-  'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' }
+  'SYSTEM MAINTENANCE': { bg: '#ede9fe', fg: '#4c1d95' },
+  'DESTINATION IMAGE': { bg: '#fee0efff', fg: '#ff3c9dff' }, // <-- Blue background for IMAGE UPLOAD
+  'DEST. IMAGE DELETE': { bg: '#fee2e2', fg: '#b91c1c' }, // <-- Red background for IMAGE DELETE
+  'DESTINATION IMPORT': { bg: '#d1fae5', fg: '#3eaaaaff' }, // <-- Green background for IMPORT
+  'UPDATE DESTINATION': { bg: '#feffdcff', fg: '#5e5f06ff' } // green background
 };
 
 const OUTCOME_STYLES = {
@@ -48,7 +56,8 @@ const ACTION_ICONS = {
   'permission change': '🔑',
   'rate limit exceeded': '⏱️',
   'review create': '⭐',
-  'backup create': '💾'
+  'backup create': '💾',
+  'destination import': '🛫'
 };
 
 // NEW: sizing / typography scale (adjust numbers to taste)
@@ -100,21 +109,15 @@ function Badge({ text, palette, mono = false }) {
   );
 }
 
-function tiny(date) {
-  if (!date) return '';
-  const d = new Date(date);
-  return (
-    d.toLocaleDateString(undefined, {
-      month: 'numeric',
-      day: 'numeric',
-      year: 'numeric'
-    }) +
-    ' ' +
-    d.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit'
-    })
-  );
+function tiny(ts) {
+  if (!ts) return '';
+  // Firestore Timestamp object
+  if (ts.toDate) return ts.toDate().toLocaleString();
+  // Milliseconds number fallback
+  if (typeof ts === "number") return new Date(ts).toLocaleString();
+  // ISO string fallback
+  if (typeof ts === "string") return new Date(ts).toLocaleString();
+  return '';
 }
 
 function exportCsv(rows) {
@@ -126,8 +129,6 @@ function exportCsv(rows) {
     'action',
     'category',
     'targetType',
-    'targetId',
-    'sourceIp',
     'userAgent',
     'outcome',
     'details'
@@ -158,191 +159,17 @@ function exportCsv(rows) {
   URL.revokeObjectURL(a.href);
 }
 
-// Fallback sample data (mirrors screenshot)
-const SAMPLE = [
-  {
-    id: '1',
-    timestamp: Date.now() - 1000 * 60 * 2,
-    userName: 'Sarah Johnson',
-    userEmail: 'sarah.johnson@email.com',
-    role: 'user',
-    action: 'login',
-    category: 'AUTHENTICATION',
-    targetType: 'user_session',
-    targetId: 'session_789',
-    sourceIp: '192.168.1.105',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: ''
-  },
-  {
-    id: '2',
-    timestamp: Date.now() - 1000 * 60 * 6,
-    userName: 'David Rodriguez',
-    userEmail: 'david.rodriguez@email.com',
-    role: 'user',
-    action: 'login failed',
-    category: 'AUTHENTICATION',
-    targetType: 'user_session',
-    targetId: 'session_123',
-    sourceIp: '203.45.6789',
-    userAgent: 'Mobile • Safari 17.1',
-    outcome: 'FAILURE',
-    details: 'multiple_failed_attempts'
-  },
-  {
-    id: '3',
-    timestamp: Date.now() - 1000 * 60 * 18,
-    userName: 'System Administrator',
-    userEmail: 'admin@admincms.com',
-    role: 'admin',
-    action: 'user update',
-    category: 'USER MANAGEMENT',
-    targetType: 'user_profile',
-    targetId: '2',
-    sourceIp: '10.0.0.5',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: 'profile_edit'
-  },
-  {
-    id: '4',
-    timestamp: Date.now() - 1000 * 60 * 24,
-    userName: 'Emma Wilson',
-    userEmail: 'emma.wilson@email.com',
-    role: 'user',
-    action: 'photo upload',
-    category: 'CONTENT CREATION',
-    targetType: 'photo',
-    targetId: 'photo_456',
-    sourceIp: '172.16.25.41',
-    userAgent: 'Tablet • Safari 17.1',
-    outcome: 'SUCCESS',
-    details: ''
-  },
-  {
-    id: '5',
-    timestamp: Date.now() - 1000 * 60 * 36,
-    userName: 'Content Moderator',
-    userEmail: 'moderator@ltravelcms.com',
-    role: 'moderator',
-    action: 'content delete',
-    category: 'MODERATION',
-    targetType: 'post',
-    targetId: 'post_123',
-    sourceIp: '192.168.100.50',
-    userAgent: 'Desktop • Firefox 118.0',
-    outcome: 'SUCCESS',
-    details: 'post_removed'
-  },
-  {
-    id: '6',
-    timestamp: Date.now() - 1000 * 60 * 46,
-    userName: 'Lisa Kim',
-    userEmail: 'lisa.kim@email.com',
-    role: 'user',
-    action: 'data export',
-    category: 'DATA ACCESS',
-    targetType: 'user_data',
-    targetId: '5',
-    sourceIp: '198.61.100.42',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: 'data_export privacy_request'
-  },
-  {
-    id: '7',
-    timestamp: Date.now() - 1000 * 60 * 55,
-    userName: 'System Process',
-    userEmail: 'system@system',
-    role: 'system',
-    action: 'config change',
-    category: 'SYSTEM ADMINISTRATION',
-    targetType: 'system_settings',
-    targetId: 'rate_limiting',
-    sourceIp: '127.0.0.1',
-    userAgent: 'Server • System Process',
-    outcome: 'SUCCESS',
-    details: 'system_config'
-  },
-  {
-    id: '8',
-    timestamp: Date.now() - 1000 * 60 * 65,
-    userName: 'Mike Chen',
-    userEmail: 'mike.chen@email.com',
-    role: 'user',
-    action: 'suspicious activity',
-    category: 'SECURITY',
-    targetType: 'api_endpoint',
-    targetId: 'GET /admin/users',
-    sourceIp: '45.76.123.89',
-    userAgent: 'Unknown • Command Line Tool',
-    outcome: 'FAILURE',
-    details: 'unauthorized_access suspicious_user_agent'
-  },
-  {
-    id: '9',
-    timestamp: Date.now() - 1000 * 60 * 72,
-    userName: 'System Administrator',
-    userEmail: 'admin@admincms.com',
-    role: 'admin',
-    action: 'permission change',
-    category: 'ACCESS CONTROL',
-    targetType: 'user_permissions',
-    targetId: '3',
-    sourceIp: '10.0.0.5',
-    userAgent: 'Desktop • Chrome 119.0',
-    outcome: 'SUCCESS',
-    details: 'permission_elevation'
-  },
-  {
-    id: '10',
-    timestamp: Date.now() - 1000 * 60 * 82,
-    userName: 'Anonymous User',
-    userEmail: 'anonymous@anonymous',
-    role: 'anonymous',
-    action: 'rate limit exceeded',
-    category: 'SECURITY',
-    targetType: 'api_endpoint',
-    targetId: 'POST /auth/login',
-    sourceIp: '185.220.101.42',
-    userAgent: 'Desktop • Chrome 91.0',
-    outcome: 'FAILURE',
-    details: 'rate_limit_exceeded brute_force_attempt'
-  },
-  {
-    id: '11',
-    timestamp: Date.now() - 1000 * 60 * 92,
-    userName: 'David Rodriguez',
-    userEmail: 'david.rodriguez@email.com',
-    role: 'user',
-    action: 'review create',
-    category: 'CONTENT CREATION',
-    targetType: 'review',
-    targetId: 'review_789',
-    sourceIp: '203.45.6789',
-    userAgent: 'Mobile • Safari 17.1',
-    outcome: 'SUCCESS',
-    details: ''
-  },
-  {
-    id: '12',
-    timestamp: Date.now() - 1000 * 60 * 102,
-    userName: 'System Administrator',
-    userEmail: 'admin@admincms.com',
-    role: 'admin',
-    action: 'backup create',
-    category: 'SYSTEM MAINTENANCE',
-    targetType: 'database',
-    targetId: 'db_backup_20231116',
-    sourceIp: '10.0.0.5',
-    userAgent: 'Server • Admin Interface',
-    outcome: 'SUCCESS',
-    details: 'system_backup'
-  }
-];
+function useWindowWidth() {
+  const [width, setWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return width;
+}
 
-export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
+export default function AuditLogsCMS({ active, useFirestore = true, pageSize = 200 }) {
   const db = useMemo(() => {
     try {
       return getFirestore();
@@ -351,7 +178,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
     }
   }, []);
 
-  const [logs, setLogs] = useState([]);
+
   const [loading, setLoading] = useState(false);
 
   // Filters
@@ -363,6 +190,40 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
   const [endDate, setEndDate] = useState('');
   const [viewLog, setViewLog] = useState(null);
 
+const LOG_PAGE_SIZE = 20;
+const [logPage, setLogPage] = useState(1);
+const [lastLogDoc, setLastLogDoc] = useState(null);
+const [hasMoreLogs, setHasMoreLogs] = useState(true);
+const [logs, setLogs] = useState([]);
+
+useEffect(() => {
+  if (active !== 'audit-logs') return;
+  setLoading(true);
+
+  if (logPage === 1) {
+    const cached = JSON.parse(localStorage.getItem('logs_page1') || '[]');
+    if (cached.length) setLogs(cached);
+  }
+
+  let q = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(LOG_PAGE_SIZE));
+  if (lastLogDoc) {
+    q = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), startAfter(lastLogDoc), limit(LOG_PAGE_SIZE));
+  }
+
+  getDocs(q).then((snap) => {
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (logPage === 1) {
+      setLogs(items);
+      localStorage.setItem('logs_page1', JSON.stringify(items));
+    } else {
+      setLogs((prev) => [...prev, ...items]);
+    }
+    setHasMoreLogs(items.length === LOG_PAGE_SIZE);
+    setLastLogDoc(snap.docs[snap.docs.length - 1]);
+  }).finally(() => setLoading(false));
+}, [active, logPage]);
+
+
   // Load
   useEffect(() => {
     let unsub;
@@ -371,55 +232,50 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
       setLoading(true);
       if (db && useFirestore) {
         try {
+          // --- CHANGED: Remove limit(pageSize) to fetch all logs ---
           const baseQ = query(
             collection(db, 'auditLogs'),
-            orderBy('timestamp', 'desc'),
-            limit(pageSize)
+            orderBy('timestamp', 'desc')
+            // No limit here!
           );
-            // live snapshot
           unsub = onSnapshot(
             baseQ,
             (snap) => {
               if (cancelled) return;
-              if (snap.empty) {
-                setLogs(SAMPLE); // fallback
-              } else {
-                setLogs(
-                  snap.docs.map((d) => ({
-                    id: d.id,
-                    ...d.data()
-                  }))
-                );
-              }
+              setLogs(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...d.data()
+                }))
+              );
               setLoading(false);
             },
             () => {
-              setLogs(SAMPLE);
+              setLogs([]);
               setLoading(false);
             }
           );
           return;
         } catch {
           try {
+            // --- CHANGED: Remove limit(pageSize) to fetch all logs ---
             const snap = await getDocs(
-              query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(pageSize))
+              query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'))
             );
             if (!cancelled) {
-              if (snap.empty) setLogs(SAMPLE);
-              else
-                setLogs(
-                  snap.docs.map((d) => ({
-                    id: d.id,
-                    ...d.data()
-                  }))
-                );
+              setLogs(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...d.data()
+                }))
+              );
             }
           } catch {
-            if (!cancelled) setLogs(SAMPLE);
+            if (!cancelled) setLogs([]);
           }
         }
       } else {
-        setLogs(SAMPLE);
+        setLogs([]);
       }
       setLoading(false);
     }
@@ -430,12 +286,17 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
     };
   }, [db, useFirestore, pageSize]);
 
+  
+
+  // Only use real categories from logs
   const categoriesList = useMemo(
-    () => ['All', ...Array.from(new Set(SAMPLE.map((l) => l.category))).sort()],
-    []
+    () => ['All', ...Array.from(new Set(logs.map((l) => l.category))).sort()],
+    [logs]
   );
   const rolesList = ['All', 'admin', 'moderator', 'user', 'system', 'anonymous'];
   const outcomesList = ['All', 'SUCCESS', 'FAILURE'];
+
+  const windowWidth = useWindowWidth();
 
   const filtered = useMemo(() => {
     const sTerm = search.trim().toLowerCase();
@@ -465,21 +326,39 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
       <div
         style={{
           background: 'linear-gradient(90deg,#0f172a,#1e3a8a)',
-          padding: '26px 30px',                // CHANGED
-          borderRadius: 20,                    // CHANGED
+          padding: '26px 30px',
+          borderRadius: 20,
           color: '#fff',
-            display: 'flex',
+          display: 'flex',
           alignItems: 'center',
           gap: 28,
-          marginBottom: 26,                    // CHANGED
-          boxShadow: '0 10px 28px -6px rgba(0,0,0,0.35)'
+          marginBottom: 26,
+          boxShadow: '0 10px 28px -6px rgba(0,0,0,0.35)',
+          flexWrap: 'wrap'
         }}
       >
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: FS.h1, fontWeight: 700, letterSpacing: .4 }}>Audit Logs</div> {/* CHANGED */}
-          <div style={{ fontSize: FS.small, opacity: .78 }}>Monitor system activities and security events</div> {/* CHANGED */}
+        <div style={{
+          flex: 1,
+          minWidth: 260,
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 18,
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ fontSize: FS.h1, fontWeight: 700, letterSpacing: .4, whiteSpace: 'nowrap' }}>
+            Audit Logs
+          </div>
+          <div style={{
+            fontSize: FS.small,
+            opacity: .78,
+            whiteSpace: 'nowrap',
+            marginLeft: 10
+          }}>
+            Monitor system activities and security events
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}> {/* CHANGED */}
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ background: '#1e293b', padding: '10px 18px', borderRadius: 12, fontSize: FS.small, fontWeight: 600 }}>
             Total: {filtered.length}
           </div>
@@ -495,9 +374,9 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
               background: 'linear-gradient(90deg,#059669,#10b981)',
               color: '#fff',
               border: 'none',
-              padding: '12px 24px',            // CHANGED
+              padding: '10px 18px',
               fontWeight: 700,
-              borderRadius: 12,                // CHANGED
+              borderRadius: 12,
               cursor: 'pointer',
               fontSize: FS.small,
               boxShadow: '0 6px 16px -2px rgba(16,185,129,.45)'
@@ -505,6 +384,11 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
           >
             ⬇ Export CSV
           </button>
+          {hasMoreLogs && (
+            <button className="btn-secondary" onClick={() => setLogPage(logPage + 1)}>
+              Load More
+            </button>
+          )}
         </div>
       </div>
 
@@ -512,99 +396,214 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
       <div
         style={{
           ...UI.card,
-          padding: 22,                                        // CHANGED
-          display: 'grid',
-          gridTemplateColumns: 'minmax(280px,1fr) repeat(3,190px) repeat(2,190px) 140px', // CHANGED
-          gap: 18,                                            // CHANGED
-          alignItems: 'end',
+          padding: 22,
+          display: 'flex',
+          flexDirection: windowWidth < 700 ? 'column' : windowWidth < 1100 ? 'row' : 'row',
+          gap: windowWidth < 700 ? 12 : windowWidth < 1100 ? 16 : 18,
+          alignItems: windowWidth < 700 ? 'stretch' : 'center',
           marginBottom: 26,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          flexWrap: windowWidth < 1100 ? 'wrap' : 'nowrap'
         }}
       >
         {/* search input */}
-        <div style={{ position: 'relative' }}>
+        <div
+          style={{
+            flex: windowWidth < 700 ? 'unset' : 2,
+            minWidth: windowWidth < 700 ? '100%' : 320,
+            maxWidth: windowWidth < 700 ? '100%' : 580,
+            position: 'relative',
+            marginBottom: windowWidth < 700 ? 12 : 0,
+            background: '#f4f8fc',
+            borderRadius: 14,
+            display: 'flex',
+            alignItems: 'center',
+            border: 'none',
+            boxShadow: 'none'
+          }}
+        >
+          <span style={{
+            position: 'absolute',
+            left: 18,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: 16,
+            opacity: .55,
+            pointerEvents: 'none'
+          }}>🔎</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search logs..."
             style={{
               width: '100%',
-              padding: '14px 16px 14px 50px',                // CHANGED
-              borderRadius: 12,                              // CHANGED
-              border: UI.softBorder,
+              padding: '14px 16px 14px 44px',
+              borderRadius: 10,
+              border: '2px solid #b9b9b933',
               fontSize: FS.base,
-              background: '#f1f5f9'
+              background: '#f4f8fc',
+              color: '#334155',
+              fontWeight: 500,
+              boxShadow: 'none',
+              outline: 'none'
             }}
           />
-          <span style={{ position: 'absolute', top: 14, left: 18, fontSize: 22, opacity: .55 }}>🔍</span> {/* CHANGED */}
         </div>
-        {/* selects updated via selectStyle() below */}
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="form-input"
-          style={selectStyle()}
+        {/* filters */}
+        <div
+          style={{
+            display: 'flex',
+            flex: 3,
+            gap: windowWidth < 700 ? 12 : 16,
+            flexWrap: windowWidth < 1100 ? 'wrap' : 'nowrap',
+            alignItems: windowWidth < 700 ? 'stretch' : 'center',
+            width: '100%',
+            justifyContent: windowWidth < 1100 ? 'flex-start' : 'center'
+          }}
         >
-          {categoriesList.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-        <select
-          value={outcome}
-          onChange={(e) => setOutcome(e.target.value)}
-          className="form-input"
-          style={selectStyle()}
-        >
-          {outcomesList.map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="form-input"
-          style={selectStyle()}
-        >
-          {rolesList.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#6b7280',
-                marginBottom: 4
-              }}
-            >
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={dateInputStyle}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#6b7280',
-                marginBottom: 4
-              }}
-            >
-              End Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={dateInputStyle}
-            />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="form-input"
+            style={{
+              background: '#f4f8fc',
+              border: 'none',
+              borderRadius: 14,
+              fontSize: FS.base,
+              fontWeight: 500,
+              color: '#334155',
+              padding: '14px 18px',
+              minWidth: 180,
+              boxShadow: 'none',
+              outline: 'none',
+              border: '2px solid #b9b9b933',
+              flex: windowWidth < 700 ? 'unset' : 1
+            }}
+          >
+            {categoriesList.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <select
+            value={outcome}
+            onChange={(e) => setOutcome(e.target.value)}
+            className="form-input"
+            style={{
+              background: '#f4f8fc',
+              borderRadius: 10,
+              fontSize: FS.base,
+              fontWeight: 500,
+              color: '#334155',
+              padding: '14px 18px',
+              minWidth: 180,
+              boxShadow: 'none',
+              outline: 'none',
+              flex: windowWidth < 700 ? 'unset' : 1,
+              border: '2px solid #b9b9b933',
+            }}
+          >
+            {outcomesList.map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="form-input"
+            style={{
+              background: '#f4f8fc',
+              border: '2px solid #b9b9b933',
+              borderRadius: 10,
+              fontSize: FS.base,
+              fontWeight: 500,
+              color: '#334155',
+              padding: '14px 18px',
+              minWidth: 180,
+              boxShadow: 'none',
+              outline: 'none',
+              flex: windowWidth < 700 ? 'unset' : 1
+            }}
+          >
+            {rolesList.map((r) => (
+              <option key={r}>{r}</option>
+            ))}
+          </select>
+          <div style={{
+            display: 'flex',
+            gap: windowWidth < 700 ? 8 : 12,
+            alignItems: windowWidth < 700 ? 'stretch' : 'center',
+            flexDirection: windowWidth < 700 ? 'column' : 'row',
+            width: windowWidth < 700 ? '100%' : 'auto'
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 160,
+              width: windowWidth < 700 ? '100%' : 'auto'
+            }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#64748b',
+                  marginBottom: 4,
+                  marginLeft: 4
+                }}
+              >
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                style={{
+                  background: '#f4f8fc',
+                  border: '2px solid #b9b9b933',
+                  borderRadius: 10,
+                  fontSize: FS.base,
+                  fontWeight: 500,
+                  color: '#334155',
+                  padding: '14px 18px',
+                  boxShadow: 'none',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 160,
+              width: windowWidth < 700 ? '100%' : 'auto'
+            }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#64748b',
+                  marginBottom: 4,
+                  marginLeft: 4
+                }}
+              >
+                End Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                style={{
+                  background: '#f4f8fc',
+                  border: '2px solid #b9b9b933',
+                  borderRadius: 10,
+                  fontSize: FS.base,
+                  fontWeight: 500,
+                  color: '#334155',
+                  padding: '14px 18px',
+                  boxShadow: 'none',
+                  outline: 'none'
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -614,7 +613,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
         style={{
           ...UI.card,
           padding: 0,
-          overflow: 'hidden',
+          overflow: 'auto', // CHANGED: allow horizontal scroll
           position: 'relative'
         }}
       >
@@ -624,9 +623,9 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             top: 0,
             zIndex: 10,
             display: 'grid',
-            gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // CHANGED
+            gridTemplateColumns: 'minmax(120px,1.2fr) minmax(120px,1.5fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,2fr) 120px 120px', // CHANGED: minmax for responsive
             background: 'linear-gradient(90deg,#f1f5f9,#f8fafc)',
-            fontSize: FS.tableHeader,                      // CHANGED
+            fontSize: FS.tableHeader,
             fontWeight: 700,
             letterSpacing: .5,
             color: '#475569',
@@ -638,7 +637,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
             (h) => (
               <div
                 key={h}
-                style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb' }}
+                style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }} // CHANGED: nowrap
               >
                 {h}
               </div>
@@ -651,7 +650,9 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
           <div style={{ padding: 40, textAlign: 'center', fontSize: 14 }}>No logs found.</div>
         ) : (
           filtered.map((l, i) => {
-            const catSty = CATEGORY_STYLES[l.category] || CATEGORY_STYLES['SYSTEM ADMINISTRATION'];
+            // Normalize category to uppercase for style lookup and display
+            const categoryKey = (l.category || '').toUpperCase();
+            const catSty = CATEGORY_STYLES[categoryKey] || CATEGORY_STYLES['SYSTEM ADMINISTRATION'];
             const outSty = OUTCOME_STYLES[l.outcome] || OUTCOME_STYLES.SUCCESS;
             const roleSty = ROLE_STYLES[l.role] || ROLE_STYLES.user;
             const icon = ACTION_ICONS[l.action] || '🗂️';
@@ -661,40 +662,52 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                 key={l.id || i}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '190px 240px 190px 200px 190px 260px 140px 120px', // CHANGED
-                  fontSize: FS.tableCell,                // CHANGED
-                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'), // CHANGED subtle
+                  gridTemplateColumns: 'minmax(120px,1.2fr) minmax(120px,1.5fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,1.2fr) minmax(120px,2fr) 120px 120px',
+                  fontSize: FS.tableCell,
+                  background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
                   borderBottom: '1px solid #eef2f6',
                   transition: 'background .15s'
                 }}
-                onMouseEnter={e=>e.currentTarget.style.background = isFailure ? '#ffe2e2' : '#e8f2ff'}  // CHANGED
-                onMouseLeave={e=>e.currentTarget.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa')}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = isFailure ? '#ffe2e2' : '#e8f2ff';
+                  // Also update sticky columns
+                  const stickyCols = e.currentTarget.querySelectorAll('.sticky-col');
+                  stickyCols.forEach(col => {
+                    col.style.background = isFailure ? '#ffe2e2' : '#e8f2ff';
+                  });
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa');
+                  // Also reset sticky columns
+                  const stickyCols = e.currentTarget.querySelectorAll('.sticky-col');
+                  stickyCols.forEach(col => {
+                    col.style.background = isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa');
+                  });
+                }}
               >
-                <div style={{ padding:'16px 20px', fontWeight: W.primary }}>{tiny(l.timestamp)}</div> {/* CHANGED padding */}
-                {/* User */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding:'16px 20px', fontWeight: W.primary, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tiny(l.timestamp)}</div>
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <div style={{ fontWeight: W.primary }}>{l.userName || '—'}</div>
                   <div
                     style={{
                       fontSize: 11,
                       color: '#64748b',
-                      fontWeight: W.secondary,            // CHANGED (was 500/600)
+                      fontWeight: W.secondary,
                       marginTop: 2
                     }}
                   >
                     {l.role && (
-                      <span style={{ color: roleSty.fg, fontWeight: W.secondary }}>{l.role}</span> // CHANGED
+                      <span style={{ color: roleSty.fg, fontWeight: W.secondary }}>{l.role}</span>
                     )}
                     {l.userEmail && (
                       <>
                         {' • '}
-                        <span style={{ fontWeight: W.secondary }}>{l.userEmail}</span>            // CHANGED
+                        <span style={{ fontWeight: W.secondary }}>{l.userEmail}</span>
                       </>
                     )}
                   </div>
                 </div>
-                {/* Action */}
-                <div style={{ padding: '12px 14px' }}>
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 14 }}>{icon}</span>
                     <span style={{ fontWeight: W.primary }}>{l.action}</span>
@@ -704,7 +717,7 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                       style={{
                         fontSize: 10,
                         color: '#be123c',
-                        fontWeight: W.subtle,              // CHANGED (remove bold)
+                        fontWeight: W.subtle,
                         marginTop: 4,
                         lineHeight: 1.2,
                         textTransform: 'lowercase'
@@ -714,59 +727,51 @@ export default function AuditLogsCMS({ useFirestore = true, pageSize = 200 }) {
                     </div>
                   )}
                 </div>
-                {/* Category */}
-                <div style={{ padding: '12px 14px' }}>
-                  <Badge text={l.category} palette={catSty} />
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <Badge text={categoryKey} palette={catSty} />
                 </div>
-                {/* Target */}
-                <div style={{ padding: '12px 14px' }}>
-                  <div style={{ fontWeight: W.primary, color: '#334155' }}>
-                    {l.targetType}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: '#64748b',
-                      fontWeight: W.secondary,             // CHANGED
-                      marginTop: 2
-                    }}
-                  >
-                    {l.targetId}
-                  </div>
+                <div style={{ padding: '12px 14px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {l.target || '—'}
                 </div>
-                {/* Source */}
-                <div style={{ padding: '12px 14px' }}>
-                  <div style={{ fontWeight: W.primary, color: '#334155' }}>
-                    {l.sourceIp}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: '#be123c',
-                      fontWeight: W.subtle,                // CHANGED
-                      marginTop: 4,
-                      lineHeight: 1.2
-                    }}
-                  >
-                    {l.userAgent}
-                  </div>
+                <div style={{ padding: '12px 14px', wordBreak: 'break-all', fontSize: 12, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {l.userAgent || '—'}
                 </div>
-                {/* Outcome */}
-                <div style={{ padding: '12px 14px' }}>
+                {/* Outcome column: sticky on right for visibility */}
+                <div
+                  className="sticky-col"
+                  style={{
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'sticky',
+                    right: 120, // CHANGED: sticky outcome
+                    background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
+                    zIndex: 2
+                  }}>
                   <Badge text={l.outcome} palette={outSty} />
                 </div>
-                {/* Actions */}
-                <div style={{ padding: '12px 14px' }}>
+                {/* Actions column: sticky on right for visibility */}
+                <div
+                  className="sticky-col"
+                  style={{
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'sticky',
+                    right: 0, // CHANGED: sticky actions
+                    background: isFailure ? '#fff6f6' : (i % 2 ? '#ffffff' : '#f5f7fa'),
+                    zIndex: 3
+                  }}>
                   <button
-                    style={{
-                      background: '#e0e7ff',
-                      color: '#1d4ed8',
+                    style={{ 
+                      background: 'rgb(224, 231, 255)', color: 'rgb(37, 99, 235)',
                       border: 'none',
-                      padding: '4px 14px',
-                      borderRadius: 8,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer'
+                      padding: '6px 18px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '14px',
                     }}
                     onClick={() => setViewLog(l)}
                   >
@@ -818,3 +823,34 @@ function ghostBtn(){
     cursor:'pointer'
   };
 }
+
+// NEW: log sample (for testing)
+async function logSample(user) {
+  const db = getFirestore();
+  await addDoc(collection(db, "auditLogs"), {
+    timestamp: Date.now(),
+    userName: user.displayName || "",
+    userEmail: user.email,
+    role: "admin", // or "user"
+    action: "login",
+    category: "AUTHENTICATION",
+    outcome: "SUCCESS",
+    details: "",
+  });
+}
+async function logSample1(user) {
+  const db = getFirestore();
+  await addDoc(collection(db, "auditLogs"), {
+  timestamp: Date.now(),
+  userName: user.displayName || "",
+  userEmail: user.email,
+  role: "admin", // or "user"
+  action: "logout",
+  category: "AUTHENTICATION",
+  outcome: "SUCCESS",
+  details: "",
+});
+}
+
+// The AuditLogsCMS component is exported above as default and should be rendered
+// from your application entry point (e.g. App.js or index.js) where `active` is defined.

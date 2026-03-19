@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './Styles/contentManager.css';
 import { db, auth, storage } from './firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where, orderBy, limit, serverTimestamp, collectionGroup, documentId, getDoc } from 'firebase/firestore';
-import { CloudinaryContext, Image, Video } from './cloudinary';
+import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc, getCountFromServer, onSnapshot, query, where, orderBy, limit, serverTimestamp, collectionGroup, documentId, getDoc, startAfter } from 'firebase/firestore';
+import { CloudinaryContext, Image } from './cloudinary';
 import EditProfileCMS from './editprofile-cms'; // NEW
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import ViewProfileCMS from './viewprofile-cms'; // NEW
@@ -12,6 +12,14 @@ import AddFromCsvCMS from './addfromcsv-cms'; // NEW
 import ReportDetailModal from './reportdetails-cms'; //NEW
 import TakeActionModal from './takeaction-cms'; // NEW
 import AuditLogsCMS from './auditlogs-cms'; // NEW
+import { getAuth, signOut } from "firebase/auth";
+import { publishAllDrafts } from './publishAllDrafts';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import ImagesCMS from './images-cms';
+import NotFoundCMS from './notfound-cms';
+import destImages from './dest-images.json';
+
 // Cloudinary config
 const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'lakbai_preset';
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dxvewejox';
@@ -32,8 +40,8 @@ async function deleteCloudinaryImage(publicId) {
     if (!publicId) return;
     const base = window.location.origin;
     const endpoints = [
-        `${base}/admin/api/cloudinary/delete`,
-        `${base}/api/cloudinary/delete`,
+        'http://localhost:3002/api/cloudinary/delete', // <-- direct to backend port
+        '/api/cloudinary/delete',
     ];
     let lastErr;
     for (const url of endpoints) {
@@ -266,6 +274,10 @@ function ContentManagement() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
+  // DELETE User confirmation modal state
+  const [deleteUserConfirmOpen, setDeleteUserConfirmOpen] = useState(false);
+  const [deleteUserTarget, setDeleteUserTarget] = useState(null);
+
   // NEW: per-user travel stats loaded from Firestore
   const [userStats, setUserStats] = useState({});
 
@@ -273,6 +285,12 @@ function ContentManagement() {
   const [userProfileOpen, setUserProfileOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [userProfileTab, setUserProfileTab] = useState('overview');
+
+  // Audit Logs modal state
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+
+  // Sign-out confirmation modal state
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   // Activity state for User Profile
   const [userActivity, setUserActivity] = useState([]);
@@ -295,6 +313,10 @@ function ContentManagement() {
 
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [addCsvOpen, setAddCsvOpen] = useState(false);
+  
+  // DELETE confirmation modal state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Travel tab local state
   const [editInterests, setEditInterests] = useState([]);
@@ -302,6 +324,9 @@ function ContentManagement() {
   const [placeInput, setPlaceInput] = useState('');
   const [editStatus, setEditStatus] = useState('active'); // NEW: settings tab state
   const [interestInput, setInterestInput] = useState('');  // NEW: inline input for Travel Interests
+
+  // NEW: total images count from dest-images.json
+  const totalImages = Array.isArray(destImages) ? destImages.length : 0;
 
   // Settings state (persisted to localStorage)
   const [cmsSettings, setCmsSettings] = useState(() => {
@@ -338,6 +363,48 @@ const [userNameCache, setUserNameCache] = useState({});
 const openActionModal = (report) => {
   setActionReport(report);
   setActionOpen(true);
+};
+
+// NEW: Publish All Drafts handler
+const handlePublishAll = async () => {
+  try {
+    const count = await publishAllDrafts();
+    if (count > 0) {
+      toast.success(`Published ${count} draft destination(s).`, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+      });
+    } else {
+      toast.info('No draft destinations to publish.', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+      });
+    }
+    // Optionally refresh your list here
+  } catch (e) {
+    toast.error('Failed to publish drafts.', {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+    });
+  }
 };
 
 // ADD: handleTakeAction (used by TakeActionModal)
@@ -509,8 +576,8 @@ const handleTakeAction = async ({ actionType, reason, notes }) => {
           try { const c = await getCountFromServer(collection(db, 'report')); total += c.data().count || 0; } catch {
             try { const s = await getDocs(collection(db, 'report')); total += s.size || 0; } catch {}
           }
-          try { const c = await getCountFromServer(collection(db, 'reports')); total += c.data().count || 0; } catch {
-            try { const s = await getDocs(collection(db, 'reports')); total += s.size || 0; } catch {}
+          try { const c = await getCountFromServer(collection(db, 'report')); total += c.data().count || 0; } catch {
+            try { const s = await getDocs(collection(db, 'report')); total += s.size || 0; } catch {}
           }
           return total;
         };
@@ -546,7 +613,7 @@ const handleTakeAction = async ({ actionType, reason, notes }) => {
           });
         } catch {}
         try {
-          unsubRep2 = onSnapshot(collection(db, 'reports'), (snap) => {
+          unsubRep2 = onSnapshot(collection(db, 'report'), (snap) => {
             r2 = snap.size; setAnalytics((a) => ({ ...a, totalArticles: r1 + r2 }));
           });
         } catch {}
@@ -563,41 +630,7 @@ const handleTakeAction = async ({ actionType, reason, notes }) => {
       if (typeof unsubRep2 === 'function') unsubRep2();
     };
   }, [active]);
-
-useEffect(() => {
-    if (active !== 'destinations') return;
-    (async () => {
-    setLoadingDest(true);
-    try {
-        // Use Firestore from firebase.js
-    const snap = await getDocs(collection(db, 'destinations'));
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    setDestinations(items);
-    } catch (e) {
-        setDestinations([]);
-    } finally {
-        setLoadingDest(false);
-    }
-    })();
-}, [active]);
-
-useEffect(() => {
-    if (active !== 'users') return;
-    (async () => {
-    setLoadingUsers(true);
-    try {
-        // Use Firestore from firebase.js
-    const snap = await getDocs(collection(db, 'users'));
-    setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch (e) {
-        setUsers([]);
-    } finally {
-        setLoadingUsers(false);
-    }
-    })();
-}, [active]);
-
-// NEW: fetch Travel Stats (places, photos, reviews) for users from Firestore
+  
 useEffect(() => {
   if (active !== 'users' || !users?.length) return;
   let cancelled = false;
@@ -615,7 +648,6 @@ useEffect(() => {
       }
     }
   };
-
   const tallyDestinationsFromTripDocs = async (tripDocs) => {
     let total = 0;
     for (const d of tripDocs) {
@@ -936,60 +968,6 @@ useEffect(() => {
   const [reportType, setReportType] = useState('all');         // all | Post | Comment | Review | Message
   const [viewReport, setViewReport] = useState(null);
 
-  // Load Reports (Firestore -> fallback to sample)
-  useEffect(() => {
-    if (active !== 'reports') return;
-
-    setLoadingReports(true);
-    let unsub = null;
-
-    const tryLoadFrom = async (collName) => {
-      try {
-        const collRef = collection(db, collName);
-        const fields = ['date', 'createdAt', 'timestamp'];
-
-        // Try ordered queries by several possible date fields
-        for (const f of fields) {
-          try {
-            const qref = query(collRef, orderBy(f, 'desc'), limit(200));
-            const snap = await getDocs(qref);
-            if (!snap.empty) {
-              setReports(snap.docs.map((doc) => normalizeReportDoc(doc)));
-              unsub = onSnapshot(qref, (s) => setReports(s.docs.map((doc) => normalizeReportDoc(doc))));
-              return true;
-            }
-          } catch {
-            // ignore (index may not exist)
-          }
-        }
-
-        // Unordered fallback
-        const snap = await getDocs(collRef);
-        if (!snap.empty) {
-          setReports(snap.docs.map((doc) => normalizeReportDoc(doc)));
-          try {
-            unsub = onSnapshot(collRef, (s) => setReports(s.docs.map((doc) => normalizeReportDoc(doc))));
-          } catch {}
-          return true;
-        }
-      } catch {}
-      return false;
-    };
-
-    (async () => {
-      try {
-        const ok = (await tryLoadFrom('report')) || (await tryLoadFrom('reports'));
-        if (!ok) {
-          setReports([]); // nothing found
-        }
-      } finally {
-        setLoadingReports(false);
-      }
-    })();
-
-    return () => { if (typeof unsub === 'function') unsub(); };
-  }, [active]);
-
   // Helpers for badges (styles match screenshot)
   const PriorityBadge = ({ v }) => {
     const t = (v || '').toString().toLowerCase();
@@ -1151,17 +1129,14 @@ useEffect(() => {
   const [viewReportId, setViewReportId] = useState(null);
 
   // Subscribe to the selected report doc while the modal is open
- 
+
   useEffect(() => {
     if (!viewReportId) return;
-   
-
-   
     let unsub;
 
     const trySub = (collName) => {
       try {
-       
+      
         const ref = doc(db, collName, viewReportId);
         return onSnapshot(ref, (snap) => {
           if (snap.exists()) setViewReport(normalizeReportDoc(snap));
@@ -1186,7 +1161,7 @@ useEffect(() => {
     }
     if (Object.keys(updates).length) {
       setUserNameCache((prev) => ({ ...prev, ...updates }));
-       }
+      }
   }, [users, userNameCache]);
 
   // Resolve missing names for Reported User IDs from Firestore
@@ -1253,6 +1228,161 @@ useEffect(() => {
     })();
   }, [reports, userNameCache]);
 
+  const filteredDestinations = destinations.filter((d) => {
+  // Status filter
+  const statusMatch =
+    !statusFilter ||
+    (d.status && d.status.toLowerCase() === statusFilter.toLowerCase());
+
+  // Category filter (support both category and categories array)
+  const categoryMatch =
+    !categoryFilter ||
+    (d.category && d.category.toLowerCase() === categoryFilter.toLowerCase()) ||
+    (Array.isArray(d.categories) && d.categories.some(cat => cat.toLowerCase() === categoryFilter.toLowerCase()));
+
+  // Search filter
+  const searchMatch =
+    !searchDest ||
+    (d.name && d.name.toLowerCase().includes(searchDest.toLowerCase())) ||
+    (d.description && d.description.toLowerCase().includes(searchDest.toLowerCase()));  
+
+  return statusMatch && categoryMatch && searchMatch;
+});
+
+// Pagination for Destinations
+const DEST_PAGE_SIZE = 12;
+const [destPage, setDestPage] = useState(1);
+const [lastDestDoc, setLastDestDoc] = useState(null);
+const [hasMoreDest, setHasMoreDest] = useState(true);
+
+useEffect(() => {
+  if (active !== 'destinations') return;
+  setLoadingDest(true);
+
+  // Try cache for first page
+  if (destPage === 1) {
+    const cached = JSON.parse(localStorage.getItem('destinations_page1') || '[]');
+    if (cached.length) setDestinations(cached);
+  }
+
+  let q = query(collection(db, 'destinations'), orderBy('updatedAt', 'desc'), limit(DEST_PAGE_SIZE));
+  if (lastDestDoc) {
+    q = query(collection(db, 'destinations'), orderBy('updatedAt', 'desc'), startAfter(lastDestDoc), limit(DEST_PAGE_SIZE));
+  }
+
+  getDocs(q).then((snap) => {
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (destPage === 1) {
+      setDestinations(items);
+      localStorage.setItem('destinations_page1', JSON.stringify(items));
+    } else {
+      setDestinations((prev) => [...prev, ...items]);
+    }
+    setHasMoreDest(items.length === DEST_PAGE_SIZE);
+    setLastDestDoc(snap.docs[snap.docs.length - 1]);
+  }).finally(() => setLoadingDest(false));
+}, [active, destPage]);
+
+// Pagination for Reports
+const REPORT_PAGE_SIZE = 20;
+const [reportPage, setReportPage] = useState(1);
+const [lastReportDoc, setLastReportDoc] = useState(null);
+const [hasMoreReports, setHasMoreReports] = useState(true);
+
+useEffect(() => {
+  if (active !== 'reports') return;
+  setLoadingReports(true);
+
+  if (reportPage === 1) {
+    const cached = JSON.parse(localStorage.getItem('reports_page1') || '[]');
+    if (cached.length) setReports(cached);
+  }
+
+  let q = query(collection(db, 'report'), orderBy('createdAt', 'desc'), limit(REPORT_PAGE_SIZE));
+  if (lastReportDoc) {
+    q = query(collection(db, 'report'), orderBy('createdAt', 'desc'), startAfter(lastReportDoc), limit(REPORT_PAGE_SIZE));
+  }
+
+  getDocs(q).then((snap) => {
+    const items = snap.docs.map((doc) => normalizeReportDoc(doc));
+    if (reportPage === 1) {
+      setReports(items);
+      localStorage.setItem('reports_page1', JSON.stringify(items));
+    } else {
+      setReports((prev) => [...prev, ...items]);
+    }
+    setHasMoreReports(items.length === REPORT_PAGE_SIZE);
+    setLastReportDoc(snap.docs[snap.docs.length - 1]);
+  }).finally(() => setLoadingReports(false));
+}, [active, reportPage]);
+
+// Pagination for Audit Logs
+const LOG_PAGE_SIZE = 50;
+const [logPage, setLogPage] = useState(1);
+const [lastLogDoc, setLastLogDoc] = useState(null);
+const [hasMoreLogs, setHasMoreLogs] = useState(true);
+const [logs, setLogs] = useState([]);
+
+useEffect(() => {
+  if (active !== 'audit-logs') return;
+  setLoading(true);
+
+  if (logPage === 1) {
+    const cached = JSON.parse(localStorage.getItem('logs_page1') || '[]');
+    if (cached.length) setLogs(cached);
+  }
+
+  let q = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(LOG_PAGE_SIZE));
+  if (lastLogDoc) {
+    q = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), startAfter(lastLogDoc), limit(LOG_PAGE_SIZE));
+  }
+
+  getDocs(q).then((snap) => {
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (logPage === 1) {
+      setLogs(items);
+      localStorage.setItem('logs_page1', JSON.stringify(items));
+    } else {
+      setLogs((prev) => [...prev, ...items]);
+    }
+    setHasMoreLogs(items.length === LOG_PAGE_SIZE);
+    setLastLogDoc(snap.docs[snap.docs.length - 1]);
+  }).finally(() => setLoading(false));
+}, [active, logPage]);
+
+// Pagination for Users
+const USER_PAGE_SIZE = 20;
+const [userPage, setUserPage] = useState(1);
+const [lastUserDoc, setLastUserDoc] = useState(null);
+const [hasMoreUsers, setHasMoreUsers] = useState(true);
+
+useEffect(() => {
+  if (active !== 'users') return;
+  setLoadingUsers(true);
+
+  if (userPage === 1) {
+    const cached = JSON.parse(localStorage.getItem('users_page1') || '[]');
+    if (cached.length) setUsers(cached);
+  }
+
+  let q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(USER_PAGE_SIZE));
+  if (lastUserDoc) {
+    q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), startAfter(lastUserDoc), limit(USER_PAGE_SIZE));
+  }
+
+  getDocs(q).then((snap) => {
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (userPage === 1) {
+      setUsers(items);
+      localStorage.setItem('users_page1', JSON.stringify(items));
+    } else {
+      setUsers((prev) => [...prev, ...items]);
+    }
+    setHasMoreUsers(items.length === USER_PAGE_SIZE);
+    setLastUserDoc(snap.docs[snap.docs.length - 1]);
+  }).finally(() => setLoadingUsers(false));
+}, [active, userPage]);
+
   return (
     <div className="cms-root">
       <aside className="sidebar">
@@ -1261,10 +1391,12 @@ useEffect(() => {
           <div className="muted">Content Management System</div>
         </div>
 
-
         <nav>
           <button className={`sidebar-item ${active === 'dashboard' ? 'active' : ''}`} onClick={() => setActive('dashboard')}>
             <span className="icon">📊</span> <span>Dashboard</span>
+          </button>
+          <button className={`sidebar-item ${active === 'audit-logs' ? 'active' : ''}`} onClick={() => setActive('audit-logs')}>
+            <span className="icon">📜</span> <span>Audit Logs</span>
           </button>
           <button className={`sidebar-item ${active === 'destinations' ? 'active' : ''}`} onClick={() => setActive('destinations')}>
             <span className="icon">🏖️</span> <span>Destinations</span>
@@ -1275,72 +1407,111 @@ useEffect(() => {
           <button className={`sidebar-item ${active === 'users' ? 'active' : ''}`} onClick={() => setActive('users')}>
             <span className="icon">👥</span> <span>Users</span>
           </button>
+          <button className={`sidebar-item ${active === 'images' ? 'active' : ''}`} onClick={() => setActive('images')}>
+            <span className="icon">🖼️</span> <span>Images</span>
+          </button>
           <button className={`sidebar-item ${active === 'settings' ? 'active' : ''}`} onClick={() => setActive('settings')}>
             <span className="icon">⚙️</span> <span>Settings</span>
           </button>
         </nav>
 
         <div className="sidebar-footer">
-        <div className="muted small">jeremyjohnaclan@gmail.com</div>
-        <button className="btn-danger-signout" style={{ marginTop: 8 }}>Sign Out</button>
-        </div>
-      </aside>
-      <main className="main-content">
-        <div className="page-wrap">
+        <div className="muted small">{auth.currentUser?.email || 'Not signed in'}</div>
+        <button
+          className="btn-danger-signout"
+          style={{ marginTop: 8 }}
+          onClick={() => {
+            console.log('Sign Out clicked');
+            setShowSignOutConfirm(true);
+          }}
+        >
+          Sign Out
+        </button>
 
-        {active === 'dashboard' && (
+          </div>
+          </aside>
+          <main className="main-content">
+          <div className="page-wrap">
+          
+          {active === 'dashboard' && (
             <div className="dashboard">
-            <header style={{ marginBottom: 18 }}>
-                <h1 style={{ margin: 0 }}>Dashboard</h1>
-                <p className="muted">LakbAI - content management overview</p>
+            <header style={{ marginBottom: 18, textAlign: 'left', alignItems: 'flex-start', justifyContent: 'flex-start' }}>
+              <h1 className='title' style={{ textAlign: 'left' }}>Dashboard</h1>
+              <p className="muted" style={{ textAlign: 'left', marginTop: 4 }}>LakbAI - content management overview</p>
             </header>
 
             <div className="stats-grid" style={{ marginBottom: 20 }}>
-                <div className="stat-card content-card gradient-1" style={{ padding: 20 }}>
-                  <div style={{ fontWeight: 700, color: '#fff' }}>Total Destinations</div>
-                  <div className="stat-value" style={{ color: '#fff' }}>
-                    {Number(analytics.totalDestinations || 0).toLocaleString()}
-                  </div>
-                  <div className="muted" style={{ opacity: 0.9 }}>Active travel destinations</div>
+              <div className="stat-card content-card gradient-1" style={{ padding: 20 }}>
+                <div style={{ fontWeight: 700, color: '#fff' }}>Total Destinations</div>
+                <div className="stat-value" style={{ color: '#fff' }}>
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : Number(analytics.totalDestinations || 0).toLocaleString()}
                 </div>
+                <div className="muted" style={{ opacity: 0.9 }}>Active travel destinations</div>
+              </div>
 
-                <div className="stat-card content-card gradient-2" style={{ padding: 20 }}>
-                  <div style={{ fontWeight: 700, color: '#fff' }}>Total Users</div>
-                  <div className="stat-value" style={{ color: '#fff' }}>
-                    {Number(analytics.totalUsers || 0).toLocaleString()}
-                  </div>
-                  <div className="muted" style={{ opacity: 0.9 }}>Registered travelers</div>
+              <div className="stat-card content-card gradient-2" style={{ padding: 20 }}>
+                <div style={{ fontWeight: 700, color: '#fff' }}>Total Users</div>
+                <div className="stat-value" style={{ color: '#fff' }}>
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : Number(analytics.totalUsers || 0).toLocaleString()}
                 </div>
+                <div className="muted" style={{ opacity: 0.9 }}>Registered travelers</div>
+              </div>
 
-                <div className="stat-card content-card gradient-3" style={{ padding: 20 }}>
+              <div className="stat-card content-card gradient-3" style={{ padding: 20 }}>
                 <div style={{ fontWeight: 700, color: '#fff' }}>Total Reports</div>
-                <div className="stat-value" style={{ color: '#fff' }}>{analytics.totalArticles}</div>
+                <div className="stat-value" style={{ color: '#fff' }}>
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : analytics.totalArticles}
+                </div>
                 <div className="muted" style={{ opacity: 0.9 }}>Reported Contents</div>
-                </div>
+              </div>
 
-                <div className="stat-card content-card gradient-4" style={{ padding: 20 }}>
-                <div style={{ fontWeight: 700, color: '#fff' }}>Published Content</div>
-                <div className="stat-value" style={{ color: '#fff' }}>{analytics.publishedContent}</div>
-                <div className="muted" style={{ opacity: 0.9 }}>Live content pieces</div>
+              <div className="stat-card content-card gradient-4" style={{ padding: 20 }}>
+                <div style={{ fontWeight: 700, color: '#fff' }}>Total Images</div>
+                <div className="stat-value" style={{ color: '#fff', minHeight: 38 }}>
+                  {loading
+                    ? <span className="loading-spinner" />
+                    : totalImages}
                 </div>
+                <div className="muted" style={{ opacity: 0.9 }}>Available Images</div>
+              </div>
 
               </div>
-                <div style={{ marginTop: 8 }}>
-                  <AuditLogsCMS useFirestore={true} pageSize={50} />
-                </div>
+              <div style={{ marginTop: 8 }}>
+                <AuditLogsCMS useFirestore={true} pageSize={50} />
+              </div>
             </div>
-        )}
-        </div>
+          )}
+          </div>
 
-        {active === 'destinations' && (
+          {active === 'audit-logs' && (
+              <div className="content-section">
+              <AuditLogsCMS useFirestore={true} pageSize={200} />
+            </div>
+          )}
+          
+          {active === 'destinations' && (
             <div className="content-section">
-                <div className="section-header" style={{ alignItems: 'flex-start' }}>
-                    <div>
-                        <h2 className="title">Destinations</h2>
-                        <p className="muted">Manage your destinations content</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        {/* NEW: Add from CSV button (left of Add New destination) */}
+              <div className="section-header" style={{ alignItems: 'flex-start' }}>
+                <div>
+                  <h2 className="title">Destinations</h2>
+                  <p className="muted">Manage destinations content</p>
+                </div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  {/* NEW: Add from CSV button (left of Add New destination) */}
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ padding: '8px 18px', borderRadius: 8 }}
+                          onClick={handlePublishAll}
+                        >
+                          Publish All
+                        </button>
                         <button
                           className="btn-secondary"
                           onClick={() => setAddCsvOpen(true)}
@@ -1352,6 +1523,11 @@ useEffect(() => {
                         <button className="btn-primary-cms" onClick={openCreate} style={{ padding: '10px 16px', borderRadius: 12 }}>
                             + Add New destination
                         </button>
+                        {hasMoreDest && (
+                          <button className="btn-secondary" onClick={() => setDestPage(destPage + 1)}>
+                            Load More
+                          </button>
+                        )}
                     </div>
                 </div>
 
@@ -1398,11 +1574,12 @@ useEffect(() => {
                 )}
 
                 <div className="filters content-card" style={{ display: 'flex', gap: 12, padding: 16, alignItems: 'center', marginBottom: 18 }}>
-                    <div className="search-bar" style={{ position: 'relative', flex: 1 }}>
-                    <span className="search-icon">🔍</span>
+                    <div className="content-reports-filters">
+                    <div className="search-bar" style={{ position: 'relative', flex: 1, border: 'none' }}>
+                    <span className="search-icon">🔎</span>
                     <input
                         className="form-input"
-                        style={{ width: '100%', paddingLeft: 48 }}
+                        style={{ width: '100%', paddingLeft: 40 }}
                         placeholder="Search content..."
                         value={searchDest}
                         onChange={(e) => setSearchDest(e.target.value)}
@@ -1433,41 +1610,18 @@ useEffect(() => {
                     <option>Lakes</option>
                     <option>Heritage</option>
                     </select>
-
-                    <button
-                    className="btn-secondary"
-                    onClick={async () => {
-                        setLoadingDest(true);
-                        try {
-                        if (window.firebase && window.firebase.firestore) {
-                            const db = window.firebase.firestore();
-                            const snap = await db.collection('destinations').get();
-                            setDestinations(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-                        } else {
-                            setDestinations(JSON.parse(localStorage.getItem('destinations') || '[]'));
-                        }
-                        } catch {
-                        setDestinations([]);
-                        } finally {
-                        setLoadingDest(false);
-                        }
-                    }}
-                    style={{ background: 'linear-gradient(90deg,#10b981,#059669)', color: '#fff', borderRadius: 10, padding: '10px 18px' }}
-                    >
-                    🔄 Refresh
-                    </button>
+                    
+                    </div>
                 </div>
+                
 
                 <div className="content-card" style={{ padding: 40, borderRadius: 12, minHeight: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
                     {loadingDest ? (
                         <div className="centered"><div className="loading-spinner" /></div>
                     ) : destinations.length === 0 ? (
-                        <>
-                            <div className="muted" style={{ marginBottom: 18 }}>No destinations found</div>
-                            <button className="btn-primary-cms" onClick={openCreate} style={{ padding: '10px 20px', borderRadius: 12 }}>
-                                Create your first destination
-                            </button>
-                        </>
+                        <NotFoundCMS text="Destination not found" />
+                    ) : filteredDestinations.length === 0 ? (
+                        <NotFoundCMS text="Destination not found" />
                     ) : (
                         <div style={{ width: '100%' }}>
                             <table style={{
@@ -1481,17 +1635,18 @@ useEffect(() => {
                                 overflow: 'hidden',
                                 boxShadow: 'none'
                             }}>
+                              
                                 <thead>
-                                    <tr style={{ background: '#f6f8fa', color: '#6b7280', fontWeight: 600 }}>
+                                    <tr style={{ background: '#f6f8fa', color: '#6b7280', fontWeight: 600, gap: 15 }}>
                                         <th style={{ padding: '14px 16px', textAlign: 'left', borderTopLeftRadius: 12 }}>Title</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left' }}>Category</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left' }}>Status</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left' }}>Updated</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left', borderTopRightRadius: 12 }}>Actions</th>
+                                        <th className="category-col" style={{ padding: '14px 16px', textAlign: 'center' }}>Category</th>
+                                        <th style={{ padding: '14px 16px 14px 1px', textAlign: 'center', width: '140px' }}>Status</th>
+                                        <th className="updated-col" style={{ padding: '14px 16px', textAlign: 'center'}}>Updated</th>
+                                        <th style={{ padding: '14px 16px', textAlign: 'center', borderTopRightRadius: 12}}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {destinations.map((d, i) => (
+                                    {filteredDestinations.map((d, i) => (
                                         <tr key={d.id || i} style={{
                                             background: i % 2 === 0 ? '#fff' : '#f9fafb',
                                             borderBottom: '1px solid #f1f5f9'
@@ -1500,7 +1655,7 @@ useEffect(() => {
                                                 <div style={{ fontWeight: 600 }}>{d.name}</div>
                                                 <div style={{ color: '#6b7280', fontSize: 13 }}>{d.description}</div>
                                             </td>
-                                            <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                            <td className="category-col" style={{ padding: '14px 16px', verticalAlign: 'top' }}>
                                                 <span style={{
                                                     background: '#e0f2fe',
                                                     color: '#2563eb',
@@ -1526,12 +1681,23 @@ useEffect(() => {
                                                     {(d.status || 'draft').toUpperCase()}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '14px 16px', verticalAlign: 'top', fontSize: 14 }}>
-                                                {d.updatedAt ? new Date(d.updatedAt).toLocaleDateString() : new Date().toLocaleDateString()}
+                                            <td className="updated-col" style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                              {d.updatedAt?.toDate
+                                                ? d.updatedAt.toDate().toLocaleDateString()
+                                                : d.updatedAt instanceof Date
+                                                  ? d.updatedAt.toLocaleDateString()
+                                                  : typeof d.updatedAt === 'string'
+                                                    ? (() => {
+                                                        const dt = new Date(d.updatedAt);
+                                                        return isNaN(dt) ? 'Invalid Date' : dt.toLocaleDateString();
+                                                      })()
+                                                    : '—'
+                                              }
                                             </td>
                                             <td style={{ padding: '14px 16px', verticalAlign: 'top' }}>
+                                              <div style={{ display: 'flex', gap: 12 }}>
                                                 <button
-                                                    className="btn-primary-cms"
+                                                    className="btn-primary-cms-edit"
                                                     style={{
                                                         background: '#dcfce7',      // same as Users "Edit"
                                                         color: '#166534',
@@ -1539,7 +1705,6 @@ useEffect(() => {
                                                         padding: '6px 18px',
                                                         borderRadius: 8,
                                                         fontWeight: 700,
-                                                        marginRight: 8,
                                                         fontSize: 14,
                                                         boxShadow: 'none'
                                                     }}
@@ -1562,39 +1727,14 @@ useEffect(() => {
                                                         fontSize: 14,
                                                         boxShadow: 'none'
                                                     }}
-                                                    onClick={async () => {
-                                                         if (window.confirm('Delete this destination?')) {
-                                                             // Delete from Firestore
-                                                             try {
-                                                                 await import('firebase/firestore').then(({ deleteDoc, doc }) =>
-                                                                     deleteDoc(doc(db, 'destinations', d.id))
-                                                                 );
-                                                             } catch (err) {
-                                                                 console.error('Firestore delete failed:', err);
-                                                             }
-                                                             // Delete featured image from Cloudinary
-                                                             const featuredId = getCloudinaryPublicId(d.media?.featuredImage);
-                                                             if (featuredId) await deleteCloudinaryImage(featuredId);
-                                                                
-                                                             // Delete gallery images from Cloudinary
-                                                             if (Array.isArray(d.media?.gallery)) {
-                                                                 for (const img of d.media.gallery) {
-                                                                     const imgId = getCloudinaryPublicId(img);
-                                                                     if (imgId) await deleteCloudinaryImage(imgId);
-                                                                 }
-                                                             }
-                                                             // Remove from local state
-                                                             setDestinations((s) => s.filter((x) => x.id !== d.id));
-                                                             // Remove from localStorage fallback
-                                                             const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
-                                                             localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== d.id)));
-                                                             // set analytics state
-                                                             setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
-                                                         }
-                                                     }}
-                                                 >
-                                                     Delete
-                                                 </button>
+                                                    onClick={() => {
+                                                        setDeleteTarget(d);
+                                                        setDeleteConfirmOpen(true);
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
+                                              </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -1604,9 +1744,8 @@ useEffect(() => {
                     )}
                 </div>
             </div>
-            
+          
         )}
-        {active === 'articles' && <div className="content-section"><h2>Articles</h2></div>}
         {active === 'reports' && (
           <div className="content-section">
             <div className="section-header" style={{ alignItems: 'center' }}>
@@ -1614,120 +1753,137 @@ useEffect(() => {
                 <h2 className="title" style={{ margin: 0 }}>Content Reports</h2>
                 <p className="muted" style={{ marginTop: 4 }}>Review and moderate reported community content</p>
               </div>
+
               <div className="muted small" style={{ marginLeft: 'auto' }}>{filteredReports.length} reports</div>
+              {hasMoreReports && (
+                <button className="btn-secondary" onClick={() => setReportPage(reportPage + 1)}>
+                  Load More
+                </button>
+              )}
             </div>
+              
             {/* Filters row */}
             <div className="content-card" style={{ padding: 16, borderRadius: 12, display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ position: 'relative', flex: 1 }}>
-                <span className="search-icon" style={{ position: 'absolute', left: 14, top: 22, opacity: 0.6 }}>🔎</span>
-                <input
-                  className="form-input"
-                  style={{ width: '100%', paddingLeft: 40 }}
-                  placeholder="Search reports..."
-                  value={reportSearch}
-                  onChange={(e) => setReportSearch(e.target.value)}
-                />
+              <div className="content-reports-filters">
+                <div style={{ position: 'relative', flex: 1}}>
+                  <span className="search-icon" style={{ position: 'absolute', left: 14, top: 22, opacity: 0.6 }}>🔎</span>
+                  <input
+                    className="form-input"
+                    style={{ width: '100%', paddingLeft: 40 }}
+                    placeholder="Search reports..."
+                    value={reportSearch}
+                    onChange={(e) => setReportSearch(e.target.value)}
+                  />
+                </div>
+
+                <select className="form-input" value={reportStatus} onChange={(e) => setReportStatus(e.target.value)} style={{ width: 160 }}>
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="escalated">Escalated</option>
+                </select>
+
+                <select className="form-input" value={reportPriority} onChange={(e) => setReportPriority(e.target.value)} style={{ width: 160 }}>
+                  <option value="all">All Priority</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+
+                <select className="form-input" value={reportType} onChange={(e) => setReportType(e.target.value)} style={{ width: 160 }}>
+                  <option value="all">All Types</option>
+                  <option value="Post">Post</option>
+                  <option value="Comment">Comment</option>
+                  <option value="Review">Review</option>
+                  <option value="Message">Message</option>
+                </select>
               </div>
-              <select className="form-input" value={reportStatus} onChange={(e) => setReportStatus(e.target.value)} style={{ width: 160 }}>
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="under_review">Under Review</option>
-                <option value="resolved">Resolved</option>
-                <option value="escalated">Escalated</option>
-              </select>
-
-              <select className="form-input" value={reportPriority} onChange={(e) => setReportPriority(e.target.value)} style={{ width: 160 }}>
-                <option value="all">All Priority</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-
-              <select className="form-input" value={reportType} onChange={(e) => setReportType(e.target.value)} style={{ width: 160 }}>
-                <option value="all">All Types</option>
-                <option value="Post">Post</option>
-                <option value="Comment">Comment</option>
-                <option value="Review">Review</option>
-                <option value="Message">Message</option>
-              </select>
             </div>
 
             {/* Table */}
-            <div className="content-card" style={{ padding: 0, borderRadius: 12, overflow: 'hidden' }}>
-              {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.6fr 1.2fr 1.6fr 1fr 1.2fr 1.2fr 1.2fr', gap: 0, background: '#f6f8fa', color: '#6b7280', fontWeight: 700, fontSize: 14 }}>
-                {['Report Details', 'Reported User', 'Content Type', 'Reason', 'Priority', 'Status', 'Reported Date', 'Actions'].map((h) => (
-                  <div key={h} style={{ padding: '14px 16px', borderBottom: '1px solid #eef2f7' }}>
-                    {h}
-                  </div>
-                ))}
+ <div className="content-card reports-table-responsive" style={{ padding: 0, borderRadius: 12, overflow: 'hidden' }}>
+  {/* Header */}
+  <div className="reports-table-header">
+    {['Report Details', 'Reported User', 'Content Type', 'Reason', 'Priority', 'Status', 'Reported Date', 'Actions'].map((h) => (
+      <div key={h} className="reports-table-cell" style={{ fontWeight: 700, color: '#6b7280', background: '#f6f8fa', fontSize: 14, borderBottom: '1px solid #eef2f7' }}>
+        {h}
+      </div>
+    ))}
+  </div>
+  {loadingReports ? (
+    <div className="centered" style={{ padding: 40 }}><div className="loading-spinner" /></div>
+  ) : filteredReports.length === 0 ? (
+    <div className="muted" style={{ padding: 24 }}>No reports found</div>
+  ) : (
+    filteredReports.map((r, i) => (
+      <div
+        key={r.id || i}
+        className="reports-table-row"
+        style={{
+          background: i % 2 ? '#fff' : '#fafbfc',
+          borderBottom: '1px solid #eef2f7'
+        }}
+      >
+        {/* Report Details */}
+        <div className="reports-table-cell" data-label="Report Details">
+                   <div style={{ fontWeight: 700 }}>{r.title}</div>
+          <div className="muted small">By: {r.reporterName || (r.reporterId ? userNameCache[r.reporterId] : '') || '—'}</div>
+        </div>
+        {/* Reported User */}
+        <div className="reports-table-cell" data-label="Reported User">
+          {(() => {
+            const ruId = typeof r.reportedUser === 'string'
+              ? r.reportedUser
+              : r?.reportedUser?.id || '';
+            const ruName = (typeof r.reportedUserName === 'object' && r.reportedUserName?.name)
+              ? r.reportedUserName.name
+              : (ruId ? userNameCache[ruId] : null) || '—';
+            const initial = (ruName || 'U').trim().charAt(0).toUpperCase();
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#6366f1', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 600 }}>
+                  {initial}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{ruName}</div>
+                  <div className="muted small">ID: {ruId || '—'}</div>
+                </div>
               </div>
-
-              {loadingReports ? (
-                <div className="centered" style={{ padding: 40 }}><div className="loading-spinner" /></div>
-              ) : filteredReports.length === 0 ? (
-                <div className="muted" style={{ padding: 24 }}>No reports found</div>
-              ) : (
-                filteredReports.map((r, i) => (
-                  <div key={r.id || i} style={{ display: 'grid', gridTemplateColumns: '3fr 1.6fr 1.2fr 1.6fr 1fr 1.2fr 1.2fr 1.2fr', alignItems: 'center', background: i % 2 ? '#fff' : '#fafbfc', borderBottom: '1px solid #eef2f7' }}>
-                    {/* Report Details */}
-                    <div style={{ padding: '14px 16px' }}>
-                      <div style={{ fontWeight: 700 }}>{r.title}</div>
-                      {/* UPDATED: fallback to cache using reporterId */}
-                      <div className="muted small">By: {r.reporterName || (r.reporterId ? userNameCache[r.reporterId] : '') || '—'}</div>
-                    </div>
-                    {/* Reported User */}
-                    {(() => {
-                      const ruId = typeof r.reportedUser === 'string'
-                        ? r.reportedUser
-                        : r?.reportedUser?.id || '';
-                      const ruName = (typeof r.reportedUserName === 'object' && r.reportedUserName?.name)
-                        ? r.reportedUserName.name
-                        : (ruId ? userNameCache[ruId] : null) || '—';
-                      const initial = (ruName || 'U').trim().charAt(0).toUpperCase();
-                      return (
-                        <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#6366f1', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 600 }}>
-                            {initial}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{ruName}</div>
-                            <div className="muted small">ID: {ruId || '—'}</div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {/* Content Type */}
-                    <div style={{ padding: '14px 16px' }}>{r.contentType}</div>
-                    {/* Reason */}
-                    <div style={{ padding: '14px 16px' }}>{r.reason}</div>
-                    {/* Priority */}
-                    <div style={{ padding: '14px 16px' }}><PriorityBadge v={r.priority} /></div>
-                    {/* Status */}
-                    <div style={{ padding: '14px 16px' }}><StatusBadge v={r.status} /></div>
-                    {/* Date */}
-                    <div style={{ padding: '14px 16px' }}>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</div>
-                    {/* Actions */}
-                    <div style={{ padding: '14px 16px', display: 'flex', gap: 8 }}>
-                      <button
-                        className="btn-view"
-                        style={{ background: '#e0e7ff', color: '#2563eb', border: 'none', padding: '6px 18px', borderRadius: 8, fontWeight: 700, fontSize: 14 }}
-                        onClick={() => { setViewReport(r); setViewReportId(r.id); }}
-                      >
-                        View
-                      </button>
-                      <button
-                        className="btn-secondary"
-                        style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', padding: '6px 18px', borderRadius: 8, fontWeight: 700, fontSize: 14 }}
-                        onClick={() => openActionModal(r)}
-                      >
-                        Action
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            );
+          })()}
+        </div>
+        {/* Content Type */}
+        <div className="reports-table-cell" data-label="Content Type">{r.contentType}</div>
+        {/* Reason */}
+        <div className="reports-table-cell" data-label="Reason">{r.reason}</div>
+        {/* Priority */}
+        <div className="reports-table-cell" data-label="Priority"><PriorityBadge v={r.priority} /></div>
+        {/* Status */}
+        <div className="reports-table-cell" data-label="Status"><StatusBadge v={r.status} /></div>
+        {/* Date */}
+        <div className="reports-table-cell" data-label="Reported Date">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</div>
+        {/* Actions */}
+        <div className="reports-table-cell" data-label="Actions" style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn-view"
+            style={{ background: '#e0e7ff', color: '#2563eb', border: 'none', padding: '6px 18px', borderRadius: 8, fontWeight: 700, fontSize: 14 }}
+            onClick={() => { setViewReport(r); setViewReportId(r.id); }}
+          >
+            View
+          </button>
+          <button
+            className="btn-secondary"
+            style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', padding: '6px 18px', borderRadius: 8, fontWeight: 700, fontSize: 14 }}
+            onClick={() => openActionModal(r)}
+          >
+            Action
+          </button>
+        </div>
+      </div>
+    ))
+  )}
+</div>
 
             {/* View modal */}
             {viewReport && (
@@ -1762,6 +1918,11 @@ useEffect(() => {
               >
                 + Add New User
               </button>
+              {hasMoreUsers && (
+                <button className="btn-secondary" onClick={() => setUserPage(userPage + 1)}>
+                  Load More
+                </button>
+              )}
             </div>
 
             {/* Search + Status filter row */}
@@ -1834,7 +1995,7 @@ useEffect(() => {
                   const okQ =
                     !q || ((u.travelerName || u.name || '') + ' ' + (u.email || '')).toLowerCase().includes(q);
                   const s = (u.status || 'active').toLowerCase();
-                  const okS = userStatusFilter === 'all' || s === userStatusFilter;
+                  const okS = userStatusFilter === 'all' || userStatusFilter === '' || s === userStatusFilter;
                   return okQ && okS;
                 });
 
@@ -2023,16 +2184,9 @@ useEffect(() => {
                                 fontSize: 14,
                                 boxShadow: 'none'
                               }}
-                              onClick={async () => {
-                                if (!u.id) return;
-                                if (!window.confirm('Delete this user?')) return;
-                                try {
-                                  await deleteDoc(doc(db, 'users', u.id));
-                                  setUsers((arr) => arr.filter((x) => x.id !== u.id));
-                                } catch (err) {
-                                  console.error('Delete user failed', err);
-                                  alert('Failed to delete user.');
-                                }
+                              onClick={() => {
+                                setDeleteUserTarget(u);
+                                setDeleteUserConfirmOpen(true);
                               }}
                             >
                               Delete
@@ -2047,8 +2201,198 @@ useEffect(() => {
             </div>
           </div>
         )} {/* end users tab */}
+
+        {/* images tab - placeholder for now */}
+        {active === 'images' && <ImagesCMS />}
+      {showSignOutConfirm && (
+          <div className="modal-overlay signout-modal" onClick={e => { if (e.target === e.currentTarget) setShowSignOutConfirm(false); }}>
+            <div className="modal-box signout-modal-content">
+              <div className="modal-header">
+                <span className="modal-title">Confirm Sign Out</span>
+                <button className="modal-close" onClick={() => setShowSignOutConfirm(false)}>&times;</button>
+              </div>
+              <div className="modal-body">
+                <div style={{ textAlign: 'center', marginBottom: 18 }}>
+                  <img src="/warning%20(1).png" alt="Warning" style={{ width: 48, marginBottom: 12, animation: "shake 0.5s" }} />
+                  <h3 style={{ margin: 0, fontWeight: 600 }}>Are you sure you want to sign out?</h3>
+                  <div className="muted" style={{ marginTop: 8 }}>You will be redirected to the admin login page.</div>
+                </div>
+                <div className="form-actions" style={{ justifyContent: 'center', marginTop: 18 }}>
+                  <button
+                    className="btn-danger"
+                    style={{ minWidth: 120, fontWeight: 700, fontSize: 15 }}
+                    onClick={async () => {
+                      console.log('Yes, Sign Out');
+                      setShowSignOutConfirm(false);
+                      try {
+                        await signOut(auth);
+                        console.log('Sign out successful');
+                        window.location.href = "/admin/login";
+                      } catch (err) {
+                        console.error('Sign out failed:', err);
+                        alert('Sign out failed: ' + err.message);
+                      }
+                    }}
+                  >
+                    Yes, Sign Out
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ minWidth: 120, fontWeight: 700, fontSize: 15 }}
+                    onClick={() => setShowSignOutConfirm(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
+  {deleteConfirmOpen && deleteTarget && (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.45)',
+      zIndex: 2000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
+    onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirmOpen(false); }}
+  >
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        padding: 32,
+        minWidth: 340,
+        maxWidth: '90vw',
+        textAlign: 'center'
+      }}
+    >
+      <h3 style={{ marginBottom: 16 }}>Delete Destination</h3>
+      <div style={{ marginBottom: 18 }}>
+        Are you sure you want to delete <b>{deleteTarget.name}</b>?
+      </div>
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+        <button
+          className="btn-danger"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={async () => {
+            // Delete from Firestore
+            try {
+              await import('firebase/firestore').then(({ deleteDoc, doc }) =>
+                deleteDoc(doc(db, 'destinations', deleteTarget.id))
+              );
+            } catch (err) {
+              console.error('Firestore delete failed:', err);
+            }
+            // Delete featured image from Cloudinary
+            const featuredId = getCloudinaryPublicId(deleteTarget.media?.featuredImage);
+            if (featuredId) await deleteCloudinaryImage(featuredId);
+
+            // Delete gallery images from Cloudinary
+            if (Array.isArray(deleteTarget.media?.gallery)) {
+              for (const img of deleteTarget.media.gallery) {
+                const imgId = getCloudinaryPublicId(img);
+                if (imgId) await deleteCloudinaryImage(imgId);
+              }
+            }
+            // Remove from local state
+            setDestinations((s) => s.filter((x) => x.id !== deleteTarget.id));
+            // Remove from localStorage fallback
+            const stored = JSON.parse(localStorage.getItem('destinations') || '[]');
+            localStorage.setItem('destinations', JSON.stringify(stored.filter((x) => x.id !== deleteTarget.id)));
+            // set analytics state
+            setAnalytics((a) => ({ ...a, totalDestinations: Math.max(0, (a.totalDestinations || 1) - 1) }));
+            setDeleteConfirmOpen(false);
+            setDeleteTarget(null);
+          }}
+        >
+          Yes
+        </button>
+        <button
+          className="btn-secondary"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={() => {
+            setDeleteConfirmOpen(false);
+            setDeleteTarget(null);
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+{deleteUserConfirmOpen && deleteUserTarget && (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.45)',
+      zIndex: 2000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
+    onClick={(e) => { if (e.target === e.currentTarget) setDeleteUserConfirmOpen(false); }}
+  >
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        padding: 32,
+        minWidth: 340,
+        maxWidth: '90vw',
+        textAlign: 'center'
+      }}
+    >
+      <h3 style={{ marginBottom: 16 }}>Delete User</h3>
+      <div style={{ marginBottom: 18 }}>
+        Are you sure you want to delete <b>{deleteUserTarget.travelerName || deleteUserTarget.name || 'this user'}</b>?
+      </div>
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+        <button
+          className="btn-danger"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={async () => {
+            // Delete user from Firestore
+            try {
+              await deleteDoc(doc(db, 'users', deleteUserTarget.id));
+            } catch (err) {
+              console.error('Firestore user delete failed:', err);
+            }
+            // Remove from local state
+            setUsers((s) => s.filter((x) => x.id !== deleteUserTarget.id));
+            // Remove from localStorage fallback
+            const stored = JSON.parse(localStorage.getItem('users') || '[]');
+            localStorage.setItem('users', JSON.stringify(stored.filter((x) => x.id !== deleteUserTarget.id)));
+            setDeleteUserConfirmOpen(false);
+            setDeleteUserTarget(null);
+          }}
+        >
+          Yes
+        </button>
+        <button
+          className="btn-secondary"
+          style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+          onClick={() => {
+            setDeleteUserConfirmOpen(false);
+            setDeleteUserTarget(null);
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     {/* Modals mounted at the root to avoid nesting/adjacent JSX issues */}
     <EditProfileCMS
       open={userEditOpen}

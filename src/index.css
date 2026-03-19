@@ -1,3 +1,13 @@
+html {
+  scroll-behavior: auto !important;
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+  scroll-behavior: auto !important;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -5,9 +15,69 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  font-family: source-code-pro, Menlo, Monaco, Consaris, 'Courier New',
     monospace;
+}
+
+/* Global responsive utilities */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Responsive container classes */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 8px;
+  }
+}
+
+/* Responsive text utilities */
+.text-responsive {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+.heading-responsive {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+/* Prevent layout shift */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure proper touch targets on mobile */
+@media (max-width: 768px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+}
+
+/* Responsive spacing utilities */
+.p-responsive {
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.m-responsive {
+  margin: clamp(0.5rem, 2vw, 1rem);
 }

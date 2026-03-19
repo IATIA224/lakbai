@@ -1,0 +1,23 @@
+.itn-modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(40, 48, 80, 0.55);
+  z-index: 100000; /* Higher than header */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vh 2vw;
+}
+
+.itn-modal {
+  z-index: 100001; /* Modal above backdrop and header */
+  max-width: 900px;
+  width: 95vw;
+  max-height: 90vh;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

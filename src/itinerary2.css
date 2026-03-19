@@ -1,3 +1,47 @@
+/* UPDATE THESE COLOR VARIABLES at the top */
+:root {
+  --brand-primary: #6c63ff;
+  --brand-secondary: #a084ee;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+}
+
+/* Modal backdrop and base - UPDATED */
+.itn-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(2, 6, 23, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+  padding: 0;
+}
+
+.itn-modal {
+  position: relative;
+  max-width: 850px;
+  width: 90%;
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Summary modal specific */
+.itn-modal-backdrop.itn-summary-backdrop {
+  z-index: 99999;
+}
+
 /* Modal backdrop and base */
 .itn-modal-backdrop {
   position: fixed;
@@ -5,23 +49,25 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(40, 48, 80, 0.55);
+  z-index: 100000; /* Higher than header */
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 1000;
+  justify-content: center;
+  padding: 5vh 2vw;
 }
 
 .itn-modal {
-  max-width: 850px;
-  width: 90%;
+  z-index: 100001; /* Modal above backdrop and header */
+  max-width: 900px;
+  width: 95vw;
   max-height: 90vh;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
   overflow: hidden;
-  background-color: #ffffff;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
 /* Modal header */
@@ -50,13 +96,18 @@
   border-radius: 8px;
   font-size: 20px;
   background: rgba(255, 255, 255, 0.2);
-  color: white;
   border: none;
+  color: #fff;
   cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .itn-close:hover {
   background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg) scale(1.1);
 }
 
 /* Share modal body */
@@ -228,6 +279,8 @@
   border-radius: 8px;
   border: none;
   cursor: pointer;
+  align-items: center;
+  justify-content: center;
 }
 
 .itn-btn.ghost {
@@ -281,6 +334,39 @@
   to { opacity: 1; }
 }
 
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .itn-modal-backdrop {
   animation: fadeIn 0.2s ease;
 }
@@ -291,8 +377,20 @@
   border-radius: 12px;
   border: 1px solid #eaeaea;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   overflow: hidden;
+  margin-right: 12px;
+  margin-left: 12px;
+  position: relative;
+  transition: all 0.3s;
+  isolation: isolate; /* ADD THIS - Creates new stacking context */
+}
+
+.itn-card:hover {
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.15);
+  border-color: #a084ee;
+  transform: translateY(-2px);
+  z-index: 1; /* ADD THIS - Keep hover card above others */
 }
 
 .itn-card-head {
@@ -311,7 +409,7 @@
 .itn-step {
   width: 28px;
   height: 28px;
-  background: #6c63ff;
+  background: linear-gradient(135deg, #6c63ff 0%, #544bff 100%);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -319,6 +417,7 @@
   justify-content: center;
   font-weight: bold;
   font-size: 14px;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
 }
 
 .itn-name {
@@ -347,53 +446,74 @@
 }
 
 .itn-badge.upcoming {
-  background: #eef2ff;
-  color: #3b82f6;
+  background: linear-gradient(135deg, #e6e0ff, #d4c5ff);
+  color: #6c63ff;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.2);
 }
 
 .itn-badge.ongoing {
-  background: #fef3c7;
-  color: #d97706;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
 }
 
 .itn-badge.completed {
-  background: #ecfdf5;
-  color: #10b981;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  color: #065f46;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .itn-badge.cancelled {
-  background: #fef2f2;
-  color: #ef4444;
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  color: #991b1b;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
 }
 
 .itn-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  background: #f5f5f9;
-  border-top: 1px solid #f0f0f0;
+
 }
 
 .itn-stat {
-  padding: 16px;
   background: white;
+  border: none;
 }
 
 .itn-stat-title {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-weight: 600;
-  margin-bottom: 6px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: inherit;
 }
 
-.itn-stat.blue .itn-stat-title { color: #3b82f6; }
-.itn-stat.green .itn-stat-title { color: #10b981; }
-.itn-stat.purple .itn-stat-title { color: #8b5cf6; }
-.itn-stat.orange .itn-stat-title { color: #f59e0b; }
+.itn-stat.blue {
+  background: linear-gradient(135deg, #eff0ff, #dfe1ff);
+  color: var(--brand-primary);
+  border-left: 4px solid var(--brand-primary);
+}
+
+/* Make sure DATES stat takes first position and is blue */
+.itn-stats .itn-stat:nth-child(1) {
+  background: linear-gradient(135deg, #eff0ff, #dfe1ff);
+  color: #6c63ff;
+  border-left: 4px solid #6c63ff;
+}
+
+/* AGENCY and STAY should be same purple color */
+.itn-stats .itn-stat:nth-child(3),
+.itn-stats .itn-stat:nth-child(4) {
+  background: linear-gradient(135deg, #f3ecff, #e9d5ff);
+  color: #a084ee;
+  border-left: 4px solid #a084ee;
+}
 
 .itn-stat-body {
   font-size: 14px;
+  line-height: 1.5;
 }
 
 .itn-muted {
@@ -475,8 +595,8 @@
 .itn-input:focus,
 .itn-form-input:focus {
   border-color: #6c63ff;
-  outline: none;
   box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+  outline: none;
 }
 
 select.itn-input,
@@ -492,7 +612,11 @@ select.itn-form-input {
 textarea.itn-input,
 textarea.itn-form-input {
   min-height: 80px;
+  max-height: 200px;
   resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box; /* ADD THIS */
 }
 
 /* Activities section */
@@ -580,24 +704,1210 @@ textarea.itn-form-input {
   color: #fff;
 }
 
-/* Make form responsive for mobile */
-@media (max-width: 640px) {
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  /* Modal adjustments */
+  .itn-modal {
+    width: 95vw;
+    max-width: none;
+    max-height: 90vh;
+    margin: 8px;
+  }
+
+  .itn-modal-header {
+    padding: 16px 20px;
+  }
+
+  .itn-modal-title {
+    font-size: 16px;
+  }
+
+  /* Share modal grid - stack on mobile */
+  .itn-share-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+    height: auto;
+  }
+
+  .itn-share-column {
+    padding: 20px;
+    height: auto;
+    max-height: 40vh;
+  }
+
+  .itn-share-column:first-child {
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  .itn-share-heading {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .itn-share-list-container {
+    max-height: 25vh;
+  }
+
+  .itn-share-item {
+    padding: 10px 12px;
+    margin: 2px 0;
+  }
+
+  .itn-share-friend-avatar {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+  }
+
+  .itn-share-destination-name,
+  .itn-share-friend-name {
+    font-size: 14px;
+  }
+
+  .itn-share-destination-meta {
+    font-size: 12px;
+  }
+
+  /* Modal footer adjustments */
+  .itn-modal-footer {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+
+  .itn-selection-count {
+    text-align: center;
+    order: 1;
+  }
+
+  .itn-button-group {
+    width: 100%;
+    order: 2;
+  }
+
+  .itn-btn {
+    flex: 1;
+  }
+
+  /* Card adjustments for mobile */
+  .itn-card {
+    margin-bottom: 12px;
+  }
+
+  .itn-card-head {
+    padding: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .itn-card-title {
+    gap: 10px;
+  }
+
+  .itn-step {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+  }
+
+  .itn-name {
+    font-size: 15px;
+  }
+
+  .itn-sub {
+    font-size: 13px;
+  }
+
+  .itn-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .itn-actions .itn-btn {
+    flex: 1;
+    min-width: 70px;
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
+  .itn-badge {
+    order: -1;
+    margin-right: 0;
+    margin-bottom: 6px;
+  }
+
+  /* Stats grid - stack on mobile */
+  .itn-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+  }
+
+  .itn-stat {
+    padding: 12px;
+  }
+
+  .itn-stat-title {
+    font-size: 11px;
+  }
+
+  .itn-stat-body {
+    font-size: 13px;
+  }
+
+  .itn-muted {
+    font-size: 12px;
+  }
+
+  /* Shared group adjustments */
+  .itn-shared-group {
+    margin-top: 16px;
+  }
+
+  .itn-shared-header {
+    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .itn-shared-info {
+    align-self: flex-start;
+  }
+
+  .itn-shared-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .itn-shared-by {
+    font-size: 14px;
+  }
+
+  .itn-shared-date {
+    font-size: 11px;
+  }
+
+  /* Form adjustments */
+  .itn-form-grid {
+    gap: 16px;
+  }
+
   .itn-form-row {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  
-  .itn-shared-edit-modal {
-    width: 95%;
-    max-height: 95vh;
-  }
-  
+
   .itn-shared-edit-header,
   .itn-shared-edit-footer {
     padding: 16px 20px;
   }
-  
+
   .itn-shared-edit-body {
     padding: 20px;
+  }
+
+  .itn-shared-edit-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .itn-shared-edit-footer .itn-btn {
+    width: 100%;
+  }
+
+  /* Input adjustments */
+  .itn-input,
+  .itn-form-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 12px 14px;
+  }
+
+  /* Activities container */
+  .itn-activities-container {
+    min-height: 60px;
+    padding: 10px;
+  }
+
+  .itn-activity-item {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+
+  .itn-activity-remove {
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+  }
+
+  /* Search input */
+  .itn-share-search input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 10px 14px;
+  }
+
+  /* Empty states */
+  .itn-share-empty {
+    padding: 20px 15px;
+  }
+
+  .itn-empty-activities {
+    padding: 15px;
+    font-size: 13px;
+  }
+}
+
+/* Very small screens (phones in portrait) */
+@media (max-width: 480px) {
+  .itn-modal {
+    width: 98vw;
+    max-height: 95vh;
+    margin: 4px;
+  }
+
+  .itn-modal-header {
+    padding: 14px 16px;
+  }
+
+  .itn-modal-title {
+    font-size: 15px;
+  }
+
+  .itn-share-column {
+    padding: 16px;
+  }
+
+  .itn-share-list-container {
+    max-height: 30vh;
+  }
+
+  .itn-share-item {
+    padding: 8px 10px;
+  }
+
+  .itn-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .itn-stat {
+    padding: 10px;
+  }
+
+  .itn-card-head {
+    padding: 10px;
+  }
+
+  .itn-actions .itn-btn {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+
+  .itn-shared-edit-body {
+    padding: 16px;
+  }
+
+  .itn-form-label {
+    font-size: 13px;
+  }
+
+  .itn-input,
+  .itn-form-input {
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+  .itn-share-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .itn-share-column:first-child {
+    border-right: 1px solid #eee;
+    border-bottom: none;
+  }
+
+  .itn-share-list-container {
+    max-height: 30vh;
+  }
+}
+
+/* Add these animations at the top */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply animations to shared itinerary elements */
+.itn-shared-group {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.itn-shared-group:nth-child(1) { animation-delay: 0.1s; }
+.itn-shared-group:nth-child(2) { animation-delay: 0.15s; }
+.itn-shared-group:nth-child(3) { animation-delay: 0.2s; }
+.itn-shared-group:nth-child(4) { animation-delay: 0.25s; }
+
+.itn-card {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+.itn-shared-edit-modal {
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Summary Modal Styles */
+.itn-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.itn-summary-section {
+  padding: 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border-radius: 12px;
+  border-left: 4px solid #6c63ff;
+}
+
+.itn-summary-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itn-summary-item {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.itn-summary-label {
+  font-weight: 600;
+  color: #64748b;
+  display: inline-block;
+  min-width: 80px;
+}
+
+.itn-summary-region {
+  display: inline-block;
+  background: linear-gradient(135deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+  margin-top: 8px;
+}
+
+.itn-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.itn-summary-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #6c63ff;
+}
+
+.itn-summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.itn-summary-tag {
+  display: inline-block;
+  background: linear-gradient(135deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.itn-summary-badge {
+  display: inline-block;
+  background: #e5e7eb;
+  color: #374151;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.itn-summary-notes {
+  margin: 0;
+  padding: 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.itn-summary-status {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.itn-summary-status.upcoming {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.itn-summary-status.ongoing {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.itn-summary-status.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.itn-summary-status.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Tools menu styling */
+.itn-tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: #fff;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.itn-tools-menu-item:last-child {
+  border-bottom: none;
+}
+
+.itn-tools-menu-item:hover {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  color: #6c63ff;
+  padding-left: 20px;
+}
+
+/* Agency edit modal styles */
+.itn-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.itn-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.itn-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.itn-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.itn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.itn-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* FIX: Add box-sizing to all inputs */
+.itn-input,
+.itn-form-input {
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
+  background: #fff;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box; /* ADD THIS */
+  display: block;
+}
+
+.itn-input:focus,
+.itn-form-input:focus {
+  outline: none;
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+}
+
+textarea.itn-input,
+textarea.itn-form-input {
+  min-height: 80px;
+  max-height: 200px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box; /* ADD THIS */
+}
+
+select.itn-input,
+select.itn-form-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c63ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 36px;
+  box-sizing: border-box; /* ADD THIS */
+}
+
+/* Mobile responsive - FIX for overlap */
+@media (max-width: 768px) {
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .itn-form-col {
+    gap: 16px;
+  }
+
+  .itn-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .itn-field {
+    width: 100%;
+  }
+
+  .itn-input,
+  .itn-form-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 12px 14px;
+    box-sizing: border-box; /* Ensure padding included */
+  }
+
+  textarea.itn-input,
+  textarea.itn-form-input {
+    min-height: 100px;
+    box-sizing: border-box;
+  }
+
+  .itn-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .itn-form-col {
+    gap: 12px;
+  }
+
+  .itn-grid,
+  .itn-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .itn-input,
+  .itn-form-input {
+    padding: 11px 12px;
+    font-size: 15px;
+    box-sizing: border-box;
+  }
+
+  .itn-field {
+    margin-bottom: 4px;
+  }
+
+  .itn-label {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+}
+/* UPDATED: Suggestion View Layout */
+.suggestion-view-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(2, 6, 23, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.suggestion-view-container {
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  gap: 20px;
+  max-width: 1600px;
+  width: 100%;
+  height: 90vh;
+  max-height: 900px;
+  position: relative;
+}
+
+.suggestion-view-left,
+.suggestion-view-right {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.suggestion-view-center {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+/* UPDATED: Modal inside suggestion view */
+.suggestion-view-center .itn-modal {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  box-shadow: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestion-view-center .itn-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* UPDATED: Form grid to be more responsive */
+.itn-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 100%;
+}
+
+.itn-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0; /* Prevent overflow */
+}
+
+.itn-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.itn-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.itn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.itn-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.itn-input {
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
+  background: #fff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.itn-input:focus {
+  outline: none;
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+}
+
+textarea.itn-input {
+  min-height: 80px;
+  max-height: 200px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+/* UPDATED: Activities section */
+.itn-activities-wrapper {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border-radius: 12px;
+  padding: 16px;
+  border: 2px solid #e5e7eb;
+}
+
+.itn-activity-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(90deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.2);
+  transition: all 0.2s;
+}
+
+.itn-activity-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
+}
+
+.itn-activity-remove-btn {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.itn-activity-remove-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+/* UPDATED: Modal footer */
+.itn-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 2px solid #f3f4f6;
+  background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
+  flex-shrink: 0;
+}
+
+/* Mobile responsive for suggestion view */
+@media (max-width: 1200px) {
+  .suggestion-view-container {
+    grid-template-columns: 250px 1fr 250px;
+    gap: 16px;
+  }
+
+  .suggestion-view-left,
+  .suggestion-view-right {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 968px) {
+  .suggestion-view-backdrop {
+    padding: 10px;
+  }
+
+  .suggestion-view-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: auto;
+    max-height: 95vh;
+    gap: 12px;
+  }
+
+  .suggestion-view-left,
+  .suggestion-view-right {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .suggestion-view-center {
+    min-height: 400px;
+    max-height: none;
+  }
+
+  .itn-form-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .suggestion-view-backdrop {
+    padding: 8px;
+    align-items: flex-start;
+  }
+
+  .suggestion-view-container {
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  .itn-modal-body {
+    padding: 16px;
+  }
+
+  .itn-form-col {
+    gap: 16px;
+  }
+
+  .itn-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .itn-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  .suggestion-view-left,
+  .suggestion-view-right {
+    display: none; /* Hide suggestions on mobile for better UX */
+  }
+
+  .suggestion-view-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Scrollbar styling for suggestion panels */
+.suggestion-view-left::-webkit-scrollbar,
+.suggestion-view-right::-webkit-scrollbar,
+.itn-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.suggestion-view-left::-webkit-scrollbar-track,
+.suggestion-view-right::-webkit-scrollbar-track,
+.itn-modal-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.suggestion-view-left::-webkit-scrollbar-thumb,
+.suggestion-view-right::-webkit-scrollbar-thumb,
+.itn-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.suggestion-view-left::-webkit-scrollbar-thumb:hover,
+.suggestion-view-right::-webkit-scrollbar-thumb:hover,
+.itn-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Empty state for suggestions */
+.suggestion-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+}
+
+.suggestion-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.suggestion-empty-text {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Loading state */
+.suggestion-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #6c63ff;
+}
+
+.suggestion-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #6c63ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+/* Suggestion items */
+.suggestion-item {
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-item:hover {
+  border-color: #6c63ff;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.suggestion-item-header {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.suggestion-item-detail {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggestion-item-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #a084ee 60%, #6c63ff 100%);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+/* Notification toast */
+.itn-notification {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+  z-index: 100000;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Better spacing for form sections */
+.itn-form-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.itn-form-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ADD THIS - Settings icon button styles (MOBILE ONLY) */
+.itn-card-settings {
+  display: none; /* Hidden by default */
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 29px;
+  height: 29px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(108, 99, 255, 0.1);
+  color: #6c63ff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  z-index: 20;
+}
+
+.itn-card-settings:hover {
+  background: rgba(108, 99, 255, 0.2);
+  transform: rotate(90deg) scale(1.1);
+}
+
+.itn-card-settings:active {
+  transform: rotate(90deg) scale(0.95);
+}
+
+/* Mobile menu for settings */
+.itn-card-menu {
+  position: absolute;
+  top: 42px;
+  right: 12px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(108, 99, 255, 0.2);
+  overflow: hidden;
+  z-index: 100;
+  min-width: 180px;
+  border: 1px solid rgba(108, 99, 255, 0.1);
+  animation: slideDown 0.2s ease-out;
+}
+
+.itn-card-menu-item {
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.itn-card-menu-item:last-child {
+  border-bottom: none;
+}
+
+.itn-card-menu-item:hover {
+  background: #f8fafc;
+  padding-left: 18px;
+}
+
+/* Show settings icon on mobile only */
+@media (max-width: 768px) {
+  .itn-card-settings {
+    display: flex !important;
   }
 }

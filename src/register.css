@@ -3,72 +3,219 @@
 
 /* Design tokens */
 :root {
-  --bg-start: #6c63ff;   /* match community */
-  --bg-end:   #a084ee;   /* match community */
+  --bg-start: #6c63ff;
+  --bg-end: #a084ee;
   --card-bg: #ffffff;
   --text-900: #111827;
   --text-700: #374151;
   --text-500: #6b7280;
   --border: #e5e7eb;
   --input-bg: #ffffff;
-  --ring:     #6c63ff;   /* already matches */
+  --ring: #6c63ff;
   --ring-soft: rgba(108, 99, 255, 0.25);
-  --shadow-strong: 0 12px 40px rgba(17, 24, 39, 0.18);
-  --shadow-soft: 0 6px 20px rgba(17, 24, 39, 0.12);
-  --radius-lg: 16px;
-  --radius-md: 12px;
-  --radius-sm: 10px;
+  --shadow-strong: 0 0.75rem 2.5rem rgba(17, 24, 39, 0.18);
+  --shadow-soft: 0 0.375rem 1.25rem rgba(17, 24, 39, 0.12);
+  --radius-lg: 1rem;
+  --radius-md: 0.75rem;
+  --radius-sm: 0.625rem;
+  --card-max-width: min(32.5rem, 92vw);
+  --card-padding: clamp(1.25rem, 4vw, 2.25rem);
+}
+
+/* Animated gradient background */
+.register-bg::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    135deg,
+    #6c63ff 0%,
+    #a084ee 25%,
+    #6c63ff 50%,
+    #a084ee 75%,
+    #6c63ff 100%
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  z-index: 0;
+}
+
+/* Floating shapes */
+.register-bg::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+  animation: float 20s ease-in-out infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Animated circles */
+.register-bg-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  animation: pulse 8s ease-in-out infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.register-bg-circle:nth-child(1) {
+  width: min(18.75rem, 25vw);
+  height: min(18.75rem, 25vw);
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.register-bg-circle:nth-child(2) {
+  width: min(12.5rem, 18vw);
+  height: min(12.5rem, 18vw);
+  top: 60%;
+  right: 15%;
+  animation-delay: 2s;
+}
+
+.register-bg-circle:nth-child(3) {
+  width: min(9.375rem, 14vw);
+  height: min(9.375rem, 14vw);
+  bottom: 20%;
+  left: 20%;
+  animation-delay: 4s;
+}
+
+/* Wave lines animation */
+.register-bg-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: clamp(5rem, 12vh, 9.375rem);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath d='M0,0 C300,100 900,100 1200,0 L1200,120 L0,120 Z' fill='rgba(255,255,255,0.1)'/%3E%3C/svg%3E");
+  background-size: cover;
+  animation: wave 10s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Particle dots */
+.register-bg-dots {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-size: 3.125rem 3.125rem;
+  animation: moveDots 30s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Animations */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(10px, -10px) rotate(5deg); }
+  50% { transform: translate(-5px, 10px) rotate(-5deg); }
+  75% { transform: translate(5px, 5px) rotate(3deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.2); opacity: 0.5; }
+}
+
+@keyframes wave {
+  0% { background-position: 0 0; }
+  100% { background-position: 75rem 0; }
+}
+
+@keyframes moveDots {
+  0% { background-position: 0 0; }
+  100% { background-position: 3.125rem 3.125rem; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(1.875rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.625rem); }
 }
 
 /* Page background */
 .register-bg {
-  min-height: 100vh;
-  background:
-    radial-gradient(1200px 600px at 0% 0%, rgba(255,255,255,0.08), transparent 60%),
-    radial-gradient(800px 500px at 100% 100%, rgba(255,255,255,0.08), transparent 55%),
-    linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100vw;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  padding-top: var(--header2-height);
+  box-sizing: border-box;
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text-900);
+  background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+  z-index: 0;
 }
 
-/* Card */
+/* Card with glassmorphism */
 .register-container {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-strong);
-  padding: 36px clamp(20px, 4vw, 36px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(1.25rem);
+  border-radius: clamp(0.75rem, 3vw, 1.5rem);
+  box-shadow: 0 1.25rem 3.75rem rgba(0, 0, 0, 0.3);
+  padding: var(--card-padding);
   width: 100%;
-  max-width: 520px;
+  max-width: var(--card-max-width);
+  margin: clamp(1rem, 4vh, 2.5rem) auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  animation: fadeIn 0.45s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  justify-content: center;
+  gap: clamp(0.75rem, 2vw, 1.125rem);
+  animation: fadeInUp 0.8s ease-out;
+  position: relative;
+  z-index: 10;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-sizing: border-box;
 }
 
 .register-container.minimized {
-  max-width: 600px;
-  padding: 22px 18px;
+  max-width: min(37.5rem, 92vw);
+  padding: clamp(1rem, 3vw, 1.375rem) clamp(0.875rem, 3vw, 1.125rem);
 }
 
 /* Header */
 .register-logo {
-  width: 52px;
-  height: 52px;
-  margin-bottom: 6px;
+  width: clamp(2.5rem, 8vw, 3.25rem);
+  height: clamp(2.5rem, 8vw, 3.25rem);
+  margin-bottom: 0.375rem;
+  animation: bounce 2s ease-in-out infinite;
 }
 
 .register-title {
-  font-size: clamp(1.6rem, 2.4vw, 2.05rem);
+  font-size: clamp(1.4rem, 5vw, 2.05rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0;
@@ -78,8 +225,8 @@
 
 .register-subtitle {
   color: var(--text-500);
-  font-size: 1rem;
-  margin: -4px 0 8px 0;
+  font-size: clamp(0.875rem, 3vw, 1rem);
+  margin: -0.25rem 0 0.5rem 0;
   text-align: center;
 }
 
@@ -87,48 +234,42 @@
 .register-form {
   width: 100%;
   display: grid;
-  gap: 14px;
+  gap: clamp(0.625rem, 2vw, 0.875rem);
 }
 
 .register-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-@media (max-width: 520px) {
-  .register-row { grid-template-columns: 1fr; }
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+  gap: clamp(0.5rem, 2vw, 0.75rem);
 }
 
 /* Two-column layout for Password + Confirm Password */
 .register-row--password {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-@media (max-width: 520px) {
-  .register-row--password { grid-template-columns: 1fr; }
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+  gap: clamp(0.5rem, 2vw, 0.75rem);
 }
 
 /* Labels and inputs */
 .register-label {
-  font-size: 0.92rem;
+  font-size: clamp(0.8rem, 2.5vw, 0.92rem);
   color: var(--text-700);
   font-weight: 600;
   display: grid;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .register-input {
-  padding: 12px 14px;
+  padding: clamp(0.625rem, 2vw, 0.75rem) clamp(0.75rem, 2vw, 0.875rem);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 1rem;
-  background: var(--input-bg);
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  background: rgba(250, 251, 252, 0.8);
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  transition: all 0.3s;
   color: var(--text-900);
   box-sizing: border-box;
+  width: 100%;
 }
 
 .register-input::placeholder {
@@ -137,40 +278,28 @@
 
 .register-input:focus {
   border-color: var(--ring);
-  box-shadow: 0 0 0 4px var(--ring-soft);
   background: #fff;
-}
-
-/* Make the wrapper not shrink the input */
-.register-password-wrapper {
-  position: relative;
-  display: block;      /* avoid flex shrinking */
-  width: 100%;
-}
-
-/* Ensure input fills the row and leaves space for the eye */
-.register-password-wrapper .register-input {
-  width: 100%;
-  min-height: 44px;    /* consistent height */
-  padding-right: 44px; /* room for eye button */
-  box-sizing: border-box;
+  box-shadow: 0 0 0 0.1875rem rgba(108, 99, 255, 0.1);
 }
 
 /* Password field */
 .register-password-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+  display: block;
   width: 100%;
+}
+
+.register-password-wrapper .register-input {
+  padding-right: 2.75rem;
 }
 
 .register-eye {
   position: absolute;
-  right: 12px;
+  right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
+  width: 1.75rem;
+  height: 1.75rem;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -178,50 +307,60 @@
   background: transparent;
   border: none;
   color: var(--text-500);
-  border-radius: 8px;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
 }
 
 .register-eye:hover {
   background: #f3f4f6;
   color: var(--text-700);
+  transform: translateY(-50%) scale(1.1);
 }
 
 .register-eye svg,
 .register-eye img {
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
   pointer-events: none;
 }
 
 .register-password-strength {
-  font-size: 0.9rem;
-  margin-top: 4px;
-  min-height: 18px;
+  font-size: clamp(0.75rem, 2vw, 0.9rem);
+  margin-top: 0.25rem;
+  min-height: 1.125rem;
   color: var(--text-500);
+}
+
+.register-password-strength:empty {
+  display: none;
+  margin-top: 0;
+  min-height: 0;
 }
 
 /* Options */
 .register-options {
-  margin-top: 2px;
-  font-size: 0.93rem;
+  margin-top: 0.125rem;
+  font-size: clamp(0.8rem, 2.5vw, 0.93rem);
   color: var(--text-700);
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .register-checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 0.5rem;
   line-height: 1.4;
 }
 
 .register-checkbox input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
   accent-color: var(--ring);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* Links */
@@ -229,6 +368,7 @@
   color: #4f6ef7;
   text-decoration: none;
   font-weight: 600;
+  transition: color 0.2s;
 }
 
 .register-link:hover {
@@ -242,19 +382,19 @@
   background: linear-gradient(90deg, var(--bg-start) 0%, var(--bg-end) 100%);
   color: #fff;
   border: none;
-  border-radius: 12px;
-  padding: 12px 0;
-  font-size: 1.05rem;
+  border-radius: 0.75rem;
+  padding: clamp(0.625rem, 2vw, 0.75rem) 0;
+  font-size: clamp(0.95rem, 3vw, 1.05rem);
   font-weight: 800;
-  margin-top: 6px;
+  margin-top: 0.375rem;
   cursor: pointer;
-  box-shadow: var(--shadow-soft);
-  transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
+  box-shadow: 0 0.25rem 0.9375rem rgba(108, 99, 255, 0.3);
+  transition: all 0.3s;
 }
 
 .register-btn:hover {
-  filter: brightness(1.02);
-  box-shadow: 0 10px 24px rgba(108, 99, 255, 0.28);
+  transform: translateY(-2px);
+  box-shadow: 0 0.375rem 1.25rem rgba(108, 99, 255, 0.4);
 }
 
 .register-btn:active {
@@ -262,22 +402,24 @@
 }
 
 .register-btn:disabled {
-  opacity: .6;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Sign-in hint */
 .register-signin {
   text-align: center;
   color: var(--text-500);
-  font-size: 0.98rem;
-  margin-top: 6px;
+  font-size: clamp(0.875rem, 2.5vw, 0.98rem);
+  margin-top: 0.375rem;
 }
 
 .register-signin a {
   color: #4f6ef7;
   text-decoration: none;
   font-weight: 600;
+  transition: color 0.2s;
 }
 
 .register-signin a:hover {
@@ -285,7 +427,7 @@
   text-decoration: underline;
 }
 
-/* Popup */
+/* Popup / Modal */
 .register-popup-overlay {
   position: fixed;
   inset: 0;
@@ -294,19 +436,115 @@
   place-items: center;
   z-index: 9999;
   backdrop-filter: blur(2px);
+  padding: clamp(0.5rem, 3vw, 1.5rem);
+  box-sizing: border-box;
+  animation: fadeInOverlay 0.3s ease-out;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .register-popup {
   background: rgba(255,255,255,0.98);
-  border-radius: 18px;
+  border-radius: clamp(0.75rem, 2vw, 1.125rem);
   box-shadow: var(--shadow-strong);
-  padding: 28px 24px 22px 24px;
+  padding: clamp(1.25rem, 4vw, 1.75rem) clamp(1rem, 4vw, 1.5rem);
   text-align: center;
-  min-width: 320px;
-  max-width: min(520px, 92vw);
+  width: 100%;
+  max-width: min(32.5rem, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: fadeInPopup 0.3s ease-out;
 }
 
-/* Utility spacing for tighter vertical rhythm */
+@keyframes fadeInPopup {
+  from { opacity: 0; transform: scale(0.95) translateY(-0.625rem); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Tablet */
+@media (min-width: 601px) and (max-width: 900px) {
+  .register-container {
+    max-width: min(28rem, 88vw);
+  }
+  
+  .register-row,
+  .register-row--password {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .register-bg {
+    overflow-y: hidden;
+    overflow-x: hidden;
+    padding: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    padding-top: clamp(4rem, 15vh, 6rem);
+  }
+  
+  .register-container {
+    max-width: 100%;
+    margin: 0;
+    padding: clamp(1rem, 4vw, 1.5rem);
+    border-radius: 0.75rem;
+  }
+  
+  .register-row,
+  .register-row--password {
+    grid-template-columns: 1fr;
+  }
+  
+  .register-bg-circle {
+    display: none;
+  }
+  
+  .register-bg-wave {
+    display: none;
+  }
+  
+  .register-bg-dots {
+    display: none;
+  }
+}
+
+/* Very small screens / short viewports */
+@media (max-width: 360px) {
+  .register-container {
+    padding: 0.875rem 0.5rem;
+  }
+}
+
+@media (max-height: 700px) {
+  .register-bg {
+    align-items: flex-start;
+    padding-top: clamp(4rem, 10vh, 6rem);
+  }
+  
+  .register-container {
+    margin-top: 0;
+  }
+}
+
+/* Landscape mode - add extra spacing */
+@media (max-height: 600px) and (orientation: landscape) {
+  .register-bg {
+    padding-top: calc(var(--header2-height) + 0.5rem);
+    align-items: flex-start;
+    padding-bottom: 1rem;
+  }
+
+  .register-container {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+}
+
+/* Utility spacing */
 .register-form .register-label + .register-label {
-  margin-top: 2px;
+  margin-top: 0.125rem;
 }

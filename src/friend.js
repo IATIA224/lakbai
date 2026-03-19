@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import "./friend.css";
 import { db, auth } from "./firebase";
 import {
@@ -23,7 +24,10 @@ const FriendPopup = ({ onClose }) => {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(false);
   const [removingFriend, setRemovingFriend] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
 
+  
   // Helper to fetch profile snapshots for a set of userIds
   const fetchProfiles = async (ids) => {
     if (!ids || ids.length === 0) return [];
@@ -35,7 +39,7 @@ const FriendPopup = ({ onClose }) => {
             const d = snap.data();
             return {
               id,
-              name: d.name || d.displayName || "Traveler",
+              name: d.travelerName || d.name || d.displayName || "Traveler",
               profilePicture: d.profilePicture || d.photoURL || "/user.png"
             };
           }
@@ -50,10 +54,10 @@ const FriendPopup = ({ onClose }) => {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-    
-    // Listen for friend requests
+
+    // Listen for friend requests (document snapshot)
     const userDocUnsub = onSnapshot(doc(db, "users", user.uid), async (snap) => {
-      if (!snap.exists()) {
+      if (!snap || !snap.exists()) {
         setFriendRequests([]);
         return;
       }
@@ -62,20 +66,21 @@ const FriendPopup = ({ onClose }) => {
       const reqProfiles = await fetchProfiles(reqIds);
       setFriendRequests(reqProfiles);
     });
-    
-    // Listen for friends from subcollection
+
+    // Listen for friends from subcollection (collection snapshot)
     const friendsRef = collection(db, "users", user.uid, "friends");
     const friendsUnsub = onSnapshot(friendsRef, async (snap) => {
-      if (snap.empty) {
+      // For collection snapshots, use snap.empty to check no docs
+      if (!snap || snap.empty) {
         setFriends([]);
         return;
       }
-      
-      const friendIds = snap.docs.map(doc => doc.id);
+
+      const friendIds = snap.docs.map(d => d.id);
       const friendProfiles = await fetchProfiles(friendIds);
       setFriends(friendProfiles);
     });
-    
+
     return () => {
       userDocUnsub();
       friendsUnsub();
@@ -110,8 +115,6 @@ const FriendPopup = ({ onClose }) => {
       await updateDoc(doc(db, "users", receiverId), {
         friendRequests: arrayUnion(user.uid)
       });
-
-      alert("Friend request sent!");
       setCodeInput("");
     } catch (err) {
       console.error(err);
@@ -140,34 +143,60 @@ const FriendPopup = ({ onClose }) => {
     if (!me) return;
     setLoading(true);
     try {
-      // Create friend documents in both subcollections
       const now = Date.now();
-      
-      // Create friend document in my subcollection
+
+      // Create friend documents in both subcollections
       await setDoc(doc(db, "users", me.uid, "friends", requesterId), {
         friendId: requesterId,
         since: now
       });
-      
-      // Create friend document in requester's subcollection
       await setDoc(doc(db, "users", requesterId, "friends", me.uid), {
         friendId: me.uid,
         since: now
       });
-      
-      // Remove from my friend requests array
-      await updateDoc(doc(db, "users", me.uid), {
-        friendRequests: arrayRemove(requesterId)
-      });
 
-      // Log the friendship activity
+      // Robustly remove requesterId from my friendRequests field (handles string or object entries)
+      const myRef = doc(db, "users", me.uid);
+      const mySnap = await getDoc(myRef);
+      if (mySnap.exists()) {
+        const data = mySnap.data();
+        const arr = data.friendRequests || [];
+        const newArr = arr.filter((item) => {
+          if (typeof item === "string") return item !== requesterId;
+          if (item && typeof item === "object") {
+            return (item.id !== requesterId) && (item.uid !== requesterId);
+          }
+          return true;
+        });
+        await updateDoc(myRef, { friendRequests: newArr });
+      } else {
+        // fallback attempts (harmless if not needed)
+        await updateDoc(myRef, { friendRequests: arrayRemove(requesterId) }).catch(()=>{});
+        await updateDoc(myRef, { friendRequests: arrayRemove({ id: requesterId }) }).catch(()=>{});
+      }
+
+      // Optimistically update local UI: remove request and add to friends list
+      setFriendRequests((prev) => prev.filter((p) => p.id !== requesterId));
+      const profile = (await fetchProfiles([requesterId]))[0];
+      if (profile) {
+        setFriends((prev) => {
+          // avoid duplicates
+          const without = prev.filter((f) => f.id !== profile.id);
+          return [...without, profile];
+        });
+      }
+
+      // Log activity
       await addActivity(me.uid, "You added a friend!", "👥");
       await addActivity(requesterId, "You became friends!", "👥");
-      
-      alert("Friend request accepted!");
+
+      // Show toast with friend's name
+      setToastMsg(`Friend request accepted! You are now friends with ${profile?.name || 'your friend'}.`);
+      setTimeout(() => setToastMsg(''), 3500);
+
     } catch (err) {
       console.error("Error accepting friend request:", err);
-      alert("Failed to accept request: " + err.message);
+      alert("Failed to accept request: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -178,18 +207,36 @@ const FriendPopup = ({ onClose }) => {
     if (!me) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", me.uid), {
-        friendRequests: arrayRemove(requesterId)
-      });
+      // Robustly remove requesterId from my friendRequests field
+      const myRef = doc(db, "users", me.uid);
+      const mySnap = await getDoc(myRef);
+      if (mySnap.exists()) {
+        const data = mySnap.data();
+        const arr = data.friendRequests || [];
+        const newArr = arr.filter((item) => {
+          if (typeof item === "string") return item !== requesterId;
+          if (item && typeof item === "object") {
+            return (item.id !== requesterId) && (item.uid !== requesterId);
+          }
+          return true;
+        });
+        await updateDoc(myRef, { friendRequests: newArr });
+      } else {
+        await updateDoc(myRef, { friendRequests: arrayRemove(requesterId) }).catch(()=>{});
+        await updateDoc(myRef, { friendRequests: arrayRemove({ id: requesterId }) }).catch(()=>{});
+      }
+
+      // Optimistically update local UI
+      setFriendRequests((prev) => prev.filter((p) => p.id !== requesterId));
     } catch (err) {
       console.error(err);
       alert("Failed to decline request.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const handleRemoveFriend = async (friendId) => {
-    if (!window.confirm("Are you sure you want to remove this friend?")) return;
+  const handleRemoveFriend = async  (friendId) => {
 
     const user = auth.currentUser;
     if (!user) return;
@@ -219,9 +266,10 @@ const FriendPopup = ({ onClose }) => {
     }
   };
 
-  return (
-    <div className="friend-modal-backdrop" onClick={onClose}>
-      <div className="friend-modal" onClick={(e) => e.stopPropagation()}>
+  // In friend.js, update the return statement to use createPortal
+  return ReactDOM.createPortal(
+    <div className="community-modal-backdrop" onClick={onClose}>
+      <div className="community-modal" onClick={(e) => e.stopPropagation()}>
         <div className="friend-modal-header">
           <div className="friend-modal-title">
             <span role="img" aria-label="friends">👥</span> Your Friends
@@ -264,13 +312,13 @@ const FriendPopup = ({ onClose }) => {
                   <div className="friend-meta">
                     <div className="friend-name">{f.name}</div>
                   </div>
-                  <button
-                    className="friend-btn friend-btn-danger"
-                    onClick={() => handleRemoveFriend(f.id)}
-                    disabled={removingFriend === f.id}
-                  >
-                    {removingFriend === f.id ? "Removing..." : "Unfriend"}
-                  </button>
+                    <button
+                      className="friend-btn friend-btn-danger"
+                      onClick={() => setConfirmRemoveId(f.id)}
+                      disabled={removingFriend === f.id}
+                    >
+                      {removingFriend === f.id ? "Removing..." : "Unfriend"}
+                    </button>
                 </div>
               )))
             }
@@ -313,9 +361,88 @@ const FriendPopup = ({ onClose }) => {
             }
           </div>
         </div>
+
+        {toastMsg && (
+          <div
+            className="friend-toast"
+            style={{
+              position: 'fixed',
+              top: 24,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#2563eb',
+              color: '#fff',
+              padding: '12px 28px',
+              borderRadius: 10,
+              fontWeight: 600,
+              fontSize: 16,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+              zIndex: 9999,
+              transition: 'opacity 0.3s'
+            }}
+          >
+            {toastMsg}
+          </div>
+        )}
+
+        {confirmRemoveId && (
+          <div
+            className="friend-confirm-backdrop"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.25)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onClick={() => setConfirmRemoveId(null)}
+          >
+            <div
+              className="friend-confirm-modal"
+              style={{
+                background: '#fff',
+                borderRadius: 12,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                padding: 32,
+                minWidth: 320,
+                maxWidth: '90vw',
+                textAlign: 'center'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 style={{ marginBottom: 16 }}>Remove Friend</h3>
+              <div style={{ marginBottom: 18 }}>
+                Are you sure you want to remove <b>{friends.find(f => f.id === confirmRemoveId)?.name || 'this friend'}</b>?
+              </div>
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+                <button
+                  className="friend-btn friend-btn-danger"
+                  style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+                  onClick={async () => {
+                    await handleRemoveFriend(confirmRemoveId);
+                    setConfirmRemoveId(null);
+                  }}
+                >
+                  Yes, Remove
+                </button>
+                <button
+                  className="friend-btn"
+                  style={{ padding: '8px 22px', borderRadius: 8, fontWeight: 700 }}
+                  onClick={() => setConfirmRemoveId(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
+
 
 export default FriendPopup;

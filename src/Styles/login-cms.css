@@ -1,0 +1,244 @@
+/* login-cms.css */
+.login-cms-bg {
+min-height: 100vh;
+min-width: 100vw;
+width: 100vw;
+height: 100vh;
+margin: 0;
+font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+background: linear-gradient(135deg, #4f2da8 0%, #6e3fc6 50%, #3b1e6d 100%);
+display: flex;
+align-items: center;
+justify-content: center;
+position: fixed;
+top: 0;
+left: 0;
+z-index: 9999;
+flex-direction: column; /* Ensure vertical centering */
+}
+
+.login-cms-container {
+display: flex;
+flex-direction: column;
+min-height: 100vh;
+width: 100vw;
+position: relative;
+}
+
+.login-cms-logo {
+margin-bottom: 18px;
+margin-top: 0;
+display: flex;
+justify-content: center;
+align-items: center;
+}
+
+.login-cms-logo img,
+.login-cms-logo-icon {
+width: 54px;
+height: 54px;
+background: #fff;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+margin: 0 auto 10px auto;
+font-size: 32px;
+color: #4f2da8;
+}
+
+.login-cms-title {
+color: #fff;
+font-size: 2.1rem;
+font-weight: 700;
+text-align: center;
+margin-bottom: 4px;
+letter-spacing: 0.01em;
+}
+
+.login-cms-subtitle {
+color: #e0d8f7;
+font-size: 1.08rem;
+text-align: center;
+margin-bottom: 32px;
+font-weight: 400;
+}
+
+.login-cms-card {
+background: #fff;
+border-radius: 18px;
+box-shadow: 0 8px 32px 0 rgba(44, 19, 80, 0.16);
+padding: 38px 38px 24px 38px;
+max-width: 550px;
+width: 100%;
+margin: 0 auto;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center; /* Center card content vertically */
+}
+
+.login-cms-card h2 {
+font-size: 1.45rem;
+font-weight: 700;
+margin: 0 0 22px 0;
+color: #2d1a4d;
+letter-spacing: 0.01em;
+text-align: center;
+}
+
+.login-cms-form {
+width: 100%;
+display: flex;
+flex-direction: column;
+gap: 18px;
+align-items: center;
+justify-content: center;
+}
+
+/* Align label to left and match spacing for both fields */
+.login-cms-label {
+font-size: 1rem;
+font-weight: 500;
+color: #3b1e6d;
+margin-bottom: 6px;
+display: block;
+text-align: left;
+width: 100%; /* Ensure label is left-aligned and full width */
+}
+
+.login-cms-input {
+width: 100%;
+padding: 12px 14px;
+border-radius: 8px;
+border: 1.5px solid #e3d8f7;
+background: #f8f6fc;
+font-size: 1.04rem;
+color: #3b1e6d;
+margin-bottom: 2px;
+outline: none;
+transition: border 0.2s;
+box-sizing: border-box;
+}
+
+/* For password input with eye icon, ensure icon stays inside input box */
+.login-cms-password-wrapper {
+position: relative;
+width: 100%;
+margin-bottom: 2px;
+}
+
+.login-cms-password-wrapper .login-cms-input {
+padding-right: 38px; /* Space for the eye icon */
+}
+
+.login-cms-password-eye-btn {
+position: absolute;
+right: 10px;
+top: 50%;
+transform: translateY(-50%);
+background: none;
+border: none;
+cursor: pointer;
+padding: 0;
+color: #6e3fc6;
+font-size: 18px;
+height: 24px;
+width: 24px;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.login-cms-btn {
+width: 100%;
+padding: 13px 0;
+background: linear-gradient(90deg, #3b1e6d 0%, #4f2da8 100%);
+color: #fff;
+font-size: 1.15rem;
+font-weight: 600;
+border: none;
+border-radius: 8px;
+margin-top: 10px;
+margin-bottom: 10px;
+cursor: pointer;
+box-shadow: 0 2px 8px 0 rgba(44, 19, 80, 0.10);
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 8px;
+transition: background 0.2s;
+}
+
+.login-cms-btn:active {
+background: linear-gradient(90deg, #4f2da8 0%, #3b1e6d 100%);
+}
+
+.login-cms-demo-toggle {
+margin: 10px 0 0 0;
+color: #3b1e6d;
+font-size: 1rem;
+display: flex;
+align-items: center;
+gap: 6px;
+cursor: pointer;
+user-select: none;
+justify-content: center;
+}
+
+.login-cms-demo-toggle input[type="checkbox"] {
+accent-color: #4f2da8;
+margin-right: 4px;
+}
+
+.login-cms-security {
+background: #f8f6fc;
+border-radius: 8px;
+padding: 14px 16px;
+margin-top: 18px;
+font-size: 0.98rem;
+color: #6e3fc6;
+border: 1.5px solid #e3d8f7;
+display: flex;
+align-items: flex-start;
+gap: 10px;
+justify-content: center;
+}
+
+.login-cms-security .icon {
+color: #f7b731;
+font-size: 1.2em;
+margin-top: 2px;
+}
+
+.login-cms-footer {
+margin-top: 32px;
+color: #e0d8f7;
+font-size: 0.98rem;
+text-align: center;
+width: 100%;
+letter-spacing: 0.01em;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+}
+
+.login-cms-footer a {
+color: #e0d8f7;
+text-decoration: underline;
+font-weight: 500;
+}
+
+@media (max-width: 600px) {
+.login-cms-card {
+    padding: 22px 8px 18px 8px;
+    max-width: 98vw;
+}
+.login-cms-title {
+    font-size: 1.3rem;
+}
+.login-cms-subtitle {
+    font-size: 0.98rem;
+}
+}

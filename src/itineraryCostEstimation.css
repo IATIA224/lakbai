@@ -1,0 +1,1921 @@
+/* Modal backdrop and base */
+.cost-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  z-index: 9999998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.25s ease-out;
+}
+
+/* Modal */
+.cost-modal {
+  z-index: 9999999;
+  width: min(1100px, 95vw);
+  max-height: 92vh;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 
+              0 0 0 1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.cost-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cost-title {
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cost-close {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  font-size: 1.6rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  font-weight: 300;
+}
+
+.cost-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+/* Controls */
+.cost-controls {
+  padding: 16px 20px;
+  background: linear-gradient(to bottom, #f8fafc 0%, #ffffff 100%);
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+  z-index: 1000; /* Higher than map */
+}
+
+.cost-location-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cost-location-box {
+  position: relative;
+  z-index: 1001; /* Higher than controls */
+}
+
+.cost-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #1e293b;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.cost-select,
+.cost-input {
+  padding: 8px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.cost-select:focus,
+.cost-input:focus {
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+}
+
+.cost-select:hover,
+.cost-input:hover {
+  border-color: #cbd5e1;
+}
+
+/* Suggestions dropdown */
+.cost-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  z-index: 10000; /* Much higher to appear above map */
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15),
+              0 10px 10px -5px rgba(0, 0, 0, 0.08);
+}
+
+.cost-suggestion-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+  color: #475569;
+}
+
+.cost-suggestion-item:hover,
+.cost-suggestion-item.active {
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  color: #fff;
+}
+
+/* Map - Reduced to 380px */
+.cost-modal [ref="mapRef"] {
+  width: 100%;
+  height: 380px;
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Body */
+.cost-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  background: #fff;
+  min-height: 140px;
+  max-height: 200px;
+}
+
+/* Info message */
+.cost-info {
+  padding: 24px 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* Result display */
+.hotels-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hotels-item {
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  transition: all 0.2s;
+}
+
+.hotels-item:hover {
+  border-color: #6c63ff;
+  box-shadow: 0 10px 25px -5px rgba(108, 99, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.hotels-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hotels-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hotels-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.hotels-dot {
+  color: #cbd5e1;
+}
+
+/* Fare summary */
+.cost-fare-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  margin-top: 10px;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 12px;
+  border: 2px solid #c4b5fd;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.cost-fare-regular {
+  color: #6c63ff;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cost-fare-discounted {
+  color: #7c3aed;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cost-fare-regular > div:first-child,
+.cost-fare-discounted > div:first-child {
+  font-size: 0.75rem !important;
+  opacity: 0.8;
+}
+
+/* Info box styling */
+.cost-controls > div[style*="marginTop"] {
+  margin-top: 10px !important;
+  padding: 10px 14px !important;
+  font-size: 0.82rem !important;
+  border-radius: 8px !important;
+}
+
+/* Fare Popup Overlay (keep above main modal) */
+.fare-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 20, 0.6);
+  z-index: 10000010; /* above main modal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.18s ease-out;
+  backdrop-filter: blur(4px);
+}
+
+/* Fare Popup Modal - centered, compact */
+.fare-popup {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(15, 20, 50, 0.45);
+  padding: 18px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  max-height: 78vh;
+  overflow: hidden;            /* keep outer box fixed */
+  border: 1px solid rgba(160, 130, 238, 0.22);
+  display: flex;
+  flex-direction: column;      /* allow children to layout vertically */
+  gap: 12px;
+  position: relative;
+}
+
+/* Title centered */
+.fare-popup-title {
+  font-weight: 800;
+  font-size: 1.08rem;
+  color: #5b21b6;
+  text-align: center;
+  margin: 6px 0 2px;
+}
+
+/* Scroll area for the list of cards */
+.fare-popup-list {
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;              /* allow the list to grow and take remaining height */
+  min-height: 40px;
+  max-height: calc(78vh - 140px); /* safe fallback to prevent overflow past viewport */
+}
+
+/* Individual card */
+.fare-popup-card {
+  background: linear-gradient(135deg, #f6f3ff 0%, #efe9ff 100%);
+  border: 1px solid rgba(196, 181, 253, 0.8);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(92, 33, 150, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Card text */
+.fare-popup-card-title {
+  font-weight: 700;
+  color: #4c1d95;
+  font-size: 0.98rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.fare-popup-card-sub {
+  font-size: 0.88rem;
+  color: #6b21a8;
+}
+
+.fare-popup-card-fare {
+  font-size: 0.96rem;
+  color: #2b1a6b;
+}
+
+.fare-popup-card-discount {
+  font-size: 0.87rem;
+  color: #7c3aed;
+}
+
+/* Sub-description line */
+.fare-popup-card-desc {
+  font-size: 0.82rem;
+  color: #6b5aa3;
+}
+
+/* Close button top-right */
+.fare-popup-close-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  font-size: 1.05rem;
+  color: #7c3aed;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.fare-popup-close-x:hover {
+  background: rgba(124,58,237,0.08);
+  transform: scale(1.03);
+}
+
+/* Primary Close button */
+.fare-popup-close {
+  align-self: center;
+  margin-top: 6px;
+  background: linear-gradient(90deg,#6c63ff,#a084ee);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.98rem;
+}
+.fare-popup-close:hover { transform: translateY(-1px); }
+
+/* Make internal scrollbar thin and subtle */
+.fare-popup-list::-webkit-scrollbar { width: 8px; }
+.fare-popup-list::-webkit-scrollbar-thumb {
+  background: rgba(108,99,255,0.22);
+  border-radius: 8px;
+}
+
+/* New Fare Card Styles */
+.fare-card-grid, .other-fare-popup {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  padding: 18px 24px;
+  margin: 18px 0;
+}
+.fare-cards {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.fare-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 14px 18px;
+  min-width: 160px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  text-align: center;
+}
+.fare-card-title {
+  font-weight: 600;
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+.fare-card-desc {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+.fare-card-price {
+  font-size: 22px;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+/* Route Popup Styles */
+.route-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  z-index: 10000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(12px);
+  animation: fadeIn 0.25s ease-out;
+}
+
+.route-popup {
+  background: #fff;
+  border-radius: 24px;
+  width: min(900px, 95vw);
+  max-height: 85vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 
+              0 0 0 1px rgba(108, 99, 255, 0.1);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.route-popup-compact {
+  background: #fff;
+  border-radius: 20px;
+  width: min(1000px, 92vw);
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.route-popup-header {
+  background: linear-gradient(135deg, #6c63ff 0%, #a084ee 100%);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.route-popup-header h3 {
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.route-popup-close {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  font-size: 1.75rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  font-weight: 300;
+}
+
+.route-popup-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.route-popup-body {
+  overflow-y: auto;
+  padding: 28px;
+  background: linear-gradient(to bottom, #f8fafc 0%, #ffffff 100%);
+}
+
+.route-popup-body-compact {
+  overflow-y: auto;
+  padding: 20px;
+  background: #f8fafc;
+}
+
+/* Grid Layout */
+.route-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.route-left-panel,
+.route-right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Compact Section */
+.route-section-compact {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px;
+  border: 2px solid #e2e8f0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Route Steps */
+.route-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.route-steps-compact {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 350px;
+}
+
+.route-step {
+  position: relative;
+  padding-left: 0;
+}
+
+.route-step-compact {
+  position: relative;
+}
+
+.route-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 48px;
+  width: 2px;
+  height: calc(100% - 24px);
+  background: linear-gradient(to bottom, #6c63ff, #a084ee);
+  opacity: 0.3;
+}
+
+.route-step-compact:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 36px;
+  width: 2px;
+  height: calc(100% - 8px);
+  background: linear-gradient(to bottom, #6c63ff, #a084ee);
+  opacity: 0.2;
+}
+
+.route-step-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.route-step-content-compact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.route-step-content:hover {
+  border-color: #6c63ff;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.15);
+}
+
+.route-step-content-compact:hover {
+  border-color: #6c63ff;
+  background: #fff;
+  transform: translateX(2px);
+}
+
+.route-step-icon {
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 12px;
+  border: 2px solid #c4b5fd;
+}
+
+.route-step-icon-compact {
+  font-size: 1.5rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.route-step-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-step-details-compact {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.route-step-action {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.route-step-action-compact {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.route-step-action-compact strong {
+  color: #6c63ff;
+  font-weight: 700;
+}
+
+.route-step-distance {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.route-step-distance-compact {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Jeepney Fare Total */
+.route-jeepney-fare {
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, #6c63ff 0%, #a084ee 100%);
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 8px 20px rgba(108, 99, 255, 0.25);
+}
+
+.route-jeepney-fare .fare-label {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.route-jeepney-fare .fare-amount {
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Fare Grid */
+.fare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.fare-grid-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.fare-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.fare-card-compact {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.fare-card:hover {
+  border-color: #6c63ff;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(108, 99, 255, 0.2);
+}
+
+.fare-card-compact:hover {
+  border-color: #6c63ff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(108, 99, 255, 0.15);
+}
+
+.fare-card-icon {
+  font-size: 2.5rem;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 12px;
+  border: 2px solid #c4b5fd;
+}
+
+.fare-card-icon-compact {
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.fare-card-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fare-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fare-card-type {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.fare-card-type-compact {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.fare-card-subtype {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.fare-card-subtype-compact {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fare-card-price {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #6c63ff;
+  letter-spacing: -0.02em;
+}
+
+.fare-card-price-compact {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #6c63ff;
+  letter-spacing: -0.01em;
+}
+
+/* Route Summary */
+.route-summary {
+  margin-top: 20px;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border: 2px solid #c4b5fd;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-around;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #5b21b6;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+/* Scrollbar */
+.route-popup-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.route-popup_body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.route-popup_body::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  border-radius: 10px;
+}
+
+.route-popup_body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #5b21b6 0%, #7c3aed 100%);
+}
+
+.route-steps-compact::-webkit-scrollbar,
+.fare-grid-compact::-webkit-scrollbar,
+.route-popup-body-compact::-webkit-scrollbar {
+  width: 6px;
+}
+
+.route-steps-compact::-webkit-scrollbar-track,
+.fare-grid-compact::-webkit-scrollbar-track,
+.route-popup-body-compact::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.route-steps-compact::-webkit-scrollbar-thumb,
+.fare-grid-compact::-webkit-scrollbar-thumb,
+.route-popup-body-compact::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  border-radius: 10px;
+}
+
+/* Map and Fare Container - Side by Side */
+.map-fare-container {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 0;
+  height: 520px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  position: relative;
+  z-index: 1; /* Below controls */
+}
+
+/* Fare Section - LEFT SIDE */
+.fare-section-left {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-right: 2px solid #e2e8f0;
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* Map Section - RIGHT SIDE */
+.map-section-right {
+  height: 100%;
+  background: #fff;
+  z-index: 1;
+}
+
+.fare-section-header {
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #6c63ff 0%, #a084ee 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.fare-section-header h4 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.fare-section-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Fare Placeholder - When no route */
+.fare-placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  overflow: hidden;
+}
+
+.fare-placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+.fare-placeholder-icon {
+  font-size: 3.5rem;
+  margin-bottom: 16px;
+  opacity: 0.6;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.fare-placeholder-title {
+  margin: 0 0 12px 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.fare-placeholder-text {
+  margin: 0 0 20px 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.4;
+  max-width: 280px;
+}
+
+.fare-placeholder-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.fare-placeholder-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.fare-placeholder-feature:hover {
+  border-color: #6c63ff;
+  background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+  transform: translateX(4px);
+}
+
+.feature-icon {
+  font-size: 1.3rem;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-text {
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 500;
+  text-align: left;
+}
+
+/* Fare Box */
+.fare-route-box {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
+}
+
+.fare-route-box:hover {
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.1);
+  border-color: #ddd6fe;
+}
+
+.fare-box-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+/* Route Steps */
+.fare-route-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.fare-route-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.fare-route-step:hover {
+  border-color: #6c63ff;
+  background: #fff;
+  transform: translateX(2px);
+}
+
+.fare-step-icon {
+  font-size: 1.4rem;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.fare-step-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fare-step-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fare-step-label strong {
+  color: #6c63ff;
+}
+
+.fare-step-distance {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Summary Grid */
+.fare-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.fare-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.fare-summary-item:hover {
+  border-color: #6c63ff;
+  background: #fff;
+}
+
+.fare-summary-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.fare-summary-value {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+/* Jeepney Total */
+.fare-jeepney-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #6c63ff 0%, #a084ee 100%);
+  padding: 14px 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.fare-jeepney-total strong {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Vehicle List */
+.fare-vehicle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.fare-vehicle-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.fare-vehicle-item:hover {
+  border-color: #6c63ff;
+  background: #fff;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.1);
+}
+
+.fare-vehicle-icon {
+  font-size: 1.8rem;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.fare-vehicle-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fare-vehicle-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.fare-vehicle-desc {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fare-vehicle-price {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #6c63ff;
+  letter-spacing: -0.01em;
+}
+
+/* Scrollbar for fare sections */
+.fare-route-steps::-webkit-scrollbar,
+.fare-vehicle-list::-webkit-scrollbar,
+.fare-section-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.fare-route-steps::-webkit-scrollbar-track,
+.fare-vehicle-list::-webkit-scrollbar-track,
+.fare-section-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.fare-route-steps::-webkit-scrollbar-thumb,
+.fare-vehicle-list::-webkit-scrollbar-thumb,
+.fare-section-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #6c63ff 0%, #a084ee 100%);
+  border-radius: 10px;
+}
+
+/* Hide old popup styles */
+.route-popup-backdrop {
+  display: none;
+}
+
+/* Responsive - Tablet */
+@media (max-width: 1024px) {
+  .map-fare-container {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .fare-section-left {
+    height: 500px;
+    border-right: none;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .map-section-right {
+    height: 450px;
+  }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 768px) {
+  .cost-backdrop {
+    padding: 0;
+    align-items: flex-start;
+  }
+
+  .cost-modal {
+    width: 100vw;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+    max-width: 100%;
+  }
+
+  .cost-header {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .cost-title {
+    font-size: 0.95rem;
+    gap: 6px;
+  }
+
+  .cost-close {
+    width: 26px;
+    height: 26px;
+    font-size: 1.2rem;
+  }
+
+  .cost-controls {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .cost-location-group {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .cost-location-box {
+    position: relative;
+  }
+
+  .cost-label {
+    gap: 3px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cost-input {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    height: 32px;
+  }
+
+  .cost-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .cost-select {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    height: 32px;
+  }
+
+  .cost-suggestions {
+    max-height: 120px;
+    font-size: 0.75rem;
+  }
+
+  .cost-suggestion-item {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+
+  .map-fare-container {
+    height: auto;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .fare-section-left {
+    height: 360px;
+    border-right: none;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .map-section-right {
+    height: 300px;
+  }
+
+  .fare-section-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .fare-section-header h4 {
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .fare-section-body {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .fare-route-box {
+    padding: 10px;
+    gap: 8px;
+    border-radius: 10px;
+  }
+
+  .fare-box-title {
+    font-size: 0.85rem;
+    padding-bottom: 6px;
+    gap: 4px;
+    margin: 0;
+  }
+
+  .fare-route-steps {
+    max-height: 130px;
+    gap: 6px;
+    padding-right: 2px;
+  }
+
+  .fare-route-step {
+    padding: 7px 9px;
+    gap: 8px;
+    border-radius: 6px;
+  }
+
+  .fare-step-icon {
+    font-size: 1.1rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  .fare-step-info {
+    gap: 1px;
+  }
+
+  .fare-step-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .fare-step-distance {
+    font-size: 0.68rem;
+  }
+
+  .fare-summary-grid {
+    gap: 7px;
+    padding: 8px 0;
+  }
+
+  .fare-summary-item {
+    padding: 7px;
+    gap: 3px;
+    border-radius: 6px;
+  }
+
+  .fare-summary-label {
+    font-size: 0.68rem;
+  }
+
+  .fare-summary-value {
+    font-size: 0.9rem;
+    font-weight: 800;
+  }
+
+  .fare-jeepney-total {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    gap: 8px;
+  }
+
+  .fare-jeepney-total strong {
+    font-size: 1.15rem;
+  }
+
+  .fare-vehicle-list {
+    max-height: 170px;
+    gap: 6px;
+    padding-right: 2px;
+  }
+
+  .fare-vehicle-item {
+    padding: 8px 10px;
+    gap: 9px;
+    border-radius: 8px;
+  }
+
+  .fare-vehicle-icon {
+    font-size: 1.4rem;
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+  }
+
+  .fare-vehicle-info {
+    gap: 1px;
+  }
+
+  .fare-vehicle-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .fare-vehicle-desc {
+    font-size: 0.7rem;
+  }
+
+  .fare-vehicle-price {
+    font-size: 1rem;
+    font-weight: 800;
+  }
+
+  .fare-placeholder-icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+  }
+
+  .fare-placeholder-title {
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  .fare-placeholder-text {
+    font-size: 0.75rem;
+    max-width: 220px;
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+
+  .fare-placeholder-features {
+    gap: 7px;
+    max-width: 220px;
+  }
+
+  .fare-placeholder-feature {
+    padding: 7px 10px;
+    gap: 8px;
+    border-radius: 6px;
+  }
+
+  .feature-icon {
+    font-size: 1rem;
+    width: 26px;
+  }
+
+  .feature-text {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  button[style*="Show Routes"],
+  button[style*="Hide Routes"] {
+    padding: 8px 16px !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
+    height: 36px !important;
+    width: 100% !important;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+  .cost-backdrop {
+    padding: 8px;
+  }
+
+  .cost-header {
+    padding: 9px 12px;
+  }
+
+  .cost-title {
+    font-size: 0.9rem;
+    gap: 4px;
+  }
+
+  .cost-close {
+    width: 24px;
+    height: 24px;
+    font-size: 1.1rem;
+  }
+
+  .cost-controls {
+    padding: 9px 12px;
+  }
+
+  .cost-location-group {
+    gap: 7px;
+    margin-bottom: 7px;
+  }
+
+  .cost-label {
+    font-size: 0.7rem;
+    gap: 2px;
+  }
+
+  .cost-input,
+  .cost-select {
+    padding: 5px 9px;
+    font-size: 0.75rem;
+    height: 30px;
+    border-radius: 5px;
+  }
+
+  .cost-grid {
+    gap: 7px;
+  }
+
+  .cost-suggestions {
+    max-height: 100px;
+    font-size: 0.7rem;
+  }
+
+  .cost-suggestion-item {
+    padding: 5px 7px;
+    font-size: 0.7rem;
+  }
+
+  .map-fare-container {
+    gap: 0;
+  }
+
+  .fare-section-left {
+    height: 340px;
+  }
+
+  .map-section-right {
+    height: 280px;
+  }
+
+  .fare-section-header {
+    padding: 9px 10px;
+  }
+
+  .fare-section-header h4 {
+    font-size: 0.85rem;
+  }
+
+  .fare-section-body {
+    padding: 9px;
+    gap: 9px;
+  }
+
+  .fare-route-box {
+    padding: 9px;
+    gap: 7px;
+    border-radius: 8px;
+  }
+
+  .fare-box-title {
+    font-size: 0.8rem;
+    padding-bottom: 5px;
+  }
+
+  .fare-route-steps {
+    max-height: 120px;
+    gap: 5px;
+  }
+
+  .fare-route-step {
+    padding: 6px 8px;
+    gap: 7px;
+  }
+
+  .fare-step-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 1rem;
+  }
+
+  .fare-step-label {
+    font-size: 0.75rem;
+  }
+
+  .fare-step-distance {
+    font-size: 0.65rem;
+  }
+
+  .fare-summary-grid {
+    gap: 6px;
+  }
+
+  .fare-summary-item {
+    padding: 6px;
+  }
+
+  .fare-summary-label {
+    font-size: 0.65rem;
+  }
+
+  .fare-summary-value {
+    font-size: 0.85rem;
+  }
+
+  .fare-jeepney-total {
+    padding: 9px 10px;
+    font-size: 0.75rem;
+  }
+
+  .fare-jeepney-total strong {
+    font-size: 1.1rem;
+  }
+
+  .fare-vehicle-list {
+    max-height: 160px;
+    gap: 5px;
+  }
+
+  .fare-vehicle-item {
+    padding: 7px 9px;
+    gap: 8px;
+  }
+
+  .fare-vehicle-icon {
+    font-size: 1.2rem;
+    width: 32px;
+    height: 32px;
+  }
+
+  .fare-vehicle-name {
+    font-size: 0.75rem;
+  }
+
+  .fare-vehicle-desc {
+    font-size: 0.65rem;
+  }
+
+  .fare-vehicle-price {
+    font-size: 0.95rem;
+  }
+
+  .fare-placeholder-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .fare-placeholder-title {
+    font-size: 0.95rem;
+    margin-bottom: 7px;
+  }
+
+  .fare-placeholder-text {
+    font-size: 0.7rem;
+    max-width: 200px;
+    margin-bottom: 10px;
+  }
+
+  .fare-placeholder-features {
+    gap: 6px;
+    max-width: 200px;
+  }
+
+  .fare-placeholder-feature {
+    padding: 6px 9px;
+    gap: 7px;
+    border-radius: 5px;
+  }
+
+  .feature-icon {
+    font-size: 0.95rem;
+    width: 24px;
+  }
+
+  .feature-text {
+    font-size: 0.7rem;
+  }
+
+  button[style*="Show Routes"],
+  button[style*="Hide Routes"] {
+    padding: 7px 14px !important;
+    font-size: 0.75rem !important;
+    height: 32px !important;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 768px) and (orientation: landscape) {
+  .cost-modal {
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .cost-controls {
+    padding: 8px 12px;
+  }
+
+  .cost-location-group {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .cost-grid {
+    gap: 6px;
+  }
+
+  .fare-section-left {
+    height: 280px;
+  }
+
+  .map-section-right {
+    height: 240px;
+  }
+
+  .fare-route-steps,
+  .fare-vehicle-list {
+    max-height: 100px;
+  }
+
+  .fare-section-body {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  button[style*="Show Routes"],
+  button[style*="Hide Routes"] {
+    padding: 7px 12px !important;
+    font-size: 0.75rem !important;
+    height: 30px !important;
+  }
+}
